@@ -87,6 +87,7 @@ export default function TodayGantt({
         start: s.startedAt,
         end: Math.max(s.lastActivityAt, s.startedAt + 60_000),
         source: s.source,
+        activityPeriods: s.activityPeriods,
       };
       const key = s.cwd || '(no cwd)';
       if (!byKey.has(key)) byKey.set(key, []);
@@ -214,27 +215,34 @@ export default function TodayGantt({
                 {shortCwd(g.key)}
               </text>
               {g.placed.map(({ item, lane }) => {
-                const rawX1 = xFor(item.start);
-                const rawX2 = xFor(item.end);
-                if (rawX2 < GUTTER_WIDTH || rawX1 > width) return null;
-                const x1 = Math.max(GUTTER_WIDTH, rawX1);
-                const w = Math.max(MIN_BAR_PX, Math.min(width, rawX2) - x1);
                 const y = g.yOffset + lane * (LANE_HEIGHT + LANE_GAP);
                 const color = SOURCE_COLORS[item.source] || SOURCE_COLORS.other;
                 const isSelected = item.id === selectedId;
+                const periods = item.activityPeriods?.length
+                  ? item.activityPeriods
+                  : [{ start: item.start, end: item.end }];
+
+                const rawX1 = xFor(item.start);
+                const rawX2 = xFor(item.end);
+                if (rawX2 < GUTTER_WIDTH || rawX1 > width) return null;
+                const x = Math.max(GUTTER_WIDTH, rawX1);
+                const w = Math.max(MIN_BAR_PX, Math.min(width, rawX2) - x);
+
                 return (
                   <g key={item.id} className={`bar ${isSelected ? 'selected' : ''}`}
                      onClick={() => onSelect(item.id)} style={{ cursor: 'pointer' }}>
-                    <rect x={x1} y={y} width={w} height={LANE_HEIGHT} rx={3}
-                          fill={color} stroke={isSelected ? '#fff' : 'transparent'}
-                          strokeWidth={isSelected ? 1.5 : 1} opacity={0.92} />
-                    {w > 30 && (
-                      <text x={x1 + 6} y={y + LANE_HEIGHT / 2 + 4} fill="#0b0d12"
-                            fontSize="11" fontFamily="ui-sans-serif,system-ui,sans-serif"
-                            style={{ pointerEvents: 'none' }}
-                            clipPath={`inset(0 ${Math.max(0, width - (x1 + w - 4))}px 0 0)`}>
-                        {item.label.slice(0, Math.max(2, Math.floor(w / 6)))}
-                      </text>
+                    <rect x={x} y={y} width={w} height={LANE_HEIGHT} rx={3}
+                          fill={color} opacity={0.92} />
+                    {periods.slice(0, -1).map((p, i) => {
+                      const gx1 = Math.max(GUTTER_WIDTH, xFor(p.end));
+                      const gx2 = Math.min(width, xFor(periods[i + 1].start));
+                      if (gx2 <= gx1) return null;
+                      return <rect key={i} x={gx1} y={y} width={gx2 - gx1} height={LANE_HEIGHT}
+                                   fill="#1f2632" />;
+                    })}
+                    {isSelected && (
+                      <rect x={x} y={y} width={w} height={LANE_HEIGHT} rx={3}
+                            fill="none" stroke="#fff" strokeWidth={1.5} />
                     )}
                     <title>{`${SOURCE_LABELS[item.source] || item.source} · ${item.label}\n${g.key}\n${new Date(item.start).toLocaleString()} → ${new Date(item.end).toLocaleString()}`}</title>
                   </g>

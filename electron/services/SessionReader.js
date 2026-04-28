@@ -43,6 +43,8 @@ function derivePromptLabel(text) {
   return text;
 }
 
+const ACTIVITY_GAP_MS = 5 * 60 * 1000;
+
 function classifySource(meta) {
   if (meta.hasScheduledTask) return 'scheduled';
   const ep = (meta.entrypoint || '').toLowerCase();
@@ -98,7 +100,13 @@ export class SessionReader {
     }
 
     const reuse = prev && stat.size >= prev.fileSize;
-    const meta = reuse ? { ...prev, fileSize: stat.size, mtime: stat.mtimeMs, tokens: { ...prev.tokens } } : {
+    const meta = reuse ? {
+      ...prev,
+      fileSize: stat.size,
+      mtime: stat.mtimeMs,
+      tokens: { ...prev.tokens },
+      activityPeriods: (prev.activityPeriods || []).map((p) => ({ ...p }))
+    } : {
       sessionId: this.sessionId,
       filePath: this.filePath,
       fileSize: stat.size,
@@ -114,7 +122,8 @@ export class SessionReader {
       firstUserPrompt: null,
       messageCount: 0,
       tokens: { input: 0, output: 0, cacheRead: 0, cacheCreation: 0 },
-      hasScheduledTask: false
+      hasScheduledTask: false,
+      activityPeriods: []
     };
 
     meta.nextOffset = await this._eachLine(reuse ? prev.nextOffset : 0, (obj) => {
@@ -123,8 +132,9 @@ export class SessionReader {
         meta.summary = obj.summary;
         return;
       }
+      let ts = null;
       if (obj.timestamp) {
-        const ts = Date.parse(obj.timestamp);
+        ts = Date.parse(obj.timestamp);
         if (!Number.isNaN(ts)) {
           if (meta.startedAt == null || ts < meta.startedAt) meta.startedAt = ts;
           if (ts > meta.lastActivityAt) meta.lastActivityAt = ts;
@@ -137,6 +147,14 @@ export class SessionReader {
 
       if (t === 'user' || t === 'assistant') {
         meta.messageCount += 1;
+        if (ts != null) {
+          const last = meta.activityPeriods[meta.activityPeriods.length - 1];
+          if (last && ts - last.end <= ACTIVITY_GAP_MS) {
+            if (ts > last.end) last.end = ts;
+          } else {
+            meta.activityPeriods.push({ start: ts, end: ts });
+          }
+        }
         const content = obj.message && obj.message.content;
         if (t === 'user' && !meta.firstUserPrompt) {
           const text = extractText(content);
