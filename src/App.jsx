@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useState, useCallback } from 'react';
+import { Group, Panel, Separator, useDefaultLayout } from 'react-resizable-panels';
 import TodayGantt from './components/TodayGantt.jsx';
 import SessionList from './components/SessionList.jsx';
 import SessionDetail from './components/SessionDetail.jsx';
@@ -9,6 +10,8 @@ export default function App() {
   const [dayAnchor, setDayAnchor] = useState(() => +startOfDay(Date.now()));
   const [selectedId, setSelectedId] = useState(null);
   const [filter, setFilter] = useState('');
+  const { defaultLayout, onLayoutChanged } = useDefaultLayout({ id: 'discover.body', panelIds: ['list', 'detail'], storage: localStorage });
+  const { defaultLayout: rootLayout, onLayoutChanged: onRootLayoutChanged } = useDefaultLayout({ id: 'discover.root', panelIds: ['gantt', 'body'], storage: localStorage });
 
   useEffect(() => {
     let off;
@@ -54,26 +57,46 @@ export default function App() {
   }, []);
 
   return (
-    <div className="app">
-      <TodayGantt
-        dayRange={dayRange}
-        sessions={dayItems.past}
-        onSelect={setSelectedId}
-        selectedId={selectedId}
-        onShiftDay={shiftDay}
-        onResetToday={() => setDayAnchor(+startOfDay(Date.now()))}
-        dayAnchor={dayAnchor}
-      />
-      <div className="body">
-        <SessionList
-          sessions={filteredSessions}
-          selectedId={selectedId}
+    <Group
+      orientation="vertical"
+      className="app"
+      defaultLayout={rootLayout}
+      onLayoutChanged={onRootLayoutChanged}
+    >
+      <Panel id="gantt" defaultSize={400} minSize={180} className="gantt-pane">
+        <TodayGantt
+          dayRange={dayRange}
+          sessions={dayItems.past}
           onSelect={setSelectedId}
-          filter={filter}
-          onFilterChange={setFilter}
+          selectedId={selectedId}
+          onShiftDay={shiftDay}
+          onResetToday={() => setDayAnchor(+startOfDay(Date.now()))}
+          dayAnchor={dayAnchor}
         />
-        <SessionDetail meta={selected} />
-      </div>
-    </div>
+      </Panel>
+      <Separator className="resize-handle resize-handle-h" />
+      <Panel id="body" minSize={20} className="body-outer">
+        <Group
+          orientation="horizontal"
+          className="body"
+          defaultLayout={defaultLayout}
+          onLayoutChanged={onLayoutChanged}
+        >
+        <Panel id="list" defaultSize={350} minSize={200} maxSize={700} className="body-pane">
+          <SessionList
+            sessions={filteredSessions}
+            selectedId={selectedId}
+            onSelect={setSelectedId}
+            filter={filter}
+            onFilterChange={setFilter}
+          />
+        </Panel>
+        <Separator className="resize-handle resize-handle-v" />
+        <Panel id="detail" minSize={30} className="body-pane">
+          <SessionDetail meta={selected} />
+        </Panel>
+        </Group>
+      </Panel>
+    </Group>
   );
 }

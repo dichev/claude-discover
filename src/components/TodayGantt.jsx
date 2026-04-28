@@ -112,22 +112,24 @@ export default function TodayGantt({
   const xFor = (ts) => GUTTER_WIDTH + ((ts - view.start) / span) * chartWidth;
 
   const onWheel = useCallback((e) => {
+    if (!e.shiftKey && e.deltaX === 0) return;
     e.preventDefault();
     const rect = containerRef.current.getBoundingClientRect();
-    const ratio = Math.min(1, Math.max(0, (e.clientX - rect.left - GUTTER_WIDTH) / chartWidth));
-    if (e.deltaX !== 0 || e.shiftKey) {
-      const dt = ((e.deltaX || e.deltaY) / chartWidth) * span;
-      setView((v) => {
-        const newStart = Math.max(dayRange.start, v.start + dt);
-        const newEnd = Math.min(dayRange.end, v.end + dt);
-        return newEnd - newStart < span ? v : { start: newStart, end: newEnd };
-      });
-    } else {
+    const xInCanvas = e.clientX - rect.left;
+    const ratio = Math.min(1, Math.max(0, (xInCanvas - GUTTER_WIDTH) / chartWidth));
+    if (e.shiftKey) {
       const newSpan = Math.max(60_000, Math.min(7 * 86400_000, span * Math.exp(e.deltaY * 0.0015)));
       const center = view.start + ratio * span;
       const start = Math.max(dayRange.start, center - ratio * newSpan);
       const end = Math.min(dayRange.end, center + (1 - ratio) * newSpan);
       setView({ start, end });
+    } else {
+      const dt = (e.deltaX / chartWidth) * span;
+      setView((v) => {
+        const newStart = Math.max(dayRange.start, v.start + dt);
+        const newEnd = Math.min(dayRange.end, v.end + dt);
+        return newEnd - newStart < span ? v : { start: newStart, end: newEnd };
+      });
     }
   }, [span, view.start, chartWidth, dayRange]);
 
@@ -178,7 +180,7 @@ export default function TodayGantt({
       </div>
       <div className="gantt-meta">
         <span>{sessions.length} sessions · {groups.length} workdirs</span>
-        <span className="gantt-hint">scroll to zoom, shift+scroll / ← → to pan</span>
+        <span className="gantt-hint">shift+scroll to zoom, drag to pan</span>
       </div>
       <div className="gantt-legend">
         {['scheduled','cli','desktop','sdk','other'].map((k) => (
@@ -188,7 +190,7 @@ export default function TodayGantt({
           </span>
         ))}
       </div>
-      <div className="gantt-canvas" ref={containerRef} onMouseDown={handleMouseDown} style={{ height: totalHeight }}>
+      <div className="gantt-canvas" ref={containerRef} onMouseDown={handleMouseDown}>
         <svg width={width} height={totalHeight}>
           <rect x={0} y={0} width={GUTTER_WIDTH} height={totalHeight} fill="#0e1118" />
           <line x1={GUTTER_WIDTH} x2={GUTTER_WIDTH} y1={0} y2={totalHeight} stroke="#232936" />
