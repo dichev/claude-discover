@@ -112,12 +112,12 @@ export default function TodayGantt({
   const xFor = (ts) => GUTTER_WIDTH + ((ts - view.start) / span) * chartWidth;
 
   const onWheel = useCallback((e) => {
-    if (!e.shiftKey && e.deltaX === 0) return;
+    if (!(e.shiftKey || e.ctrlKey) && e.deltaX === 0) return;
     e.preventDefault();
     const rect = containerRef.current.getBoundingClientRect();
     const xInCanvas = e.clientX - rect.left;
     const ratio = Math.min(1, Math.max(0, (xInCanvas - GUTTER_WIDTH) / chartWidth));
-    if (e.shiftKey) {
+    if (e.shiftKey || e.ctrlKey) {
       const newSpan = Math.max(60_000, Math.min(7 * 86400_000, span * Math.exp(e.deltaY * 0.0015)));
       const center = view.start + ratio * span;
       const start = Math.max(dayRange.start, center - ratio * newSpan);
@@ -175,20 +175,21 @@ export default function TodayGantt({
           <button onClick={() => onShiftDay(-1)}>← Prev</button>
           <button onClick={onResetToday}>Today</button>
           <button onClick={() => onShiftDay(1)}>Next →</button>
-          <button onClick={() => setView({ start: dayRange.start, end: dayRange.end })}>⤢ Reset</button>
         </div>
       </div>
-      <div className="gantt-meta">
-        <span>{sessions.length} sessions · {groups.length} workdirs</span>
-        <span className="gantt-hint">shift+scroll to zoom, drag to pan</span>
-      </div>
-      <div className="gantt-legend">
-        {['scheduled','cli','desktop','sdk','other'].map((k) => (
-          <span key={k} className="legend-chip">
-            <span className="swatch" style={{ background: SOURCE_COLORS[k] }} />
-            {SOURCE_LABELS[k]}
-          </span>
-        ))}
+      <div className="gantt-legend-meta">
+        <div className="gantt-meta">
+          <span>{sessions.length} sessions · {groups.length} workdirs</span>
+          <span className="gantt-hint">shift/ctrl+scroll to zoom, drag to pan</span>
+        </div>
+        <div className="gantt-legend">
+          {['scheduled','cli','desktop','sdk','other'].map((k) => (
+            <span key={k} className="legend-chip">
+              <span className="swatch" style={{ background: SOURCE_COLORS[k] }} />
+              {SOURCE_LABELS[k]}
+            </span>
+          ))}
+        </div>
       </div>
       <div className="gantt-canvas" ref={containerRef} onMouseDown={handleMouseDown}>
         <svg width={width} height={totalHeight}>

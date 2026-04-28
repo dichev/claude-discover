@@ -40,9 +40,10 @@ export default function SessionList({ sessions, selectedId, onSelect, filter, on
                 </span>
               </div>
               <div className="session-label">{label}</div>
-              {s.cwd && (
+              {(s.cwd || s.model) && (
                 <div className="session-row-meta">
-                  <span className="cwd" title={s.cwd}>{shortCwd(s.cwd)}</span>
+                  {s.cwd && <span className="cwd" title={s.cwd}>{shortCwd(s.cwd)}</span>}
+                  {s.model && <span className="model-tag">{s.model}</span>}
                 </div>
               )}
             </div>

@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { format } from 'date-fns';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
@@ -64,6 +64,13 @@ function groupTurns(turns) {
 export default function ConversationView({ items }) {
   const turns = useMemo(() => flatten(items), [items]);
   const groups = useMemo(() => groupTurns(turns), [turns]);
+  const bottomRef = useRef(null);
+  useEffect(() => {
+    const el = bottomRef.current;
+    if (!el) return;
+    const scroller = el.closest('.detail-conversation') || el.parentElement;
+    if (scroller) scroller.scrollTop = scroller.scrollHeight;
+  }, [turns.length]);
   if (turns.length === 0) {
     return <div className="empty">No user/assistant turns to display.</div>;
   }
@@ -73,6 +80,7 @@ export default function ConversationView({ items }) {
         ? <TurnRow key={g.turn.uuid} turn={g.turn} />
         : <ToolGroup key={i} turns={g.turns} />
       )}
+      <div ref={bottomRef} />
     </div>
   );
 }
