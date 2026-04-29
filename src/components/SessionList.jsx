@@ -1,14 +1,36 @@
-import React, { useEffect, useRef } from 'react'
+import React, { useEffect, useMemo, useRef, useState } from 'react'
 import { SOURCE_COLORS, SOURCE_LABELS } from '../utils/colors.js'
 import { format } from 'date-fns'
-import { fmtCompact, fmtNum } from '../utils/formatting.js'
+import { fmtCompact, fmtNum, fmtUSD } from '../utils/formatting.js'
 
 export default function SessionList({ sessions, selectedId, onSelect, filter, onFilterChange }) {
   const selectedRef = useRef(null)
+  const [sortBy, setSortBy] = useState('time')
 
   useEffect(() => {
     selectedRef.current?.scrollIntoView({ block: 'nearest' })
   }, [selectedId])
+
+  const sorted = useMemo(() => {
+    if (sortBy === 'cost') return [...sessions].sort((a, b) => (b.cost || 0) - (a.cost || 0))
+    if (sortBy === 'tokens') return [...sessions].sort((a, b) => (b.totalTokens || 0) - (a.totalTokens || 0))
+    return sessions
+  }, [sessions, sortBy])
+
+  // Fixed thresholds tuned for the $100/mo plan (~$3.33/day budget).
+  // A single session crossing $5 / 10M tokens is "too expensive"; $1 / 2M is "watch it".
+  const costClass = (cost) => {
+    if (!cost) return 'muted'
+    if (cost >= 5) return 'danger'
+    if (cost >= 1) return 'warn'
+    return 'muted'
+  }
+  const tokensClass = (tokens) => {
+    if (!tokens) return 'muted'
+    if (tokens >= 5_000_000) return 'danger'
+    if (tokens >= 1_000_000) return 'warn'
+    return 'muted'
+  }
 
   return (
     <div className="session-list">
@@ -19,14 +41,24 @@ export default function SessionList({ sessions, selectedId, onSelect, filter, on
           value={filter}
           onChange={(e) => onFilterChange(e.target.value)}
         />
-        <div className="session-count">{sessions.length} sessions</div>
+        <div className="session-list-header-row">
+          <div className="session-count">{sorted.length} sessions</div>
+          <div className="sort-toggle" role="group" aria-label="Sort sessions">
+            <span className="sort-toggle-label">Sort by:</span>
+            <button type="button" className={`sort-pill ${sortBy === 'cost' ? 'active' : ''}`} onClick={() => setSortBy('cost')}
+            >Cost</button>
+            <button type="button" className={`sort-pill ${sortBy === 'tokens' ? 'active' : ''}`} onClick={() => setSortBy('tokens')}
+            >Tokens</button>
+            <button type="button" className={`sort-pill ${sortBy === 'time' ? 'active' : ''}`} onClick={() => setSortBy('time')}
+            >Time</button>
+          </div>
+        </div>
       </div>
       <div className="session-list-scroll">
-        {sessions.length === 0 && (
+        {sorted.length === 0 && (
           <div className="empty">No sessions on this day.</div>
         )}
-        {sessions.map((s) => {
-          const totalTokens = s.totalTokens
+        {sorted.map((s) => {
           const fallback = s.aiTitle || s.summary || s.firstUserPrompt || s.sessionId
           const label = s.name || fallback
           const subLabel = s.name && fallback !== s.name ? fallback : null
@@ -39,24 +71,39 @@ export default function SessionList({ sessions, selectedId, onSelect, filter, on
               style={{ borderLeftColor: SOURCE_COLORS[s.source] || SOURCE_COLORS.other }}
               title={s.cwd || ''}
             >
-              <div className="session-row-top">
-                {(s.cwd || s.model || s.tokens?.cacheCreation1h > 0) && (
-                  <div className="session-row-meta">
-                    {s.tokens?.cacheCreation1h > 0 && (
-                      <span className="warn-badge" title={`Used 1h extended cache (${fmtNum(s.tokens.cacheCreation1h)} tokens)`}>1h</span>
-                    )}
-                    {s.cwd && <span className="cwd" title={s.cwd}> {shortCwd(s.cwd)}</span>}
-                    {/*{s.model && <span className="model-tag">{s.model}</span>}*/}
-                  </div>
-                )}
-                <span className="session-time">
-                  {/*<span className="session-time-meta">{s.messageCount} msgs · {fmtCompact(totalTokens)} tok · </span>*/}
-                  {format(s.lastActivityAt, 'HH:mm:ss')}
-                </span>
+              <div className="session-row-main">
+                <div className="session-row-meta">
+                  {s.tokens?.cacheCreation1h > 0 && (
+                    <span className="warn-badge" title={`Used 1h extended cache (${fmtNum(s.tokens.cacheCreation1h)} tokens)`}>1h</span>
+                  )}
+                  {s.cwd && <span className="cwd" title={s.cwd}>{shortCwd(s.cwd)}</span>}
+                </div>
+                <div className="session-label">
+                  {s.name && <span className="session-name">{s.name}</span>}
+                  {subLabel || (!s.name && label)}
+                </div>
               </div>
-              <div className="session-label">
-                {s.name && <span className="session-name">{s.name}</span>}
-                {subLabel || (!s.name && label)}
+              <div className="session-row-stats">
+                {sortBy === 'cost' && (
+                  <span className={`stat-primary ${costClass(s.cost)}`} title={s.cost ? `$${s.cost.toFixed(4)}` : 'No cost data'}>
+                    {s.cost ? fmtUSD(s.cost) : '—'}
+                  </span>
+                )}
+                {sortBy === 'tokens' && (
+                  <>
+                    <span className={`stat-primary ${tokensClass(s.totalTokens)}`} title={s.totalTokens ? `${s.totalTokens.toLocaleString()} tokens` : ''}>
+                      {s.totalTokens ? `${fmtCompact(s.totalTokens)} tok` : '—'}
+                    </span>
+                    {s.cacheHitRatio != null && (
+                      <span className="stat-secondary" title={`${s.tokens.cacheRead.toLocaleString()} cached / ${(s.tokens.cacheRead + s.tokens.cacheCreation).toLocaleString()} cacheable tokens`}>
+                        {Math.round(s.cacheHitRatio * 100)}% cached
+                      </span>
+                    )}
+                  </>
+                )}
+                {sortBy === 'time' && (
+                  <span className="stat-primary muted">{format(s.lastActivityAt, 'HH:mm:ss')}</span>
+                )}
               </div>
             </div>
           )
