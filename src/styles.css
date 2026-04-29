@@ -249,6 +249,21 @@ button:hover { background: var(--border); }
 }
 .cwd { font-family: ui-monospace, Menlo, monospace; color: var(--text-dim); }
 .model-tag { font-family: ui-monospace, Menlo, monospace; color: var(--text-faint); margin-left: auto; }
+.warn-badge {
+  display: inline-flex; align-items: center;
+  font-size: 10px; font-weight: 600; letter-spacing: 0.4px;
+  padding: 1px 5px; border-radius: 3px;
+  background: rgba(251, 191, 36, 0.14);
+  color: #fbbf24;
+  border: 1px solid rgba(251, 191, 36, 0.35);
+}
+.field-value .warn-badge,
+.gantt-side-row .warn-badge {
+  font-size: inherit; font-weight: inherit; letter-spacing: 0; line-height: 1;
+  padding: 0 5px;
+  margin: 0 -5px;
+  color: #fbbf24;
+}
 .empty { padding: 20px; color: var(--text-faint); text-align: center; }
 
 /* Session detail */

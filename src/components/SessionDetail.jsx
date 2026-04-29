@@ -80,7 +80,14 @@ export default function SessionDetail({ meta, date }) {
             <Field label="Output" value={fmtNum(t.output)} />
             <Field label="Cache read" value={fmtNum(t.cacheRead)} />
             <Field label="Cache write (5m)" value={fmtNum(t.cacheCreation5m || 0)} />
-            <Field label="Cache write (1h)" value={fmtNum(t.cacheCreation1h || 0)} />
+            <Field
+              label="Cache write (1h)"
+              value={
+                t.cacheCreation1h > 0
+                  ? <span className="warn-badge">{fmtNum(t.cacheCreation1h)}</span>
+                  : fmtNum(0)
+              }
+            />
             {cacheHitRatio != null && (
               <Field label="Cache hit ratio" value={`${(cacheHitRatio * 100).toFixed(1)}%`} />
             )}

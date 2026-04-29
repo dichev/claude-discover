@@ -1,7 +1,7 @@
 import React, { useEffect, useRef } from 'react'
 import { SOURCE_COLORS, SOURCE_LABELS } from '../utils/colors.js'
 import { format } from 'date-fns'
-import { fmtCompact } from '../utils/formatting.js'
+import { fmtCompact, fmtNum } from '../utils/formatting.js'
 
 export default function SessionList({ sessions, selectedId, onSelect, filter, onFilterChange }) {
   const selectedRef = useRef(null)
@@ -40,9 +40,12 @@ export default function SessionList({ sessions, selectedId, onSelect, filter, on
               title={s.cwd || ''}
             >
               <div className="session-row-top">
-                {(s.cwd || s.model) && (
+                {(s.cwd || s.model || s.tokens?.cacheCreation1h > 0) && (
                   <div className="session-row-meta">
-                    {s.cwd && <span className="cwd" title={s.cwd}>{shortCwd(s.cwd)}</span>}
+                    {s.tokens?.cacheCreation1h > 0 && (
+                      <span className="warn-badge" title={`Used 1h extended cache (${fmtNum(s.tokens.cacheCreation1h)} tokens)`}>1h</span>
+                    )}
+                    {s.cwd && <span className="cwd" title={s.cwd}> {shortCwd(s.cwd)}</span>}
                     {/*{s.model && <span className="model-tag">{s.model}</span>}*/}
                   </div>
                 )}

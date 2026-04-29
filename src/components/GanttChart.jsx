@@ -96,6 +96,7 @@ export default function GanttChart({
         totalTokens: s.totalTokens || 0,
         cacheRead: s.tokens.cacheRead,
         cacheCreation: s.tokens.cacheCreation,
+        cacheCreation1h: s.tokens.cacheCreation1h || 0,
       }
       const key = s.cwd || '(no cwd)'
       if (!byKey.has(key)) byKey.set(key, [])
@@ -253,6 +254,15 @@ export default function GanttChart({
                      onClick={() => onSelect(item.id)} style={{ cursor: 'pointer' }}>
                     <rect x={x} y={y} width={w} height={LANE_HEIGHT} rx={3}
                           fill={color} opacity={0.92} />
+                    {item.cacheCreation1h > 0 && (
+                      <>
+                        <clipPath id={`warn-clip-${item.id}`}>
+                          <rect x={x} y={y} width={w} height={LANE_HEIGHT} rx={3} />
+                        </clipPath>
+                        <rect x={x} y={y + LANE_HEIGHT - 3} width={w} height={3}
+                              fill="#fbbf24" clipPath={`url(#warn-clip-${item.id})`} />
+                      </>
+                    )}
                     {periods.slice(0, -1).map((p, i) => {
                       const gx1 = Math.max(GUTTER_WIDTH, xFor(p.end))
                       const gx2 = Math.min(width, xFor(periods[i + 1].start))
@@ -264,7 +274,7 @@ export default function GanttChart({
                       <rect x={x} y={y} width={w} height={LANE_HEIGHT} rx={3}
                             fill="none" stroke="#fff" strokeWidth={1.5} />
                     )}
-                    <title>{`${SOURCE_LABELS[item.source] || item.source} · ${item.label}\n${g.key}\n${new Date(item.start).toLocaleString()} → ${new Date(item.end).toLocaleString()}`}</title>
+                    <title>{`${SOURCE_LABELS[item.source] || item.source} · ${item.label}\n${g.key}\n${new Date(item.start).toLocaleString()} → ${new Date(item.end).toLocaleString()}${item.cacheCreation1h > 0 ? '\n· uses 1h extended cache' : ''}`}</title>
                   </g>
                 )
               })}
