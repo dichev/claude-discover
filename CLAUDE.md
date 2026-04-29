@@ -14,6 +14,9 @@ Read-only Electron desktop browser for local Claude Code session transcripts.
 - Electron backend uses classes; React frontend uses functional style
 - Built with **electron-vite**
 
+## Style
+- No semicolons in JS/JSX
+
 ## UI testing
 
 With `npm run dev` running, use the Playwright MCP server (configured in `.mcp.json`) to inspect the frontend. It connects to the Electron app over CDP at `http://localhost:9333` — use the `mcp__playwright__*` tools to navigate, snapshot, click, evaluate, etc.

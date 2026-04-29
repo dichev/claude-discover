@@ -4,7 +4,7 @@ export const SOURCE_COLORS = {
   desktop: '#22c55e',   // green
   sdk: '#c084fc',       // purple
   other: '#94a3b8'      // slate
-};
+}
 
 export const SOURCE_LABELS = {
   scheduled: 'Scheduled',
@@ -12,4 +12,4 @@ export const SOURCE_LABELS = {
   desktop: 'Desktop',
   sdk: 'SDK',
   other: 'Other'
-};
+}

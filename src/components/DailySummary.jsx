@@ -1,26 +1,26 @@
-import React, { useMemo } from 'react';
-import { format } from 'date-fns';
-import { fmtUSD, fmtCompact } from '../utils/formatting.js';
+import React, { useMemo } from 'react'
+import { format } from 'date-fns'
+import { fmtUSD, fmtCompact } from '../utils/formatting.js'
 
 export default function DailySummary({ sessions, dayAnchor }) {
   const totals = useMemo(() => {
-    const workdirs = new Set();
+    const workdirs = new Set()
     const t = sessions.reduce((acc, s) => {
-      workdirs.add(s.cwd || '(no cwd)');
-      acc.cost += s.cost || 0;
-      acc.totalTokens += s.totalTokens || 0;
-      acc.input += s.tokens.input;
-      acc.output += s.tokens.output;
-      acc.cacheRead += s.tokens.cacheRead;
-      acc.cacheCreation += s.tokens.cacheCreation;
-      acc.cacheCreation5m += s.tokens.cacheCreation5m || 0;
-      acc.cacheCreation1h += s.tokens.cacheCreation1h || 0;
-      return acc;
-    }, { cost: 0, totalTokens: 0, input: 0, output: 0, cacheRead: 0, cacheCreation: 0, cacheCreation5m: 0, cacheCreation1h: 0 });
-    const cacheDenom = t.cacheRead + t.cacheCreation;
-    t.cacheHitRatio = cacheDenom > 0 ? t.cacheRead / cacheDenom : null;
-    return t;
-  }, [sessions]);
+      workdirs.add(s.cwd || '(no cwd)')
+      acc.cost += s.cost || 0
+      acc.totalTokens += s.totalTokens || 0
+      acc.input += s.tokens.input
+      acc.output += s.tokens.output
+      acc.cacheRead += s.tokens.cacheRead
+      acc.cacheCreation += s.tokens.cacheCreation
+      acc.cacheCreation5m += s.tokens.cacheCreation5m || 0
+      acc.cacheCreation1h += s.tokens.cacheCreation1h || 0
+      return acc
+    }, { cost: 0, totalTokens: 0, input: 0, output: 0, cacheRead: 0, cacheCreation: 0, cacheCreation5m: 0, cacheCreation1h: 0 })
+    const cacheDenom = t.cacheRead + t.cacheCreation
+    t.cacheHitRatio = cacheDenom > 0 ? t.cacheRead / cacheDenom : null
+    return t
+  }, [sessions])
 
   return (
     <aside className="gantt-side">
@@ -39,5 +39,5 @@ export default function DailySummary({ sessions, dayAnchor }) {
         <div className="gantt-side-row"><span>Cache hit ratio</span><b>{totals.cacheHitRatio != null ? `${Math.round(totals.cacheHitRatio * 100)}%` : '—'}</b></div>
       </div>
     </aside>
-  );
+  )
 }

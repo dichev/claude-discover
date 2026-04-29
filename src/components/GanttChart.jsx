@@ -1,47 +1,50 @@
-import React, { useEffect, useMemo, useRef, useState, useCallback } from 'react';
-import { SOURCE_COLORS, SOURCE_LABELS } from '../utils/colors.js';
-import { useLocalStorage } from '../utils/useLocalStorage.js';
-import { fmtUSD, fmtCompact } from '../utils/formatting.js';
+import React, { useEffect, useMemo, useRef, useState, useCallback } from 'react'
+import { SOURCE_COLORS, SOURCE_LABELS } from '../utils/colors.js'
+import { useLocalStorage } from '../utils/useLocalStorage.js'
+import { fmtUSD, fmtCompact } from '../utils/formatting.js'
 
-const LANE_HEIGHT = 22;
-const LANE_GAP = 4;
-const HEADER_HEIGHT = 28;
-const MIN_BAR_PX = 4;
-const GUTTER_WIDTH = 220;
-const GROUP_GAP = 8;
+const LANE_HEIGHT = 22
+const LANE_GAP = 4
+const HEADER_HEIGHT = 28
+const MIN_BAR_PX = 4
+const GUTTER_WIDTH = 220
+const GROUP_GAP = 8
 
 function packLanes(items) {
-  const lanes = [];
+  const lanes = []
   const placed = items
     .slice()
     .sort((a, b) => a.start - b.start)
     .map((item) => {
-      let lane = lanes.findIndex((endTs) => endTs <= item.start);
-      if (lane === -1) { lane = lanes.length; lanes.push(item.end); }
-      else { lanes[lane] = item.end; }
-      return { item, lane };
-    });
-  return { placed, laneCount: Math.max(1, lanes.length) };
+      let lane = lanes.findIndex((endTs) => endTs <= item.start)
+      if (lane === -1) { lane = lanes.length
+       lanes.push(item.end)
+       }
+      else { lanes[lane] = item.end
+       }
+      return { item, lane }
+    })
+  return { placed, laneCount: Math.max(1, lanes.length) }
 }
 
 function shortCwd(cwd) {
-  if (!cwd) return '(no cwd)';
-  const parts = cwd.replace(/\\/g, '/').split('/').filter(Boolean);
-  return parts.slice(-2).join('/') || cwd;
+  if (!cwd) return '(no cwd)'
+  const parts = cwd.replace(/\\/g, '/').split('/').filter(Boolean)
+  return parts.slice(-2).join('/') || cwd
 }
 
 function HourTicks({ viewStart, viewEnd, width }) {
-  const ticks = [];
-  const startHour = new Date(viewStart);
-  startHour.setMinutes(0, 0, 0);
-  if (startHour.getTime() < viewStart) startHour.setHours(startHour.getHours() + 1);
-  const span = viewEnd - viewStart;
+  const ticks = []
+  const startHour = new Date(viewStart)
+  startHour.setMinutes(0, 0, 0)
+  if (startHour.getTime() < viewStart) startHour.setHours(startHour.getHours() + 1)
+  const span = viewEnd - viewStart
   for (let t = startHour.getTime(); t <= viewEnd; t += 3600_000) {
-    const x = ((t - viewStart) / span) * width;
-    const d = new Date(t);
-    const h = d.getHours();
-    const label = String(h).padStart(2, '0');
-    ticks.push({ x, label, major: true });
+    const x = ((t - viewStart) / span) * width
+    const d = new Date(t)
+    const h = d.getHours()
+    const label = String(h).padStart(2, '0')
+    ticks.push({ x, label, major: true })
   }
   return (
     <g className="ticks">
@@ -55,32 +58,32 @@ function HourTicks({ viewStart, viewEnd, width }) {
         </g>
       ))}
     </g>
-  );
+  )
 }
 
 export default function GanttChart({
   dayRange, sessions, onSelect, selectedId, onShiftDay, onResetToday, dayAnchor,
   sourceFilter, onToggleSourceFilter,
 }) {
-  const containerRef = useRef(null);
-  const [width, setWidth] = useState(1200);
-  const [view, setView] = useLocalStorage('ganttChart.view', { dayAnchor, start: dayRange.start, end: dayRange.end });
+  const containerRef = useRef(null)
+  const [width, setWidth] = useState(1200)
+  const [view, setView] = useLocalStorage('ganttChart.view', { dayAnchor, start: dayRange.start, end: dayRange.end })
 
   useEffect(() => {
-    if (view.dayAnchor !== dayAnchor) setView({ dayAnchor, start: dayRange.start, end: dayRange.end });
-  }, [dayAnchor]);
+    if (view.dayAnchor !== dayAnchor) setView({ dayAnchor, start: dayRange.start, end: dayRange.end })
+  }, [dayAnchor])
 
   useEffect(() => {
-    if (!containerRef.current) return;
+    if (!containerRef.current) return
     const ro = new ResizeObserver((entries) => {
-      for (const e of entries) setWidth(Math.max(400, e.contentRect.width));
-    });
-    ro.observe(containerRef.current);
-    return () => ro.disconnect();
-  }, []);
+      for (const e of entries) setWidth(Math.max(400, e.contentRect.width))
+    })
+    ro.observe(containerRef.current)
+    return () => ro.disconnect()
+  }, [])
 
   const { groups, totalHeight } = useMemo(() => {
-    const byKey = new Map();
+    const byKey = new Map()
     for (const s of sessions) {
       const item = {
         id: s.sessionId,
@@ -93,89 +96,89 @@ export default function GanttChart({
         totalTokens: s.totalTokens || 0,
         cacheRead: s.tokens.cacheRead,
         cacheCreation: s.tokens.cacheCreation,
-      };
-      const key = s.cwd || '(no cwd)';
-      if (!byKey.has(key)) byKey.set(key, []);
-      byKey.get(key).push(item);
+      }
+      const key = s.cwd || '(no cwd)'
+      if (!byKey.has(key)) byKey.set(key, [])
+      byKey.get(key).push(item)
     }
     const arr = [...byKey.entries()].map(([key, list]) => {
-      const { placed, laneCount } = packLanes(list);
-      const activity = list.reduce((sum, i) => sum + (i.end - i.start), 0);
-      const cost = list.reduce((sum, i) => sum + i.cost, 0);
-      const totalTokens = list.reduce((sum, i) => sum + i.totalTokens, 0);
-      const cacheRead = list.reduce((sum, i) => sum + i.cacheRead, 0);
-      const cacheCreation = list.reduce((sum, i) => sum + i.cacheCreation, 0);
-      const cacheDenom = cacheRead + cacheCreation;
-      const cacheHitRatio = cacheDenom > 0 ? cacheRead / cacheDenom : null;
-      return { key, placed, laneCount, activity, cost, totalTokens, cacheHitRatio };
-    });
-    arr.sort((a, b) => b.activity - a.activity);
-    let y = HEADER_HEIGHT;
+      const { placed, laneCount } = packLanes(list)
+      const activity = list.reduce((sum, i) => sum + (i.end - i.start), 0)
+      const cost = list.reduce((sum, i) => sum + i.cost, 0)
+      const totalTokens = list.reduce((sum, i) => sum + i.totalTokens, 0)
+      const cacheRead = list.reduce((sum, i) => sum + i.cacheRead, 0)
+      const cacheCreation = list.reduce((sum, i) => sum + i.cacheCreation, 0)
+      const cacheDenom = cacheRead + cacheCreation
+      const cacheHitRatio = cacheDenom > 0 ? cacheRead / cacheDenom : null
+      return { key, placed, laneCount, activity, cost, totalTokens, cacheHitRatio }
+    })
+    arr.sort((a, b) => b.activity - a.activity)
+    let y = HEADER_HEIGHT
     for (const g of arr) {
-      g.yOffset = y;
-      const barsHeight = g.laneCount * (LANE_HEIGHT + LANE_GAP);
-      const labelHeight = g.cost > 0 ? 30 : 0;
-      g.height = Math.max(barsHeight, labelHeight);
-      y += g.height + GROUP_GAP;
+      g.yOffset = y
+      const barsHeight = g.laneCount * (LANE_HEIGHT + LANE_GAP)
+      const labelHeight = g.cost > 0 ? 30 : 0
+      g.height = Math.max(barsHeight, labelHeight)
+      y += g.height + GROUP_GAP
     }
-    return { groups: arr, totalHeight: Math.max(HEADER_HEIGHT + LANE_HEIGHT + 12, y + 4) };
-  }, [sessions]);
+    return { groups: arr, totalHeight: Math.max(HEADER_HEIGHT + LANE_HEIGHT + 12, y + 4) }
+  }, [sessions])
 
-  const chartWidth = Math.max(100, width - GUTTER_WIDTH);
-  const span = view.end - view.start;
-  const xFor = (ts) => GUTTER_WIDTH + ((ts - view.start) / span) * chartWidth;
+  const chartWidth = Math.max(100, width - GUTTER_WIDTH)
+  const span = view.end - view.start
+  const xFor = (ts) => GUTTER_WIDTH + ((ts - view.start) / span) * chartWidth
 
   const onWheel = useCallback((e) => {
-    if (!(e.shiftKey || e.ctrlKey) && e.deltaX === 0) return;
-    e.preventDefault();
-    const rect = containerRef.current.getBoundingClientRect();
-    const xInCanvas = e.clientX - rect.left;
-    const ratio = Math.min(1, Math.max(0, (xInCanvas - GUTTER_WIDTH) / chartWidth));
+    if (!(e.shiftKey || e.ctrlKey) && e.deltaX === 0) return
+    e.preventDefault()
+    const rect = containerRef.current.getBoundingClientRect()
+    const xInCanvas = e.clientX - rect.left
+    const ratio = Math.min(1, Math.max(0, (xInCanvas - GUTTER_WIDTH) / chartWidth))
     if (e.shiftKey || e.ctrlKey) {
-      const newSpan = Math.max(60_000, Math.min(7 * 86400_000, span * Math.exp(e.deltaY * 0.0015)));
-      const center = view.start + ratio * span;
-      const start = Math.max(dayRange.start, center - ratio * newSpan);
-      const end = Math.min(dayRange.end, center + (1 - ratio) * newSpan);
-      setView((v) => ({ ...v, start, end }));
+      const newSpan = Math.max(60_000, Math.min(7 * 86400_000, span * Math.exp(e.deltaY * 0.0015)))
+      const center = view.start + ratio * span
+      const start = Math.max(dayRange.start, center - ratio * newSpan)
+      const end = Math.min(dayRange.end, center + (1 - ratio) * newSpan)
+      setView((v) => ({ ...v, start, end }))
     } else {
-      const dt = (e.deltaX / chartWidth) * span;
+      const dt = (e.deltaX / chartWidth) * span
       setView((v) => {
-        const newStart = Math.max(dayRange.start, v.start + dt);
-        const newEnd = Math.min(dayRange.end, v.end + dt);
-        return newEnd - newStart < span ? v : { ...v, start: newStart, end: newEnd };
-      });
+        const newStart = Math.max(dayRange.start, v.start + dt)
+        const newEnd = Math.min(dayRange.end, v.end + dt)
+        return newEnd - newStart < span ? v : { ...v, start: newStart, end: newEnd }
+      })
     }
-  }, [span, view.start, chartWidth, dayRange]);
+  }, [span, view.start, chartWidth, dayRange])
 
   useEffect(() => {
-    const el = containerRef.current;
-    if (!el) return;
-    el.addEventListener('wheel', onWheel, { passive: false });
-    return () => el.removeEventListener('wheel', onWheel);
-  }, [onWheel]);
+    const el = containerRef.current
+    if (!el) return
+    el.addEventListener('wheel', onWheel, { passive: false })
+    return () => el.removeEventListener('wheel', onWheel)
+  }, [onWheel])
 
   const handleMouseDown = useCallback((e) => {
-    let startX = e.clientX;
+    let startX = e.clientX
     const handleMove = (moveEvent) => {
-      const deltaX = moveEvent.clientX - startX;
-      const dt = (deltaX / chartWidth) * span;
+      const deltaX = moveEvent.clientX - startX
+      const dt = (deltaX / chartWidth) * span
       setView((v) => {
-        const newStart = Math.max(dayRange.start, v.start - dt);
-        const newEnd = Math.min(dayRange.end, v.end - dt);
-        return newEnd - newStart < span ? v : { ...v, start: newStart, end: newEnd };
-      });
-      startX = moveEvent.clientX;
-    };
+        const newStart = Math.max(dayRange.start, v.start - dt)
+        const newEnd = Math.min(dayRange.end, v.end - dt)
+        return newEnd - newStart < span ? v : { ...v, start: newStart, end: newEnd }
+      })
+      startX = moveEvent.clientX
+    }
     const handleUp = () => {
-      document.removeEventListener('mousemove', handleMove);
-      document.removeEventListener('mouseup', handleUp);
-    };
-    document.addEventListener('mousemove', handleMove);
-    document.addEventListener('mouseup', handleUp);
-  }, [chartWidth, span, dayRange]);
+      document.removeEventListener('mousemove', handleMove)
+      document.removeEventListener('mouseup', handleUp)
+    }
+    document.addEventListener('mousemove', handleMove)
+    document.addEventListener('mouseup', handleUp)
+  }, [chartWidth, span, dayRange])
 
-  const now = Date.now();
-  const showNow = now >= view.start && now <= view.end;
+  const now = Date.now()
+  const showNow = now >= view.start && now <= view.end
 
   return (
     <div className="gantt-wrap">
@@ -187,14 +190,14 @@ export default function GanttChart({
         </div>
         <div className="gantt-legend">
           {['cli','sdk','desktop','scheduled','other'].map((k) => {
-            const active = sourceFilter === k;
-            const dim = sourceFilter && !active;
+            const active = sourceFilter === k
+            const dim = sourceFilter && !active
             return (
               <button key={k} type="button" className={`legend-chip ${active ? 'active' : ''} ${dim ? 'dim' : ''}`} onClick={() => onToggleSourceFilter?.(k)}>
                 <span className="swatch" style={{ background: SOURCE_COLORS[k] }} />
                 {SOURCE_LABELS[k]}
               </button>
-            );
+            )
           })}
         </div>
       </div>
@@ -232,18 +235,18 @@ export default function GanttChart({
                 </text>
               )}
               {g.placed.map(({ item, lane }) => {
-                const y = g.yOffset + lane * (LANE_HEIGHT + LANE_GAP);
-                const color = SOURCE_COLORS[item.source] || SOURCE_COLORS.other;
-                const isSelected = item.id === selectedId;
+                const y = g.yOffset + lane * (LANE_HEIGHT + LANE_GAP)
+                const color = SOURCE_COLORS[item.source] || SOURCE_COLORS.other
+                const isSelected = item.id === selectedId
                 const periods = item.activityPeriods?.length
                   ? item.activityPeriods
-                  : [{ start: item.start, end: item.end }];
+                  : [{ start: item.start, end: item.end }]
 
-                const rawX1 = xFor(item.start);
-                const rawX2 = xFor(item.end);
-                if (rawX2 < GUTTER_WIDTH || rawX1 > width) return null;
-                const x = Math.max(GUTTER_WIDTH, rawX1);
-                const w = Math.max(MIN_BAR_PX, Math.min(width, rawX2) - x);
+                const rawX1 = xFor(item.start)
+                const rawX2 = xFor(item.end)
+                if (rawX2 < GUTTER_WIDTH || rawX1 > width) return null
+                const x = Math.max(GUTTER_WIDTH, rawX1)
+                const w = Math.max(MIN_BAR_PX, Math.min(width, rawX2) - x)
 
                 return (
                   <g key={item.id} className={`bar ${isSelected ? 'selected' : ''}`}
@@ -251,11 +254,11 @@ export default function GanttChart({
                     <rect x={x} y={y} width={w} height={LANE_HEIGHT} rx={3}
                           fill={color} opacity={0.92} />
                     {periods.slice(0, -1).map((p, i) => {
-                      const gx1 = Math.max(GUTTER_WIDTH, xFor(p.end));
-                      const gx2 = Math.min(width, xFor(periods[i + 1].start));
-                      if (gx2 <= gx1) return null;
+                      const gx1 = Math.max(GUTTER_WIDTH, xFor(p.end))
+                      const gx2 = Math.min(width, xFor(periods[i + 1].start))
+                      if (gx2 <= gx1) return null
                       return <rect key={i} x={gx1} y={y} width={gx2 - gx1} height={LANE_HEIGHT}
-                                   fill="#1f2632" />;
+                                   fill="#1f2632" />
                     })}
                     {isSelected && (
                       <rect x={x} y={y} width={w} height={LANE_HEIGHT} rx={3}
@@ -263,7 +266,7 @@ export default function GanttChart({
                     )}
                     <title>{`${SOURCE_LABELS[item.source] || item.source} · ${item.label}\n${g.key}\n${new Date(item.start).toLocaleString()} → ${new Date(item.end).toLocaleString()}`}</title>
                   </g>
-                );
+                )
               })}
             </g>
           ))}
@@ -277,5 +280,5 @@ export default function GanttChart({
         </svg>
       </div>
     </div>
-  );
+  )
 }

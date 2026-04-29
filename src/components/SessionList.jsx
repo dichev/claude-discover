@@ -1,14 +1,14 @@
-import React, { useEffect, useRef } from 'react';
-import { SOURCE_COLORS, SOURCE_LABELS } from '../utils/colors.js';
-import { format } from 'date-fns';
-import { fmtCompact } from '../utils/formatting.js';
+import React, { useEffect, useRef } from 'react'
+import { SOURCE_COLORS, SOURCE_LABELS } from '../utils/colors.js'
+import { format } from 'date-fns'
+import { fmtCompact } from '../utils/formatting.js'
 
 export default function SessionList({ sessions, selectedId, onSelect, filter, onFilterChange }) {
-  const selectedRef = useRef(null);
+  const selectedRef = useRef(null)
 
   useEffect(() => {
-    selectedRef.current?.scrollIntoView({ block: 'nearest' });
-  }, [selectedId]);
+    selectedRef.current?.scrollIntoView({ block: 'nearest' })
+  }, [selectedId])
 
   return (
     <div className="session-list">
@@ -26,10 +26,10 @@ export default function SessionList({ sessions, selectedId, onSelect, filter, on
           <div className="empty">No sessions on this day.</div>
         )}
         {sessions.map((s) => {
-          const totalTokens = s.totalTokens;
-          const fallback = s.aiTitle || s.summary || s.firstUserPrompt || s.sessionId;
-          const label = s.name || fallback;
-          const subLabel = s.name && fallback !== s.name ? fallback : null;
+          const totalTokens = s.totalTokens
+          const fallback = s.aiTitle || s.summary || s.firstUserPrompt || s.sessionId
+          const label = s.name || fallback
+          const subLabel = s.name && fallback !== s.name ? fallback : null
           return (
             <div
               key={s.sessionId}
@@ -56,15 +56,15 @@ export default function SessionList({ sessions, selectedId, onSelect, filter, on
                 {subLabel || (!s.name && label)}
               </div>
             </div>
-          );
+          )
         })}
       </div>
     </div>
-  );
+  )
 }
 
 function shortCwd(cwd) {
-  if (!cwd) return '';
-  const parts = cwd.replace(/\\/g, '/').split('/').filter(Boolean);
-  return parts.slice(-2).join('/');
+  if (!cwd) return ''
+  const parts = cwd.replace(/\\/g, '/').split('/').filter(Boolean)
+  return parts.slice(-2).join('/')
 }

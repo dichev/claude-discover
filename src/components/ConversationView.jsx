@@ -1,20 +1,20 @@
-import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { format } from 'date-fns';
-import ReactMarkdown from 'react-markdown';
-import remarkGfm from 'remark-gfm';
-import rehypeHighlight from 'rehype-highlight';
+import React, { useEffect, useMemo, useRef, useState } from 'react'
+import { format } from 'date-fns'
+import ReactMarkdown from 'react-markdown'
+import remarkGfm from 'remark-gfm'
+import rehypeHighlight from 'rehype-highlight'
 
 function flatten(items) {
-  const turns = [];
-  const results = {};
+  const turns = []
+  const results = {}
   for (const it of items) {
-    if (it.type !== 'user' && it.type !== 'assistant') continue;
-    if (it.isMeta) continue;
-    const msg = it.message || {};
-    const blocks = normalizeContent(msg.content);
-    if (blocks.length === 0) continue;
+    if (it.type !== 'user' && it.type !== 'assistant') continue
+    if (it.isMeta) continue
+    const msg = it.message || {}
+    const blocks = normalizeContent(msg.content)
+    if (blocks.length === 0) continue
     for (const b of blocks) {
-      if (b.type === 'tool_result' && b.tool_use_id) results[b.tool_use_id] = b;
+      if (b.type === 'tool_result' && b.tool_use_id) results[b.tool_use_id] = b
     }
     turns.push({
       uuid: it.uuid,
@@ -23,55 +23,57 @@ function flatten(items) {
       model: msg.model || null,
       usage: msg.usage || null,
       blocks
-    });
+    })
   }
   for (const t of turns) {
     t.blocks = t.blocks
       .map((b) => (b.type === 'tool_use' ? { ...b, result: results[b.id] } : b))
-      .filter((b) => !(b.type === 'tool_result' && results[b.tool_use_id]));
+      .filter((b) => !(b.type === 'tool_result' && results[b.tool_use_id]))
   }
-  return turns.filter((t) => t.blocks.length > 0);
+  return turns.filter((t) => t.blocks.length > 0)
 }
 
 function metaText(t) {
-  return t.ts ? format(t.ts, 'HH:mm:ss') : '';
+  return t.ts ? format(t.ts, 'HH:mm:ss') : ''
 }
 
 function normalizeContent(content) {
-  if (typeof content === 'string') return [{ type: 'text', text: content }];
-  if (!Array.isArray(content)) return [];
-  return content.map((b) => (typeof b === 'string' ? { type: 'text', text: b } : b));
+  if (typeof content === 'string') return [{ type: 'text', text: content }]
+  if (!Array.isArray(content)) return []
+  return content.map((b) => (typeof b === 'string' ? { type: 'text', text: b } : b))
 }
 
 function groupTurns(turns) {
-  const groups = [];
-  let bucket = null;
+  const groups = []
+  let bucket = null
   for (const t of turns) {
-    const hasText = t.blocks.some((b) => b.type === 'text');
+    const hasText = t.blocks.some((b) => b.type === 'text')
     if (hasText) {
-      if (bucket) { groups.push(bucket); bucket = null; }
-      groups.push({ kind: 'turn', turn: t });
+      if (bucket) { groups.push(bucket)
+       bucket = null
+       }
+      groups.push({ kind: 'turn', turn: t })
     } else {
-      if (!bucket) bucket = { kind: 'tools', turns: [] };
-      bucket.turns.push(t);
+      if (!bucket) bucket = { kind: 'tools', turns: [] }
+      bucket.turns.push(t)
     }
   }
-  if (bucket) groups.push(bucket);
-  return groups;
+  if (bucket) groups.push(bucket)
+  return groups
 }
 
 export default function ConversationView({ items }) {
-  const turns = useMemo(() => flatten(items), [items]);
-  const groups = useMemo(() => groupTurns(turns), [turns]);
-  const bottomRef = useRef(null);
+  const turns = useMemo(() => flatten(items), [items])
+  const groups = useMemo(() => groupTurns(turns), [turns])
+  const bottomRef = useRef(null)
   useEffect(() => {
-    const el = bottomRef.current;
-    if (!el) return;
-    const scroller = el.closest('.detail-conversation') || el.parentElement;
-    if (scroller) scroller.scrollTop = scroller.scrollHeight;
-  }, [turns.length]);
+    const el = bottomRef.current
+    if (!el) return
+    const scroller = el.closest('.detail-conversation') || el.parentElement
+    if (scroller) scroller.scrollTop = scroller.scrollHeight
+  }, [turns.length])
   if (turns.length === 0) {
-    return <div className="empty">No user/assistant turns to display.</div>;
+    return <div className="empty">No user/assistant turns to display.</div>
   }
   return (
     <div className="conversation">
@@ -81,11 +83,11 @@ export default function ConversationView({ items }) {
       )}
       <div ref={bottomRef} />
     </div>
-  );
+  )
 }
 
 function TurnRow({ turn }) {
-  const meta = metaText(turn);
+  const meta = metaText(turn)
   return (
     <div className={`turn turn-${turn.role}`}>
       <div className="turn-blocks">
@@ -93,18 +95,18 @@ function TurnRow({ turn }) {
       </div>
       {meta && <div className="turn-meta" title={meta}>{meta}</div>}
     </div>
-  );
+  )
 }
 
 function ToolGroup({ turns }) {
-  const [open, setOpen] = useState(false);
+  const [open, setOpen] = useState(false)
   const toolCount = turns.reduce(
     (n, t) => n + t.blocks.filter((b) => b.type === 'tool_use').length, 0
-  );
+  )
   const names = turns.flatMap((t) =>
     t.blocks.filter((b) => b.type === 'tool_use').map((b) => b.name)
-  );
-  const preview = names.slice(0, 4).join(', ') + (names.length > 4 ? `, +${names.length - 4}` : '');
+  )
+  const preview = names.slice(0, 4).join(', ') + (names.length > 4 ? `, +${names.length - 4}` : '')
   return (
     <div className="tool-group">
       <button className="aux-toggle" onClick={() => setOpen((v) => !v)}>
@@ -117,25 +119,25 @@ function ToolGroup({ turns }) {
         </div>
       )}
     </div>
-  );
+  )
 }
 
 function parseCommand(text) {
-  if (typeof text !== 'string' || !text.includes('<command-name>')) return null;
-  const name = text.match(/<command-name>([\s\S]*?)<\/command-name>/);
-  if (!name) return null;
-  const args = text.match(/<command-args>([\s\S]*?)<\/command-args>/);
-  const stdout = text.match(/<local-command-stdout>([\s\S]*?)<\/local-command-stdout>/);
+  if (typeof text !== 'string' || !text.includes('<command-name>')) return null
+  const name = text.match(/<command-name>([\s\S]*?)<\/command-name>/)
+  if (!name) return null
+  const args = text.match(/<command-args>([\s\S]*?)<\/command-args>/)
+  const stdout = text.match(/<local-command-stdout>([\s\S]*?)<\/local-command-stdout>/)
   return {
     name: name[1].trim(),
     args: args ? args[1].trim() : '',
     stdout: stdout ? stdout[1].trim() : ''
-  };
+  }
 }
 
 function Block({ block }) {
   if (block.type === 'text') {
-    const cmd = parseCommand(block.text);
+    const cmd = parseCommand(block.text)
     if (cmd) {
       return (
         <div className="block-command">
@@ -143,7 +145,7 @@ function Block({ block }) {
           {cmd.args && <span className="cmd-args"> {cmd.args}</span>}
           {cmd.stdout && <div className="cmd-stdout">{cmd.stdout}</div>}
         </div>
-      );
+      )
     }
     return (
       <div className="block-text markdown">
@@ -151,10 +153,10 @@ function Block({ block }) {
           {fenceJsonBlocks(block.text)}
         </ReactMarkdown>
       </div>
-    );
+    )
   }
   if (block.type === 'thinking') {
-    return <Collapsible title="thinking"><pre>{block.thinking || ''}</pre></Collapsible>;
+    return <Collapsible title="thinking"><pre>{block.thinking || ''}</pre></Collapsible>
   }
   if (block.type === 'tool_use') {
     return (
@@ -162,11 +164,11 @@ function Block({ block }) {
         <JsonBlock value={block.input} />
         {block.result && <Block block={block.result} />}
       </Collapsible>
-    );
+    )
   }
   if (block.type === 'tool_result') {
-    const c = block.content;
-    const parts = Array.isArray(c) ? c : [typeof c === 'string' ? { type: 'text', text: c } : c];
+    const c = block.content
+    const parts = Array.isArray(c) ? c : [typeof c === 'string' ? { type: 'text', text: c } : c]
     return (
       <div className={`tool-result ${block.is_error ? 'error' : ''}`}>
         <div className="tool-result-label">{block.is_error ? 'error:' : 'result:'}</div>
@@ -174,20 +176,20 @@ function Block({ block }) {
           ? <pre key={i}>{p.text}</pre>
           : <Block key={i} block={p} />)}
       </div>
-    );
+    )
   }
   if (block.type === 'image') {
-    const src = block.source;
+    const src = block.source
     if (src && src.type === 'base64') {
-      return <img className="block-image" src={`data:${src.media_type};base64,${src.data}`} alt="" />;
+      return <img className="block-image" src={`data:${src.media_type};base64,${src.data}`} alt="" />
     }
-    return <div className="block-aux">[image]</div>;
+    return <div className="block-aux">[image]</div>
   }
-  return <Collapsible title={block.type || 'block'}><pre>{safeJson(block)}</pre></Collapsible>;
+  return <Collapsible title={block.type || 'block'}><pre>{safeJson(block)}</pre></Collapsible>
 }
 
 function Collapsible({ title, children, className }) {
-  const [open, setOpen] = useState(true);
+  const [open, setOpen] = useState(true)
   return (
     <div className={`aux ${className || ''}`}>
       <button className="aux-toggle" onClick={() => setOpen((v) => !v)}>
@@ -195,33 +197,35 @@ function Collapsible({ title, children, className }) {
       </button>
       {open && <div className="aux-body">{children}</div>}
     </div>
-  );
+  )
 }
 
 function JsonBlock({ value }) {
-  const md = '```json\n' + safeJson(value) + '\n```';
+  const md = '```json\n' + safeJson(value) + '\n```'
   return (
     <div className="block-text markdown">
       <ReactMarkdown remarkPlugins={[remarkGfm]} rehypePlugins={[rehypeHighlight]}>
         {md}
       </ReactMarkdown>
     </div>
-  );
+  )
 }
 
 function safeJson(x) {
-  try { return JSON.stringify(x, null, 2); } catch { return String(x); }
+  try { return JSON.stringify(x, null, 2)
+   } catch { return String(x)
+   }
 }
 
 function fenceJsonBlocks(text) {
-  if (typeof text !== 'string') return text;
+  if (typeof text !== 'string') return text
   return text.replace(/(^|\n)([{[][\s\S]*[}\]])(?=\n|$)/g, (m, sep, body) => {
     try {
-      const parsed = JSON.parse(body);
+      const parsed = JSON.parse(body)
       if (parsed && typeof parsed === 'object') {
-        return sep + '```json\n' + JSON.stringify(parsed, null, 2) + '\n```';
+        return sep + '```json\n' + JSON.stringify(parsed, null, 2) + '\n```'
       }
     } catch {}
-    return m;
-  });
+    return m
+  })
 }

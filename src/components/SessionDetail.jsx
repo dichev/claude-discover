@@ -1,60 +1,61 @@
-import React, { useEffect, useRef, useState } from 'react';
-import { format } from 'date-fns';
-import { fmtDuration, fmtBytes, fmtNum, fmtUSD } from '../utils/formatting.js';
-import ConversationView from './ConversationView.jsx';
+import React, { useEffect, useRef, useState } from 'react'
+import { format } from 'date-fns'
+import { fmtDuration, fmtBytes, fmtNum, fmtUSD } from '../utils/formatting.js'
+import ConversationView from './ConversationView.jsx'
 
 export default function SessionDetail({ meta, date }) {
-  const [items, setItems] = useState(null);
-  const [loading, setLoading] = useState(false);
-  const offsetRef = useRef(0);
-  const sidRef = useRef(null);
+  const [items, setItems] = useState(null)
+  const [loading, setLoading] = useState(false)
+  const offsetRef = useRef(0)
+  const sidRef = useRef(null)
 
-  const sessionId = meta?.sessionId;
-  const fileSize = meta?.fileSize;
-  const key = sessionId ? `${sessionId}|${date || ''}` : null;
+  const sessionId = meta?.sessionId
+  const fileSize = meta?.fileSize
+  const key = sessionId ? `${sessionId}|${date || ''}` : null
 
   useEffect(() => {
     if (!sessionId) {
-      setItems(null);
-      offsetRef.current = 0;
-      sidRef.current = null;
-      return;
+      setItems(null)
+      offsetRef.current = 0
+      sidRef.current = null
+      return
     }
-    const sidChanged = sidRef.current !== key;
+    const sidChanged = sidRef.current !== key
     if (sidChanged) {
-      offsetRef.current = 0;
-      sidRef.current = key;
-      setItems(null);
-      setLoading(true);
+      offsetRef.current = 0
+      sidRef.current = key
+      setItems(null)
+      setLoading(true)
     } else if (fileSize <= offsetRef.current) {
-      return;
+      return
     }
-    let cancelled = false;
-    const fromOffset = offsetRef.current;
+    let cancelled = false
+    const fromOffset = offsetRef.current
     window.api.readSession(sessionId, fromOffset, date || null).then((res) => {
-      if (cancelled || !res) return;
-      offsetRef.current = res.nextOffset;
-      setItems((prev) => fromOffset === 0 ? res.items : prev.concat(res.items));
-      setLoading(false);
-    });
-    return () => { cancelled = true; };
-  }, [key, fileSize]);
+      if (cancelled || !res) return
+      offsetRef.current = res.nextOffset
+      setItems((prev) => fromOffset === 0 ? res.items : prev.concat(res.items))
+      setLoading(false)
+    })
+    return () => { cancelled = true
+     }
+  }, [key, fileSize])
 
   if (!meta) {
-    return <div className="session-detail empty"><div>Select a session to inspect.</div></div>;
+    return <div className="session-detail empty"><div>Select a session to inspect.</div></div>
   }
 
-  const t = meta.tokens;
-  const totalTokens = meta.totalTokens;
-  const wallDuration = meta.lastActivityAt - meta.startedAt;
+  const t = meta.tokens
+  const totalTokens = meta.totalTokens
+  const wallDuration = meta.lastActivityAt - meta.startedAt
   const activeDuration = meta.activityPeriods
-    .reduce((sum, p) => sum + Math.max(0, p.end - p.start), 0);
-  const cost = meta.cost;
-  const cacheHitRatio = meta.cacheHitRatio;
-  const stu = meta.serverToolUse;
-  const hasServerTools = stu.webSearch > 0 || stu.webFetch > 0;
-  const modelLabel = meta.models.join(', ') || '—';
-  const tokensSectionTitle = date ? `Tokens & Cost (${date})` : 'Tokens & Cost';
+    .reduce((sum, p) => sum + Math.max(0, p.end - p.start), 0)
+  const cost = meta.cost
+  const cacheHitRatio = meta.cacheHitRatio
+  const stu = meta.serverToolUse
+  const hasServerTools = stu.webSearch > 0 || stu.webFetch > 0
+  const modelLabel = meta.models.join(', ') || '—'
+  const tokensSectionTitle = date ? `Tokens & Cost (${date})` : 'Tokens & Cost'
 
   return (
     <div className="session-detail">
@@ -119,7 +120,7 @@ export default function SessionDetail({ meta, date }) {
         </div>
       </div>
     </div>
-  );
+  )
 }
 
 function Section({ title, children }) {
@@ -128,7 +129,7 @@ function Section({ title, children }) {
       <div className="detail-section-title">{title}</div>
       {children}
     </div>
-  );
+  )
 }
 
 function Field({ label, value, mono, full }) {
@@ -137,6 +138,6 @@ function Field({ label, value, mono, full }) {
       <div className="field-label">{label}</div>
       <div className={`field-value ${mono ? 'mono' : ''}`}>{value}</div>
     </div>
-  );
+  )
 }
 

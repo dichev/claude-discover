@@ -1,14 +1,14 @@
-import { app, BrowserWindow, ipcMain } from 'electron';
-import path from 'node:path';
-import { fileURLToPath } from 'node:url';
-import windowStateKeeper from 'electron-window-state';
-import { SessionsService } from './services/SessionsService.js';
+import { app, BrowserWindow, ipcMain } from 'electron'
+import path from 'node:path'
+import { fileURLToPath } from 'node:url'
+import windowStateKeeper from 'electron-window-state'
+import { SessionsService } from './services/SessionsService.js'
 
-const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const DEV_URL = process.env.ELECTRON_RENDERER_URL;
+const __dirname = path.dirname(fileURLToPath(import.meta.url))
+const DEV_URL = process.env.ELECTRON_RENDERER_URL
 
-let mainWindow;
-let sessionsService;
+let mainWindow
+let sessionsService
 
 if (!app.isPackaged && process.env.ELECTRON_RENDERER_URL) {
   app.commandLine.appendSwitch('remote-debugging-port', '9333')
@@ -16,7 +16,7 @@ if (!app.isPackaged && process.env.ELECTRON_RENDERER_URL) {
 
 
 function createWindow() {
-  const state = windowStateKeeper({ defaultWidth: 1500, defaultHeight: 900 });
+  const state = windowStateKeeper({ defaultWidth: 1500, defaultHeight: 900 })
 
   mainWindow = new BrowserWindow({
     x: state.x,
@@ -31,14 +31,14 @@ function createWindow() {
       nodeIntegration: false,
       sandbox: false
     }
-  });
+  })
 
-  state.manage(mainWindow);
+  state.manage(mainWindow)
 
   if (DEV_URL) {
-    mainWindow.loadURL(DEV_URL);
+    mainWindow.loadURL(DEV_URL)
   } else {
-    mainWindow.loadFile(path.join(__dirname, '../renderer/index.html'));
+    mainWindow.loadFile(path.join(__dirname, '../renderer/index.html'))
   }
 }
 
@@ -46,22 +46,22 @@ app.whenReady().then(() => {
   sessionsService = new SessionsService({
     onUpdate: (sessions) => {
       if (mainWindow && !mainWindow.isDestroyed()) {
-        mainWindow.webContents.send('sessions:update', sessions);
+        mainWindow.webContents.send('sessions:update', sessions)
       }
     }
-  });
-  sessionsService.start();
+  })
+  sessionsService.start()
 
-  ipcMain.handle('sessions:list', (_e, date) => sessionsService.list(date));
-  ipcMain.handle('sessions:read', async (_e, sessionId, offset, date) => sessionsService.readSession(sessionId, offset, date));
+  ipcMain.handle('sessions:list', (_e, date) => sessionsService.list(date))
+  ipcMain.handle('sessions:read', async (_e, sessionId, offset, date) => sessionsService.readSession(sessionId, offset, date))
 
-  createWindow();
+  createWindow()
 
   app.on('activate', () => {
-    if (BrowserWindow.getAllWindows().length === 0) createWindow();
-  });
-});
+    if (BrowserWindow.getAllWindows().length === 0) createWindow()
+  })
+})
 
 app.on('window-all-closed', () => {
-  if (process.platform !== 'darwin') app.quit();
-});
+  if (process.platform !== 'darwin') app.quit()
+})
