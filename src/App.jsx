@@ -37,7 +37,7 @@ export default function App() {
     if (!q) return list;
     return list.filter((s) => {
       const blob = [
-        s.summary, s.firstUserPrompt, s.cwd, s.sessionId, s.model, s.gitBranch
+        s.name, s.aiTitle, s.summary, s.firstUserPrompt, s.cwd, s.sessionId, s.model, s.gitBranch
       ].filter(Boolean).join(' ').toLowerCase();
       return blob.includes(q);
     });

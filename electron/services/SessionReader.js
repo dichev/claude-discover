@@ -115,6 +115,7 @@ export class SessionReader {
       version: null,
       model: null,
       summary: null,
+      aiTitle: null,
       firstUserPrompt: null,
       messageCount: 0,
       tokens: { input: 0, output: 0, cacheRead: 0, cacheCreation: 0 },
@@ -126,6 +127,10 @@ export class SessionReader {
       const t = obj.type;
       if (t === 'summary' && obj.summary) {
         meta.summary = obj.summary;
+        return;
+      }
+      if (t === 'ai-title' && obj.aiTitle) {
+        meta.aiTitle = obj.aiTitle;
         return;
       }
       let ts = null;
