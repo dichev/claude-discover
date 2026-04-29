@@ -66,23 +66,21 @@ export default function SessionDetail({ meta, date }) {
         <div className="detail-meta">
           {(meta.aiTitle || meta.summary) && (
             <Section title="Summary">
-              {meta.aiTitle && <Field label="AI title" value={meta.aiTitle} />}
+              {meta.aiTitle && <Field label="AI Title" value={meta.aiTitle} full />}
               {meta.summary && <Field label="Summary" value={meta.summary} full />}
             </Section>
           )}
 
           <Section title={tokensSectionTitle}>
-            <Field label="Model" value={modelLabel} mono full />
+            <Field label="Model" value={modelLabel} mono />
             {meta.serviceTier && <Field label="Service tier" value={meta.serviceTier} />}
             <Field label="Estimated cost" value={fmtUSD(cost)} />
             <Field label="Total tokens" value={fmtNum(totalTokens)} />
             <Field label="Input" value={fmtNum(t.input)} />
             <Field label="Output" value={fmtNum(t.output)} />
             <Field label="Cache read" value={fmtNum(t.cacheRead)} />
-            <Field
-              label="Cache write (5m / 1h)"
-              value={`${fmtNum(t.cacheCreation5m || 0)} / ${fmtNum(t.cacheCreation1h || 0)}`}
-            />
+            <Field label="Cache write (5m)" value={fmtNum(t.cacheCreation5m || 0)} />
+            <Field label="Cache write (1h)" value={fmtNum(t.cacheCreation1h || 0)} />
             {cacheHitRatio != null && (
               <Field label="Cache hit ratio" value={`${(cacheHitRatio * 100).toFixed(1)}%`} />
             )}
@@ -94,18 +92,9 @@ export default function SessionDetail({ meta, date }) {
             )}
           </Section>
 
-          <Section title="Identity">
-            <Field label="Session ID" value={meta.sessionId} mono />
-            <Field label="cwd" value={meta.cwd || '—'} mono full />
-            <Field label="Git branch" value={meta.gitBranch || '—'} mono />
-            <Field label="Source" value={meta.source || meta.entrypoint || '—'} />
-            {meta.hasScheduledTask && <Field label="Scheduled" value="yes" />}
-            <Field label="CLI version" value={meta.version || '—'} mono />
-          </Section>
-
           <Section title="Activity">
-            <Field label="Started" value={format(meta.startedAt, 'PPpp')} />
-            <Field label="Last activity" value={format(meta.lastActivityAt, 'PPpp')} />
+            <Field label="Started" value={format(meta.startedAt, 'pp')} />
+            <Field label="Last activity" value={format(meta.lastActivityAt, 'pp')} />
             <Field label="Wall duration" value={fmtDuration(wallDuration)} />
             <Field label="Working time" value={fmtDuration(activeDuration)} />
             <Field label="Active periods" value={fmtNum(meta.activityPeriods.length)} />
@@ -113,8 +102,14 @@ export default function SessionDetail({ meta, date }) {
             <Field label="File size" value={fmtBytes(meta.fileSize)} />
           </Section>
 
-          <Section title="File">
-            <Field label="JSONL path" value={meta.filePath} mono full />
+          <Section title="Identity">
+            <Field label="Git branch" value={meta.gitBranch || '—'} mono />
+            <Field label="Source" value={meta.source || meta.entrypoint || '—'} />
+            {meta.hasScheduledTask && <Field label="Scheduled" value="yes" />}
+            <Field label="CLI version" value={meta.version || '—'} mono />
+            <Field label="Session ID" value={meta.sessionId} mono full />
+            <Field label="cwd" value={meta.cwd || '—'} mono full />
+            <Field label="Log file" value={meta.filePath} mono full />
           </Section>
         </div>
       </div>

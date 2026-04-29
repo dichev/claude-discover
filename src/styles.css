@@ -132,15 +132,19 @@ button:hover { background: var(--border); }
   letter-spacing: 0.5px;
   margin-bottom: 2px;
 }
-.gantt-side-row {
+.gantt-side-row,
+.field {
   display: flex;
   justify-content: space-between;
   align-items: baseline;
+  gap: 12px;
 }
-.gantt-side-row b {
+.gantt-side-row b,
+.field-value {
   color: var(--text);
   font-family: ui-monospace, Menlo, monospace;
   font-weight: 500;
+  text-align: right;
 }
 .gantt-canvas svg { display: block; }
 .bar:hover rect { filter: brightness(1.15); }
@@ -292,10 +296,14 @@ button:hover { background: var(--border); }
   letter-spacing: 0.6px;
   opacity: 0.85;
 }
-.field.full { word-break: break-all; }
-.field-label { color: var(--text-faint); font-size: 11px; text-transform: uppercase; letter-spacing: 0.5px; }
-.field-value { color: var(--text); font-size: 12px; word-break: break-word; }
-.field-value.mono { font-family: ui-monospace, Menlo, monospace; }
+.field.full {
+  display: block;
+  word-break: break-all;
+}
+.field-label { color: var(--text-faint); font-size: 11px; letter-spacing: 0.5px; }
+.field-value { font-size: 12px; word-break: break-word; }
+.field.full .field-value { text-align: left; font-weight: normal; font-family: inherit; }
+.field.full .field-value.mono { font-family: ui-monospace, Menlo, monospace; }
 
 .detail-conversation {
   overflow-y: auto;
