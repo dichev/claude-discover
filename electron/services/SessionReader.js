@@ -33,36 +33,6 @@ function extractText(content) {
   return '';
 }
 
-const SCHEDULED_BOILERPLATE = /This is an automated run of a scheduled task\.[^]*?correct output\.\s*/;
-const SKIP_COMMANDS = new Set(['/clear', '/exit', '/compact']);
-
-function derivePromptLabel(text) {
-  if (!text) return null;
-  if (text.includes('<local-command-caveat>')) return null;
-
-  const sched = text.match(/<scheduled-task\b([^>]*)>([\s\S]*?)<\/scheduled-task>/);
-  if (sched) {
-    const nameAttr = sched[1].match(/\bname\s*=\s*"([^"]+)"/);
-    const body = sched[2].replace(SCHEDULED_BOILERPLATE, '').trim();
-    const name = nameAttr ? nameAttr[1] : 'scheduled';
-    return body ? `[${name}] ${body}` : `[${name}]`;
-  }
-
-  if (text.startsWith('<command-name>')) {
-    const cmd = text.match(/<command-name>([^<]+)<\/command-name>/);
-    const args = text.match(/<command-args>([^<]*)<\/command-args>/);
-    if (cmd) {
-      const name = cmd[1].trim();
-      if (SKIP_COMMANDS.has(name)) return null;
-      const argStr = args ? args[1].trim() : '';
-      return argStr ? `${name} ${argStr}` : name;
-    }
-    return null;
-  }
-
-  return text;
-}
-
 const ACTIVITY_GAP_MS = 5 * 60 * 1000;
 
 function classifySource(meta) {
