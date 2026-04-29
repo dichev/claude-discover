@@ -59,7 +59,8 @@ function HourTicks({ viewStart, viewEnd, width }) {
 }
 
 export default function GanttChart({
-  dayRange, sessions, onSelect, selectedId, onShiftDay, onResetToday, dayAnchor
+  dayRange, sessions, onSelect, selectedId, onShiftDay, onResetToday, dayAnchor,
+  sourceFilter, onToggleSourceFilter,
 }) {
   const containerRef = useRef(null);
   const [width, setWidth] = useState(1200);
@@ -185,12 +186,16 @@ export default function GanttChart({
           <button onClick={() => onShiftDay(1)}>Next →</button>
         </div>
         <div className="gantt-legend">
-          {['scheduled','cli','desktop','sdk','other'].map((k) => (
-            <span key={k} className="legend-chip">
-              <span className="swatch" style={{ background: SOURCE_COLORS[k] }} />
-              {SOURCE_LABELS[k]}
-            </span>
-          ))}
+          {['cli','sdk','desktop','scheduled','other'].map((k) => {
+            const active = sourceFilter === k;
+            const dim = sourceFilter && !active;
+            return (
+              <button key={k} type="button" className={`legend-chip ${active ? 'active' : ''} ${dim ? 'dim' : ''}`} onClick={() => onToggleSourceFilter?.(k)}>
+                <span className="swatch" style={{ background: SOURCE_COLORS[k] }} />
+                {SOURCE_LABELS[k]}
+              </button>
+            );
+          })}
         </div>
       </div>
       <div className="gantt-canvas" ref={containerRef} onMouseDown={handleMouseDown}>

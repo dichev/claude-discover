@@ -11,6 +11,7 @@ export default function App() {
   const [dayAnchor, setDayAnchor] = useState(() => +startOfDay(Date.now()));
   const [selectedId, setSelectedId] = useState(null);
   const [filter, setFilter] = useState('');
+  const [sourceFilter, setSourceFilter] = useState(null);
   const { defaultLayout, onLayoutChanged } = useDefaultLayout({ id: 'agenticWorkflow.body', panelIds: ['list', 'detail'], storage: localStorage });
   const { defaultLayout: rootLayout, onLayoutChanged: onRootLayoutChanged } = useDefaultLayout({ id: 'agenticWorkflow.root', panelIds: ['gantt', 'body'], storage: localStorage });
 
@@ -30,7 +31,10 @@ export default function App() {
     return () => { cancelled = true; off(); };
   }, [dayAnchor]);
 
-  const dayItems = useMemo(() => ({ past: sessions }), [sessions]);
+  const dayItems = useMemo(() => {
+    const past = sourceFilter ? sessions.filter((s) => (s.source || 'other') === sourceFilter) : sessions;
+    return { past };
+  }, [sessions, sourceFilter]);
 
   const filteredSessions = useMemo(() => {
     const q = filter.trim().toLowerCase();
@@ -69,6 +73,8 @@ export default function App() {
           onShiftDay={shiftDay}
           onResetToday={() => setDayAnchor(+startOfDay(Date.now()))}
           dayAnchor={dayAnchor}
+          sourceFilter={sourceFilter}
+          onToggleSourceFilter={(src) => setSourceFilter((cur) => (cur === src ? null : src))}
         />
         <DailySummary sessions={dayItems.past} dayAnchor={dayAnchor} />
       </Panel>
