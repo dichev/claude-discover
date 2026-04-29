@@ -234,6 +234,7 @@ export class SessionReader {
     if (meta.startedAt == null) meta.startedAt = stat.mtimeMs
     if (meta.lastActivityAt == null) meta.lastActivityAt = stat.mtimeMs
     meta.source = classifySource(meta)
+    meta.activeMs = meta.activityPeriods.reduce((sum, p) => sum + Math.max(0, p.end - p.start), 0)
     const t = meta.tokens
     meta.totalTokens = t.input + t.output + t.cacheRead + t.cacheCreation
     const cacheDenom = t.cacheRead + t.cacheCreation

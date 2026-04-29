@@ -1,6 +1,6 @@
 import React, { useMemo } from 'react'
 import { format } from 'date-fns'
-import { fmtUSD, fmtCompact } from '../utils/formatting.js'
+import { fmtUSD, fmtCompact, fmtDuration } from '../utils/formatting.js'
 
 export default function DailySummary({ sessions, dayAnchor }) {
   const totals = useMemo(() => {
@@ -15,8 +15,9 @@ export default function DailySummary({ sessions, dayAnchor }) {
       acc.cacheCreation += s.tokens.cacheCreation
       acc.cacheCreation5m += s.tokens.cacheCreation5m || 0
       acc.cacheCreation1h += s.tokens.cacheCreation1h || 0
+      acc.activeMs += s.activeMs || 0
       return acc
-    }, { cost: 0, totalTokens: 0, input: 0, output: 0, cacheRead: 0, cacheCreation: 0, cacheCreation5m: 0, cacheCreation1h: 0 })
+    }, { cost: 0, totalTokens: 0, input: 0, output: 0, cacheRead: 0, cacheCreation: 0, cacheCreation5m: 0, cacheCreation1h: 0, activeMs: 0 })
     const cacheDenom = t.cacheRead + t.cacheCreation
     t.cacheHitRatio = cacheDenom > 0 ? t.cacheRead / cacheDenom : null
     return t
@@ -26,6 +27,7 @@ export default function DailySummary({ sessions, dayAnchor }) {
     <aside className="gantt-side">
       <h2 className="gantt-side-title">{format(dayAnchor, 'EEE, MMM d')}</h2>
       <div className="gantt-side-section">
+        <div className="gantt-side-row"><span>Working time</span><b>{fmtDuration(totals.activeMs)}</b></div>
         <div className="gantt-side-row"><span>Total tokens</span><b title={totals.totalTokens.toLocaleString()}>{fmtCompact(totals.totalTokens)}</b></div>
         <div className="gantt-side-row"><span>Estimated cost</span><b>{fmtUSD(totals.cost)}</b></div>
       </div>

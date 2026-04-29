@@ -48,8 +48,7 @@ export default function SessionDetail({ meta, date }) {
   const t = meta.tokens
   const totalTokens = meta.totalTokens
   const wallDuration = meta.lastActivityAt - meta.startedAt
-  const activeDuration = meta.activityPeriods
-    .reduce((sum, p) => sum + Math.max(0, p.end - p.start), 0)
+  const activeDuration = meta.activeMs
   const cost = meta.cost
   const cacheHitRatio = meta.cacheHitRatio
   const stu = meta.serverToolUse
@@ -108,7 +107,7 @@ export default function SessionDetail({ meta, date }) {
             <Field label="Started" value={format(meta.startedAt, 'PPpp')} />
             <Field label="Last activity" value={format(meta.lastActivityAt, 'PPpp')} />
             <Field label="Wall duration" value={fmtDuration(wallDuration)} />
-            <Field label="Active time" value={fmtDuration(activeDuration)} />
+            <Field label="Working time" value={fmtDuration(activeDuration)} />
             <Field label="Active periods" value={fmtNum(meta.activityPeriods.length)} />
             <Field label="Messages" value={fmtNum(meta.messageCount)} />
             <Field label="File size" value={fmtBytes(meta.fileSize)} />
