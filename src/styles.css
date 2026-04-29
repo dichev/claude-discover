@@ -366,6 +366,7 @@ button:hover { background: var(--border); }
 .turn-assistant .block-text { color: var(--text); }
 
 .block-text { white-space: pre-wrap; word-break: break-word; }
+.block-text.markdown { white-space: normal; }
 
 .block-command {
   font-family: ui-monospace, Menlo, monospace;
