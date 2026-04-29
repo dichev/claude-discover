@@ -183,6 +183,11 @@ button:hover { background: var(--border); }
 .source-tag { font-weight: 600; letter-spacing: 0.4px; }
 .session-time { color: var(--text-faint); font-family: ui-monospace, Menlo, monospace; }
 .session-time-meta { color: var(--text-faint); }
+.session-name {
+  font-weight: 600;
+  color: var(--accent, #4ea1ff);
+  margin-right: 6px;
+}
 .session-label {
   margin: 4px 0;
   font-size: 12px;

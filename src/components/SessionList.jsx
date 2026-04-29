@@ -27,7 +27,9 @@ export default function SessionList({ sessions, selectedId, onSelect, filter, on
         )}
         {sessions.map((s) => {
           const totalTokens = s.tokens.input + s.tokens.output + s.tokens.cacheRead + s.tokens.cacheCreation;
-          const label = s.summary || s.firstUserPrompt || s.sessionId;
+          const fallback = s.summary || s.firstUserPrompt || s.sessionId;
+          const label = s.name || fallback;
+          const subLabel = s.name && fallback !== s.name ? fallback : null;
           return (
             <div
               key={s.sessionId}
@@ -49,7 +51,10 @@ export default function SessionList({ sessions, selectedId, onSelect, filter, on
                   {format(s.lastActivityAt, 'HH:mm:ss')}
                 </span>
               </div>
-              <div className="session-label">{label}</div>
+              <div className="session-label">
+                {s.name && <span className="session-name">{s.name}</span>}
+                {subLabel || (!s.name && label)}
+              </div>
             </div>
           );
         })}

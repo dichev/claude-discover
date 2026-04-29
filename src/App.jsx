@@ -89,7 +89,7 @@ export default function App() {
         </Panel>
         <Separator className="resize-handle resize-handle-v" />
         <Panel id="detail" minSize={30} className="body-pane">
-          <SessionDetail meta={selected} />
+          <SessionDetail meta={selected} date={format(dayAnchor, 'yyyy-MM-dd')} />
         </Panel>
         </Group>
       </Panel>

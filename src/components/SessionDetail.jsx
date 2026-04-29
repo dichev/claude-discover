@@ -3,7 +3,7 @@ import { format } from 'date-fns';
 import { fmtDuration, fmtBytes, fmtNum } from '../utils/formatting.js';
 import ConversationView from './ConversationView.jsx';
 
-export default function SessionDetail({ meta }) {
+export default function SessionDetail({ meta, date }) {
   const [items, setItems] = useState(null);
   const [loading, setLoading] = useState(false);
   const offsetRef = useRef(0);
@@ -11,6 +11,7 @@ export default function SessionDetail({ meta }) {
 
   const sessionId = meta?.sessionId;
   const fileSize = meta?.fileSize;
+  const key = sessionId ? `${sessionId}|${date || ''}` : null;
 
   useEffect(() => {
     if (!sessionId) {
@@ -19,10 +20,10 @@ export default function SessionDetail({ meta }) {
       sidRef.current = null;
       return;
     }
-    const sidChanged = sidRef.current !== sessionId;
+    const sidChanged = sidRef.current !== key;
     if (sidChanged) {
       offsetRef.current = 0;
-      sidRef.current = sessionId;
+      sidRef.current = key;
       setItems(null);
       setLoading(true);
     } else if (fileSize <= offsetRef.current) {
@@ -30,14 +31,14 @@ export default function SessionDetail({ meta }) {
     }
     let cancelled = false;
     const fromOffset = offsetRef.current;
-    window.api.readSession(sessionId, fromOffset).then((res) => {
+    window.api.readSession(sessionId, fromOffset, date || null).then((res) => {
       if (cancelled || !res) return;
       offsetRef.current = res.nextOffset;
       setItems((prev) => fromOffset === 0 ? res.items : prev.concat(res.items));
       setLoading(false);
     });
     return () => { cancelled = true; };
-  }, [sessionId, fileSize]);
+  }, [key, fileSize]);
 
   if (!meta) {
     return <div className="session-detail empty"><div>Select a session to inspect.</div></div>;

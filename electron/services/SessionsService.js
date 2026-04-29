@@ -3,7 +3,7 @@ import path from 'node:path';
 import os from 'node:os';
 import chokidar from 'chokidar';
 import { startOfDay, endOfDay, parseISO } from 'date-fns';
-import { SessionReader } from './SessionReader.js';
+import { SessionReader, loadSessionNames } from './SessionReader.js';
 
 const PROJECTS_ROOT = path.join(os.homedir(), '.claude', 'projects');
 
@@ -12,10 +12,11 @@ function dayBounds(date) {
   return { start: +startOfDay(d), end: +endOfDay(d) };
 }
 
-function filterDay(cache, start, end) {
+function filterDay(cache, start, end, names) {
   return Array.from(cache.values())
     .filter((m) => m.lastActivityAt >= start && m.startedAt <= end)
-    .sort((a, b) => b.lastActivityAt - a.lastActivityAt);
+    .sort((a, b) => b.lastActivityAt - a.lastActivityAt)
+    .map((m) => names?.has(m.sessionId) ? { ...m, name: names.get(m.sessionId) } : m);
 }
 
 export class SessionsService {
@@ -29,13 +30,14 @@ export class SessionsService {
     this.watcher = null;
   }
 
-  async readSession(sessionId, offset = 0) {
+  async readSession(sessionId, offset = 0, date = null) {
     let meta = null;
     for (const m of this.cache.values()) {
       if (m.sessionId === sessionId) { meta = m; break; }
     }
     if (!meta) return null;
-    const { items, nextOffset } = await new SessionReader(meta.filePath).readFrom(offset);
+    const range = date ? dayBounds(date) : null;
+    const { items, nextOffset } = await new SessionReader(meta.filePath).readFrom(offset, range);
     return { meta, items, nextOffset };
   }
 
@@ -43,7 +45,8 @@ export class SessionsService {
     const { start, end } = dayBounds(date);
     this.activeDay = { start, end };
     await this._scanDay(start);
-    return filterDay(this.cache,start, end);
+    const names = await loadSessionNames();
+    return filterDay(this.cache, start, end, names);
   }
 
   async start() {
@@ -75,11 +78,12 @@ export class SessionsService {
 
   _scheduleUpdate() {
     if (this.updateTimer) return;
-    this.updateTimer = setTimeout(() => {
+    this.updateTimer = setTimeout(async () => {
       this.updateTimer = null;
       const day = this.activeDay;
       if (!day) return;
-      this.onUpdate(filterDay(this.cache,day.start, day.end));
+      const names = await loadSessionNames();
+      this.onUpdate(filterDay(this.cache, day.start, day.end, names));
     }, this.debounceMs);
   }
 

@@ -1,6 +1,26 @@
 import fs from 'node:fs';
 import fsp from 'node:fs/promises';
 import path from 'node:path';
+import os from 'node:os';
+
+const SESSIONS_ROOT = path.join(os.homedir(), '.claude', 'sessions');
+
+export async function loadSessionNames() {
+  const map = new Map();
+  let entries;
+  try { entries = await fsp.readdir(SESSIONS_ROOT, { withFileTypes: true }); }
+  catch { return map; }
+  await Promise.all(entries
+    .filter((e) => e.isFile() && e.name.endsWith('.json'))
+    .map(async (e) => {
+      try {
+        const raw = await fsp.readFile(path.join(SESSIONS_ROOT, e.name), 'utf8');
+        const obj = JSON.parse(raw);
+        if (obj.sessionId && obj.name) map.set(obj.sessionId, obj.name);
+      } catch {}
+    }));
+  return map;
+}
 
 function extractText(content) {
   if (typeof content === 'string') return content;
@@ -85,9 +105,15 @@ export class SessionReader {
     return offset + consumed;
   }
 
-  async readFrom(offset = 0) {
+  async readFrom(offset = 0, range = null) {
     const items = [];
-    const nextOffset = await this._eachLine(offset, (obj) => items.push(obj));
+    const nextOffset = await this._eachLine(offset, (obj) => {
+      if (range) {
+        const ts = obj.timestamp ? Date.parse(obj.timestamp) : NaN;
+        if (Number.isNaN(ts) || ts < range.start || ts > range.end) return;
+      }
+      items.push(obj);
+    });
     return { items, nextOffset };
   }
 
