@@ -41,8 +41,8 @@ function HourTicks({ viewStart, viewEnd, width }) {
     const x = ((t - viewStart) / span) * width;
     const d = new Date(t);
     const h = d.getHours();
-    const label = h === 0 ? String(d.getDate()).padStart(2, '0') : String(h).padStart(2, '0');
-    ticks.push({ x, label, major: h % 3 === 0 });
+    const label = String(h).padStart(2, '0');
+    ticks.push({ x, label, major: true });
   }
   return (
     <g className="ticks">

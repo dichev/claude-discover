@@ -159,7 +159,7 @@ function Block({ block }) {
   if (block.type === 'tool_use') {
     return (
       <Collapsible title={`→ ${block.name}`}>
-        <pre>{safeJson(block.input)}</pre>
+        <JsonBlock value={block.input} />
         {block.result && <Block block={block.result} />}
       </Collapsible>
     );
@@ -194,6 +194,17 @@ function Collapsible({ title, children, className }) {
         {open ? '▾' : '▸'} {title}
       </button>
       {open && <div className="aux-body">{children}</div>}
+    </div>
+  );
+}
+
+function JsonBlock({ value }) {
+  const md = '```json\n' + safeJson(value) + '\n```';
+  return (
+    <div className="block-text markdown">
+      <ReactMarkdown remarkPlugins={[remarkGfm]} rehypePlugins={[rehypeHighlight]}>
+        {md}
+      </ReactMarkdown>
     </div>
   );
 }
