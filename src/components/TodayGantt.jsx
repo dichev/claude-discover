@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState, useCallback } from 'react';
 import { SOURCE_COLORS, SOURCE_LABELS } from '../utils/colors.js';
+import { useLocalStorage } from '../utils/useLocalStorage.js';
 
 const LANE_HEIGHT = 22;
 const LANE_GAP = 4;
@@ -63,11 +64,11 @@ export default function TodayGantt({
 }) {
   const containerRef = useRef(null);
   const [width, setWidth] = useState(1200);
-  const [view, setView] = useState({ start: dayRange.start, end: dayRange.end });
+  const [view, setView] = useLocalStorage('todayGantt.view', { dayAnchor, start: dayRange.start, end: dayRange.end });
 
   useEffect(() => {
-    setView({ start: dayRange.start, end: dayRange.end });
-  }, [dayRange.start, dayRange.end]);
+    if (view.dayAnchor !== dayAnchor) setView({ dayAnchor, start: dayRange.start, end: dayRange.end });
+  }, [dayAnchor]);
 
   useEffect(() => {
     if (!containerRef.current) return;
@@ -123,13 +124,13 @@ export default function TodayGantt({
       const center = view.start + ratio * span;
       const start = Math.max(dayRange.start, center - ratio * newSpan);
       const end = Math.min(dayRange.end, center + (1 - ratio) * newSpan);
-      setView({ start, end });
+      setView((v) => ({ ...v, start, end }));
     } else {
       const dt = (e.deltaX / chartWidth) * span;
       setView((v) => {
         const newStart = Math.max(dayRange.start, v.start + dt);
         const newEnd = Math.min(dayRange.end, v.end + dt);
-        return newEnd - newStart < span ? v : { start: newStart, end: newEnd };
+        return newEnd - newStart < span ? v : { ...v, start: newStart, end: newEnd };
       });
     }
   }, [span, view.start, chartWidth, dayRange]);
@@ -149,7 +150,7 @@ export default function TodayGantt({
       setView((v) => {
         const newStart = Math.max(dayRange.start, v.start - dt);
         const newEnd = Math.min(dayRange.end, v.end - dt);
-        return newEnd - newStart < span ? v : { start: newStart, end: newEnd };
+        return newEnd - newStart < span ? v : { ...v, start: newStart, end: newEnd };
       });
       startX = moveEvent.clientX;
     };
