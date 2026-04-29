@@ -24,8 +24,6 @@ function packLanes(items) {
   return { placed, laneCount: Math.max(1, lanes.length) };
 }
 
-function fmtDate(ts) { return new Date(ts).toLocaleDateString(); }
-
 function shortCwd(cwd) {
   if (!cwd) return '(no cwd)';
   const parts = cwd.replace(/\\/g, '/').split('/').filter(Boolean);
@@ -60,12 +58,12 @@ function HourTicks({ viewStart, viewEnd, width }) {
   );
 }
 
-export default function TodayGantt({
+export default function GanttChart({
   dayRange, sessions, onSelect, selectedId, onShiftDay, onResetToday, dayAnchor
 }) {
   const containerRef = useRef(null);
   const [width, setWidth] = useState(1200);
-  const [view, setView] = useLocalStorage('todayGantt.view', { dayAnchor, start: dayRange.start, end: dayRange.end });
+  const [view, setView] = useLocalStorage('ganttChart.view', { dayAnchor, start: dayRange.start, end: dayRange.end });
 
   useEffect(() => {
     if (view.dayAnchor !== dayAnchor) setView({ dayAnchor, start: dayRange.start, end: dayRange.end });
@@ -80,7 +78,7 @@ export default function TodayGantt({
     return () => ro.disconnect();
   }, []);
 
-  const { groups, totalHeight, dayCost } = useMemo(() => {
+  const { groups, totalHeight } = useMemo(() => {
     const byKey = new Map();
     for (const s of sessions) {
       const item = {
@@ -119,8 +117,7 @@ export default function TodayGantt({
       g.height = Math.max(barsHeight, labelHeight);
       y += g.height + GROUP_GAP;
     }
-    const dayCost = arr.reduce((sum, g) => sum + g.cost, 0);
-    return { groups: arr, totalHeight: Math.max(HEADER_HEIGHT + LANE_HEIGHT + 12, y + 4), dayCost };
+    return { groups: arr, totalHeight: Math.max(HEADER_HEIGHT + LANE_HEIGHT + 12, y + 4) };
   }, [sessions]);
 
   const chartWidth = Math.max(100, width - GUTTER_WIDTH);
@@ -178,25 +175,14 @@ export default function TodayGantt({
 
   const now = Date.now();
   const showNow = now >= view.start && now <= view.end;
-  const isToday = new Date(dayAnchor).setHours(0,0,0,0) === new Date().setHours(0,0,0,0);
 
   return (
     <div className="gantt-wrap">
       <div className="gantt-toolbar">
-        <div className="gantt-title">
-          <span className="title-strong">{isToday ? 'Today' : fmtDate(dayAnchor)}</span>
-          <span className="title-faint">{fmtDate(dayAnchor)}</span>
-        </div>
         <div className="gantt-controls">
           <button onClick={() => onShiftDay(-1)}>← Prev</button>
           <button onClick={onResetToday}>Today</button>
           <button onClick={() => onShiftDay(1)}>Next →</button>
-        </div>
-      </div>
-      <div className="gantt-legend-meta">
-        <div className="gantt-meta">
-          <span>{sessions.length} sessions · {groups.length} workdirs · {fmtUSD(dayCost)}</span>
-          <span className="gantt-hint">shift/ctrl+scroll to zoom, drag to pan</span>
         </div>
         <div className="gantt-legend">
           {['scheduled','cli','desktop','sdk','other'].map((k) => (

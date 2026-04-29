@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useState, useCallback } from 'react';
 import { Group, Panel, Separator, useDefaultLayout } from 'react-resizable-panels';
-import TodayGantt from './components/TodayGantt.jsx';
+import GanttChart from './components/GanttChart.jsx';
+import DailySummary from './components/DailySummary.jsx';
 import SessionList from './components/SessionList.jsx';
 import SessionDetail from './components/SessionDetail.jsx';
 import { startOfDay, endOfDay, format } from 'date-fns';
@@ -60,7 +61,7 @@ export default function App() {
       onLayoutChanged={onRootLayoutChanged}
     >
       <Panel id="gantt" defaultSize={400} minSize={180} className="gantt-pane">
-        <TodayGantt
+        <GanttChart
           dayRange={dayRange}
           sessions={dayItems.past}
           onSelect={setSelectedId}
@@ -69,6 +70,7 @@ export default function App() {
           onResetToday={() => setDayAnchor(+startOfDay(Date.now()))}
           dayAnchor={dayAnchor}
         />
+        <DailySummary sessions={dayItems.past} dayAnchor={dayAnchor} />
       </Panel>
       <Separator className="resize-handle resize-handle-h" />
       <Panel id="body" minSize={20} className="body-outer">
