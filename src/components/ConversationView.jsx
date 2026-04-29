@@ -6,12 +6,16 @@ import rehypeHighlight from 'rehype-highlight';
 
 function flatten(items) {
   const turns = [];
+  const results = {};
   for (const it of items) {
     if (it.type !== 'user' && it.type !== 'assistant') continue;
     if (it.isMeta) continue;
     const msg = it.message || {};
     const blocks = normalizeContent(msg.content);
     if (blocks.length === 0) continue;
+    for (const b of blocks) {
+      if (b.type === 'tool_result' && b.tool_use_id) results[b.tool_use_id] = b;
+    }
     turns.push({
       uuid: it.uuid,
       role: it.type,
@@ -21,7 +25,12 @@ function flatten(items) {
       blocks
     });
   }
-  return turns;
+  for (const t of turns) {
+    t.blocks = t.blocks
+      .map((b) => (b.type === 'tool_use' ? { ...b, result: results[b.id] } : b))
+      .filter((b) => !(b.type === 'tool_result' && results[b.tool_use_id]));
+  }
+  return turns.filter((t) => t.blocks.length > 0);
 }
 
 function metaText(t) {
@@ -151,6 +160,7 @@ function Block({ block }) {
     return (
       <Collapsible title={`→ ${block.name}`}>
         <pre>{safeJson(block.input)}</pre>
+        {block.result && <Block block={block.result} />}
       </Collapsible>
     );
   }
@@ -161,9 +171,10 @@ function Block({ block }) {
     else if (Array.isArray(c)) text = c.map((x) => (x.type === 'text' ? x.text : JSON.stringify(x))).join('\n');
     else text = safeJson(c);
     return (
-      <Collapsible title={block.is_error ? '← error' : '← result'} className={block.is_error ? 'error' : ''}>
+      <div className={`tool-result ${block.is_error ? 'error' : ''}`}>
+        <div className="tool-result-label">{block.is_error ? 'error:' : 'result:'}</div>
         <pre>{text}</pre>
-      </Collapsible>
+      </div>
     );
   }
   if (block.type === 'image') {
@@ -173,7 +184,7 @@ function Block({ block }) {
 }
 
 function Collapsible({ title, children, className }) {
-  const [open, setOpen] = useState(false);
+  const [open, setOpen] = useState(true);
   return (
     <div className={`aux ${className || ''}`}>
       <button className="aux-toggle" onClick={() => setOpen((v) => !v)}>
