@@ -148,7 +148,7 @@ function Block({ block }) {
     return (
       <div className="block-text markdown">
         <ReactMarkdown remarkPlugins={[remarkGfm]} rehypePlugins={[rehypeHighlight]}>
-          {block.text}
+          {fenceJsonBlocks(block.text)}
         </ReactMarkdown>
       </div>
     );
@@ -211,4 +211,17 @@ function JsonBlock({ value }) {
 
 function safeJson(x) {
   try { return JSON.stringify(x, null, 2); } catch { return String(x); }
+}
+
+function fenceJsonBlocks(text) {
+  if (typeof text !== 'string') return text;
+  return text.replace(/(^|\n)([{[][\s\S]*[}\]])(?=\n|$)/g, (m, sep, body) => {
+    try {
+      const parsed = JSON.parse(body);
+      if (parsed && typeof parsed === 'object') {
+        return sep + '```json\n' + JSON.stringify(parsed, null, 2) + '\n```';
+      }
+    } catch {}
+    return m;
+  });
 }
