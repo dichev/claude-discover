@@ -31,7 +31,7 @@ export default function SessionDetail({ meta }) {
     }
     let cancelled = false;
     const fromOffset = offsetRef.current;
-    window.discover.readSession(sessionId, fromOffset).then((res) => {
+    window.api.readSession(sessionId, fromOffset).then((res) => {
       if (cancelled || !res) return;
       offsetRef.current = res.nextOffset;
       setItems((prev) => fromOffset === 0 ? res.items : prev.concat(res.items));

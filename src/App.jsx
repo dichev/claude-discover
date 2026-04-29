@@ -10,15 +10,15 @@ export default function App() {
   const [dayAnchor, setDayAnchor] = useState(() => +startOfDay(Date.now()));
   const [selectedId, setSelectedId] = useState(null);
   const [filter, setFilter] = useState('');
-  const { defaultLayout, onLayoutChanged } = useDefaultLayout({ id: 'discover.body', panelIds: ['list', 'detail'], storage: localStorage });
-  const { defaultLayout: rootLayout, onLayoutChanged: onRootLayoutChanged } = useDefaultLayout({ id: 'discover.root', panelIds: ['gantt', 'body'], storage: localStorage });
+  const { defaultLayout, onLayoutChanged } = useDefaultLayout({ id: 'agenticWorkflow.body', panelIds: ['list', 'detail'], storage: localStorage });
+  const { defaultLayout: rootLayout, onLayoutChanged: onRootLayoutChanged } = useDefaultLayout({ id: 'agenticWorkflow.root', panelIds: ['gantt', 'body'], storage: localStorage });
 
   useEffect(() => {
     let off;
     (async () => {
-      const initial = await window.discover.listSessions();
+      const initial = await window.api.listSessions();
       setSessions(initial || []);
-      off = window.discover.onSessionsUpdate((s) => setSessions(s || []));
+      off = window.api.onSessionsUpdate((s) => setSessions(s || []));
     })();
     return () => { if (off) off(); };
   }, []);

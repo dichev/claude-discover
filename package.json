@@ -1,9 +1,9 @@
 {
-  "name": "discover",
+  "name": "agentic-workflow",
   "private": true,
   "version": "0.1.0",
   "type": "module",
-  "description": "Discover tab — read-only browser for local Claude Code sessions",
+  "description": "Agentic Workflow — read-only browser for local Claude Code sessions",
   "main": "out/main/main.js",
   "scripts": {
     "dev": "electron-vite dev",

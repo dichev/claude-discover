@@ -10,7 +10,7 @@ const DEV_URL = process.env.ELECTRON_RENDERER_URL;
 let mainWindow;
 let sessionsService;
 
-if (!app.isPackaged) {
+if (!app.isPackaged && process.env.ELECTRON_RENDERER_URL) {
   app.commandLine.appendSwitch('remote-debugging-port', '9333')
 }
 
@@ -24,6 +24,7 @@ function createWindow() {
     width: state.width,
     height: state.height,
     backgroundColor: '#0b0d12',
+    autoHideMenuBar: true,
     webPreferences: {
       preload: path.join(__dirname, '../preload/preload.mjs'),
       contextIsolation: true,

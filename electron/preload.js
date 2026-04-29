@@ -1,6 +1,6 @@
 import { contextBridge, ipcRenderer } from 'electron';
 
-contextBridge.exposeInMainWorld('discover', {
+contextBridge.exposeInMainWorld('api', {
   listSessions: () => ipcRenderer.invoke('sessions:list'),
   readSession: (id, offset = 0) => ipcRenderer.invoke('sessions:read', id, offset),
   onSessionsUpdate: (cb) => {
