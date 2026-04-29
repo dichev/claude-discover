@@ -3,7 +3,7 @@ import { Group, Panel, Separator, useDefaultLayout } from 'react-resizable-panel
 import TodayGantt from './components/TodayGantt.jsx';
 import SessionList from './components/SessionList.jsx';
 import SessionDetail from './components/SessionDetail.jsx';
-import { startOfDay, endOfDay } from 'date-fns';
+import { startOfDay, endOfDay, format } from 'date-fns';
 
 export default function App() {
   const [sessions, setSessions] = useState([]);
@@ -13,27 +13,23 @@ export default function App() {
   const { defaultLayout, onLayoutChanged } = useDefaultLayout({ id: 'agenticWorkflow.body', panelIds: ['list', 'detail'], storage: localStorage });
   const { defaultLayout: rootLayout, onLayoutChanged: onRootLayoutChanged } = useDefaultLayout({ id: 'agenticWorkflow.root', panelIds: ['gantt', 'body'], storage: localStorage });
 
-  useEffect(() => {
-    let off;
-    (async () => {
-      const initial = await window.api.listSessions();
-      setSessions(initial || []);
-      off = window.api.onSessionsUpdate((s) => setSessions(s || []));
-    })();
-    return () => { if (off) off(); };
-  }, []);
-
   const dayRange = useMemo(() => {
     const start = dayAnchor;
     const end = +endOfDay(dayAnchor);
     return { start, end };
   }, [dayAnchor]);
 
-  const dayItems = useMemo(() => {
-    const { start, end } = dayRange;
-    const past = sessions.filter((s) => s.lastActivityAt >= start && s.startedAt <= end);
-    return { past };
-  }, [sessions, dayRange]);
+  useEffect(() => {
+    let cancelled = false;
+    window.api.listSessions(format(dayAnchor, 'yyyy-MM-dd'))
+      .then((s) => {
+        if (!cancelled) setSessions(s || []);
+      });
+    const off = window.api.onSessionsUpdate((s) => { if (!cancelled) setSessions(s || []); });
+    return () => { cancelled = true; off(); };
+  }, [dayAnchor]);
+
+  const dayItems = useMemo(() => ({ past: sessions }), [sessions]);
 
   const filteredSessions = useMemo(() => {
     const q = filter.trim().toLowerCase();

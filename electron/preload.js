@@ -1,7 +1,7 @@
 import { contextBridge, ipcRenderer } from 'electron';
 
 contextBridge.exposeInMainWorld('api', {
-  listSessions: () => ipcRenderer.invoke('sessions:list'),
+  listSessions: (date) => ipcRenderer.invoke('sessions:list', date),
   readSession: (id, offset = 0) => ipcRenderer.invoke('sessions:read', id, offset),
   onSessionsUpdate: (cb) => {
     const listener = (_e, sessions) => cb(sessions);

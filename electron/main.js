@@ -52,7 +52,7 @@ app.whenReady().then(() => {
   });
   sessionsService.start();
 
-  ipcMain.handle('sessions:list', () => sessionsService.snapshot());
+  ipcMain.handle('sessions:list', (_e, date) => sessionsService.list(date));
   ipcMain.handle('sessions:read', async (_e, sessionId, offset) => sessionsService.readSession(sessionId, offset));
 
   createWindow();

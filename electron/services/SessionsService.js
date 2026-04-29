@@ -2,9 +2,21 @@ import fsp from 'node:fs/promises';
 import path from 'node:path';
 import os from 'node:os';
 import chokidar from 'chokidar';
+import { startOfDay, endOfDay, parseISO } from 'date-fns';
 import { SessionReader } from './SessionReader.js';
 
 const PROJECTS_ROOT = path.join(os.homedir(), '.claude', 'projects');
+
+function dayBounds(date) {
+  const d = parseISO(date);
+  return { start: +startOfDay(d), end: +endOfDay(d) };
+}
+
+function filterDay(cache, start, end) {
+  return Array.from(cache.values())
+    .filter((m) => m.lastActivityAt >= start && m.startedAt <= end)
+    .sort((a, b) => b.lastActivityAt - a.lastActivityAt);
+}
 
 export class SessionsService {
   constructor({ root = PROJECTS_ROOT, onUpdate = () => {}, debounceMs = 200 } = {}) {
@@ -12,12 +24,9 @@ export class SessionsService {
     this.onUpdate = onUpdate;
     this.debounceMs = debounceMs;
     this.cache = new Map(); // filePath -> meta
+    this.activeDay = null; // { start, end }
     this.updateTimer = null;
     this.watcher = null;
-  }
-
-  snapshot() {
-    return Array.from(this.cache.values()).sort((a, b) => b.lastActivityAt - a.lastActivityAt);
   }
 
   async readSession(sessionId, offset = 0) {
@@ -30,9 +39,14 @@ export class SessionsService {
     return { meta, items, nextOffset };
   }
 
+  async list(date) {
+    const { start, end } = dayBounds(date);
+    this.activeDay = { start, end };
+    await this._scanDay(start);
+    return filterDay(this.cache,start, end);
+  }
+
   async start() {
-    await this._initialScan();
-    this._scheduleUpdate();
     this._startWatcher();
     return this;
   }
@@ -52,7 +66,10 @@ export class SessionsService {
     const meta = await new SessionReader(filePath).scanMetadata(this.cache.get(filePath));
     if (meta) {
       this.cache.set(filePath, meta);
-      this._scheduleUpdate();
+      const day = this.activeDay;
+      if (day && meta.lastActivityAt >= day.start && meta.startedAt <= day.end) {
+        this._scheduleUpdate();
+      }
     }
   }
 
@@ -60,24 +77,34 @@ export class SessionsService {
     if (this.updateTimer) return;
     this.updateTimer = setTimeout(() => {
       this.updateTimer = null;
-      this.onUpdate(this.snapshot());
+      const day = this.activeDay;
+      if (!day) return;
+      this.onUpdate(filterDay(this.cache,day.start, day.end));
     }, this.debounceMs);
   }
 
-  async _initialScan() {
+  async _scanDay(dayStart) {
+    let entries;
     try {
-      const projects = await fsp.readdir(this.root, { withFileTypes: true });
-      for (const dirent of projects) {
-        if (!dirent.isDirectory()) continue;
-        const dir = path.join(this.root, dirent.name);
-        const files = await fsp.readdir(dir);
-        await Promise.all(
-          files.filter((f) => f.endsWith('.jsonl')).map((f) => this._refresh(path.join(dir, f)))
-        );
-      }
+      entries = await fsp.readdir(this.root, { recursive: true, withFileTypes: true });
     } catch (err) {
-      console.error('initial scan failed', err);
+      console.error('day scan failed', err);
+      return;
     }
+    await Promise.all(
+      entries
+        .filter((e) => e.isFile() && e.name.endsWith('.jsonl'))
+        .map(async (e) => {
+          const filePath = path.join(e.parentPath, e.name);
+          let stat;
+          try { stat = await fsp.stat(filePath); } catch { return; }
+          if (stat.mtimeMs < dayStart) return;
+          const cached = this.cache.get(filePath);
+          if (cached && cached.fileSize === stat.size && cached.mtime === stat.mtimeMs) return;
+          const meta = await new SessionReader(filePath).scanMetadata(cached);
+          if (meta) this.cache.set(filePath, meta);
+        })
+    );
   }
 
   _startWatcher() {
