@@ -1,15 +1,21 @@
-import React from 'react';
+import React, { useEffect, useRef } from 'react';
 import { SOURCE_COLORS, SOURCE_LABELS } from '../utils/colors.js';
 import { format } from 'date-fns';
 import { fmtCompact } from '../utils/formatting.js';
 
 export default function SessionList({ sessions, selectedId, onSelect, filter, onFilterChange }) {
+  const selectedRef = useRef(null);
+
+  useEffect(() => {
+    selectedRef.current?.scrollIntoView({ block: 'nearest' });
+  }, [selectedId]);
+
   return (
     <div className="session-list">
       <div className="session-list-header">
         <input
           className="filter"
-          placeholder="Filter by cwd, prompt, summary, id, model…"
+          placeholder="Filter sessions…"
           value={filter}
           onChange={(e) => onFilterChange(e.target.value)}
         />
@@ -25,27 +31,25 @@ export default function SessionList({ sessions, selectedId, onSelect, filter, on
           return (
             <div
               key={s.sessionId}
+              ref={selectedId === s.sessionId ? selectedRef : null}
               className={`session-row ${selectedId === s.sessionId ? 'selected' : ''}`}
               onClick={() => onSelect(s.sessionId)}
               style={{ borderLeftColor: SOURCE_COLORS[s.source] || SOURCE_COLORS.other }}
               title={s.cwd || ''}
             >
               <div className="session-row-top">
-                <span className="source-tag" style={{ color: SOURCE_COLORS[s.source] }}>
-                  {SOURCE_LABELS[s.source] || s.source}
-                </span>
+                {(s.cwd || s.model) && (
+                  <div className="session-row-meta">
+                    {s.cwd && <span className="cwd" title={s.cwd}>{shortCwd(s.cwd)}</span>}
+                    {/*{s.model && <span className="model-tag">{s.model}</span>}*/}
+                  </div>
+                )}
                 <span className="session-time">
-                  <span className="session-time-meta">{s.messageCount} msgs · {fmtCompact(totalTokens)} tok · </span>
+                  {/*<span className="session-time-meta">{s.messageCount} msgs · {fmtCompact(totalTokens)} tok · </span>*/}
                   {format(s.lastActivityAt, 'HH:mm:ss')}
                 </span>
               </div>
               <div className="session-label">{label}</div>
-              {(s.cwd || s.model) && (
-                <div className="session-row-meta">
-                  {s.cwd && <span className="cwd" title={s.cwd}>{shortCwd(s.cwd)}</span>}
-                  {s.model && <span className="model-tag">{s.model}</span>}
-                </div>
-              )}
             </div>
           );
         })}

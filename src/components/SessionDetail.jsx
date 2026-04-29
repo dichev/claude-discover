@@ -1,7 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { format } from 'date-fns';
 import { fmtDuration, fmtBytes, fmtNum } from '../utils/formatting.js';
-import { SOURCE_COLORS, SOURCE_LABELS } from '../utils/colors.js';
 import ConversationView from './ConversationView.jsx';
 
 export default function SessionDetail({ meta }) {
@@ -49,12 +48,6 @@ export default function SessionDetail({ meta }) {
 
   return (
     <div className="session-detail">
-      <div className="detail-header">
-        <span className="source-pill" style={{ background: SOURCE_COLORS[meta.source] }}>
-          {SOURCE_LABELS[meta.source] || meta.source}
-        </span>
-        <span className="detail-title">{meta.summary || meta.firstUserPrompt || meta.sessionId}</span>
-      </div>
       <div className="detail-body">
         <div className="detail-conversation">
           {loading && <div className="empty">Loading conversation…</div>}

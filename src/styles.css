@@ -180,7 +180,7 @@ button:hover { background: var(--border); }
   display: flex; justify-content: space-between; align-items: center;
   font-size: 11px;
 }
-.source-tag { font-weight: 600; text-transform: uppercase; letter-spacing: 0.4px; }
+.source-tag { font-weight: 600; letter-spacing: 0.4px; }
 .session-time { color: var(--text-faint); font-family: ui-monospace, Menlo, monospace; }
 .session-time-meta { color: var(--text-faint); }
 .session-label {
@@ -190,10 +190,6 @@ button:hover { background: var(--border); }
   -webkit-line-clamp: 2;
   -webkit-box-orient: vertical;
   overflow: hidden;
-}
-.session-row-meta {
-  display: flex; gap: 10px;
-  color: var(--text-faint); font-size: 11px;
 }
 .cwd { font-family: ui-monospace, Menlo, monospace; color: var(--text-dim); }
 .model-tag { font-family: ui-monospace, Menlo, monospace; color: var(--text-faint); margin-left: auto; }
@@ -209,20 +205,6 @@ button:hover { background: var(--border); }
 .session-detail.empty {
   align-items: center; justify-content: center;
   color: var(--text-faint);
-}
-.detail-header {
-  padding: 12px 16px;
-  display: flex; gap: 10px; align-items: center;
-  border-bottom: 1px solid var(--border);
-  background: var(--bg-elev);
-}
-.source-pill {
-  padding: 3px 8px; border-radius: 4px;
-  color: #0b0d12; font-weight: 600; font-size: 11px; text-transform: uppercase;
-}
-.detail-title {
-  font-weight: 500;
-  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
 }
 .detail-body {
   flex: 1;

@@ -3,7 +3,6 @@ import { format } from 'date-fns';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import rehypeHighlight from 'rehype-highlight';
-import { fmtNum } from '../utils/formatting.js';
 
 function flatten(items) {
   const turns = [];
@@ -26,16 +25,7 @@ function flatten(items) {
 }
 
 function metaText(t) {
-  const parts = [];
-  if (t.model) parts.push(t.model);
-  if (t.ts) parts.push(format(t.ts, 'HH:mm:ss'));
-  if (t.usage) {
-    const u = t.usage;
-    parts.push(
-      `in ${fmtNum(u.input_tokens || 0)} · out ${fmtNum(u.output_tokens || 0)} · cache r ${fmtNum(u.cache_read_input_tokens || 0)} · cache c ${fmtNum(u.cache_creation_input_tokens || 0)}`
-    );
-  }
-  return parts.join(' · ');
+  return t.ts ? format(t.ts, 'HH:mm:ss') : '';
 }
 
 function normalizeContent(content) {
