@@ -229,6 +229,22 @@ button:hover { background: var(--border); }
   background: var(--bg);
   overflow-y: auto;
 }
+.detail-section {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding-bottom: 10px;
+  border-bottom: 1px solid var(--border);
+}
+.detail-section:last-child { border-bottom: none; }
+.detail-section-title {
+  color: var(--text);
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.6px;
+  opacity: 0.85;
+}
 .field.full { word-break: break-all; }
 .field-label { color: var(--text-faint); font-size: 11px; text-transform: uppercase; letter-spacing: 0.5px; }
 .field-value { color: var(--text); font-size: 12px; word-break: break-word; }

@@ -24,8 +24,8 @@ export class SessionsService {
     this.root = root;
     this.onUpdate = onUpdate;
     this.debounceMs = debounceMs;
-    this.cache = new Map(); // filePath -> meta
-    this.activeDay = null; // { start, end }
+    this.cache = new Map(); // filePath -> meta (scoped to activeDay)
+    this.activeDay = null; // { start, end, date }
     this.updateTimer = null;
     this.watcher = null;
   }
@@ -43,8 +43,9 @@ export class SessionsService {
 
   async list(date) {
     const { start, end } = dayBounds(date);
-    this.activeDay = { start, end };
-    await this._scanDay(start);
+    if (this.activeDay?.date !== date) this.cache.clear();
+    this.activeDay = { start, end, date };
+    await this._scanDay(this.activeDay);
     const names = await loadSessionNames();
     return filterDay(this.cache, start, end, names);
   }
@@ -66,11 +67,16 @@ export class SessionsService {
   }
 
   async _refresh(filePath) {
-    const meta = await new SessionReader(filePath).scanMetadata(this.cache.get(filePath));
+    const day = this.activeDay;
+    if (!day) return;
+    const cached = this.cache.get(filePath);
+    let stat;
+    try { stat = await fsp.stat(filePath); } catch { return; }
+    if (cached && cached.fileSize === stat.size && cached.mtime === stat.mtimeMs) return;
+    const meta = await new SessionReader(filePath).scanMetadata(cached, day);
     if (meta) {
       this.cache.set(filePath, meta);
-      const day = this.activeDay;
-      if (day && meta.lastActivityAt >= day.start && meta.startedAt <= day.end) {
+      if (meta.lastActivityAt >= day.start && meta.startedAt <= day.end) {
         this._scheduleUpdate();
       }
     }
@@ -87,7 +93,7 @@ export class SessionsService {
     }, this.debounceMs);
   }
 
-  async _scanDay(dayStart) {
+  async _scanDay(day) {
     let entries;
     try {
       entries = await fsp.readdir(this.root, { recursive: true, withFileTypes: true });
@@ -102,10 +108,10 @@ export class SessionsService {
           const filePath = path.join(e.parentPath, e.name);
           let stat;
           try { stat = await fsp.stat(filePath); } catch { return; }
-          if (stat.mtimeMs < dayStart) return;
+          if (stat.mtimeMs < day.start) return;
           const cached = this.cache.get(filePath);
           if (cached && cached.fileSize === stat.size && cached.mtime === stat.mtimeMs) return;
-          const meta = await new SessionReader(filePath).scanMetadata(cached);
+          const meta = await new SessionReader(filePath).scanMetadata(cached, day);
           if (meta) this.cache.set(filePath, meta);
         })
     );

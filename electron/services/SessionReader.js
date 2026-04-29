@@ -2,6 +2,7 @@ import fs from 'node:fs';
 import fsp from 'node:fs/promises';
 import path from 'node:path';
 import os from 'node:os';
+import { costUSD } from './pricing.js';
 
 const SESSIONS_ROOT = path.join(os.homedir(), '.claude', 'sessions');
 
@@ -34,6 +35,26 @@ function extractText(content) {
 }
 
 const ACTIVITY_GAP_MS = 5 * 60 * 1000;
+
+function emptyBucket() {
+  return { input: 0, output: 0, cacheRead: 0, cacheCreation: 0, cacheCreation5m: 0, cacheCreation1h: 0 };
+}
+
+function addUsage(target, d) {
+  target.input += d.inT;
+  target.output += d.outT;
+  target.cacheRead += d.crT;
+  target.cacheCreation += d.ccT;
+  target.cacheCreation5m += d.cc5;
+  target.cacheCreation1h += d.cc1;
+}
+
+function cloneTokensByModel(byModel) {
+  const out = {};
+  if (!byModel) return out;
+  for (const k of Object.keys(byModel)) out[k] = { ...byModel[k] };
+  return out;
+}
 
 function classifySource(meta) {
   if (meta.hasScheduledTask) return 'scheduled';
@@ -87,7 +108,7 @@ export class SessionReader {
     return { items, nextOffset };
   }
 
-  async scanMetadata(prev = null) {
+  async scanMetadata(prev = null, range = null) {
     let stat;
     try {
       stat = await fsp.stat(this.filePath);
@@ -101,7 +122,9 @@ export class SessionReader {
       fileSize: stat.size,
       mtime: stat.mtimeMs,
       tokens: { ...prev.tokens },
-      activityPeriods: (prev.activityPeriods || []).map((p) => ({ ...p }))
+      tokensByModel: cloneTokensByModel(prev.tokensByModel),
+      serverToolUse: { ...prev.serverToolUse },
+      activityPeriods: prev.activityPeriods.map((p) => ({ ...p }))
     } : {
       sessionId: this.sessionId,
       filePath: this.filePath,
@@ -114,11 +137,15 @@ export class SessionReader {
       gitBranch: null,
       version: null,
       model: null,
+      models: [],
+      serviceTier: null,
       summary: null,
       aiTitle: null,
       firstUserPrompt: null,
       messageCount: 0,
-      tokens: { input: 0, output: 0, cacheRead: 0, cacheCreation: 0 },
+      tokens: emptyBucket(),
+      tokensByModel: {},
+      serverToolUse: { webSearch: 0, webFetch: 0 },
       hasScheduledTask: false,
       activityPeriods: []
     };
@@ -135,16 +162,20 @@ export class SessionReader {
       }
       let ts = null;
       if (obj.timestamp) {
-        ts = Date.parse(obj.timestamp);
-        if (!Number.isNaN(ts)) {
-          if (meta.startedAt == null || ts < meta.startedAt) meta.startedAt = ts;
-          if (ts > meta.lastActivityAt) meta.lastActivityAt = ts;
-        }
+        const parsed = Date.parse(obj.timestamp);
+        if (!Number.isNaN(parsed)) ts = parsed;
       }
       if (obj.cwd && !meta.cwd) meta.cwd = obj.cwd;
       if (obj.gitBranch && !meta.gitBranch) meta.gitBranch = obj.gitBranch;
       if (obj.entrypoint && !meta.entrypoint) meta.entrypoint = obj.entrypoint;
       if (obj.version && !meta.version) meta.version = obj.version;
+
+      if (range && (ts == null || ts < range.start || ts > range.end)) return;
+
+      if (ts != null) {
+        if (meta.startedAt == null || ts < meta.startedAt) meta.startedAt = ts;
+        if (ts > meta.lastActivityAt) meta.lastActivityAt = ts;
+      }
 
       if (t === 'user' || t === 'assistant') {
         meta.messageCount += 1;
@@ -165,13 +196,29 @@ export class SessionReader {
           }
         }
         if (t === 'assistant') {
-          if (obj.message && obj.message.model && !meta.model) meta.model = obj.message.model;
+          const model = obj.message && obj.message.model;
+          if (model) {
+            if (!meta.model) meta.model = model;
+            if (!meta.models.includes(model)) meta.models.push(model);
+          }
           const u = obj.message && obj.message.usage;
           if (u) {
-            meta.tokens.input += u.input_tokens || 0;
-            meta.tokens.output += u.output_tokens || 0;
-            meta.tokens.cacheRead += u.cache_read_input_tokens || 0;
-            meta.tokens.cacheCreation += u.cache_creation_input_tokens || 0;
+            const d = {
+              inT: u.input_tokens || 0,
+              outT: u.output_tokens || 0,
+              crT: u.cache_read_input_tokens || 0,
+              ccT: u.cache_creation_input_tokens || 0,
+              cc5: (u.cache_creation && u.cache_creation.ephemeral_5m_input_tokens) || 0,
+              cc1: (u.cache_creation && u.cache_creation.ephemeral_1h_input_tokens) || 0,
+            };
+            addUsage(meta.tokens, d);
+            if (u.service_tier) meta.serviceTier = u.service_tier;
+            if (u.server_tool_use) {
+              meta.serverToolUse.webSearch += u.server_tool_use.web_search_requests || 0;
+              meta.serverToolUse.webFetch += u.server_tool_use.web_fetch_requests || 0;
+            }
+            const mkey = model || 'unknown';
+            addUsage(meta.tokensByModel[mkey] || (meta.tokensByModel[mkey] = emptyBucket()), d);
           }
         }
       }
@@ -183,6 +230,11 @@ export class SessionReader {
     if (meta.startedAt == null) meta.startedAt = stat.mtimeMs;
     if (meta.lastActivityAt == null) meta.lastActivityAt = stat.mtimeMs;
     meta.source = classifySource(meta);
+    const t = meta.tokens;
+    meta.totalTokens = t.input + t.output + t.cacheRead + t.cacheCreation;
+    const cacheDenom = t.cacheRead + t.cacheCreation;
+    meta.cacheHitRatio = cacheDenom > 0 ? t.cacheRead / cacheDenom : null;
+    meta.cost = costUSD(meta.tokensByModel);
     return meta;
   }
 }

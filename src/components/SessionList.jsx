@@ -26,7 +26,7 @@ export default function SessionList({ sessions, selectedId, onSelect, filter, on
           <div className="empty">No sessions on this day.</div>
         )}
         {sessions.map((s) => {
-          const totalTokens = s.tokens.input + s.tokens.output + s.tokens.cacheRead + s.tokens.cacheCreation;
+          const totalTokens = s.totalTokens;
           const fallback = s.aiTitle || s.summary || s.firstUserPrompt || s.sessionId;
           const label = s.name || fallback;
           const subLabel = s.name && fallback !== s.name ? fallback : null;

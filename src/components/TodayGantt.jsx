@@ -1,12 +1,13 @@
 import React, { useEffect, useMemo, useRef, useState, useCallback } from 'react';
 import { SOURCE_COLORS, SOURCE_LABELS } from '../utils/colors.js';
 import { useLocalStorage } from '../utils/useLocalStorage.js';
+import { fmtUSD, fmtCompact } from '../utils/formatting.js';
 
 const LANE_HEIGHT = 22;
 const LANE_GAP = 4;
 const HEADER_HEIGHT = 28;
 const MIN_BAR_PX = 4;
-const GUTTER_WIDTH = 160;
+const GUTTER_WIDTH = 220;
 const GROUP_GAP = 8;
 
 function packLanes(items) {
@@ -79,7 +80,7 @@ export default function TodayGantt({
     return () => ro.disconnect();
   }, []);
 
-  const { groups, totalHeight } = useMemo(() => {
+  const { groups, totalHeight, dayCost } = useMemo(() => {
     const byKey = new Map();
     for (const s of sessions) {
       const item = {
@@ -89,6 +90,10 @@ export default function TodayGantt({
         end: Math.max(s.lastActivityAt, s.startedAt + 60_000),
         source: s.source,
         activityPeriods: s.activityPeriods,
+        cost: s.cost || 0,
+        totalTokens: s.totalTokens || 0,
+        cacheRead: s.tokens.cacheRead,
+        cacheCreation: s.tokens.cacheCreation,
       };
       const key = s.cwd || '(no cwd)';
       if (!byKey.has(key)) byKey.set(key, []);
@@ -97,16 +102,25 @@ export default function TodayGantt({
     const arr = [...byKey.entries()].map(([key, list]) => {
       const { placed, laneCount } = packLanes(list);
       const activity = list.reduce((sum, i) => sum + (i.end - i.start), 0);
-      return { key, placed, laneCount, activity };
+      const cost = list.reduce((sum, i) => sum + i.cost, 0);
+      const totalTokens = list.reduce((sum, i) => sum + i.totalTokens, 0);
+      const cacheRead = list.reduce((sum, i) => sum + i.cacheRead, 0);
+      const cacheCreation = list.reduce((sum, i) => sum + i.cacheCreation, 0);
+      const cacheDenom = cacheRead + cacheCreation;
+      const cacheHitRatio = cacheDenom > 0 ? cacheRead / cacheDenom : null;
+      return { key, placed, laneCount, activity, cost, totalTokens, cacheHitRatio };
     });
     arr.sort((a, b) => b.activity - a.activity);
     let y = HEADER_HEIGHT;
     for (const g of arr) {
       g.yOffset = y;
-      g.height = g.laneCount * (LANE_HEIGHT + LANE_GAP);
+      const barsHeight = g.laneCount * (LANE_HEIGHT + LANE_GAP);
+      const labelHeight = g.cost > 0 ? 30 : 0;
+      g.height = Math.max(barsHeight, labelHeight);
       y += g.height + GROUP_GAP;
     }
-    return { groups: arr, totalHeight: Math.max(HEADER_HEIGHT + LANE_HEIGHT + 12, y + 4) };
+    const dayCost = arr.reduce((sum, g) => sum + g.cost, 0);
+    return { groups: arr, totalHeight: Math.max(HEADER_HEIGHT + LANE_HEIGHT + 12, y + 4), dayCost };
   }, [sessions]);
 
   const chartWidth = Math.max(100, width - GUTTER_WIDTH);
@@ -181,7 +195,7 @@ export default function TodayGantt({
       </div>
       <div className="gantt-legend-meta">
         <div className="gantt-meta">
-          <span>{sessions.length} sessions · {groups.length} workdirs</span>
+          <span>{sessions.length} sessions · {groups.length} workdirs · {fmtUSD(dayCost)}</span>
           <span className="gantt-hint">shift/ctrl+scroll to zoom, drag to pan</span>
         </div>
         <div className="gantt-legend">
@@ -215,6 +229,17 @@ export default function TodayGantt({
                 <title>{g.key}</title>
                 {shortCwd(g.key)}
               </text>
+              {g.cost > 0 && (
+                <text x={8} y={g.yOffset + 30}
+                      fill="#a5b1c5" fontSize="11"
+                      fontFamily="ui-monospace,Menlo,monospace">
+                  {[
+                    fmtUSD(g.cost),
+                    g.totalTokens > 0 ? `${fmtCompact(g.totalTokens)} tok` : null,
+                    g.cacheHitRatio != null ? `${Math.round(g.cacheHitRatio * 100)}% hit` : null,
+                  ].filter(Boolean).join(' · ')}
+                </text>
+              )}
               {g.placed.map(({ item, lane }) => {
                 const y = g.yOffset + lane * (LANE_HEIGHT + LANE_GAP);
                 const color = SOURCE_COLORS[item.source] || SOURCE_COLORS.other;

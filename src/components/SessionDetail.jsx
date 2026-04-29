@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { format } from 'date-fns';
-import { fmtDuration, fmtBytes, fmtNum } from '../utils/formatting.js';
+import { fmtDuration, fmtBytes, fmtNum, fmtUSD } from '../utils/formatting.js';
 import ConversationView from './ConversationView.jsx';
 
 export default function SessionDetail({ meta, date }) {
@@ -44,8 +44,17 @@ export default function SessionDetail({ meta, date }) {
     return <div className="session-detail empty"><div>Select a session to inspect.</div></div>;
   }
 
-  const totalTokens = meta.tokens.input + meta.tokens.output + meta.tokens.cacheRead + meta.tokens.cacheCreation;
-  const duration = meta.lastActivityAt - meta.startedAt;
+  const t = meta.tokens;
+  const totalTokens = meta.totalTokens;
+  const wallDuration = meta.lastActivityAt - meta.startedAt;
+  const activeDuration = meta.activityPeriods
+    .reduce((sum, p) => sum + Math.max(0, p.end - p.start), 0);
+  const cost = meta.cost;
+  const cacheHitRatio = meta.cacheHitRatio;
+  const stu = meta.serverToolUse;
+  const hasServerTools = stu.webSearch > 0 || stu.webFetch > 0;
+  const modelLabel = meta.models.join(', ') || '—';
+  const tokensSectionTitle = date ? `Tokens & Cost (${date})` : 'Tokens & Cost';
 
   return (
     <div className="session-detail">
@@ -55,24 +64,69 @@ export default function SessionDetail({ meta, date }) {
           {items && <ConversationView items={items} />}
         </div>
         <div className="detail-meta">
-          <Field label="Session ID" value={meta.sessionId} mono />
-          <Field label="cwd" value={meta.cwd || '—'} mono />
-          <Field label="Git branch" value={meta.gitBranch || '—'} mono />
-          <Field label="Model" value={meta.model || '—'} mono />
-          <Field label="CLI version" value={meta.version || '—'} mono />
-          <Field label="Started" value={format(meta.startedAt, 'PPpp')} />
-          <Field label="Last activity" value={format(meta.lastActivityAt, 'PPpp')} />
-          <Field label="Duration" value={fmtDuration(duration)} />
-          <Field label="Messages" value={fmtNum(meta.messageCount)} />
-          <Field label="File size" value={fmtBytes(meta.fileSize)} />
-          <Field label="Tokens (total)" value={fmtNum(totalTokens)} />
-          <Field
-            label="Tokens (in/out/cache r/cache c)"
-            value={`${fmtNum(meta.tokens.input)} / ${fmtNum(meta.tokens.output)} / ${fmtNum(meta.tokens.cacheRead)} / ${fmtNum(meta.tokens.cacheCreation)}`}
-          />
-          <Field label="JSONL path" value={meta.filePath} mono full />
+          {(meta.aiTitle || meta.summary) && (
+            <Section title="Summary">
+              {meta.aiTitle && <Field label="AI title" value={meta.aiTitle} />}
+              {meta.summary && <Field label="Summary" value={meta.summary} full />}
+            </Section>
+          )}
+
+          <Section title={tokensSectionTitle}>
+            <Field label="Model" value={modelLabel} mono full />
+            {meta.serviceTier && <Field label="Service tier" value={meta.serviceTier} />}
+            <Field label="Estimated cost" value={fmtUSD(cost)} />
+            <Field label="Total tokens" value={fmtNum(totalTokens)} />
+            <Field label="Input" value={fmtNum(t.input)} />
+            <Field label="Output" value={fmtNum(t.output)} />
+            <Field label="Cache read" value={fmtNum(t.cacheRead)} />
+            <Field
+              label="Cache write (5m / 1h)"
+              value={`${fmtNum(t.cacheCreation5m || 0)} / ${fmtNum(t.cacheCreation1h || 0)}`}
+            />
+            {cacheHitRatio != null && (
+              <Field label="Cache hit ratio" value={`${(cacheHitRatio * 100).toFixed(1)}%`} />
+            )}
+            {hasServerTools && (
+              <Field
+                label="Server tools (search / fetch)"
+                value={`${fmtNum(stu.webSearch)} / ${fmtNum(stu.webFetch)}`}
+              />
+            )}
+          </Section>
+
+          <Section title="Identity">
+            <Field label="Session ID" value={meta.sessionId} mono />
+            <Field label="cwd" value={meta.cwd || '—'} mono full />
+            <Field label="Git branch" value={meta.gitBranch || '—'} mono />
+            <Field label="Source" value={meta.source || meta.entrypoint || '—'} />
+            {meta.hasScheduledTask && <Field label="Scheduled" value="yes" />}
+            <Field label="CLI version" value={meta.version || '—'} mono />
+          </Section>
+
+          <Section title="Activity">
+            <Field label="Started" value={format(meta.startedAt, 'PPpp')} />
+            <Field label="Last activity" value={format(meta.lastActivityAt, 'PPpp')} />
+            <Field label="Wall duration" value={fmtDuration(wallDuration)} />
+            <Field label="Active time" value={fmtDuration(activeDuration)} />
+            <Field label="Active periods" value={fmtNum(meta.activityPeriods.length)} />
+            <Field label="Messages" value={fmtNum(meta.messageCount)} />
+            <Field label="File size" value={fmtBytes(meta.fileSize)} />
+          </Section>
+
+          <Section title="File">
+            <Field label="JSONL path" value={meta.filePath} mono full />
+          </Section>
         </div>
       </div>
+    </div>
+  );
+}
+
+function Section({ title, children }) {
+  return (
+    <div className="detail-section">
+      <div className="detail-section-title">{title}</div>
+      {children}
     </div>
   );
 }
@@ -85,3 +139,4 @@ function Field({ label, value, mono, full }) {
     </div>
   );
 }
+
