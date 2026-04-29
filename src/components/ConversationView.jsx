@@ -166,18 +166,21 @@ function Block({ block }) {
   }
   if (block.type === 'tool_result') {
     const c = block.content;
-    let text = '';
-    if (typeof c === 'string') text = c;
-    else if (Array.isArray(c)) text = c.map((x) => (x.type === 'text' ? x.text : JSON.stringify(x))).join('\n');
-    else text = safeJson(c);
+    const parts = Array.isArray(c) ? c : [typeof c === 'string' ? { type: 'text', text: c } : c];
     return (
       <div className={`tool-result ${block.is_error ? 'error' : ''}`}>
         <div className="tool-result-label">{block.is_error ? 'error:' : 'result:'}</div>
-        <pre>{text}</pre>
+        {parts.map((p, i) => p.type === 'text'
+          ? <pre key={i}>{p.text}</pre>
+          : <Block key={i} block={p} />)}
       </div>
     );
   }
   if (block.type === 'image') {
+    const src = block.source;
+    if (src && src.type === 'base64') {
+      return <img className="block-image" src={`data:${src.media_type};base64,${src.data}`} alt="" />;
+    }
     return <div className="block-aux">[image]</div>;
   }
   return <Collapsible title={block.type || 'block'}><pre>{safeJson(block)}</pre></Collapsible>;

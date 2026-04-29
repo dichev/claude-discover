@@ -287,6 +287,7 @@ button:hover { background: var(--border); }
   overflow: auto;
 }
 .tool-result.error pre { border-left-color: var(--danger); color: var(--danger); }
+.block-image { max-width: 100%; max-height: 480px; border-radius: 4px; display: block; margin: 4px 0; }
 .turn-user .block-text {
   background: var(--bg-elev-2);
   border-radius: 6px;
