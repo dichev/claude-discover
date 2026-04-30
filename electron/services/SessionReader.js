@@ -128,7 +128,8 @@ export class SessionReader {
       tokens: { ...prev.tokens },
       tokensByModel: cloneTokensByModel(prev.tokensByModel),
       serverToolUse: { ...prev.serverToolUse },
-      activityPeriods: prev.activityPeriods.map((p) => ({ ...p }))
+      activityPeriods: prev.activityPeriods.map((p) => ({ ...p })),
+      seenMessageIds: new Set(prev.seenMessageIds || [])
     } : {
       sessionId: this.sessionId,
       filePath: this.filePath,
@@ -151,7 +152,8 @@ export class SessionReader {
       tokensByModel: {},
       serverToolUse: { webSearch: 0, webFetch: 0 },
       hasScheduledTask: false,
-      activityPeriods: []
+      activityPeriods: [],
+      seenMessageIds: new Set()
     }
 
     meta.nextOffset = await this._eachLine(reuse ? prev.nextOffset : 0, (obj) => {
@@ -200,13 +202,19 @@ export class SessionReader {
           }
         }
         if (t === 'assistant') {
+          // Skip local error/limit notices (e.g. "limit reached") — not real model calls.
+          if (obj.message && obj.message.model === '<synthetic>') return
           const model = obj.message && obj.message.model
           if (model) {
             if (!meta.model) meta.model = model
             if (!meta.models.includes(model)) meta.models.push(model)
           }
+          // One reply with multiple blocks (text + tool_uses) is logged as several
+          // lines sharing the same message.id and usage — dedup so we don't multi-count.
+          const msgId = obj.message && obj.message.id
           const u = obj.message && obj.message.usage
-          if (u) {
+          if (u && msgId && !meta.seenMessageIds.has(msgId)) {
+            meta.seenMessageIds.add(msgId)
             const d = {
               inT: u.input_tokens || 0,
               outT: u.output_tokens || 0,

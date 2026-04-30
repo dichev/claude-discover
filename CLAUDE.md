@@ -11,6 +11,7 @@ Read-only Electron desktop browser for local Claude Code session transcripts.
 ## Architecture
 - Two processes. All disk I/O lives in `electron/` (main + preload); the renderer (`src/`) reaches it only through `window.discover` exposed via `contextBridge`.
 - Data source: `~/.claude/projects/**/*.jsonl` (sessions).
+- Date-scoped: the frontend picks a single date and the backend returns sessions only for that date. Neither side needs to handle multi-day ranges.
 - Electron backend uses classes; React frontend uses functional style
 - Built with **electron-vite**
 
