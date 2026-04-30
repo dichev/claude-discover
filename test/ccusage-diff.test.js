@@ -9,30 +9,36 @@ import path from 'node:path'
 import os from 'node:os'
 import { spawnSync } from 'node:child_process'
 import { SessionReader } from '../electron/services/SessionReader.js'
-import { costUSD } from '../electron/services/Pricing.js'
+import { scanSession } from '../electron/services/SessionParser.js'
+import { dedupSessions } from '../electron/services/SessionsService.js'
 
 const PROJECTS_ROOT = path.join(os.homedir(), '.claude', 'projects')
 const COST_TOL_ABS = 0.01
 const COST_TOL_REL = 0.005
 
+// Mirrors what the running app does to populate DailySummary:
+//   - scanSession for each .jsonl   (parses + per-file dedup + per-session cost)
+//   - dedupSessions across all metas (cross-session dedup of resumed/forked sessions)
+//   - sum per-session tokens + per-session cost   (DailySummary.jsx:8-20)
 async function ourTotals() {
-  const totals = { input: 0, output: 0, cacheRead: 0, cacheCreation: 0 }
-  const byModel = {}
   const entries = await fsp.readdir(PROJECTS_ROOT, { recursive: true, withFileTypes: true })
+  const metas = []
   for (const e of entries) {
     if (!e.isFile() || !e.name.endsWith('.jsonl')) continue
-    const meta = await new SessionReader(path.join(e.parentPath, e.name)).scanMetadata(null, null)
-    if (!meta) continue
-    totals.input += meta.tokens.input
-    totals.output += meta.tokens.output
-    totals.cacheRead += meta.tokens.cacheRead
-    totals.cacheCreation += meta.tokens.cacheCreation
-    for (const [m, t] of Object.entries(meta.tokensByModel)) {
-      const b = byModel[m] || (byModel[m] = { input: 0, output: 0, cacheRead: 0, cacheCreation: 0, cacheCreation5m: 0, cacheCreation1h: 0 })
-      for (const k of Object.keys(b)) b[k] += t[k]
-    }
+    const m = await scanSession(new SessionReader(path.join(e.parentPath, e.name)))
+    if (m) metas.push(m)
   }
-  return { totals, cost: costUSD(byModel) }
+  const deduped = await dedupSessions(metas, null)
+  const totals = { input: 0, output: 0, cacheRead: 0, cacheCreation: 0 }
+  let cost = 0
+  for (const m of deduped) {
+    totals.input += m.tokens.input
+    totals.output += m.tokens.output
+    totals.cacheRead += m.tokens.cacheRead
+    totals.cacheCreation += m.tokens.cacheCreation
+    cost += m.cost || 0
+  }
+  return { totals, cost }
 }
 
 function ccusageTotals() {
@@ -53,11 +59,28 @@ function ccusageTotals() {
 }
 
 describe.skipIf(!fs.existsSync(PROJECTS_ROOT))('ccusage diff', () => {
-  it('matches ccusage on tokens and cost', async () => {
-    const ours = await ourTotals()
-    const theirs = ccusageTotals()
-    expect(ours.totals).toEqual(theirs.totals)
+  // ccusage runs first (fast), then our scan — so our scan can only have seen
+  // strictly more data, and any live writes during the ~15s gap show up as
+  // ours > theirs (not the other way around).
+  let theirs
+  let ours
+
+  it('reads ccusage totals', () => {
+    theirs = ccusageTotals()
+  }, 120_000)
+
+  it('reads our totals', async () => {
+    ours = await ourTotals()
+  }, 120_000)
+
+  it('matches on tokens and cost', () => {
+    for (const k of Object.keys(theirs.totals)) {
+      const delta = ours.totals[k] - theirs.totals[k]
+      const rel = theirs.totals[k] > 0 ? delta / theirs.totals[k] : 0
+      expect(delta, `${k}: ours=${ours.totals[k]} ccusage=${theirs.totals[k]} delta=${delta}`).toBeGreaterThanOrEqual(0)
+      expect(rel, `${k} relative drift too large`).toBeLessThan(0.001)
+    }
     const costDelta = Math.abs(ours.cost - theirs.cost)
     expect(costDelta <= COST_TOL_ABS || costDelta / theirs.cost <= COST_TOL_REL).toBe(true)
-  }, 120_000)
+  })
 })

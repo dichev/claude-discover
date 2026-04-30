@@ -4,6 +4,7 @@ import os from 'node:os'
 import chokidar from 'chokidar'
 import { startOfDay, endOfDay, parseISO } from 'date-fns'
 import { SessionReader, loadSessionNames } from './SessionReader.js'
+import { scanSession, dedupAcrossSessions } from './SessionParser.js'
 
 const PROJECTS_ROOT = path.join(os.homedir(), '.claude', 'projects')
 
@@ -12,11 +13,25 @@ function dayBounds(date) {
   return { start: +startOfDay(d), end: +endOfDay(d) }
 }
 
-function filterDay(cache, start, end, names) {
+function intersectsDay(meta, day) {
+  return meta.lastActivityAt >= day.start && meta.startedAt <= day.end
+}
+
+function filterDay(cache, day, names) {
   return Array.from(cache.values())
-    .filter((m) => m.lastActivityAt >= start && m.startedAt <= end)
+    .filter((m) => intersectsDay(m, day))
     .sort((a, b) => b.lastActivityAt - a.lastActivityAt)
     .map((m) => names?.has(m.sessionId) ? { ...m, name: names.get(m.sessionId) } : m)
+}
+
+function isUnchanged(cached, stat) {
+  return cached && cached.fileSize === stat.size && cached.mtime === stat.mtimeMs
+}
+
+export async function dedupSessions(metas, range = null) {
+  return dedupAcrossSessions(metas, (m, excludeIds) =>
+    scanSession(new SessionReader(m.filePath), { range, excludeIds })
+  )
 }
 
 export class SessionsService {
@@ -25,20 +40,14 @@ export class SessionsService {
     this.onUpdate = onUpdate
     this.debounceMs = debounceMs
     this.cache = new Map()
-     // filePath -> meta (scoped to activeDay)
+    this.byId = new Map()
     this.activeDay = null
-     // { start, end, date }
     this.updateTimer = null
     this.watcher = null
   }
 
   async readSession(sessionId, offset = 0, date = null) {
-    let meta = null
-    for (const m of this.cache.values()) {
-      if (m.sessionId === sessionId) { meta = m
-       break
-       }
-    }
+    const meta = this.byId.get(sessionId)
     if (!meta) return null
     const range = date ? dayBounds(date) : null
     const { items, nextOffset } = await new SessionReader(meta.filePath).readFrom(offset, range)
@@ -46,12 +55,15 @@ export class SessionsService {
   }
 
   async list(date) {
-    const { start, end } = dayBounds(date)
-    if (this.activeDay?.date !== date) this.cache.clear()
-    this.activeDay = { start, end, date }
-    await this._scanDay(this.activeDay)
+    const day = { ...dayBounds(date), date }
+    if (this.activeDay?.date !== date) {
+      this.cache.clear()
+      this.byId.clear()
+    }
+    this.activeDay = day
+    await this._scanDay(day)
     const names = await loadSessionNames()
-    return filterDay(this.cache, start, end, names)
+    return await dedupSessions(filterDay(this.cache, day, names), day)
   }
 
   async start() {
@@ -70,22 +82,25 @@ export class SessionsService {
     }
   }
 
+  async _processFile(filePath, day, { skipBeforeDay = false } = {}) {
+    const reader = new SessionReader(filePath)
+    const stat = await reader.stat()
+    if (!stat) return null
+    if (skipBeforeDay && stat.mtimeMs < day.start) return null
+    const cached = this.cache.get(filePath)
+    if (isUnchanged(cached, stat)) return null
+    const meta = await scanSession(reader, { prev: cached, range: day, stat })
+    if (!meta) return null
+    this.cache.set(filePath, meta)
+    this.byId.set(meta.sessionId, meta)
+    return meta
+  }
+
   async _refresh(filePath) {
     const day = this.activeDay
     if (!day) return
-    const cached = this.cache.get(filePath)
-    let stat
-    try { stat = await fsp.stat(filePath)
-     } catch { return
-     }
-    if (cached && cached.fileSize === stat.size && cached.mtime === stat.mtimeMs) return
-    const meta = await new SessionReader(filePath).scanMetadata(cached, day)
-    if (meta) {
-      this.cache.set(filePath, meta)
-      if (meta.lastActivityAt >= day.start && meta.startedAt <= day.end) {
-        this._scheduleUpdate()
-      }
-    }
+    const meta = await this._processFile(filePath, day)
+    if (meta && intersectsDay(meta, day)) this._scheduleUpdate()
   }
 
   _scheduleUpdate() {
@@ -95,7 +110,7 @@ export class SessionsService {
       const day = this.activeDay
       if (!day) return
       const names = await loadSessionNames()
-      this.onUpdate(filterDay(this.cache, day.start, day.end, names))
+      this.onUpdate(await dedupSessions(filterDay(this.cache, day, names), day))
     }, this.debounceMs)
   }
 
@@ -110,18 +125,7 @@ export class SessionsService {
     await Promise.all(
       entries
         .filter((e) => e.isFile() && e.name.endsWith('.jsonl'))
-        .map(async (e) => {
-          const filePath = path.join(e.parentPath, e.name)
-          let stat
-          try { stat = await fsp.stat(filePath)
-           } catch { return
-           }
-          if (stat.mtimeMs < day.start) return
-          const cached = this.cache.get(filePath)
-          if (cached && cached.fileSize === stat.size && cached.mtime === stat.mtimeMs) return
-          const meta = await new SessionReader(filePath).scanMetadata(cached, day)
-          if (meta) this.cache.set(filePath, meta)
-        })
+        .map((e) => this._processFile(path.join(e.parentPath, e.name), day, { skipBeforeDay: true }))
     )
   }
 
@@ -133,7 +137,11 @@ export class SessionsService {
     this.watcher.on('add', (p) => this._refresh(p))
     this.watcher.on('change', (p) => this._refresh(p))
     this.watcher.on('unlink', (p) => {
-      if (this.cache.delete(p)) this._scheduleUpdate()
+      const cached = this.cache.get(p)
+      if (this.cache.delete(p)) {
+        if (cached) this.byId.delete(cached.sessionId)
+        this._scheduleUpdate()
+      }
     })
   }
 }
