@@ -9,7 +9,6 @@ function flatten(items) {
   const results = {}
   for (const it of items) {
     if (it.type !== 'user' && it.type !== 'assistant') continue
-    if (it.isMeta) continue
     const msg = it.message || {}
     const blocks = normalizeContent(msg.content)
     if (blocks.length === 0) continue
@@ -19,6 +18,7 @@ function flatten(items) {
     turns.push({
       uuid: it.uuid,
       role: it.type,
+      isMeta: !!it.isMeta,
       ts: it.timestamp ? Date.parse(it.timestamp) : null,
       model: msg.model || null,
       usage: msg.usage || null,
@@ -65,13 +65,6 @@ function groupTurns(turns) {
 export default function ConversationView({ items }) {
   const turns = useMemo(() => flatten(items), [items])
   const groups = useMemo(() => groupTurns(turns), [turns])
-  const bottomRef = useRef(null)
-  useEffect(() => {
-    const el = bottomRef.current
-    if (!el) return
-    const scroller = el.closest('.detail-conversation') || el.parentElement
-    if (scroller) scroller.scrollTop = scroller.scrollHeight
-  }, [turns.length])
   if (turns.length === 0) {
     return <div className="empty">No user/assistant turns to display.</div>
   }
@@ -81,7 +74,6 @@ export default function ConversationView({ items }) {
         ? <TurnRow key={g.turn.uuid} turn={g.turn} />
         : <ToolGroup key={i} turns={g.turns} />
       )}
-      <div ref={bottomRef} />
     </div>
   )
 }
@@ -89,7 +81,7 @@ export default function ConversationView({ items }) {
 function TurnRow({ turn }) {
   const meta = metaText(turn)
   return (
-    <div className={`turn turn-${turn.role}`}>
+    <div className={`turn turn-${turn.role} ${turn.isMeta ? 'turn-meta-note' : ''}`}>
       <div className="turn-blocks">
         {turn.blocks.map((b, i) => <Block key={i} block={b} />)}
       </div>

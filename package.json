@@ -12,6 +12,8 @@
     "test": "vitest run"
   },
   "dependencies": {
+    "@fontsource/inter": "^5.2.8",
+    "@fontsource/jetbrains-mono": "^5.2.8",
     "chokidar": "^4.0.1",
     "date-fns": "^4.1.0",
     "electron-window-state": "^5.0.3",

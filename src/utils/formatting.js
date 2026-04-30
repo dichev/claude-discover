@@ -23,7 +23,6 @@ export function fmtNum(n) {
 export function fmtUSD(n) {
   if (n == null) return '—'
   if (n < 0.01) return `$${n.toFixed(4)}`
-  if (n < 1) return `$${n.toFixed(3)}`
   return `$${n.toFixed(2)}`
 }
 

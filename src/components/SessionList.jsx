@@ -1,15 +1,29 @@
-import React, { useEffect, useMemo, useRef, useState } from 'react'
+import React, { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { SOURCE_COLORS, SOURCE_LABELS } from '../utils/colors.js'
 import { format } from 'date-fns'
 import { fmtCompact, fmtNum, fmtUSD } from '../utils/formatting.js'
 
 export default function SessionList({ sessions, selectedId, onSelect, filter, onFilterChange }) {
   const selectedRef = useRef(null)
+  const pendingTop = useRef(null)
   const [sortBy, setSortBy] = useState('time')
 
   useEffect(() => {
     selectedRef.current?.scrollIntoView({ block: 'nearest' })
   }, [selectedId])
+
+  useLayoutEffect(() => {
+    const el = selectedRef.current
+    if (pendingTop.current == null || !el) return
+    el.parentElement.scrollTop = el.offsetTop - pendingTop.current
+    pendingTop.current = null
+  }, [sortBy])
+
+  const changeSort = (next) => {
+    const el = selectedRef.current
+    if (el) pendingTop.current = el.offsetTop - el.parentElement.scrollTop
+    setSortBy(next)
+  }
 
   const sorted = useMemo(() => {
     if (sortBy === 'cost') return [...sessions].sort((a, b) => (b.cost || 0) - (a.cost || 0))
@@ -54,11 +68,11 @@ export default function SessionList({ sessions, selectedId, onSelect, filter, on
           <div className="session-count">{sorted.length} sessions</div>
           <div className="sort-toggle" role="group" aria-label="Sort sessions">
             <span className="sort-toggle-label">Sort by:</span>
-            <button type="button" className={`sort-pill ${sortBy === 'cost' ? 'active' : ''}`} onClick={() => setSortBy('cost')}
+            <button type="button" className={`sort-pill ${sortBy === 'cost' ? 'active' : ''}`} onClick={() => changeSort('cost')}
             >Cost</button>
-            <button type="button" className={`sort-pill ${sortBy === 'tokens' ? 'active' : ''}`} onClick={() => setSortBy('tokens')}
+            <button type="button" className={`sort-pill ${sortBy === 'tokens' ? 'active' : ''}`} onClick={() => changeSort('tokens')}
             >Tokens</button>
-            <button type="button" className={`sort-pill ${sortBy === 'time' ? 'active' : ''}`} onClick={() => setSortBy('time')}
+            <button type="button" className={`sort-pill ${sortBy === 'time' ? 'active' : ''}`} onClick={() => changeSort('time')}
             >Time</button>
           </div>
         </div>
@@ -77,18 +91,16 @@ export default function SessionList({ sessions, selectedId, onSelect, filter, on
               key={s.sessionId}
               ref={selectedId === s.sessionId ? selectedRef : null}
               className={`session-row ${selectedId === s.sessionId ? 'selected' : ''} ${isChild ? 'is-subagent-child' : ''}`}
-              onClick={() => onSelect(s.sessionId)}
+              onClick={() => onSelect(selectedId === s.sessionId ? null : s.sessionId)}
               style={{ borderLeftColor: SOURCE_COLORS[s.source] || SOURCE_COLORS.other }}
               title={s.cwd || ''}
             >
               <div className="session-row-main">
                 <div className="session-row-meta">
-                  {s.tokens?.cacheCreation1h > 0 && (
-                    <span className="warn-badge" title={`Used 1h extended cache (${fmtNum(s.tokens.cacheCreation1h)} tokens)`}>1h</span>
-                  )}
-                  {s.cwd && <span className="cwd" title={s.cwd}>{shortCwd(s.cwd)}</span>}
+                  {/*{s.cwd && <span className="cwd" title={s.cwd}>{shortCwd(s.cwd)}</span>}*/}
                 </div>
                 <div className="session-label">
+                  {s.tokens?.cacheCreation1h > 0 && <span className="warn-badge" title={`Used 1h extended cache (${fmtNum(s.tokens.cacheCreation1h)} tokens)`}>1h</span>}
                   {isSubagent && <span className="subagent-tag">[subagent]</span>}
                   {s.name && <span className="session-name">{s.name}</span>}
                   {subLabel || (!s.name && label)}

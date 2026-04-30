@@ -35,9 +35,9 @@ export default function DailySummary({ sessions, dayAnchor }) {
         <div className="gantt-side-heading">Tokens breakdown</div>
         <div className="gantt-side-row"><span>Input</span><b title={totals.input.toLocaleString()}>{fmtCompact(totals.input)}</b></div>
         <div className="gantt-side-row"><span>Output</span><b title={totals.output.toLocaleString()}>{fmtCompact(totals.output)}</b></div>
-        <div className="gantt-side-row"><span>Cache read</span><b title={totals.cacheRead.toLocaleString()}>{fmtCompact(totals.cacheRead)}</b></div>
         <div className="gantt-side-row"><span>Cache write (5m)</span><b title={totals.cacheCreation5m.toLocaleString()}>{fmtCompact(totals.cacheCreation5m)}</b></div>
         <div className="gantt-side-row"><span>Cache write (1h)</span>{totals.cacheCreation1h > 0 ? <b className="warn-badge" title={totals.cacheCreation1h.toLocaleString()}>{fmtCompact(totals.cacheCreation1h)}</b> : <b>{fmtCompact(totals.cacheCreation1h)}</b>}</div>
+        <div className="gantt-side-row"><span>Cache read</span><b title={totals.cacheRead.toLocaleString()}>{fmtCompact(totals.cacheRead)}</b></div>
         <div className="gantt-side-row"><span>Cache hit ratio</span><b>{totals.cacheHitRatio != null ? `${Math.round(totals.cacheHitRatio * 100)}%` : '—'}</b></div>
       </div>
     </aside>
