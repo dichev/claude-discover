@@ -149,6 +149,16 @@ button:hover { background: var(--border); }
 .gantt-canvas svg { display: block; }
 .bar:hover rect { filter: brightness(1.15); }
 .bar.selected rect { filter: brightness(1.2); }
+.work-handle-label {
+  font: 11px ui-monospace, Menlo, monospace;
+  color: #cbd1dc;
+  background: #0e1118;
+  border: 1px solid #cbd1dc;
+  border-radius: 3px;
+  padding: 1px 5px;
+  text-align: center;
+  white-space: nowrap;
+}
 
 .gantt-pane {
   display: flex;

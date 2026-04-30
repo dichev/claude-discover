@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useRef, useState, useCallback } from 'react'
 import { SOURCE_COLORS, SOURCE_LABELS } from '../utils/colors.js'
 import { useLocalStorage } from '../utils/useLocalStorage.js'
 import { fmtUSD, fmtCompact } from '../utils/formatting.js'
+import WorkTimeOverlay from './WorkTimeOverlay.jsx'
 
 const LANE_HEIGHT = 22
 const LANE_GAP = 4
@@ -280,6 +281,15 @@ export default function GanttChart({
               })}
             </g>
           ))}
+          <WorkTimeOverlay
+            dayStart={dayRange.start}
+            viewStart={view.start}
+            viewEnd={view.end}
+            chartLeft={GUTTER_WIDTH}
+            chartWidth={chartWidth}
+            totalHeight={totalHeight}
+            containerRef={containerRef}
+          />
           {showNow && (
             <g className="now-line">
               <line x1={xFor(now)} x2={xFor(now)} y1={HEADER_HEIGHT - 8} y2={totalHeight}
