@@ -1,0 +1,80 @@
+// Rates per 1M tokens, mirroring LiteLLM's model_prices_and_context_window.json
+// (the same source ccusage uses). Cache-write is a single rate — LiteLLM does
+// not track Anthropic's 1h cache premium, and we match that to stay aligned
+// with ccusage.
+import fs from 'node:fs'
+import path from 'node:path'
+
+const SEED_PATH = path.resolve(import.meta.dirname, '../../cache/prices.json')
+const CURRENT_PATH = path.resolve(import.meta.dirname, '../../cache/prices.current.json')
+const LITELLM_URL = 'https://raw.githubusercontent.com/BerriAI/litellm/main/model_prices_and_context_window.json'
+const DAY_MS = 24 * 3600 * 1000
+
+class Pricing {
+  constructor() {
+    this.load()
+  }
+
+  load() {
+    const file = fs.existsSync(CURRENT_PATH) ? CURRENT_PATH : SEED_PATH
+    this.prices = JSON.parse(fs.readFileSync(file, 'utf8'))
+    // Match by longest prefix so 'claude-opus-4-7' wins over 'claude-opus-4'.
+    this.keysByLength = Object.keys(this.prices).sort((a, b) => b.length - a.length)
+  }
+
+  priceFor(model) {
+    if (!model) return null
+    const m = model.toLowerCase()
+    for (const key of this.keysByLength) {
+      if (m.startsWith(key)) return this.prices[key]
+    }
+    return null
+  }
+
+  costUSD(tokensByModel) {
+    if (!tokensByModel) return null
+    let total = 0
+    let priced = false
+    for (const [model, bucket] of Object.entries(tokensByModel)) {
+      const p = this.priceFor(model)
+      if (!p) continue
+      total += (
+        (bucket.input || 0) * p.input +
+        (bucket.output || 0) * p.output +
+        (bucket.cacheRead || 0) * p.cacheRead +
+        (bucket.cacheCreation || 0) * p.cacheWrite
+      ) / 1e6
+      priced = true
+    }
+    return priced ? total : null
+  }
+
+  async refreshFromLiteLLM() {
+    try {
+      if (fs.existsSync(CURRENT_PATH) && Date.now() - fs.statSync(CURRENT_PATH).mtimeMs < DAY_MS) return
+      const res = await fetch(LITELLM_URL, { signal: AbortSignal.timeout(10_000) })
+      if (!res.ok) throw new Error(`HTTP ${res.status}`)
+      const litellm = await res.json()
+      // LiteLLM keys look like 'anthropic.claude-opus-4-5-20251101-v1:0' — strip provider and dated suffix.
+      const norm = k => k.toLowerCase().replace(/^anthropic\./, '').replace(/-\d{8}(-v\d+:\d+)?$|-v\d+:\d+$/, '')
+      const out = {}
+      for (const [k, v] of Object.entries(litellm)) {
+        const ourKey = Object.keys(this.prices).find(key => norm(k) === key)
+        if (!ourKey || out[ourKey]) continue
+        const i = v?.input_cost_per_token, o = v?.output_cost_per_token
+        const r = v?.cache_read_input_token_cost, w = v?.cache_creation_input_token_cost
+        if (!i || !o || !r || !w) continue
+        out[ourKey] = { input: i * 1e6, output: o * 1e6, cacheRead: r * 1e6, cacheWrite: w * 1e6 }
+      }
+      if (!Object.keys(out).length) return
+      fs.writeFileSync(CURRENT_PATH, JSON.stringify(out, null, 2) + '\n')
+      this.load()
+    } catch (err) {
+      console.warn('[pricing] refresh failed:', err.message)
+    }
+  }
+}
+
+export const pricing = new Pricing()
+export const costUSD = (tokensByModel) => pricing.costUSD(tokensByModel)
+export const refreshPricesFromLiteLLM = () => pricing.refreshFromLiteLLM()

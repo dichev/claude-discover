@@ -3,6 +3,7 @@ import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import windowStateKeeper from 'electron-window-state'
 import { SessionsService } from './services/SessionsService.js'
+import { refreshPricesFromLiteLLM } from './services/Pricing.js'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 const DEV_URL = process.env.ELECTRON_RENDERER_URL
@@ -43,6 +44,8 @@ function createWindow() {
 }
 
 app.whenReady().then(() => {
+  refreshPricesFromLiteLLM() // refresh in the background; early reads use the seed table
+
   sessionsService = new SessionsService({
     onUpdate: (sessions) => {
       if (mainWindow && !mainWindow.isDestroyed()) {
