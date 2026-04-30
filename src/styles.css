@@ -255,6 +255,8 @@ button:hover { background: var(--border); }
 }
 .session-row:hover { background: var(--bg-elev-2); }
 .session-row.selected { background: var(--selected); }
+.session-row.is-subagent-child { padding-left: 26px; background: var(--bg-elev-1, rgba(255, 255, 255, 0.02)); }
+.session-row.is-subagent-child.selected { background: var(--selected); }
 .session-row-main { flex: 1; min-width: 0; }
 .session-row-stats {
   flex: none;
@@ -284,6 +286,12 @@ button:hover { background: var(--border); }
 .session-time-meta { color: var(--text-faint); }
 .session-name {
   font-weight: 600;
+  color: var(--accent, #4ea1ff);
+  margin-right: 6px;
+}
+.subagent-tag {
+  font-family: ui-monospace, Menlo, monospace;
+  font-size: 11px;
   color: var(--accent, #4ea1ff);
   margin-right: 6px;
 }

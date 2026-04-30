@@ -2,7 +2,7 @@ import fs from 'node:fs'
 import fsp from 'node:fs/promises'
 import path from 'node:path'
 import os from 'node:os'
-import { costUSD } from './pricing.js'
+import { costUSD } from './Pricing.js'
 
 const SESSIONS_ROOT = path.join(os.homedir(), '.claude', 'sessions')
 
@@ -71,6 +71,8 @@ export class SessionReader {
   constructor(filePath) {
     this.filePath = filePath
     this.sessionId = path.basename(filePath, '.jsonl')
+    const parentDir = path.dirname(filePath)
+    this.parentSessionId = path.basename(parentDir) === 'subagents' ? path.basename(path.dirname(parentDir)) : null
   }
 
   async _eachLine(offset, onLine) {
@@ -132,6 +134,7 @@ export class SessionReader {
       seenMessageIds: new Set(prev.seenMessageIds || [])
     } : {
       sessionId: this.sessionId,
+      parentSessionId: this.parentSessionId,
       filePath: this.filePath,
       fileSize: stat.size,
       mtime: stat.mtimeMs,

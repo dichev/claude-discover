@@ -17,6 +17,15 @@ export default function SessionList({ sessions, selectedId, onSelect, filter, on
     return sessions
   }, [sessions, sortBy])
 
+  const grouped = useMemo(() => {
+    const ids = new Set(sorted.map((s) => s.sessionId))
+    const isChild = (s) => !!s.parentSessionId && ids.has(s.parentSessionId)
+    return sorted.flatMap((s) => isChild(s) ? [] : [
+      { session: s, isChild: false },
+      ...sorted.filter((c) => c.parentSessionId === s.sessionId).map((c) => ({ session: c, isChild: true }))
+    ])
+  }, [sorted])
+
   // Fixed thresholds tuned for the $100/mo plan (~$3.33/day budget).
   // A single session crossing $5 / 10M tokens is "too expensive"; $1 / 2M is "watch it".
   const costClass = (cost) => {
@@ -58,15 +67,16 @@ export default function SessionList({ sessions, selectedId, onSelect, filter, on
         {sorted.length === 0 && (
           <div className="empty">No sessions on this day.</div>
         )}
-        {sorted.map((s) => {
+        {grouped.map(({ session: s, isChild }) => {
           const fallback = s.aiTitle || s.summary || s.firstUserPrompt || s.sessionId
           const label = s.name || fallback
           const subLabel = s.name && fallback !== s.name ? fallback : null
+          const isSubagent = s.sessionId.startsWith('agent-')
           return (
             <div
               key={s.sessionId}
               ref={selectedId === s.sessionId ? selectedRef : null}
-              className={`session-row ${selectedId === s.sessionId ? 'selected' : ''}`}
+              className={`session-row ${selectedId === s.sessionId ? 'selected' : ''} ${isChild ? 'is-subagent-child' : ''}`}
               onClick={() => onSelect(s.sessionId)}
               style={{ borderLeftColor: SOURCE_COLORS[s.source] || SOURCE_COLORS.other }}
               title={s.cwd || ''}
@@ -79,6 +89,7 @@ export default function SessionList({ sessions, selectedId, onSelect, filter, on
                   {s.cwd && <span className="cwd" title={s.cwd}>{shortCwd(s.cwd)}</span>}
                 </div>
                 <div className="session-label">
+                  {isSubagent && <span className="subagent-tag">[subagent]</span>}
                   {s.name && <span className="session-name">{s.name}</span>}
                   {subLabel || (!s.name && label)}
                 </div>
