@@ -43,7 +43,14 @@ function createWindow() {
   }
 }
 
-app.whenReady().then(() => {
+app.whenReady().then(async () => {
+  if (!app.isPackaged) {
+    const {installExtension, REACT_DEVELOPER_TOOLS} = await import('@tomjs/electron-devtools-installer')
+    await installExtension(REACT_DEVELOPER_TOOLS)
+  }
+
+
+
   refreshPricesFromLiteLLM() // refresh in the background; early reads use the seed table
 
   sessionsService = new SessionsService({

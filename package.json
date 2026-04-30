@@ -24,6 +24,7 @@
     "remark-gfm": "^4.0.1"
   },
   "devDependencies": {
+    "@tomjs/electron-devtools-installer": "^4.0.1",
     "@vitejs/plugin-react": "^5.2.0",
     "electron": "^41.3.0",
     "electron-vite": "^5.0.0",
