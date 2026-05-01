@@ -1,4 +1,4 @@
-import { app, BrowserWindow, ipcMain } from 'electron'
+import { app, BrowserWindow, ipcMain, powerMonitor } from 'electron'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import windowStateKeeper from 'electron-window-state'
@@ -50,8 +50,6 @@ app.whenReady().then(async () => {
     await installExtension(REACT_DEVELOPER_TOOLS)
   }
 
-
-
   refreshPricesFromLiteLLM() // refresh in the background; early reads use the seed table
 
   sessionsService = new SessionsService({
@@ -63,10 +61,16 @@ app.whenReady().then(async () => {
   })
   sessionsService.start()
 
+  powerMonitor.on('suspend', () => {
+    sessionsService.stop()
+    powerMonitor.once('resume', () => setTimeout(() => sessionsService.start(), 1000))
+  })
+
   ipcMain.handle('sessions:list', (_e, date) => sessionsService.list(date))
   ipcMain.handle('sessions:read', async (_e, sessionId, offset, date) => sessionsService.readSession(sessionId, offset, date))
   ipcMain.handle('work-hours:get', () => readWorkHours())
   ipcMain.handle('work-hours:set', (_e, data) => writeWorkHours(data))
+
 
   createWindow()
 

@@ -61,9 +61,14 @@ export class SessionsService {
       this.byId.clear()
     }
     this.activeDay = day
-    await this._scanDay(day)
     const names = await loadSessionNames()
-    return await dedupSessions(filterDay(this.cache, day, names), day)
+    // emit is called after each dir batch and once more when the full scan completes
+    const emit = async () => {
+      if (this.activeDay?.date !== date) return // guard against stale day navigation
+      this.onUpdate(await dedupSessions(filterDay(this.cache, day, names), day))
+    }
+    this._scanDay(day, emit).then(emit).catch(console.error) // fire-and-forget; streams updates as dirs complete
+    return dedupSessions(filterDay(this.cache, day, names), day) // return current cache immediately (empty on first visit)
   }
 
   async start() {
@@ -114,18 +119,26 @@ export class SessionsService {
     }, this.debounceMs)
   }
 
-  async _scanDay(day) {
-    let entries
+  async _scanDay(day, onBatch = null) {
+    let dirs
     try {
-      entries = await fsp.readdir(this.root, { recursive: true, withFileTypes: true })
+      dirs = await fsp.readdir(this.root, { withFileTypes: true })
     } catch (err) {
       console.error('day scan failed', err)
       return
     }
     await Promise.all(
-      entries
-        .filter((e) => e.isFile() && e.name.endsWith('.jsonl'))
-        .map((e) => this._processFile(path.join(e.parentPath, e.name), day, { skipBeforeDay: true }))
+      dirs.filter((e) => e.isDirectory()).map(async (e) => {
+        const dirPath = path.join(e.parentPath, e.name)
+        const stat = await fsp.stat(dirPath).catch(() => null)
+        if (!stat || stat.mtimeMs < day.start) return
+        const files = await fsp.readdir(dirPath, { withFileTypes: true }).catch(() => [])
+        const filePaths = files
+          .filter((f) => f.isFile() && f.name.endsWith('.jsonl'))
+          .map((f) => path.join(f.parentPath, f.name))
+        const results = await Promise.all(filePaths.map((p) => this._processFile(p, day, { skipBeforeDay: true })))
+        if (onBatch && results.some(Boolean)) await onBatch() // emit after each dir so the UI updates incrementally
+      })
     )
   }
 
