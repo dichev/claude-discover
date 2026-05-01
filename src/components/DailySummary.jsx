@@ -1,4 +1,4 @@
-import React, { useMemo } from 'react'
+import React, { useMemo, useState } from 'react'
 import { format } from 'date-fns'
 import { fmtUSD, fmtCompact, fmtDuration } from '../utils/formatting.js'
 import './DailySummary.css'
@@ -34,8 +34,15 @@ export default function DailySummary({ sessions, dayAnchor }) {
       g.cost += s.cost || 0
       g.totalTokens += s.totalTokens || 0
     }
-    return [...map.values()].sort((a, b) => b.cost - a.cost)
+    return [...map.values()]
   }, [sessions])
+
+  const [projectStat, setProjectStat] = useState('cost')
+
+  const sortedByCwd = useMemo(() =>
+    [...byCwd].sort((a, b) => projectStat === 'cost' ? b.cost - a.cost : b.totalTokens - a.totalTokens),
+    [byCwd, projectStat]
+  )
 
   return (
     <aside className="gantt-side">
@@ -45,6 +52,24 @@ export default function DailySummary({ sessions, dayAnchor }) {
         <div className="gantt-side-row"><span>Total tokens</span><b title={totals.totalTokens.toLocaleString()}>{fmtCompact(totals.totalTokens)}</b></div>
         <div className="gantt-side-row"><span>Estimated cost</span><b>{fmtUSD(totals.cost)}</b></div>
       </div>
+      {sortedByCwd.length > 0 && (
+        <div className="gantt-side-section">
+          <div className="gantt-side-heading">
+            By project
+            <button
+              className="stats-toggle"
+              onClick={() => setProjectStat((v) => v === 'cost' ? 'tokens' : 'cost')}
+              title={`Showing ${projectStat} — click to toggle`}
+            >{projectStat === 'cost' ? 'T' : '$'}</button>
+          </div>
+          {sortedByCwd.map((g) => (
+            <div key={g.key} className="gantt-side-row" title={g.key}>
+              <span>{g.cwdShort}</span>
+              <b>{projectStat === 'cost' ? fmtUSD(g.cost) : fmtCompact(g.totalTokens)}</b>
+            </div>
+          ))}
+        </div>
+      )}
       <div className="gantt-side-section">
         <div className="gantt-side-heading">Tokens breakdown</div>
         <div className="gantt-side-row"><span>Input</span><b title={totals.input.toLocaleString()}>{fmtCompact(totals.input)}</b></div>
@@ -54,17 +79,6 @@ export default function DailySummary({ sessions, dayAnchor }) {
         <div className="gantt-side-row"><span>Cache read</span><b title={totals.cacheRead.toLocaleString()}>{fmtCompact(totals.cacheRead)}</b></div>
         <div className="gantt-side-row"><span>Cache hit ratio</span><b>{totals.cacheHitRatio != null ? `${Math.round(totals.cacheHitRatio * 100)}%` : '—'}</b></div>
       </div>
-      {byCwd.length > 0 && (
-        <div className="gantt-side-section">
-          <div className="gantt-side-heading">By project</div>
-          {byCwd.map((g) => (
-            <div key={g.key} className="gantt-side-row" title={g.key}>
-              <span>{g.cwdShort}</span>
-              <b>{fmtUSD(g.cost)} | {fmtCompact(g.totalTokens)}</b>
-            </div>
-          ))}
-        </div>
-      )}
     </aside>
   )
 }
