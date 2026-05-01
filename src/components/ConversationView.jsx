@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useRef, useState } from 'react'
 import ReactMarkdown from 'react-markdown'
 import rehypeHighlight from 'rehype-highlight'
 import { fmtCompact } from '../utils/formatting'
+import { fenceBlocks } from '../utils/textBlock.js'
 import './ConversationView.css'
 
 function flatten(items) {
@@ -196,7 +197,7 @@ function Block({ block }) {
     return (
       <div className="block-text markdown">
         <ReactMarkdown rehypePlugins={[rehypeHighlight]}>
-          {fenceJsonBlocks(block.text)}
+          {fenceBlocks(block.text)}
         </ReactMarkdown>
       </div>
     )
@@ -305,15 +306,4 @@ function safeJson(x) {
    }
 }
 
-function fenceJsonBlocks(text) {
-  if (typeof text !== 'string') return text
-  return text.replace(/(^|\n)([{[][\s\S]*[}\]])(?=\n|$)/g, (m, sep, body) => {
-    try {
-      const parsed = JSON.parse(body)
-      if (parsed && typeof parsed === 'object') {
-        return sep + '```json\n' + JSON.stringify(parsed, null, 2) + '\n```'
-      }
-    } catch {}
-    return m
-  })
-}
+
