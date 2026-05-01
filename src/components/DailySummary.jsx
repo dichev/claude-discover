@@ -4,9 +4,7 @@ import { fmtUSD, fmtCompact, fmtDuration } from '../utils/formatting.js'
 
 export default function DailySummary({ sessions, dayAnchor }) {
   const totals = useMemo(() => {
-    const workdirs = new Set()
     const t = sessions.reduce((acc, s) => {
-      workdirs.add(s.cwd || '(no cwd)')
       acc.cost += s.cost || 0
       acc.totalTokens += s.totalTokens || 0
       acc.input += s.tokens.input
@@ -21,6 +19,21 @@ export default function DailySummary({ sessions, dayAnchor }) {
     const cacheDenom = t.cacheRead + t.cacheCreation
     t.cacheHitRatio = cacheDenom > 0 ? t.cacheRead / cacheDenom : null
     return t
+  }, [sessions])
+
+  const byCwd = useMemo(() => {
+    const map = new Map()
+    for (const s of sessions) {
+      const key = s.cwd || '(no cwd)'
+      let g = map.get(key)
+      if (!g) {
+        g = { key, cwdShort: s.cwdShort, cost: 0, totalTokens: 0 }
+        map.set(key, g)
+      }
+      g.cost += s.cost || 0
+      g.totalTokens += s.totalTokens || 0
+    }
+    return [...map.values()].sort((a, b) => b.cost - a.cost)
   }, [sessions])
 
   return (
@@ -40,6 +53,17 @@ export default function DailySummary({ sessions, dayAnchor }) {
         <div className="gantt-side-row"><span>Cache read</span><b title={totals.cacheRead.toLocaleString()}>{fmtCompact(totals.cacheRead)}</b></div>
         <div className="gantt-side-row"><span>Cache hit ratio</span><b>{totals.cacheHitRatio != null ? `${Math.round(totals.cacheHitRatio * 100)}%` : '—'}</b></div>
       </div>
+      {byCwd.length > 0 && (
+        <div className="gantt-side-section">
+          <div className="gantt-side-heading">By project</div>
+          {byCwd.map((g) => (
+            <div key={g.key} className="gantt-side-row" title={g.key}>
+              <span>{g.cwdShort}</span>
+              <b>{fmtUSD(g.cost)} | {fmtCompact(g.totalTokens)}</b>
+            </div>
+          ))}
+        </div>
+      )}
     </aside>
   )
 }

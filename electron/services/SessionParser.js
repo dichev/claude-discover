@@ -20,6 +20,12 @@ function extractText(content) {
     .join('\n')
 }
 
+function shortCwd(cwd) {
+  if (!cwd) return '(no cwd)'
+  const parts = cwd.replace(/\\/g, '/').split('/').filter(Boolean)
+  return parts.slice(-2).join('/') || cwd
+}
+
 function classifySource(meta) {
   if (meta.hasScheduledTask) return 'scheduled'
   const ep = (meta.entrypoint || '').toLowerCase()
@@ -160,6 +166,7 @@ export class SessionParser {
     if (meta.startedAt == null) meta.startedAt = mtimeFallback
     if (meta.lastActivityAt == null) meta.lastActivityAt = mtimeFallback
     meta.source = classifySource(meta)
+    meta.cwdShort = shortCwd(meta.cwd)
     meta.activeMs = meta.activityPeriods.reduce((sum, p) => sum + Math.max(0, p.end - p.start), 0)
     const t = meta.tokens
     meta.totalTokens = t.input + t.output + t.cacheRead + t.cacheCreation

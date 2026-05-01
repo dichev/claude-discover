@@ -151,6 +151,12 @@ button:hover { background: var(--border); }
   white-space: nowrap;
   overflow: auto;
 }
+.gantt-side-row > span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  min-width: 0;
+}
 .gantt-canvas svg { display: block; }
 .bar:hover rect { filter: brightness(1.15); }
 .bar.selected rect { filter: brightness(1.2); }

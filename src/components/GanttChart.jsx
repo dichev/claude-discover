@@ -1,7 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState, useCallback } from 'react'
 import { SOURCE_COLORS, SOURCE_LABELS } from '../utils/colors.js'
 import { useLocalStorage } from '../utils/useLocalStorage.js'
-import { fmtUSD, fmtCompact } from '../utils/formatting.js'
 import WorkTimeOverlay from './WorkTimeOverlay.jsx'
 
 const LANE_HEIGHT = 22
@@ -26,12 +25,6 @@ function packLanes(items) {
       return { item, lane }
     })
   return { placed, laneCount: Math.max(1, lanes.length) }
-}
-
-function shortCwd(cwd) {
-  if (!cwd) return '(no cwd)'
-  const parts = cwd.replace(/\\/g, '/').split('/').filter(Boolean)
-  return parts.slice(-2).join('/') || cwd
 }
 
 function HourTicks({ viewStart, viewEnd, width }) {
@@ -93,34 +86,23 @@ export default function GanttChart({
         end: Math.max(s.lastActivityAt, s.startedAt + 60_000),
         source: s.source,
         activityPeriods: s.activityPeriods,
-        cost: s.cost || 0,
-        totalTokens: s.totalTokens || 0,
-        cacheRead: s.tokens.cacheRead,
-        cacheCreation: s.tokens.cacheCreation,
         cacheCreation1h: s.tokens.cacheCreation1h || 0,
       }
       const key = s.cwd || '(no cwd)'
-      if (!byKey.has(key)) byKey.set(key, [])
-      byKey.get(key).push(item)
+      let group = byKey.get(key)
+      if (!group) byKey.set(key, group = { cwdShort: s.cwdShort, items: [] })
+      group.items.push(item)
     }
-    const arr = [...byKey.entries()].map(([key, list]) => {
-      const { placed, laneCount } = packLanes(list)
-      const activity = list.reduce((sum, i) => sum + (i.end - i.start), 0)
-      const cost = list.reduce((sum, i) => sum + i.cost, 0)
-      const totalTokens = list.reduce((sum, i) => sum + i.totalTokens, 0)
-      const cacheRead = list.reduce((sum, i) => sum + i.cacheRead, 0)
-      const cacheCreation = list.reduce((sum, i) => sum + i.cacheCreation, 0)
-      const cacheDenom = cacheRead + cacheCreation
-      const cacheHitRatio = cacheDenom > 0 ? cacheRead / cacheDenom : null
-      return { key, placed, laneCount, activity, cost, totalTokens, cacheHitRatio }
+    const arr = [...byKey.entries()].map(([key, { cwdShort, items }]) => {
+      const { placed, laneCount } = packLanes(items)
+      const activity = items.reduce((sum, i) => sum + (i.end - i.start), 0)
+      return { key, cwdShort, placed, laneCount, activity }
     })
     arr.sort((a, b) => b.activity - a.activity)
     let y = HEADER_HEIGHT
     for (const g of arr) {
       g.yOffset = y
-      const barsHeight = g.laneCount * (LANE_HEIGHT + LANE_GAP)
-      const labelHeight = g.cost > 0 ? 30 : 0
-      g.height = Math.max(barsHeight, labelHeight)
+      g.height = g.laneCount * (LANE_HEIGHT + LANE_GAP)
       y += g.height + GROUP_GAP
     }
     return { groups: arr, totalHeight: Math.max(HEADER_HEIGHT + LANE_HEIGHT + 12, y + 4) }
@@ -223,19 +205,8 @@ export default function GanttChart({
               <text x={8} y={g.yOffset + 14} fill="#cbd1dc" fontSize="11"
                     fontFamily="ui-sans-serif,system-ui,sans-serif">
                 <title>{g.key}</title>
-                {shortCwd(g.key)}
+                {g.cwdShort}
               </text>
-              {g.cost > 0 && (
-                <text x={8} y={g.yOffset + 30}
-                      fill="#a5b1c5" fontSize="11"
-                      fontFamily="ui-monospace,Menlo,monospace">
-                  {[
-                    fmtUSD(g.cost),
-                    g.totalTokens > 0 ? `${fmtCompact(g.totalTokens)} tok` : null,
-                    g.cacheHitRatio != null ? `${Math.round(g.cacheHitRatio * 100)}% hit` : null,
-                  ].filter(Boolean).join(' · ')}
-                </text>
-              )}
               {g.placed.map(({ item, lane }) => {
                 const y = g.yOffset + lane * (LANE_HEIGHT + LANE_GAP)
                 const color = SOURCE_COLORS[item.source] || SOURCE_COLORS.other

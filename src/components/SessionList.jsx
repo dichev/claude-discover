@@ -81,9 +81,6 @@ export default function SessionList({ sessions, selectedId, onSelect, filter, on
               title={s.cwd || ''}
             >
               <div className="session-row-main">
-                <div className="session-row-meta">
-                  {/*{s.cwd && <span className="cwd" title={s.cwd}>{shortCwd(s.cwd)}</span>}*/}
-                </div>
                 <div className="session-label">
                   {s.tokens?.cacheCreation1h > 0 && <span className="warn-badge" title={`Used 1h extended cache (${fmtNum(s.tokens.cacheCreation1h)} tokens)`}>1h</span>}
                   {isSubagent && <span className="subagent-tag">[subagent]</span>}
@@ -116,8 +113,3 @@ export default function SessionList({ sessions, selectedId, onSelect, filter, on
   )
 }
 
-function shortCwd(cwd) {
-  if (!cwd) return ''
-  const parts = cwd.replace(/\\/g, '/').split('/').filter(Boolean)
-  return parts.slice(-2).join('/')
-}
