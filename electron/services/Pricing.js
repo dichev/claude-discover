@@ -1,7 +1,4 @@
-// Rates per 1M tokens, mirroring LiteLLM's model_prices_and_context_window.json
-// (the same source ccusage uses). Cache-write is a single rate — LiteLLM does
-// not track Anthropic's 1h cache premium, and we match that to stay aligned
-// with ccusage.
+// Rates per 1M tokens, sourced from LiteLLM's model_prices_and_context_window.json.
 import fs from 'node:fs'
 import path from 'node:path'
 
@@ -31,18 +28,23 @@ class Pricing {
     return null
   }
 
-  costUSD(tokensByModel) {
+  costUSD(tokensByModel, { ignoreCache1hPremium = false } = {}) {
     if (!tokensByModel) return null
     let total = 0
     let priced = false
     for (const [model, bucket] of Object.entries(tokensByModel)) {
       const p = this.priceFor(model)
       if (!p) continue
+      const tokens5m = ignoreCache1hPremium ? 0 : (bucket.cacheCreation5m || 0)
+      const tokens1h = ignoreCache1hPremium ? 0 : (bucket.cacheCreation1h || 0)
+      const tokensUnknown = (bucket.cacheCreation || 0) - tokens5m - tokens1h
       total += (
         (bucket.input || 0) * p.input +
         (bucket.output || 0) * p.output +
         (bucket.cacheRead || 0) * p.cacheRead +
-        (bucket.cacheCreation || 0) * p.cacheWrite
+        tokens5m * p.cacheWrite +
+        tokens1h * p.cacheWrite1h +
+        tokensUnknown * p.cacheWrite
       ) / 1e6
       priced = true
     }
@@ -63,8 +65,10 @@ class Pricing {
         if (!ourKey || out[ourKey]) continue
         const i = v?.input_cost_per_token, o = v?.output_cost_per_token
         const r = v?.cache_read_input_token_cost, w = v?.cache_creation_input_token_cost
-        if (!i || !o || !r || !w) continue
-        out[ourKey] = { input: i * 1e6, output: o * 1e6, cacheRead: r * 1e6, cacheWrite: w * 1e6 }
+        const w1h = v?.cache_creation_input_token_cost_above_1hr
+        if (!i || !o || !r || !w || !w1h) continue
+        const perMillion = x => x * 1e6
+        out[ourKey] = { input: perMillion(i), output: perMillion(o), cacheRead: perMillion(r), cacheWrite: perMillion(w), cacheWrite1h: perMillion(w1h) }
       }
       if (!Object.keys(out).length) return
       fs.writeFileSync(CURRENT_PATH, JSON.stringify(out, null, 2) + '\n')
@@ -76,5 +80,5 @@ class Pricing {
 }
 
 export const pricing = new Pricing()
-export const costUSD = (tokensByModel) => pricing.costUSD(tokensByModel)
+export const costUSD = (tokensByModel, opts) => pricing.costUSD(tokensByModel, opts)
 export const refreshPricesFromLiteLLM = () => pricing.refreshFromLiteLLM()

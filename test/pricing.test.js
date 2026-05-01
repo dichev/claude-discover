@@ -6,7 +6,7 @@ import { costUSD, pricing, refreshPricesFromLiteLLM } from '../electron/services
 
 describe('priceFor', () => {
   it('matches a known model exactly', () => {
-    expect(pricing.priceFor('claude-opus-4-7')).toEqual({ input: 5, output: 25, cacheRead: 0.5, cacheWrite: 6.25 })
+    expect(pricing.priceFor('claude-opus-4-7')).toEqual({ input: 5, output: 25, cacheRead: 0.5, cacheWrite: 6.25, cacheWrite1h: 10 })
   })
 
   it('prefers the longest matching prefix', () => {
@@ -26,7 +26,14 @@ describe('costUSD', () => {
     const cost = costUSD({
       'claude-opus-4-7': { input: 1_000_000, output: 1_000_000, cacheRead: 1_000_000, cacheCreation: 1_000_000 },
     })
-    expect(cost).toBeCloseTo(36.75, 6) // 5 + 25 + 0.5 + 6.25
+    expect(cost).toBeCloseTo(36.75, 6) // 5 + 25 + 0.5 + 6.25 (unknown TTL → 5m rate)
+  })
+
+  it('applies 1h rate to cacheCreation1h tokens', () => {
+    const cost = costUSD({
+      'claude-opus-4-7': { input: 0, output: 0, cacheRead: 0, cacheCreation: 2_000_000, cacheCreation5m: 1_000_000, cacheCreation1h: 1_000_000 },
+    })
+    expect(cost).toBeCloseTo(16.25, 6) // 1M * 6.25 + 1M * 10
   })
 
   it('skips unknown models, prices known ones', () => {
