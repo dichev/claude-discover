@@ -3,6 +3,8 @@ import { format } from 'date-fns'
 import {fmtDuration, fmtBytes, fmtNum, fmtUSD, fmtCompact} from '../utils/formatting.js'
 import ConversationView from './ConversationView.jsx'
 
+const CONTEXT_WINDOW = 200_000
+
 export default function SessionDetail({ meta, date }) {
   const [items, setItems] = useState(null)
   const [loading, setLoading] = useState(false)
@@ -55,6 +57,13 @@ export default function SessionDetail({ meta, date }) {
   const hasServerTools = stu.webSearch > 0 || stu.webFetch > 0
   const modelLabel = meta.models.join(', ') || '—'
 
+  const ratio = meta.lastContextTokens / CONTEXT_WINDOW
+  const context = {
+    ratio: ratio,
+    tone: ratio >= 0.9 ? 'danger' : ratio >= 0.7 ? 'warn' : 'ok',
+    label: `${fmtCompact(meta.lastContextTokens)} / ${fmtCompact(CONTEXT_WINDOW)}`,
+  }
+
   return (
     <div className="session-detail">
       <div className="detail-body">
@@ -67,6 +76,9 @@ export default function SessionDetail({ meta, date }) {
             <Field label="Working time" value={fmtDuration(activeDuration)} />
             <Field label="Total tokens" value={fmtCompact(totalTokens)} />
             <Field label="Estimated cost" value={fmtUSD(cost)} />
+            <Field label="Context size" value={context.label} below={
+              <Bar ratio={context.ratio} tone={context.tone} />
+            }/>
           </Section>
 
           <Section title="Tokens">
@@ -126,7 +138,27 @@ function Section({ title, children }) {
   )
 }
 
-function Field({ label, value, mono, full }) {
+function Bar({ ratio, tone = 'ok' }) {
+  const pct = Math.max(0, Math.min(1, ratio)) * 100
+  return (
+    <div className={`progress-bar tone-${tone}`}>
+      <div className="progress-bar-fill" style={{ width: `${pct}%` }} />
+    </div>
+  )
+}
+
+function Field({ label, value, mono, full, below }) {
+  if (below) {
+    return (
+      <div className="field has-below">
+        <div className="field-row">
+          <div className="field-label">{label}</div>
+          <div className={`field-value ${mono ? 'mono' : ''}`}>{value}</div>
+        </div>
+        {below}
+      </div>
+    )
+  }
   return (
     <div className={`field ${full ? 'full' : ''}`}>
       <div className="field-label">{label}</div>

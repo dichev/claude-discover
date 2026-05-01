@@ -37,7 +37,7 @@ function freshMeta({ sessionId, parentSessionId, filePath, fileSize, mtime }) {
     model: null, models: [], serviceTier: null,
     summary: null, aiTitle: null, firstUserPrompt: null,
     messageCount: 0,
-    tokens: emptyBucket(), tokensByModel: {},
+    tokens: emptyBucket(), tokensByModel: {}, lastContextTokens: 0,
     serverToolUse: { webSearch: 0, webFetch: 0 },
     hasScheduledTask: false,
     activityPeriods: [],
@@ -75,6 +75,8 @@ function recordDedupedUsage(meta, msg, excludeIds) {
     cacheCreation1h: cc.ephemeral_1h_input_tokens || 0,
   }
   addUsage(meta.tokens, delta)
+  // Prompt size on this turn — overwritten each assistant message so the last wins.
+  meta.lastContextTokens = delta.input + delta.cacheRead + delta.cacheCreation
   if (u.service_tier) meta.serviceTier = u.service_tier
   if (u.server_tool_use) {
     meta.serverToolUse.webSearch += u.server_tool_use.web_search_requests || 0
