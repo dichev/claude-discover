@@ -1,5 +1,4 @@
-import React, { useState } from 'react'
-import { useLocalStorage } from '../utils/useLocalStorage.js'
+import React, { useEffect, useState } from 'react'
 
 const SNAP_MIN = 5
 const COLOR = '#cbd1dc'
@@ -7,12 +6,23 @@ const SHADE = 'url(#work-offhours-stripes)'
 
 const clamp = (v, lo, hi) => Math.min(Math.max(v, lo), hi)
 const fmtHM = (m) => `${String(Math.floor(m / 60)).padStart(2, '0')}:${String(m % 60).padStart(2, '0')}`
+const parseHM = (s) => { const [h, m] = s.split(':').map(Number); return h * 60 + m }
 
 export default function WorkTimeOverlay({
   dayStart, viewStart, viewEnd, chartLeft, chartWidth, totalHeight, containerRef,
 }) {
-  const [workTime, setWorkTime] = useLocalStorage('ganttChart.workTime', { startMin: 9 * 60, endMin: 17 * 60 })
+  const [workTime, setWorkTime] = useState(null)
   const [dragging, setDragging] = useState(null)
+
+  useEffect(() => {
+    window.api.getWorkHours().then(({ work_hours: w }) => setWorkTime({ startMin: parseHM(w.start), endMin: parseHM(w.end) }))
+  }, [])
+
+  useEffect(() => {
+    if (workTime) window.api.setWorkHours({ work_hours: { start: fmtHM(workTime.startMin), end: fmtHM(workTime.endMin) } })
+  }, [workTime])
+
+  if (!workTime) return null
 
   const chartRight = chartLeft + chartWidth
   const xForMin = (min) => chartLeft + ((dayStart + min * 60_000 - viewStart) / (viewEnd - viewStart)) * chartWidth

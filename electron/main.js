@@ -4,6 +4,7 @@ import { fileURLToPath } from 'node:url'
 import windowStateKeeper from 'electron-window-state'
 import { SessionsService } from './services/SessionsService.js'
 import { refreshPricesFromLiteLLM } from './services/Pricing.js'
+import { readWorkHours, writeWorkHours } from './services/WorkHours.js'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 const DEV_URL = process.env.ELECTRON_RENDERER_URL
@@ -64,6 +65,8 @@ app.whenReady().then(async () => {
 
   ipcMain.handle('sessions:list', (_e, date) => sessionsService.list(date))
   ipcMain.handle('sessions:read', async (_e, sessionId, offset, date) => sessionsService.readSession(sessionId, offset, date))
+  ipcMain.handle('work-hours:get', () => readWorkHours())
+  ipcMain.handle('work-hours:set', (_e, data) => writeWorkHours(data))
 
   createWindow()
 

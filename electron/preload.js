@@ -7,5 +7,7 @@ contextBridge.exposeInMainWorld('api', {
     const listener = (_e, sessions) => cb(sessions)
     ipcRenderer.on('sessions:update', listener)
     return () => ipcRenderer.removeListener('sessions:update', listener)
-  }
+  },
+  getWorkHours: () => ipcRenderer.invoke('work-hours:get'),
+  setWorkHours: (data) => ipcRenderer.invoke('work-hours:set', data)
 })
