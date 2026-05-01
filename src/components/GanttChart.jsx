@@ -28,28 +28,38 @@ function packLanes(items) {
   return { placed, laneCount: Math.max(1, lanes.length) }
 }
 
-function HourTicks({ viewStart, viewEnd, width }) {
+function minorIntervalFor(span) {
+  if (span < 15 * 60_000)   return 60_000        // < 15 min  → 1 min
+  if (span < 60 * 60_000)   return 5 * 60_000    // < 1 h     → 5 min
+  if (span < 3 * 3600_000)  return 10 * 60_000   // < 3 h     → 10 min
+  if (span < 12 * 3600_000) return 30 * 60_000   // < 12 h    → 30 min
+  return null
+}
+
+function HourTicks({ viewStart, viewEnd, width, span }) {
+  const step = minorIntervalFor(span) ?? 3600_000
+  const intervalMin = step / 60_000
+
+  const t0 = new Date(viewStart)
+  t0.setSeconds(0, 0)
+  t0.setMinutes(t0.getMinutes() - (t0.getMinutes() % intervalMin))
+  if (t0.getTime() < viewStart) t0.setMinutes(t0.getMinutes() + intervalMin)
+
   const ticks = []
-  const startHour = new Date(viewStart)
-  startHour.setMinutes(0, 0, 0)
-  if (startHour.getTime() < viewStart) startHour.setHours(startHour.getHours() + 1)
-  const span = viewEnd - viewStart
-  for (let t = startHour.getTime(); t <= viewEnd; t += 3600_000) {
-    const x = ((t - viewStart) / span) * width
+  for (let t = t0.getTime(); t <= viewEnd; t += step) {
     const d = new Date(t)
-    const h = d.getHours()
-    const label = String(h).padStart(2, '0')
-    ticks.push({ x, label, major: true })
+    const major = d.getMinutes() === 0
+    const label = major ? String(d.getHours()).padStart(2, '0') : `:${String(d.getMinutes()).padStart(2, '0')}`
+    ticks.push({ x: ((t - viewStart) / span) * width, label, major })
   }
+
   return (
     <g className="ticks">
       {ticks.map((tk, i) => (
         <g key={i} transform={`translate(${tk.x},0)`}>
-          <line y1={0} y2={HEADER_HEIGHT} stroke={tk.major ? '#2a3140' : '#1a1f29'} />
-          <line y1={HEADER_HEIGHT} y2="100%" stroke={tk.major ? '#161a22' : 'transparent'} />
-          {tk.major && (
-            <text x={4} y={14} fill="#7a8699" fontSize="11" fontFamily="ui-monospace,Menlo,monospace">{tk.label}</text>
-          )}
+          <line y1={0} y2={HEADER_HEIGHT} className={`tick-hline ${tk.major ? 'tick-major' : 'tick-minor'}`} />
+          <line y1={HEADER_HEIGHT} y2="100%" className={`tick-vline ${tk.major ? 'tick-major' : 'tick-minor'}`} />
+          <text x={4} y={14} className={`tick-text ${tk.major ? 'tick-major' : 'tick-minor'}`}>{tk.label}</text>
         </g>
       ))}
     </g>
@@ -162,9 +172,6 @@ export default function GanttChart({
     document.addEventListener('mouseup', handleUp)
   }, [chartWidth, span, dayRange])
 
-  const now = Date.now()
-  const showNow = now >= view.start && now <= view.end
-
   return (
     <div className="gantt-wrap">
       <div className="gantt-toolbar">
@@ -188,10 +195,10 @@ export default function GanttChart({
       </div>
       <div className="gantt-canvas" ref={containerRef} onMouseDown={handleMouseDown}>
         <svg width={width} height={totalHeight}>
-          <rect x={0} y={0} width={GUTTER_WIDTH} height={totalHeight} fill="#0e1118" />
-          <line x1={GUTTER_WIDTH} x2={GUTTER_WIDTH} y1={0} y2={totalHeight} stroke="#232936" />
+          <rect x={0} y={0} width={GUTTER_WIDTH} height={totalHeight} className="gantt-gutter" />
+          <line x1={GUTTER_WIDTH} x2={GUTTER_WIDTH} y1={0} y2={totalHeight} className="gantt-divider" />
           <g transform={`translate(${GUTTER_WIDTH},0)`}>
-            <HourTicks viewStart={view.start} viewEnd={view.end} width={chartWidth} />
+            <HourTicks viewStart={view.start} viewEnd={view.end} width={chartWidth} span={span} />
           </g>
           {groups.map((g, gi) => (
             <g key={g.key}>
@@ -200,11 +207,10 @@ export default function GanttChart({
                   x1={0} x2={width}
                   y1={g.yOffset - GROUP_GAP / 2}
                   y2={g.yOffset - GROUP_GAP / 2}
-                  stroke="#1B212C"
+                  className="gantt-group-sep"
                 />
               )}
-              <text x={8} y={g.yOffset + 14} fill="#cbd1dc" fontSize="11"
-                    fontFamily="ui-sans-serif,system-ui,sans-serif">
+              <text x={8} y={g.yOffset + 14} className="gantt-cwd">
                 <title>{g.key}</title>
                 {g.cwdShort}
               </text>
@@ -224,28 +230,24 @@ export default function GanttChart({
 
                 return (
                   <g key={item.id} className={`bar ${isSelected ? 'selected' : ''}`}
-                     onClick={() => onSelect(item.id)} style={{ cursor: 'pointer' }}>
-                    <rect x={x} y={y} width={w} height={LANE_HEIGHT} rx={3}
-                          fill={color} opacity={0.92} />
+                     onClick={() => onSelect(item.id)}>
+                    <rect x={x} y={y} width={w} height={LANE_HEIGHT} rx={3} fill={color} className="bar-fill" />
                     {item.cacheCreation1h > 0 && (
                       <>
                         <clipPath id={`warn-clip-${item.id}`}>
                           <rect x={x} y={y} width={w} height={LANE_HEIGHT} rx={3} />
                         </clipPath>
-                        <rect x={x} y={y + LANE_HEIGHT - 3} width={w} height={3}
-                              fill="#fbbf24" clipPath={`url(#warn-clip-${item.id})`} />
+                        <rect x={x} y={y + LANE_HEIGHT - 3} width={w} height={3} className="gantt-cache-bar" clipPath={`url(#warn-clip-${item.id})`} />
                       </>
                     )}
                     {periods.slice(0, -1).map((p, i) => {
                       const gx1 = Math.max(GUTTER_WIDTH, xFor(p.end))
                       const gx2 = Math.min(width, xFor(periods[i + 1].start))
                       if (gx2 <= gx1) return null
-                      return <rect key={i} x={gx1} y={y} width={gx2 - gx1} height={LANE_HEIGHT}
-                                   fill="#1f2632" />
+                      return <rect key={i} x={gx1} y={y} width={gx2 - gx1} height={LANE_HEIGHT} className="gantt-idle" />
                     })}
                     {isSelected && (
-                      <rect x={x} y={y} width={w} height={LANE_HEIGHT} rx={3}
-                            fill="none" stroke="#fff" strokeWidth={1.5} />
+                      <rect x={x} y={y} width={w} height={LANE_HEIGHT} rx={3} className="bar-outline" />
                     )}
                     <title>{`${SOURCE_LABELS[item.source] || item.source} · ${item.label}\n${g.key}\n${new Date(item.start).toLocaleString()} → ${new Date(item.end).toLocaleString()}${item.cacheCreation1h > 0 ? '\n· uses 1h extended cache' : ''}`}</title>
                   </g>
@@ -260,15 +262,9 @@ export default function GanttChart({
             chartLeft={GUTTER_WIDTH}
             chartWidth={chartWidth}
             totalHeight={totalHeight}
+            headerHeight={HEADER_HEIGHT}
             containerRef={containerRef}
           />
-          {showNow && (
-            <g className="now-line">
-              <line x1={xFor(now)} x2={xFor(now)} y1={HEADER_HEIGHT - 8} y2={totalHeight}
-                    stroke="#ef4444" strokeWidth="1.5" />
-              <text x={xFor(now) + 4} y={HEADER_HEIGHT - 2} fill="#ef4444" fontSize="11">now</text>
-            </g>
-          )}
         </svg>
       </div>
     </div>

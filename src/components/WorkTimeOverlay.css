@@ -8,3 +8,27 @@
   text-align: center;
   white-space: nowrap;
 }
+
+.work-handle {
+  cursor: ew-resize;
+
+  & .work-handle-hit { fill: transparent; }
+  & .work-handle-line { stroke: #868e9d; stroke-width: 2; }
+  & .work-handle-grip { fill: #cbd1dc; }
+}
+
+.work-offhours-shade {
+  fill: url(#work-offhours-stripes);
+  pointer-events: none;
+}
+
+.work-offhours-stripe {
+  stroke: #5d5d5d;
+  stroke-width: 1.5;
+  opacity: 0.45;
+}
+
+.now-line {
+  & line { stroke: #ef4444; stroke-width: 1.5; }
+  & text { fill: #ef4444; font-size: 11px; }
+}

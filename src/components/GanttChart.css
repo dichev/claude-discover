@@ -66,7 +66,33 @@
   & svg { display: block; }
 }
 
+.gantt-gutter { fill: #0e1118; }
+.gantt-divider { stroke: #232936; }
+.gantt-group-sep { stroke: #1b212c; }
+.gantt-cwd { fill: #cbd1dc; font-size: 11px;}
+
+.tick-hline {
+  &.tick-major { stroke: #2a3140; }
+  &.tick-minor { stroke: #1e2a38; }
+}
+.tick-vline {
+  &.tick-major { stroke: #161a22; }
+  &.tick-minor { stroke: #181e2a; }
+}
+.tick-text {
+  fill: #7a8699;
+  font-family: var(--font-mono), monospace;
+  &.tick-major { font-size: 9px; }
+  &.tick-minor { font-size: 9px; }
+}
+
+.bar-fill { opacity: 0.92; }
+.bar-outline { fill: none; stroke: #fff; stroke-width: 1.5; }
+.gantt-cache-bar { fill: #fbbf24; }
+.gantt-idle { fill: #1f2632; }
+
 .bar {
+  cursor: pointer;
   &:hover rect { filter: brightness(1.15); }
   &.selected rect { filter: brightness(1.2); }
 }

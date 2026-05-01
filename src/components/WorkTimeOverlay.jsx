@@ -2,21 +2,25 @@ import React, { useEffect, useState } from 'react'
 import './WorkTimeOverlay.css'
 
 const SNAP_MIN = 5
-const COLOR = '#cbd1dc'
-const SHADE = 'url(#work-offhours-stripes)'
 
 const clamp = (v, lo, hi) => Math.min(Math.max(v, lo), hi)
 const fmtHM = (m) => `${String(Math.floor(m / 60)).padStart(2, '0')}:${String(m % 60).padStart(2, '0')}`
 const parseHM = (s) => { const [h, m] = s.split(':').map(Number); return h * 60 + m }
 
 export default function WorkTimeOverlay({
-  dayStart, viewStart, viewEnd, chartLeft, chartWidth, totalHeight, containerRef,
+  dayStart, viewStart, viewEnd, chartLeft, chartWidth, totalHeight, headerHeight, containerRef,
 }) {
   const [workTime, setWorkTime] = useState(null)
   const [dragging, setDragging] = useState(null)
+  const [now, setNow] = useState(() => Date.now())
 
   useEffect(() => {
     window.api.getWorkHours().then(({ work_hours: w }) => setWorkTime({ startMin: parseHM(w.start), endMin: parseHM(w.end) }))
+  }, [])
+
+  useEffect(() => {
+    const id = setInterval(() => setNow(Date.now()), 60000)
+    return () => clearInterval(id)
   }, [])
 
   useEffect(() => {
@@ -57,10 +61,10 @@ export default function WorkTimeOverlay({
     const isDragging = dragging === which
     const labelOnLeft = which === 'end'
     return (
-      <g onMouseDown={startDrag(which)} style={{ cursor: 'ew-resize' }}>
-        <rect x={x - 7} y={0} width={14} height={totalHeight} fill="transparent" />
-        <line x1={x} x2={x} y1={0} y2={totalHeight} stroke={COLOR} strokeWidth={2} />
-        <rect x={x - 4} y={6} width={8} height={16} rx={2} fill={COLOR} />
+      <g className="work-handle" onMouseDown={startDrag(which)}>
+        <rect className="work-handle-hit" x={x - 7} y={0} width={14} height={totalHeight} />
+        <line className="work-handle-line" x1={x} x2={x} y1={0} y2={totalHeight} />
+        <rect className="work-handle-grip" x={x - 4} y={6} width={8} height={16} rx={2} />
         <title>{`Work ${which}: ${fmtHM(min)}`}</title>
         {isDragging && (
           <foreignObject x={labelOnLeft ? x - 50 : x + 6} y={2} width={48} height={20} pointerEvents="none">
@@ -74,17 +78,26 @@ export default function WorkTimeOverlay({
   const shadeL = clamp(xStart, chartLeft, chartRight)
   const shadeR = clamp(xEnd, chartLeft, chartRight)
 
+  const xForTs = (ts) => chartLeft + ((ts - viewStart) / (viewEnd - viewStart)) * chartWidth
+  const showNow = now >= viewStart && now <= viewEnd
+
   return (
     <g>
       <defs>
         <pattern id="work-offhours-stripes" width={8} height={8} patternUnits="userSpaceOnUse" patternTransform="rotate(45)">
-          <line x1={0} y1={0} x2={0} y2={8} stroke="#ef4444" strokeWidth={1.5} opacity={0.45} />
+          <line className="work-offhours-stripe" x1={0} y1={0} x2={0} y2={8} />
         </pattern>
       </defs>
-      <rect x={chartLeft} y={0} width={Math.max(0, shadeL - chartLeft)} height={totalHeight} fill={SHADE} pointerEvents="none" />
-      <rect x={shadeR} y={0} width={Math.max(0, chartRight - shadeR)} height={totalHeight} fill={SHADE} pointerEvents="none" />
+      <rect className="work-offhours-shade" x={chartLeft} y={0} width={Math.max(0, shadeL - chartLeft)} height={totalHeight} />
+      <rect className="work-offhours-shade" x={shadeR} y={0} width={Math.max(0, chartRight - shadeR)} height={totalHeight} />
       {renderHandle('start', xStart, workTime.startMin)}
       {renderHandle('end', xEnd, workTime.endMin)}
+      {showNow && (
+        <g className="now-line">
+          <line x1={xForTs(now)} x2={xForTs(now)} y1={0} y2={totalHeight} />
+          <text x={xForTs(now) + 4} y={headerHeight - 2}>now</text>
+        </g>
+      )}
     </g>
   )
 }
