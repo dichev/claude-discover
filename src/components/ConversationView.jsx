@@ -1,6 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react'
 import ReactMarkdown from 'react-markdown'
-import remarkGfm from 'remark-gfm'
 import rehypeHighlight from 'rehype-highlight'
 import { fmtCompact } from '../utils/formatting'
 import './ConversationView.css'
@@ -196,7 +195,7 @@ function Block({ block }) {
     }
     return (
       <div className="block-text markdown">
-        <ReactMarkdown remarkPlugins={[remarkGfm]} rehypePlugins={[rehypeHighlight]}>
+        <ReactMarkdown rehypePlugins={[rehypeHighlight]}>
           {fenceJsonBlocks(block.text)}
         </ReactMarkdown>
       </div>
@@ -293,7 +292,7 @@ function JsonBlock({ value }) {
   const md = '```json\n' + safeJson(value) + '\n```'
   return (
     <div className="block-text markdown">
-      <ReactMarkdown remarkPlugins={[remarkGfm]} rehypePlugins={[rehypeHighlight]}>
+      <ReactMarkdown rehypePlugins={[rehypeHighlight]}>
         {md}
       </ReactMarkdown>
     </div>

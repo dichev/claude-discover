@@ -22,8 +22,7 @@
     "react-dom": "^19.2.5",
     "react-markdown": "^10.1.0",
     "react-resizable-panels": "^4.10.0",
-    "rehype-highlight": "^7.0.2",
-    "remark-gfm": "^4.0.1"
+    "rehype-highlight": "^7.0.2"
   },
   "devDependencies": {
     "@tomjs/electron-devtools-installer": "^4.0.1",
