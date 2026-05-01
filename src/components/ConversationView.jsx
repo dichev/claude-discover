@@ -98,12 +98,21 @@ export default function ConversationView({ items }) {
   )
 }
 
+const CONTEXT_ATTACHMENT_TYPES = new Set(['deferred_tools_delta', 'skill_listing', 'selected_lines_in_ide'])
+
 function TurnRow({ turn }) {
   const meta = metaText(turn)
+  const contextBlocks = turn.blocks.filter(b => b.type === 'attachment' && CONTEXT_ATTACHMENT_TYPES.has(b.attachment?.type))
+  const otherBlocks = turn.blocks.filter(b => !(b.type === 'attachment' && CONTEXT_ATTACHMENT_TYPES.has(b.attachment?.type)))
   return (
     <div className={`turn turn-${turn.role} ${turn.isMeta ? 'turn-meta-note' : ''}`}>
       <div className="turn-blocks">
-        {turn.blocks.map((b, i) => <Block key={i} block={b} />)}
+        {contextBlocks.length > 0 && (
+          <Collapsible title="context" className="attachment" defaultOpen={false}>
+            {contextBlocks.map((b, i) => <Attachment key={i} att={b.attachment} />)}
+          </Collapsible>
+        )}
+        {otherBlocks.map((b, i) => <Block key={i} block={b} />)}
       </div>
       {meta && <div className="turn-meta" title={meta}>{meta}</div>}
     </div>
@@ -118,6 +127,7 @@ function ToolGroup({ turns }) {
   const names = turns.flatMap((t) =>
     t.blocks.filter((b) => b.type === 'tool_use').map((b) => b.name)
   )
+  if (toolCount === 0) return <>{turns.map((t) => <TurnRow key={t.uuid} turn={t} />)}</>
   const preview = names.slice(0, 4).join(', ') + (names.length > 4 ? `, +${names.length - 4}` : '')
   return (
     <div className="tool-group">
@@ -168,7 +178,8 @@ function Block({ block }) {
     )
   }
   if (block.type === 'thinking') {
-    return <Collapsible title="thinking"><pre>{block.thinking || ''}</pre></Collapsible>
+    if (!block.thinking) return <Label title="thinking" />
+    return <Collapsible title="thinking" defaultOpen={false}><pre>{block.thinking}</pre></Collapsible>
   }
   if (block.type === 'tool_use') {
     return (
@@ -224,11 +235,20 @@ const ATTACHMENT_RENDERERS = {
 
 function Attachment({ att }) {
   const render = ATTACHMENT_RENDERERS[att?.type]
-  const { title, body, defaultOpen = true } = render ? render(att) : { title: `attachment · ${att?.type || 'unknown'}`, body: safeJson(att) }
+  const { title, body, defaultOpen = false } = render ? render(att) : { title: `attachment · ${att?.type || 'unknown'}`, body: safeJson(att) }
+  if (body == null) return <Label title={title} className="attachment" />
   return (
     <Collapsible title={title} className="attachment" defaultOpen={defaultOpen}>
-      {body != null && <pre>{body}</pre>}
+      <pre>{body}</pre>
     </Collapsible>
+  )
+}
+
+function Label({ title, className }) {
+  return (
+    <div className={`aux ${className || ''}`}>
+      <span className="aux-label">• {title}</span>
+    </div>
   )
 }
 

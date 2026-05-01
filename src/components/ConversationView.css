@@ -158,6 +158,12 @@
   &:hover { color: var(--text-dim); background: transparent; }
 }
 
+.aux-label {
+  color: var(--text-faint);
+  font-size: 11px;
+  font-family: var(--font-mono), monospace;
+}
+
 .aux-body {
   margin-top: 4px;
   border-left: 2px solid var(--border);

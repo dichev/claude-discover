@@ -119,9 +119,9 @@ export default function SessionDetail({ meta, date }) {
             <Field label="Source" value={meta.source || meta.entrypoint || '—'} />
             {meta.hasScheduledTask && <Field label="Scheduled" value="yes" />}
             <Field label="CLI version" value={meta.version || '—'} mono />
-            <Field label="Session ID" value={meta.sessionId} mono full />
-            <Field label="cwd" value={meta.cwd || '—'} mono full />
-            <Field label="Log file" value={meta.filePath} mono full />
+            <Field label="Session ID" value={meta.sessionId} mono full autoselect />
+            <Field label="cwd" value={meta.cwd || '—'} mono full autoselect />
+            <Field label="Log file" value={meta.filePath} mono full autoselect />
             <Field label="File size" value={fmtBytes(meta.fileSize)} />
           </Section>
         </div>
@@ -148,13 +148,21 @@ function Bar({ ratio, tone = 'ok' }) {
   )
 }
 
-function Field({ label, value, mono, full, below }) {
+function Field({ label, value, mono, full, below, autoselect }) {
+  const selectAll = autoselect ? (e) => {
+    const range = document.createRange()
+    range.selectNodeContents(e.currentTarget)
+    const sel = window.getSelection()
+    sel.removeAllRanges()
+    sel.addRange(range)
+  } : undefined
+
   if (below) {
     return (
       <div className="field has-below">
         <div className="field-row">
           <div className="field-label">{label}</div>
-          <div className={`field-value ${mono ? 'mono' : ''}`}>{value}</div>
+          <div className={`field-value ${mono ? 'mono' : ''}`} onClick={selectAll}>{value}</div>
         </div>
         {below}
       </div>
@@ -163,7 +171,7 @@ function Field({ label, value, mono, full, below }) {
   return (
     <div className={`field ${full ? 'full' : ''}`}>
       <div className="field-label">{label}</div>
-      <div className={`field-value ${mono ? 'mono' : ''}`}>{value}</div>
+      <div className={`field-value ${mono ? 'mono' : ''}`} onClick={selectAll}>{value}</div>
     </div>
   )
 }
