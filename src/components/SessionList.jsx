@@ -1,7 +1,8 @@
 import React, { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { SOURCE_COLORS, SOURCE_LABELS } from '../utils/colors.js'
 import { format } from 'date-fns'
-import { fmtCompact, fmtNum, fmtUSD, costTone, tokensTone } from '../utils/formatting.js'
+import { fmtCompact, fmtNum, fmtUSD, fmtDuration, tone } from '../utils/formatting.js'
+import { THRESHOLDS as T } from '../utils/thresholds.js'
 import './SessionList.css'
 
 export default function SessionList({ sessions, selectedId, onSelect, filter, onFilterChange }) {
@@ -91,6 +92,12 @@ export default function SessionList({ sessions, selectedId, onSelect, filter, on
               <div className="session-row-main">
                 <div className="session-label">
                   {s.tokens?.cacheCreation1h > 0 && <span className="warn-badge" title={`Used 1h extended cache (${fmtNum(s.tokens.cacheCreation1h)} tokens)`}>1h</span>}
+                  {s.lastContextTokens > T.context.danger && <span className="danger-badge" title={`Context size: ${fmtNum(s.lastContextTokens)} tokens`}>CTX</span>}
+                  {s.lastContextTokens > T.context.warn && s.lastContextTokens <= T.context.danger && <span className="warn-badge" title={`Context size: ${fmtNum(s.lastContextTokens)} tokens`}>CTX</span>}
+                  {s.messageCount > T.messages.danger && <span className="danger-badge" title={`${fmtNum(s.messageCount)} messages`}>MSG</span>}
+                  {s.messageCount > T.messages.warn && s.messageCount <= T.messages.danger && <span className="warn-badge" title={`${fmtNum(s.messageCount)} messages`}>MSG</span>}
+                  {s.activeMs > T.workTime.danger && <span className="danger-badge" title={`Working time: ${fmtDuration(s.activeMs)}`}>TIME</span>}
+                  {s.activeMs > T.workTime.warn && s.activeMs <= T.workTime.danger && <span className="warn-badge" title={`Working time: ${fmtDuration(s.activeMs)}`}>TIME</span>}
                   {isSubagent && <span className="subagent-tag">[subagent]</span>}
                   {s.name && <span className="session-name">{s.name}</span>}
                   {subLabel || (!s.name && label)}
@@ -99,10 +106,10 @@ export default function SessionList({ sessions, selectedId, onSelect, filter, on
               <div className="session-row-stats">
                 {(sortBy === 'cost' || sortBy === 'tokens') && (
                   <>
-                    <span className={`${sortBy === 'tokens' ? 'stat-primary' : 'stat-secondary'} ${tokensTone(s.totalTokens)}`} title={s.totalTokens ? `${s.totalTokens.toLocaleString()} tokens` : ''}>
+                    <span className={`${sortBy === 'tokens' ? 'stat-primary' : 'stat-secondary'} ${tone(s.totalTokens, T.tokens)}`} title={s.totalTokens ? `${s.totalTokens.toLocaleString()} tokens` : ''}>
                       {fmtCompact(s.totalTokens)}
                     </span>
-                    <span className={`${sortBy === 'cost' ? 'stat-primary' : 'stat-secondary'} ${costTone(s.cost)}`} title={s.cost ? `$${s.cost.toFixed(4)}` : 'No cost data'}>
+                    <span className={`${sortBy === 'cost' ? 'stat-primary' : 'stat-secondary'} ${tone(s.cost, T.cost)}`} title={s.cost ? `$${s.cost.toFixed(4)}` : 'No cost data'}>
                       {s.cost ? fmtUSD(s.cost) : '—'}
                     </span>
                   </>

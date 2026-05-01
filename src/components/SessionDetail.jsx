@@ -1,10 +1,11 @@
 import React, { useEffect, useRef, useState } from 'react'
 import { format } from 'date-fns'
-import {fmtDuration, fmtBytes, fmtNum, fmtUSD, fmtCompact, costTone, tokensTone} from '../utils/formatting.js'
+import {fmtDuration, fmtBytes, fmtNum, fmtUSD, fmtCompact, tone} from '../utils/formatting.js'
+import { THRESHOLDS as T } from '../utils/thresholds.js'
 import ConversationView from './ConversationView.jsx'
 import './SessionDetail.css'
 
-const CONTEXT_WINDOW = 200_000
+const CONTEXT_WINDOW = T.context.danger
 
 export default function SessionDetail({ meta, date }) {
   const [items, setItems] = useState(null)
@@ -74,10 +75,14 @@ export default function SessionDetail({ meta, date }) {
         </div>
         <div className="detail-meta">
           <Section title="Summary">
-            <Field label="Working time" value={fmtDuration(activeDuration)} />
-            <Field label="Total tokens" value={<span className={tokensTone(totalTokens)}>{fmtCompact(totalTokens)}</span>} />
-            <Field label="Estimated cost" value={<span className={costTone(cost)}>{fmtUSD(cost)}</span>} />
-            <Field label="Context size" value={context.label} below={
+            <Field label="Working time" value={
+              <span className={tone(activeDuration, T.workTime)}>{fmtDuration(activeDuration)}</span>
+            } />
+            <Field label="Total tokens" value={<span className={tone(totalTokens, T.tokens)}>{fmtCompact(totalTokens)}</span>} />
+            <Field label="Estimated cost" value={<span className={tone(cost, T.cost)}>{fmtUSD(cost)}</span>} />
+            <Field label="Context size" value={
+              <span className={tone(meta.lastContextTokens, T.context)}>{context.label}</span>
+            } below={
               <Bar ratio={context.ratio} tone={context.tone} />
             }/>
           </Section>
@@ -88,12 +93,9 @@ export default function SessionDetail({ meta, date }) {
             <Field label="Cache write (5m)" value={fmtNum(t.cacheCreation5m || 0)} />
             <Field
               label="Cache write (1h)"
-              value={
-                t.cacheCreation1h > 0
-                  ? <span className="warn-badge">{fmtNum(t.cacheCreation1h)}</span>
-                  : fmtNum(0)
-              }
+              value={<span className={t.cacheCreation1h > 0 ? 'warn' : ''}>{fmtNum(t.cacheCreation1h || 0)}</span>}
             />
+
             <Field label="Cache read" value={fmtNum(t.cacheRead)} />
             <Field label="Cache hit ratio" value={`${(cacheHitRatio * 100).toFixed(0)}%`} />
             {hasServerTools && (
@@ -109,7 +111,9 @@ export default function SessionDetail({ meta, date }) {
             <Field label="Last activity" value={format(meta.lastActivityAt, 'pp')} />
             <Field label="Wall duration" value={fmtDuration(wallDuration)} />
             <Field label="Active periods" value={fmtNum(meta.activityPeriods.length)} />
-            <Field label="Messages" value={fmtNum(meta.messageCount)} />
+            <Field label="Messages" value={
+              <span className={tone(meta.messageCount, T.messages)}>{fmtNum(meta.messageCount)}</span>
+            } />
           </Section>
 
           <Section title="Identity">

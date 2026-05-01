@@ -57,6 +57,15 @@ button:hover { background: var(--border); }
   border: 1px solid rgba(251, 191, 36, 0.35);
 }
 
+.danger-badge {
+  display: inline-flex; align-items: center;
+  font-size: 10px; font-weight: 600; letter-spacing: 0.4px;
+  padding: 1px 5px; border-radius: 3px;
+  background: rgba(239, 68, 68, 0.14);
+  color: #ef4444;
+  border: 1px solid rgba(239, 68, 68, 0.35);
+}
+
 /* Scrollbars */
 ::-webkit-scrollbar { width: 5px; height: 5px; }
 ::-webkit-scrollbar-track { background: transparent; }
