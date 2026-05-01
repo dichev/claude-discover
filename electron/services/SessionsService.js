@@ -130,13 +130,16 @@ export class SessionsService {
   }
 
   _startWatcher() {
-    this.watcher = chokidar.watch(path.join(this.root, '**', '*.jsonl'), {
+    this.watcher = chokidar.watch(this.root, {
       ignoreInitial: true,
-      awaitWriteFinish: { stabilityThreshold: 400, pollInterval: 100 }
+      awaitWriteFinish: { stabilityThreshold: 400, pollInterval: 100 },
+      ignored: (p, stats) => !!stats?.isFile() && !p.endsWith('.jsonl')
     })
-    this.watcher.on('add', (p) => this._refresh(p))
-    this.watcher.on('change', (p) => this._refresh(p))
+    const isJsonl = (p) => p.endsWith('.jsonl')
+    this.watcher.on('add', (p) => isJsonl(p) && this._refresh(p))
+    this.watcher.on('change', (p) => isJsonl(p) && this._refresh(p))
     this.watcher.on('unlink', (p) => {
+      if (!isJsonl(p)) return
       const cached = this.cache.get(p)
       if (this.cache.delete(p)) {
         if (cached) this.byId.delete(cached.sessionId)
