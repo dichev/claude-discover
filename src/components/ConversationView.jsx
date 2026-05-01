@@ -8,6 +8,24 @@ function flatten(items) {
   const turns = []
   const results = {}
   for (const it of items) {
+    if (it.type === 'attachment' && it.attachment) {
+      const block = { type: 'attachment', attachment: it.attachment }
+      const last = turns[turns.length - 1]
+      if (last && last.role === 'user') {
+        last.blocks.push(block)
+      } else {
+        turns.push({
+          uuid: it.uuid,
+          role: 'user',
+          isMeta: false,
+          ts: it.timestamp ? Date.parse(it.timestamp) : null,
+          model: null,
+          usage: null,
+          blocks: [block]
+        })
+      }
+      continue
+    }
     if (it.type !== 'user' && it.type !== 'assistant') continue
     const msg = it.message || {}
     const blocks = normalizeContent(msg.content)
@@ -48,7 +66,8 @@ function groupTurns(turns) {
   let bucket = null
   for (const t of turns) {
     const hasText = t.blocks.some((b) => b.type === 'text')
-    if (hasText) {
+    const hasAttachment = t.blocks.some((b) => b.type === 'attachment')
+    if (hasText || (t.role === 'user' && hasAttachment)) {
       if (bucket) { groups.push(bucket)
        bucket = null
        }
@@ -170,6 +189,9 @@ function Block({ block }) {
       </div>
     )
   }
+  if (block.type === 'attachment') {
+    return <Attachment att={block.attachment} />
+  }
   if (block.type === 'image') {
     const src = block.source
     if (src && src.type === 'base64') {
@@ -180,8 +202,37 @@ function Block({ block }) {
   return <Collapsible title={block.type || 'block'}><pre>{safeJson(block)}</pre></Collapsible>
 }
 
-function Collapsible({ title, children, className }) {
-  const [open, setOpen] = useState(true)
+const ATTACHMENT_RENDERERS = {
+  selected_lines_in_ide: (a) => {
+    const path = a.displayPath || a.filename || ''
+    const range = a.lineStart === a.lineEnd ? `L${a.lineStart}` : `L${a.lineStart}-${a.lineEnd}`
+    return { title: `selection in ${a.ideName || 'IDE'} · ${path}:${range}`, body: a.content || '' }
+  },
+  opened_file_in_ide: (a) => ({ title: `opened in IDE · ${a.displayPath || a.filename || ''}`, body: null }),
+  file: (a) => {
+    const f = a.content?.file
+    return { title: `file · ${a.displayPath || f?.filePath || a.filename || ''}`, body: f?.content ?? safeJson(a.content) }
+  },
+  skill_listing: (a) => ({ title: `skills (${a.skillCount ?? '?'})`, body: a.content || '', defaultOpen: false }),
+  deferred_tools_delta: (a) => ({
+    title: `deferred tools · +${a.addedNames?.length || 0} -${a.removedNames?.length || 0}`,
+    body: safeJson({ added: a.addedNames, removed: a.removedNames }),
+    defaultOpen: false,
+  }),
+}
+
+function Attachment({ att }) {
+  const render = ATTACHMENT_RENDERERS[att?.type]
+  const { title, body, defaultOpen = true } = render ? render(att) : { title: `attachment · ${att?.type || 'unknown'}`, body: safeJson(att) }
+  return (
+    <Collapsible title={title} className="attachment" defaultOpen={defaultOpen}>
+      {body != null && <pre>{body}</pre>}
+    </Collapsible>
+  )
+}
+
+function Collapsible({ title, children, className, defaultOpen = true }) {
+  const [open, setOpen] = useState(defaultOpen)
   return (
     <div className={`aux ${className || ''}`}>
       <button className="aux-toggle" onClick={() => setOpen((v) => !v)}>
