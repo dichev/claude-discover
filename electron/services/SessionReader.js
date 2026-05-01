@@ -64,10 +64,18 @@ export class SessionReader {
 
   async readFrom(offset = 0, range = null) {
     const items = []
+    const seenIds = new Set()
     const nextOffset = await this.streamFrom(offset, (obj) => {
       if (range) {
         const ts = obj.timestamp ? Date.parse(obj.timestamp) : NaN
         if (Number.isNaN(ts) || ts < range.start || ts > range.end) return
+      }
+      const u = obj.message?.usage
+      const msgId = obj.message?.id
+      if (u && msgId && !seenIds.has(msgId)) {
+        seenIds.add(msgId)
+        obj._tokenDelta = (u.input_tokens || 0) + (u.output_tokens || 0) +
+          (u.cache_read_input_tokens || 0) + (u.cache_creation_input_tokens || 0)
       }
       items.push(obj)
     })

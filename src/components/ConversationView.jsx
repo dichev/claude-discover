@@ -1,8 +1,8 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react'
-import { format } from 'date-fns'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 import rehypeHighlight from 'rehype-highlight'
+import { fmtCompact } from '../utils/formatting'
 import './ConversationView.css'
 
 function flatten(items) {
@@ -41,6 +41,7 @@ function flatten(items) {
       ts: it.timestamp ? Date.parse(it.timestamp) : null,
       model: msg.model || null,
       usage: msg.usage || null,
+      tokenDelta: it._tokenDelta ?? null,
       blocks
     })
   }
@@ -52,8 +53,14 @@ function flatten(items) {
   return turns.filter((t) => t.blocks.length > 0)
 }
 
-function metaText(t) {
-  return t.ts ? format(t.ts, 'HH:mm:ss') : ''
+
+function AccumUsage({ usageMeta }) {
+  if (!usageMeta?.delta) return null
+  const { total, delta } = usageMeta
+  const sign = delta >= 0 ? '+' : ''
+  return <>
+    <span className="meta-delta">{sign}{fmtCompact(delta)} / </span>{fmtCompact(total)}
+  </>
 }
 
 function normalizeContent(content) {
@@ -85,14 +92,29 @@ function groupTurns(turns) {
 export default function ConversationView({ items }) {
   const turns = useMemo(() => flatten(items), [items])
   const groups = useMemo(() => groupTurns(turns), [turns])
+  const groupsWithMeta = useMemo(() => {
+    let cumulative = 0
+    return groups.map(g => {
+      let delta = null
+      if (g.kind === 'turn') {
+        if (g.turn.tokenDelta != null) delta = g.turn.tokenDelta
+      } else {
+        for (const t of g.turns) {
+          if (t.tokenDelta != null) delta = (delta ?? 0) + t.tokenDelta
+        }
+      }
+      if (delta != null) cumulative += delta
+      return { g, usageMeta: cumulative > 0 ? { total: cumulative, delta } : null }
+    })
+  }, [groups])
   if (turns.length === 0) {
     return <div className="empty">No user/assistant turns to display.</div>
   }
   return (
     <div className="conversation">
-      {groups.map((g, i) => g.kind === 'turn'
-        ? <TurnRow key={g.turn.uuid} turn={g.turn} />
-        : <ToolGroup key={i} turns={g.turns} />
+      {groupsWithMeta.map(({ g, usageMeta }, i) => g.kind === 'turn'
+        ? <TurnRow key={g.turn.uuid} turn={g.turn} usageMeta={usageMeta} />
+        : <ToolGroup key={i} turns={g.turns} usageMeta={usageMeta} />
       )}
     </div>
   )
@@ -100,10 +122,12 @@ export default function ConversationView({ items }) {
 
 const CONTEXT_ATTACHMENT_TYPES = new Set(['deferred_tools_delta', 'skill_listing', 'selected_lines_in_ide'])
 
-function TurnRow({ turn }) {
-  const meta = metaText(turn)
-  const contextBlocks = turn.blocks.filter(b => b.type === 'attachment' && CONTEXT_ATTACHMENT_TYPES.has(b.attachment?.type))
-  const otherBlocks = turn.blocks.filter(b => !(b.type === 'attachment' && CONTEXT_ATTACHMENT_TYPES.has(b.attachment?.type)))
+function TurnRow({ turn, usageMeta }) {
+  const contextBlocks = [], otherBlocks = []
+  for (const b of turn.blocks) {
+    const isContextAttachment = b.type === 'attachment' && CONTEXT_ATTACHMENT_TYPES.has(b.attachment?.type)
+    if (isContextAttachment) contextBlocks.push(b); else otherBlocks.push(b);
+  }
   return (
     <div className={`turn turn-${turn.role} ${turn.isMeta ? 'turn-meta-note' : ''}`}>
       <div className="turn-blocks">
@@ -114,26 +138,27 @@ function TurnRow({ turn }) {
         )}
         {otherBlocks.map((b, i) => <Block key={i} block={b} />)}
       </div>
-      {meta && <div className="turn-meta" title={meta}>{meta}</div>}
+      {usageMeta?.delta && <div className="turn-meta"><AccumUsage usageMeta={usageMeta} /></div>}
     </div>
   )
 }
 
-function ToolGroup({ turns }) {
+function ToolGroup({ turns, usageMeta }) {
   const [open, setOpen] = useState(false)
-  const toolCount = turns.reduce(
-    (n, t) => n + t.blocks.filter((b) => b.type === 'tool_use').length, 0
-  )
-  const names = turns.flatMap((t) =>
-    t.blocks.filter((b) => b.type === 'tool_use').map((b) => b.name)
-  )
+  const toolBlocks = turns.flatMap(t => t.blocks.filter(b => b.type === 'tool_use'))
+  const toolCount = toolBlocks.length
+  const names = toolBlocks.map(b => b.name)
   if (toolCount === 0) return <>{turns.map((t) => <TurnRow key={t.uuid} turn={t} />)}</>
   const preview = names.slice(0, 4).join(', ') + (names.length > 4 ? `, +${names.length - 4}` : '')
+  const errorCount = toolBlocks.filter(b => b.result?.is_error).length
   return (
-    <div className="tool-group">
-      <button className="aux-toggle" onClick={() => setOpen((v) => !v)}>
-        {open ? '▾' : '▸'} {toolCount} tool call{toolCount === 1 ? '' : 's'}
-        {preview && <span className="tool-group-preview"> · {preview}</span>}
+    <div className={`tool-group${errorCount > 0 ? ' error' : ''}`}>
+      <button className="aux-toggle tool-group-toggle" onClick={() => setOpen((v) => !v)}>
+        <span>{open ? '▾' : '▸'} {toolCount} tool call{toolCount === 1 ? '' : 's'}
+          {preview && <span className="tool-group-preview"> · {preview}</span>}
+          {errorCount > 0 && <span className="tool-group-errors"> · {errorCount} error{errorCount === 1 ? '' : 's'}</span>}
+        </span>
+        {usageMeta?.delta && <span className="tool-group-usage"><AccumUsage usageMeta={usageMeta} /></span>}
       </button>
       {open && (
         <div className="tool-group-body">

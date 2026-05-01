@@ -15,8 +15,6 @@
   gap: 6px;
   font-size: 13px;
   line-height: 1.5;
-
-  &:hover .turn-meta { opacity: 1; }
 }
 
 .turn-blocks {
@@ -27,20 +25,20 @@
 }
 
 .turn-meta {
-  position: absolute;
-  bottom: 100%;
-  right: 0;
-  margin-bottom: 2px;
   font-family: var(--font-mono), monospace;
   font-size: 11px;
   color: var(--text-faint);
   white-space: nowrap;
-  background: var(--bg);
-  padding: 2px 4px;
-  border-radius: 3px;
+  text-align: right;
+}
+
+.meta-delta {
   opacity: 0;
-  transition: opacity 0.12s;
-  pointer-events: none;
+  transition: opacity 0.15s;
+}
+.turn:hover .meta-delta,
+.tool-group-toggle:hover .meta-delta {
+  opacity: 1;
 }
 
 .turn-user {
@@ -185,6 +183,20 @@
   font-size: 12px;
 
   & .tool-group-preview { color: var(--text-faint); }
+  & .tool-group-usage { color: var(--text-faint); font-variant-numeric: tabular-nums; flex-shrink: 0; }
+  & .tool-group-toggle {
+    display: flex;
+    justify-content: space-between;
+    width: 100%;
+    text-align: left;
+
+    & > span:first-child {
+      min-width: 0;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+  }
 
   & .tool-group-body {
     margin-top: 6px;
@@ -194,4 +206,8 @@
     flex-direction: column;
     gap: 10px;
   }
+
+  & .tool-group-errors { color: var(--danger); font-weight: 600; }
+
+  &.error { border-left: 2px solid var(--danger); padding-left: 6px; }
 }
