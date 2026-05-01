@@ -1,7 +1,7 @@
 import React, { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { SOURCE_COLORS, SOURCE_LABELS } from '../utils/colors.js'
 import { format } from 'date-fns'
-import { fmtCompact, fmtNum, fmtUSD } from '../utils/formatting.js'
+import { fmtCompact, fmtNum, fmtUSD, costTone, tokensTone } from '../utils/formatting.js'
 
 export default function SessionList({ sessions, selectedId, onSelect, filter, onFilterChange }) {
   const selectedRef = useRef(null)
@@ -39,21 +39,6 @@ export default function SessionList({ sessions, selectedId, onSelect, filter, on
       ...sorted.filter((c) => c.parentSessionId === s.sessionId).map((c) => ({ session: c, isChild: true }))
     ])
   }, [sorted])
-
-  // Fixed thresholds tuned for the $100/mo plan (~$3.33/day budget).
-  // A single session crossing $5 / 10M tokens is "too expensive"; $1 / 2M is "watch it".
-  const costClass = (cost) => {
-    if (!cost) return 'muted'
-    if (cost >= 5) return 'danger'
-    if (cost >= 1) return 'warn'
-    return 'muted'
-  }
-  const tokensClass = (tokens) => {
-    if (!tokens) return 'muted'
-    if (tokens >= 5_000_000) return 'danger'
-    if (tokens >= 1_000_000) return 'warn'
-    return 'muted'
-  }
 
   return (
     <div className="session-list">
@@ -108,20 +93,15 @@ export default function SessionList({ sessions, selectedId, onSelect, filter, on
               </div>
               <div className="session-row-stats">
                 {sortBy === 'cost' && (
-                  <span className={`stat-primary ${costClass(s.cost)}`} title={s.cost ? `$${s.cost.toFixed(4)}` : 'No cost data'}>
+                  <span className={`stat-primary ${costTone(s.cost)}`} title={s.cost ? `$${s.cost.toFixed(4)}` : 'No cost data'}>
                     {s.cost ? fmtUSD(s.cost) : '—'}
                   </span>
                 )}
                 {sortBy === 'tokens' && (
                   <>
-                    <span className={`stat-primary ${tokensClass(s.totalTokens)}`} title={s.totalTokens ? `${s.totalTokens.toLocaleString()} tokens` : ''}>
-                      {s.totalTokens ? `${fmtCompact(s.totalTokens)} tok` : '—'}
+                    <span className={`stat-primary ${tokensTone(s.totalTokens)}`} title={s.totalTokens ? `${s.totalTokens.toLocaleString()} tokens` : ''}>
+                      {fmtCompact(s.totalTokens)}
                     </span>
-                    {s.cacheHitRatio != null && (
-                      <span className="stat-secondary" title={`${s.tokens.cacheRead.toLocaleString()} cached / ${(s.tokens.cacheRead + s.tokens.cacheCreation).toLocaleString()} cacheable tokens`}>
-                        {Math.round(s.cacheHitRatio * 100)}% cached
-                      </span>
-                    )}
                   </>
                 )}
                 {sortBy === 'time' && (

@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react'
 import { format } from 'date-fns'
-import {fmtDuration, fmtBytes, fmtNum, fmtUSD, fmtCompact} from '../utils/formatting.js'
+import {fmtDuration, fmtBytes, fmtNum, fmtUSD, fmtCompact, costTone, tokensTone} from '../utils/formatting.js'
 import ConversationView from './ConversationView.jsx'
 
 const CONTEXT_WINDOW = 200_000
@@ -74,8 +74,8 @@ export default function SessionDetail({ meta, date }) {
         <div className="detail-meta">
           <Section title="Summary">
             <Field label="Working time" value={fmtDuration(activeDuration)} />
-            <Field label="Total tokens" value={fmtCompact(totalTokens)} />
-            <Field label="Estimated cost" value={fmtUSD(cost)} />
+            <Field label="Total tokens" value={<span className={tokensTone(totalTokens)}>{fmtCompact(totalTokens)}</span>} />
+            <Field label="Estimated cost" value={<span className={costTone(cost)}>{fmtUSD(cost)}</span>} />
             <Field label="Context size" value={context.label} below={
               <Bar ratio={context.ratio} tone={context.tone} />
             }/>

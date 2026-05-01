@@ -148,6 +148,8 @@ button:hover { background: var(--border); }
   font-family: var(--font-mono), monospace;
   font-weight: 500;
   text-align: right;
+  white-space: nowrap;
+  overflow: auto;
 }
 .gantt-canvas svg { display: block; }
 .bar:hover rect { filter: brightness(1.15); }
@@ -346,6 +348,8 @@ button:hover { background: var(--border); }
 .progress-bar-fill { height: 100%; background: var(--accent); transition: width 120ms ease; }
 .progress-bar.tone-warn .progress-bar-fill { background: #fbbf24; }
 .progress-bar.tone-danger .progress-bar-fill { background: var(--danger); }
+.field-value .warn { color: #fbbf24; }
+.field-value .danger { color: #b34242; }
 
 .empty { padding: 20px; color: var(--text-faint); text-align: center; }
 

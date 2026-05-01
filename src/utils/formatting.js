@@ -26,9 +26,25 @@ export function fmtUSD(n) {
   return `$${n.toFixed(2)}`
 }
 
+// Fixed thresholds tuned for the $100/mo plan (~$3.33/day budget).
+// A single session crossing $5 / 10M tokens is "too expensive"; $1 / 2M is "watch it".
+export function costTone(cost) {
+  if (!cost) return 'muted'
+  if (cost >= 5) return 'danger'
+  if (cost >= 1) return 'warn'
+  return 'muted'
+}
+
+export function tokensTone(tokens) {
+  if (!tokens) return 'muted'
+  if (tokens >= 5_000_000) return 'danger'
+  if (tokens >= 1_000_000) return 'warn'
+  return 'muted'
+}
+
 export function fmtCompact(n) {
   if (n == null) return '—'
   if (n < 1000) return `${n}`
   if (n < 1_000_000) return `${+(n / 1000).toFixed(1)}k`
-  return `${+(n / 1_000_000).toFixed(1)}m`
+  return `${(n / 1_000_000).toFixed(1)}M`
 }
