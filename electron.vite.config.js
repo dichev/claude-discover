@@ -20,7 +20,8 @@ export default defineConfig({
         input: resolve('src/index.html')
       }
     },
-    server: { port: 5555, strictPort: true },
+    server:  { port: 5555, strictPort: true  }, // npm run dev
+    preview: { port: 5555, strictPort: false }, // npm start (serves built output)
     plugins: [react()]
   }
 });
