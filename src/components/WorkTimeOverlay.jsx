@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react'
+import './WorkTimeOverlay.css'
 
 const SNAP_MIN = 5
 const COLOR = '#cbd1dc'

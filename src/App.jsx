@@ -5,6 +5,7 @@ import DailySummary from './components/DailySummary.jsx'
 import SessionList from './components/SessionList.jsx'
 import SessionDetail from './components/SessionDetail.jsx'
 import { startOfDay, endOfDay, format } from 'date-fns'
+import './App.css'
 
 export default function App() {
   const [sessions, setSessions] = useState([])

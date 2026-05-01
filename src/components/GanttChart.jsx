@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useRef, useState, useCallback } from 'react'
 import { SOURCE_COLORS, SOURCE_LABELS } from '../utils/colors.js'
 import { useLocalStorage } from '../utils/useLocalStorage.js'
 import WorkTimeOverlay from './WorkTimeOverlay.jsx'
+import './GanttChart.css'
 
 const LANE_HEIGHT = 22
 const LANE_GAP = 4

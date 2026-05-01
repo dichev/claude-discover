@@ -1,0 +1,10 @@
+.work-handle-label {
+  font: 11px var(--font-mono), monospace;
+  color: #cbd1dc;
+  background: #0e1118;
+  border: 1px solid #cbd1dc;
+  border-radius: 3px;
+  padding: 1px 5px;
+  text-align: center;
+  white-space: nowrap;
+}

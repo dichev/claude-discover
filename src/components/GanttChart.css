@@ -1,0 +1,72 @@
+.gantt-wrap {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  border-bottom: 1px solid var(--border);
+  padding: 12px 16px 8px;
+  background: var(--bg);
+}
+
+.gantt-toolbar {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  position: relative;
+  margin-bottom: 8px;
+}
+
+.gantt-controls { display: flex; gap: 6px; }
+
+.gantt-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 14px;
+  font-size: 12px;
+  color: var(--text-dim);
+  position: absolute;
+  right: 0;
+}
+
+.legend-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: transparent;
+  border: 1px solid transparent;
+  color: inherit;
+  font: inherit;
+  padding: 2px 6px;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: opacity 0.15s, border-color 0.15s, background 0.15s;
+
+  &:hover { background: rgba(255,255,255,0.04); }
+  &.active { border-color: var(--text-dim); background: rgba(255,255,255,0.06); }
+  &.dim { opacity: 0.4; }
+}
+
+.swatch {
+  display: inline-block;
+  width: 12px;
+  height: 12px;
+  border-radius: 2px;
+}
+
+.gantt-canvas {
+  width: 100%;
+  flex: 1;
+  min-height: 0;
+  background: var(--bg-elev);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  overflow-x: hidden;
+  overflow-y: auto;
+  user-select: none;
+
+  & svg { display: block; }
+}
+
+.bar {
+  &:hover rect { filter: brightness(1.15); }
+  &.selected rect { filter: brightness(1.2); }
+}

@@ -2,6 +2,7 @@ import React, { useEffect, useRef, useState } from 'react'
 import { format } from 'date-fns'
 import {fmtDuration, fmtBytes, fmtNum, fmtUSD, fmtCompact, costTone, tokensTone} from '../utils/formatting.js'
 import ConversationView from './ConversationView.jsx'
+import './SessionDetail.css'
 
 const CONTEXT_WINDOW = 200_000
 

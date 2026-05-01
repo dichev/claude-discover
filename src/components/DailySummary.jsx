@@ -1,6 +1,7 @@
 import React, { useMemo } from 'react'
 import { format } from 'date-fns'
 import { fmtUSD, fmtCompact, fmtDuration } from '../utils/formatting.js'
+import './DailySummary.css'
 
 export default function DailySummary({ sessions, dayAnchor }) {
   const totals = useMemo(() => {

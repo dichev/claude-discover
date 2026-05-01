@@ -3,6 +3,7 @@ import { format } from 'date-fns'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 import rehypeHighlight from 'rehype-highlight'
+import './ConversationView.css'
 
 function flatten(items) {
   const turns = []

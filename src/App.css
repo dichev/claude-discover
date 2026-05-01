@@ -1,0 +1,52 @@
+.app {
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+  overflow: hidden;
+}
+
+.gantt-pane {
+  display: flex;
+  min-height: 0;
+  overflow: hidden;
+
+  & > * { min-width: 0; min-height: 0; }
+  & > .gantt-wrap { flex: 1; }
+  & > .gantt-side { flex: 0 0 247px; }
+}
+
+.body-outer {
+  display: flex;
+  min-height: 0;
+  min-width: 0;
+  overflow: hidden;
+
+  & > * { flex: 1; min-height: 0; min-width: 0; }
+}
+
+.body {
+  flex: 1;
+  min-height: 0;
+}
+
+.body-pane {
+  display: flex;
+  min-width: 0;
+  min-height: 0;
+  overflow: hidden;
+
+  & > * { flex: 1; min-width: 0; min-height: 0; }
+}
+
+.resize-handle {
+  background: var(--border);
+  transition: background 120ms;
+
+  &:hover,
+  &[data-resize-handle-active] {
+    background: var(--text-faint);
+  }
+
+  &.resize-handle-v { width: 4px; cursor: col-resize; }
+  &.resize-handle-h { height: 4px; cursor: row-resize; }
+}
