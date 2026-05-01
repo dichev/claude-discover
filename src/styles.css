@@ -61,11 +61,12 @@ button:hover { background: var(--border); }
 ::-webkit-scrollbar { width: 5px; height: 5px; }
 ::-webkit-scrollbar-track { background: transparent; }
 ::-webkit-scrollbar-thumb {
-  background: transparent;
+  background-color: transparent;
   border-radius: 6px;
   border-right: 2px solid transparent;
   border-bottom: 2px solid transparent;
   background-clip: padding-box;
+  transition: background-color 0.2s ease;
 }
 :hover::-webkit-scrollbar-thumb { background-color: rgba(255,255,255,0.10); }
 ::-webkit-scrollbar-thumb:hover { background-color: rgba(255,255,255,0.25); }

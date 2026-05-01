@@ -102,7 +102,12 @@
     &.danger { color: #b34242; }
   }
 
-  & .stat-secondary { font-size: 10px; color: var(--text-faint); }
+  & .stat-secondary {
+    font-size: 10px;
+    color: var(--text-faint);
+    &.warn { color: #fbbf24; }
+    &.danger { color: #b34242; }
+  }
 }
 
 .session-row-top {

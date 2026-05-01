@@ -29,6 +29,11 @@ export default function SessionList({ sessions, selectedId, onSelect, filter, on
   const sorted = useMemo(() => {
     if (sortBy === 'cost') return [...sessions].sort((a, b) => (b.cost || 0) - (a.cost || 0))
     if (sortBy === 'tokens') return [...sessions].sort((a, b) => (b.totalTokens || 0) - (a.totalTokens || 0))
+    if (sortBy === 'name') return [...sessions].sort((a, b) => {
+      const labelA = (a.name || a.aiTitle || a.summary || a.firstUserPrompt || a.sessionId).toLowerCase()
+      const labelB = (b.name || b.aiTitle || b.summary || b.firstUserPrompt || b.sessionId).toLowerCase()
+      return labelA.localeCompare(labelB)
+    })
     return sessions
   }, [sessions, sortBy])
 
@@ -54,6 +59,8 @@ export default function SessionList({ sessions, selectedId, onSelect, filter, on
           <div className="session-count">{sorted.length} sessions</div>
           <div className="sort-toggle" role="group" aria-label="Sort sessions">
             <span className="sort-toggle-label">Sort by:</span>
+            <button type="button" className={`sort-pill ${sortBy === 'name' ? 'active' : ''}`} onClick={() => changeSort('name')}
+            >Name</button>
             <button type="button" className={`sort-pill ${sortBy === 'cost' ? 'active' : ''}`} onClick={() => changeSort('cost')}
             >Cost</button>
             <button type="button" className={`sort-pill ${sortBy === 'tokens' ? 'active' : ''}`} onClick={() => changeSort('tokens')}
@@ -90,19 +97,17 @@ export default function SessionList({ sessions, selectedId, onSelect, filter, on
                 </div>
               </div>
               <div className="session-row-stats">
-                {sortBy === 'cost' && (
-                  <span className={`stat-primary ${costTone(s.cost)}`} title={s.cost ? `$${s.cost.toFixed(4)}` : 'No cost data'}>
-                    {s.cost ? fmtUSD(s.cost) : '—'}
-                  </span>
-                )}
-                {sortBy === 'tokens' && (
+                {(sortBy === 'cost' || sortBy === 'tokens') && (
                   <>
-                    <span className={`stat-primary ${tokensTone(s.totalTokens)}`} title={s.totalTokens ? `${s.totalTokens.toLocaleString()} tokens` : ''}>
+                    <span className={`${sortBy === 'tokens' ? 'stat-primary' : 'stat-secondary'} ${tokensTone(s.totalTokens)}`} title={s.totalTokens ? `${s.totalTokens.toLocaleString()} tokens` : ''}>
                       {fmtCompact(s.totalTokens)}
+                    </span>
+                    <span className={`${sortBy === 'cost' ? 'stat-primary' : 'stat-secondary'} ${costTone(s.cost)}`} title={s.cost ? `$${s.cost.toFixed(4)}` : 'No cost data'}>
+                      {s.cost ? fmtUSD(s.cost) : '—'}
                     </span>
                   </>
                 )}
-                {sortBy === 'time' && (
+                {(sortBy === 'time' || sortBy === 'name') && (
                   <span className="stat-primary muted">{format(s.lastActivityAt, 'HH:mm:ss')}</span>
                 )}
               </div>
