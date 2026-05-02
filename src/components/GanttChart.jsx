@@ -68,7 +68,7 @@ function HourTicks({ viewStart, viewEnd, width, span }) {
 
 export default function GanttChart({
   dayRange, sessions, onSelect, selectedId, onShiftDay, onResetToday, dayAnchor,
-  sourceFilter, onToggleSourceFilter,
+  sourceFilter, onToggleSourceFilter, cwdFilter, onToggleCwdFilter,
 }) {
   const containerRef = useRef(null)
   const [width, setWidth] = useState(1200)
@@ -201,7 +201,7 @@ export default function GanttChart({
             <HourTicks viewStart={view.start} viewEnd={view.end} width={chartWidth} span={span} />
           </g>
           {groups.map((g, gi) => (
-            <g key={g.key}>
+            <g key={g.key} style={cwdFilter && cwdFilter !== g.key ? { opacity: 0.25 } : undefined}>
               {gi > 0 && (
                 <line
                   x1={0} x2={width}
@@ -210,7 +210,11 @@ export default function GanttChart({
                   className="gantt-group-sep"
                 />
               )}
-              <text x={8} y={g.yOffset + 14} className="gantt-cwd">
+              <text
+                x={8} y={g.yOffset + 14}
+                className={`gantt-cwd gantt-cwd-clickable${cwdFilter === g.key ? ' gantt-cwd-active' : ''}`}
+                onClick={(e) => { e.stopPropagation(); onToggleCwdFilter?.(g.key) }}
+              >
                 <title>{g.key}</title>
                 {g.cwdShort}
               </text>

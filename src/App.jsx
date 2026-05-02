@@ -13,6 +13,7 @@ export default function App() {
   const [selectedId, setSelectedId] = useState(null)
   const [filter, setFilter] = useState('')
   const [sourceFilter, setSourceFilter] = useState(null)
+  const [cwdFilter, setCwdFilter] = useState(null)
   const { defaultLayout, onLayoutChanged } = useDefaultLayout({ id: 'agenticWorkflow.body', panelIds: ['list', 'detail'], storage: localStorage })
   const { defaultLayout: rootLayout, onLayoutChanged: onRootLayoutChanged } = useDefaultLayout({ id: 'agenticWorkflow.root', panelIds: ['gantt', 'body'], storage: localStorage })
 
@@ -36,9 +37,10 @@ export default function App() {
   }, [dayAnchor])
 
   const dayItems = useMemo(() => {
-    const past = sourceFilter ? sessions.filter((s) => (s.source || 'other') === sourceFilter) : sessions
-    return { past }
-  }, [sessions, sourceFilter])
+    const sourceFiltered = sourceFilter ? sessions.filter((s) => (s.source || 'other') === sourceFilter) : sessions
+    const past = cwdFilter ? sourceFiltered.filter((s) => (s.cwd || '(no cwd)') === cwdFilter) : sourceFiltered
+    return { sourceFiltered, past }
+  }, [sessions, sourceFilter, cwdFilter])
 
   const filteredSessions = useMemo(() => {
     const q = filter.trim().toLowerCase()
@@ -58,6 +60,7 @@ export default function App() {
   )
 
   const shiftDay = useCallback((deltaDays) => {
+    setCwdFilter(null)
     setDayAnchor((d) => +startOfDay(d + deltaDays * 86400_000 + 3600_000))
   }, [])
 
@@ -71,14 +74,16 @@ export default function App() {
       <Panel id="gantt" defaultSize={400} minSize={180} className="gantt-pane">
         <GanttChart
           dayRange={dayRange}
-          sessions={dayItems.past}
+          sessions={dayItems.sourceFiltered}
           onSelect={setSelectedId}
           selectedId={selectedId}
           onShiftDay={shiftDay}
-          onResetToday={() => setDayAnchor(+startOfDay(Date.now()))}
+          onResetToday={() => { setCwdFilter(null); setDayAnchor(+startOfDay(Date.now())) }}
           dayAnchor={dayAnchor}
           sourceFilter={sourceFilter}
           onToggleSourceFilter={(src) => setSourceFilter((cur) => (cur === src ? null : src))}
+          cwdFilter={cwdFilter}
+          onToggleCwdFilter={(cwd) => setCwdFilter((cur) => (cur === cwd ? null : cwd))}
         />
         <DailySummary sessions={dayItems.past} dayAnchor={dayAnchor} />
       </Panel>

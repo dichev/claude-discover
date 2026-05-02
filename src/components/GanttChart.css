@@ -70,6 +70,9 @@
 .gantt-divider { stroke: #232936; }
 .gantt-group-sep { stroke: #1b212c; }
 .gantt-cwd { fill: #cbd1dc; font-size: 11px;}
+.gantt-cwd-clickable { cursor: pointer; }
+.gantt-cwd-clickable:hover { fill: #ffffff; }
+.gantt-cwd-active { fill: #7aa2f7; font-weight: 600; }
 
 .tick-hline {
   &.tick-major { stroke: #2a3140; }
