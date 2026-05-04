@@ -5,7 +5,7 @@ import { fmtCompact } from '../utils/formatting'
 import { fenceBlocks, parseCommand } from '../utils/textBlock.js'
 import './ConversationView.css'
 
-function flatten(items) {
+export function flatten(items) {
   const turns = []
   const results = {}
   for (const it of items) {

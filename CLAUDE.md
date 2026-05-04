@@ -37,6 +37,9 @@ npm start
 - `SessionView` / `ConversationView` — renders a single session's message thread; `SessionSummary` renders the right-hand metadata column.
 - `DailySummary` — aggregated stats (cost, tokens, time) for the day.
 
+## Cross-component sync
+- `AgentView.jsx` duplicates information from `ConversationView.jsx` and `SessionSummary.jsx` (rendered as markdown for AI consumption). When you add, remove, or change fields/blocks in either of those files, also update `AgentView.jsx` to keep them in sync.
+
 ## Style
 - No semicolons in JS/JSX
 - IPC channel names use `namespace:kebab-case-action` (e.g. `sessions:read-log-file`, not `sessions:readLogFile`)

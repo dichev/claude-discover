@@ -1,0 +1,46 @@
+.agent-view {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+  padding: 16px 20px;
+  position: relative;
+}
+
+.agent-view-actions {
+  position: sticky;
+  top: 0;
+  float: right;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  z-index: 1;
+}
+
+.agent-view-copy {
+  font-size: 12px;
+  color: var(--text-dim);
+  cursor: pointer;
+  user-select: none;
+  background: transparent;
+  padding: 4px 12px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  font-family: inherit;
+  width: 80px;
+  text-align: center;
+  box-sizing: border-box;
+}
+
+.agent-view-copy:hover {
+  color: var(--text);
+  border-color: var(--border-strong);
+}
+
+.agent-view-raw {
+  white-space: pre-wrap;
+  word-break: break-word;
+  font-family: var(--font-mono), monospace;
+  font-size: 12px;
+  line-height: 1.5;
+  margin: 0;
+}

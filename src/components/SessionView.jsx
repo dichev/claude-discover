@@ -1,6 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react'
 import ConversationView from './ConversationView.jsx'
 import JsonlViewer from './JsonlViewer.jsx'
+import AgentView from './AgentView.jsx'
 import SessionSummary from './SessionSummary.jsx'
 import './SessionView.css'
 
@@ -43,15 +44,16 @@ export default function SessionView({ meta, date }) {
           <div className="view-tabs">
             <Tab active={tab === 'conversation'} onClick={() => setTab('conversation')}>Conversation</Tab>
             <Tab active={tab === 'jsonl'} onClick={() => setTab('jsonl')}>JSONL</Tab>
+            <Tab active={tab === 'agent'} onClick={() => setTab('agent')}>Agent</Tab>
           </div>
-          {tab === 'conversation' ? (
+          {tab === 'conversation' && (
             <div className="view-tab-pane">
               {loading && <div className="empty">Loading conversation…</div>}
               {items && <ConversationView items={items} />}
             </div>
-          ) : (
-            <JsonlViewer filePath={meta.filePath} />
           )}
+          {tab === 'agent' && <AgentView meta={meta} items={items} />}
+          {tab === 'jsonl' && <JsonlViewer filePath={meta.filePath} />}
         </div>
         <SessionSummary meta={meta} />
       </div>
