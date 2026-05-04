@@ -3,6 +3,7 @@ import { SOURCE_COLORS, SOURCE_LABELS } from '../utils/colors.js'
 import { format } from 'date-fns'
 import { fmtCompact, fmtNum, fmtUSD, fmtDuration, tone } from '../utils/formatting.js'
 import { THRESHOLDS as T } from '../utils/thresholds.js'
+import { parseCommand } from '../utils/textBlock.js'
 import './SessionList.css'
 
 export default function SessionList({ sessions, selectedId, onSelect, filter, onFilterChange }) {
@@ -21,6 +22,14 @@ export default function SessionList({ sessions, selectedId, onSelect, filter, on
     pendingTop.current = null
   }, [sortBy])
 
+
+  const cmd = (text) => {
+    const c = parseCommand(text)
+    return c ? `${c.name} ${c.args}` : ''
+  }
+  const sessionLabel = (s) => s.name || s.aiTitle || s.summary || cmd(s.firstUserPrompt) || s.firstUserPrompt || s.sessionId || ''
+
+
   const changeSort = (next) => {
     const el = selectedRef.current
     if (el) pendingTop.current = el.offsetTop - el.parentElement.scrollTop
@@ -28,11 +37,11 @@ export default function SessionList({ sessions, selectedId, onSelect, filter, on
   }
 
   const sorted = useMemo(() => {
-    if (sortBy === 'cost') return [...sessions].sort((a, b) => (b.cost || 0) - (a.cost || 0))
+    if (sortBy === 'cost')   return [...sessions].sort((a, b) => (b.cost || 0) - (a.cost || 0))
     if (sortBy === 'tokens') return [...sessions].sort((a, b) => (b.totalTokens || 0) - (a.totalTokens || 0))
-    if (sortBy === 'name') return [...sessions].sort((a, b) => {
-      const labelA = (a.name || a.aiTitle || a.summary || a.firstUserPrompt || a.sessionId).toLowerCase()
-      const labelB = (b.name || b.aiTitle || b.summary || b.firstUserPrompt || b.sessionId).toLowerCase()
+    if (sortBy === 'name')   return [...sessions].sort((a, b) => {
+      const labelA = sessionLabel(a).toLowerCase()
+      const labelB = sessionLabel(b).toLowerCase()
       return labelA.localeCompare(labelB)
     })
     return sessions
@@ -46,6 +55,7 @@ export default function SessionList({ sessions, selectedId, onSelect, filter, on
       ...sorted.filter((c) => c.parentSessionId === s.sessionId).map((c) => ({ session: c, isChild: true }))
     ])
   }, [sorted])
+
 
   return (
     <div className="session-list">
@@ -76,9 +86,6 @@ export default function SessionList({ sessions, selectedId, onSelect, filter, on
           <div className="empty">No sessions on this day.</div>
         )}
         {grouped.map(({ session: s, isChild }) => {
-          const fallback = s.aiTitle || s.summary || s.firstUserPrompt || s.sessionId
-          const label = s.name || fallback
-          const subLabel = s.name && fallback !== s.name ? fallback : null
           const isSubagent = s.sessionId.startsWith('agent-')
           const isFork = !!s.forkedFrom
           return (
@@ -102,7 +109,7 @@ export default function SessionList({ sessions, selectedId, onSelect, filter, on
                   {isSubagent && <span className="subagent-tag">[subagent]</span>}
                   {isFork && <span className="fork-tag" title={`Forked from session ${s.forkedFrom.sessionId}`}>↳</span>}
                   {s.name && <span className="session-name">{s.name}</span>}
-                  {subLabel || (!s.name && label)}
+                  {sessionLabel(s)}
                 </div>
               </div>
               <div className="session-row-stats">

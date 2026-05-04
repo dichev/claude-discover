@@ -149,7 +149,7 @@ export class SessionParser {
       }
       if (!meta.firstUserPrompt) {
         const text = extractText(obj.message?.content)
-        if (text && !text.includes('<local-command-caveat>') && !text.startsWith('<command-name>')) {
+        if (text && !text.startsWith('<local-command-caveat>')) {
           meta.firstUserPrompt = text.slice(0, 500)
           if (text.includes('<scheduled-task')) meta.hasScheduledTask = true
         }
