@@ -48,14 +48,18 @@ export default function SessionView({ meta, date }) {
           </div>
           {tab === 'conversation' && (
             <div className="view-tab-pane">
-              {loading && <div className="empty">Loading conversation…</div>}
-              {items && <ConversationView items={items} />}
+              <div className="view-tab-pane-row">
+                <div className="view-tab-pane-main">
+                  {loading && <div className="empty">Loading conversation…</div>}
+                  {items && <ConversationView items={items} />}
+                </div>
+                <SessionSummary meta={meta} />
+              </div>
             </div>
           )}
           {tab === 'agent' && <AgentView meta={meta} items={items} />}
           {tab === 'jsonl' && <JsonlViewer filePath={meta.filePath} />}
         </div>
-        <SessionSummary meta={meta} />
       </div>
     </div>
   )
