@@ -3,7 +3,7 @@ import { Group, Panel, Separator, useDefaultLayout } from 'react-resizable-panel
 import GanttChart from './components/GanttChart.jsx'
 import DailySummary from './components/DailySummary.jsx'
 import SessionList from './components/SessionList.jsx'
-import SessionDetail from './components/SessionDetail.jsx'
+import SessionView from './components/SessionView.jsx'
 import { startOfDay, endOfDay, format } from 'date-fns'
 import './App.css'
 
@@ -106,7 +106,7 @@ export default function App() {
         </Panel>
         <Separator className="resize-handle resize-handle-v" />
         <Panel id="detail" minSize={30} className="body-pane">
-          <SessionDetail meta={selected} date={format(dayAnchor, 'yyyy-MM-dd')} />
+          <SessionView meta={selected} date={format(dayAnchor, 'yyyy-MM-dd')} />
         </Panel>
         </Group>
       </Panel>

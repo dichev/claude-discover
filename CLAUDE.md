@@ -34,7 +34,7 @@ npm start
 ## Key frontend components
 - `GanttChart` — timeline swimlane view across the day; drives `sourceFilter` and `cwdFilter`.
 - `SessionList` — filterable list of sessions for the selected day.
-- `SessionDetail` / `ConversationView` — renders a single session's message thread.
+- `SessionView` / `ConversationView` — renders a single session's message thread; `SessionSummary` renders the right-hand metadata column.
 - `DailySummary` — aggregated stats (cost, tokens, time) for the day.
 
 ## Style
