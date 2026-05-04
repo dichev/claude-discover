@@ -5,6 +5,15 @@
   overflow: hidden;
 }
 
+.app-loading {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 100vh;
+  color: var(--text-faint);
+  font-size: 24px;
+}
+
 .gantt-pane {
   display: flex;
   min-height: 0;

@@ -9,6 +9,7 @@ import './App.css'
 
 export default function App() {
   const [sessions, setSessions] = useState([])
+  const [loading, setLoading] = useState(true)
   const [dayAnchor, setDayAnchor] = useState(() => +startOfDay(Date.now()))
   const [selectedId, setSelectedId] = useState(null)
   const [filter, setFilter] = useState('')
@@ -27,7 +28,7 @@ export default function App() {
     let cancelled = false
     window.api.listSessions(format(dayAnchor, 'yyyy-MM-dd'))
       .then((s) => {
-        if (!cancelled) setSessions(s || [])
+        if (!cancelled) { setSessions(s || []); setLoading(false) }
       })
     const off = window.api.onSessionsUpdate((s) => { if (!cancelled) setSessions(s || [])
      })
@@ -63,6 +64,10 @@ export default function App() {
     setCwdFilter(null)
     setDayAnchor((d) => +startOfDay(d + deltaDays * 86400_000 + 3600_000))
   }, [])
+
+  if (loading) {
+    return <div className="app-loading">Loading sessions…</div>
+  }
 
   return (
     <Group

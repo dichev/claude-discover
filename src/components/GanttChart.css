@@ -15,7 +15,54 @@
   margin-bottom: 8px;
 }
 
-.gantt-controls { display: flex; gap: 6px; }
+.gantt-controls {
+  display: inline-flex;
+  align-items: stretch;
+  background: var(--bg-elev);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  overflow: hidden;
+  box-shadow: 0 1px 0 rgba(0,0,0,0.3);
+}
+
+.gantt-controls > button {
+  background: transparent;
+  border: none;
+  border-radius: 0;
+  color: #b7c5da;
+  font-size: 12px;
+  padding: 5px 14px;
+  margin: -2px 0;
+  line-height: 1.4;
+  cursor: pointer;
+  transition: background 0.12s, color 0.12s;
+}
+
+.gantt-controls > button + button {
+  border-left: 1px solid var(--border);
+}
+
+.gantt-controls > button:hover {
+  background: rgba(255,255,255,0.05);
+  color: #fff;
+}
+
+.gantt-nav-btn {
+  font-family: var(--font-mono), monospace;
+  min-width: 32px;
+  font-size: 16px;
+  line-height: 1.1;
+}
+
+.gantt-today-btn {
+  font-weight: 600;
+  letter-spacing: 0.3px;
+  color: var(--accent) !important;
+}
+
+.gantt-today-btn:hover {
+  background: rgba(96,165,250,0.12) !important;
+}
 
 .gantt-legend {
   display: flex;

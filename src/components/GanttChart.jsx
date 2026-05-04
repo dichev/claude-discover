@@ -176,9 +176,9 @@ export default function GanttChart({
     <div className="gantt-wrap">
       <div className="gantt-toolbar">
         <div className="gantt-controls">
-          <button onClick={() => onShiftDay(-1)}>← Prev</button>
-          <button onClick={onResetToday}>Today</button>
-          <button onClick={() => onShiftDay(1)}>Next →</button>
+          <button className="gantt-nav-btn" onClick={() => onShiftDay(-1)} title="Previous day" aria-label="Previous day">←</button>
+          <button className="gantt-today-btn" onClick={onResetToday}>Today</button>
+          <button className="gantt-nav-btn" onClick={() => onShiftDay(1)} title="Next day" aria-label="Next day">→</button>
         </div>
         <div className="gantt-legend">
           {['cli','sdk','desktop','scheduled','other'].map((k) => {
