@@ -46,6 +46,15 @@ export class SessionsService {
     this.watcher = null
   }
 
+  async readLogFile(filePath) {
+    const resolved = path.resolve(filePath || '')
+    if (!resolved.startsWith(this.root + path.sep)) {
+      return { ok: false, error: 'Path outside projects directory' }
+    }
+    const text = await fsp.readFile(resolved, 'utf8')
+    return { ok: true, text }
+  }
+
   async readSession(sessionId, offset = 0, date = null) {
     const meta = this.byId.get(sessionId)
     if (!meta) return null

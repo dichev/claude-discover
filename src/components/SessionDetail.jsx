@@ -3,6 +3,7 @@ import { format } from 'date-fns'
 import {fmtDuration, fmtBytes, fmtNum, fmtUSD, fmtCompact, tone} from '../utils/formatting.js'
 import { THRESHOLDS as T } from '../utils/thresholds.js'
 import ConversationView from './ConversationView.jsx'
+import JsonlViewer from './JsonlViewer.jsx'
 import './SessionDetail.css'
 
 const CONTEXT_WINDOW = T.context.danger
@@ -10,6 +11,7 @@ const CONTEXT_WINDOW = T.context.danger
 export default function SessionDetail({ meta, date }) {
   const [items, setItems] = useState(null)
   const [loading, setLoading] = useState(false)
+  const [tab, setTab] = useState('conversation')
   const offsetRef = useRef(0)
   const sidRef = useRef(null)
 
@@ -70,8 +72,26 @@ export default function SessionDetail({ meta, date }) {
     <div className="session-detail">
       <div className="detail-body">
         <div className="detail-conversation">
-          {loading && <div className="empty">Loading conversation…</div>}
-          {items && <ConversationView items={items} />}
+          <div className="detail-tabs">
+            <button
+              type="button"
+              className={`detail-tab ${tab === 'conversation' ? 'active' : ''}`}
+              onClick={() => setTab('conversation')}
+            >Conversation</button>
+            <button
+              type="button"
+              className={`detail-tab ${tab === 'jsonl' ? 'active' : ''}`}
+              onClick={() => setTab('jsonl')}
+            >JSONL</button>
+          </div>
+          {tab === 'conversation' ? (
+            <div className="detail-tab-pane">
+              {loading && <div className="empty">Loading conversation…</div>}
+              {items && <ConversationView items={items} />}
+            </div>
+          ) : (
+            <JsonlViewer filePath={meta.filePath} />
+          )}
         </div>
         <div className="detail-meta">
           <Section title="Summary">

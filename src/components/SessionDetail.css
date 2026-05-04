@@ -122,8 +122,46 @@
 }
 
 .detail-conversation {
-  overflow-y: auto;
   flex: 1;
   min-width: 0;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+
+.detail-tabs {
+  display: flex;
+  justify-content: flex-end;
+  gap: 2px;
+  padding: 6px 12px 0;
+  border-bottom: 1px solid var(--border);
+  background: var(--bg);
+}
+
+.detail-tab {
+  background: transparent;
+  border: 1px solid transparent;
+  border-bottom: none;
+  color: var(--text-faint);
+  padding: 10px 14px 8px;
+  font-size: 12px;
+  font-family: inherit;
+  cursor: pointer;
+  border-radius: 4px 4px 0 0;
+
+  &:hover { color: var(--text); }
+
+  &.active {
+    color: var(--text);
+    background: var(--bg);
+    border-color: var(--border);
+    margin-bottom: -1px;
+  }
+}
+
+.detail-tab-pane {
+  flex: 1;
+  overflow-y: auto;
+  min-height: 0;
   padding: 12px 16px;
 }

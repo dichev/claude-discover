@@ -39,6 +39,7 @@ npm start
 
 ## Style
 - No semicolons in JS/JSX
+- IPC channel names use `namespace:kebab-case-action` (e.g. `sessions:read-log-file`, not `sessions:readLogFile`)
 
 ## UI testing
 

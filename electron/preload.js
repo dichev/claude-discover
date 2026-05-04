@@ -9,5 +9,6 @@ contextBridge.exposeInMainWorld('api', {
     return () => ipcRenderer.removeListener('sessions:update', listener)
   },
   getWorkHours: () => ipcRenderer.invoke('work-hours:get'),
-  setWorkHours: (data) => ipcRenderer.invoke('work-hours:set', data)
+  setWorkHours: (data) => ipcRenderer.invoke('work-hours:set', data),
+  readLogFile: (filePath) => ipcRenderer.invoke('sessions:read-log-file', filePath)
 })

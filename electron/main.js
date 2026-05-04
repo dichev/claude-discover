@@ -68,6 +68,7 @@ app.whenReady().then(async () => {
 
   ipcMain.handle('sessions:list', (_e, date) => sessionsService.list(date))
   ipcMain.handle('sessions:read', async (_e, sessionId, offset, date) => sessionsService.readSession(sessionId, offset, date))
+  ipcMain.handle('sessions:read-log-file', (_e, filePath) => sessionsService.readLogFile(filePath))
   ipcMain.handle('work-hours:get', () => readWorkHours())
   ipcMain.handle('work-hours:set', (_e, data) => writeWorkHours(data))
 
