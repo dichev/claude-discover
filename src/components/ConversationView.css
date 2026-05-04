@@ -1,7 +1,6 @@
 .conversation {
   display: flex;
   flex-direction: column;
-  gap: 14px;
   max-width: 820px;
   width: 100%;
   margin-left: auto;
@@ -12,7 +11,6 @@
   position: relative;
   display: flex;
   flex-direction: column;
-  gap: 6px;
   font-size: 13px;
   line-height: 1.5;
 }
@@ -20,7 +18,6 @@
 .turn-blocks {
   display: flex;
   flex-direction: column;
-  gap: 6px;
   min-width: 0;
 }
 
@@ -48,6 +45,7 @@
 
   & .block-text {
     background: var(--bg-elev-2);
+    color: #71b7d6;
     border-radius: 6px;
     padding: 8px 12px;
     max-width: 80%;
@@ -111,6 +109,7 @@
 .block-text {
   white-space: pre-wrap;
   word-break: break-word;
+  margin: 5px 0 10px 0;
 
   &.markdown { white-space: normal; }
 }
@@ -204,10 +203,9 @@
     border-left: 2px solid var(--border);
     display: flex;
     flex-direction: column;
-    gap: 10px;
   }
 
   & .tool-group-errors { color: var(--danger); font-weight: 600; }
 
-  &.error { border-left: 2px solid var(--danger); padding-left: 6px; }
+  &.error { border-left: 2px solid var(--danger); padding-left: 6px; margin-left: -8px; }
 }
