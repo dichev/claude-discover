@@ -80,6 +80,7 @@ export default function SessionList({ sessions, selectedId, onSelect, filter, on
           const label = s.name || fallback
           const subLabel = s.name && fallback !== s.name ? fallback : null
           const isSubagent = s.sessionId.startsWith('agent-')
+          const isFork = !!s.forkedFrom
           return (
             <div
               key={s.sessionId}
@@ -99,6 +100,7 @@ export default function SessionList({ sessions, selectedId, onSelect, filter, on
                   {s.activeMs > T.workTime.danger && <span className="danger-badge" title={`Working time: ${fmtDuration(s.activeMs)}`}>TIME</span>}
                   {s.activeMs > T.workTime.warn && s.activeMs <= T.workTime.danger && <span className="warn-badge" title={`Working time: ${fmtDuration(s.activeMs)}`}>TIME</span>}
                   {isSubagent && <span className="subagent-tag">[subagent]</span>}
+                  {isFork && <span className="fork-tag" title={`Forked from session ${s.forkedFrom.sessionId}`}>↳</span>}
                   {s.name && <span className="session-name">{s.name}</span>}
                   {subLabel || (!s.name && label)}
                 </div>

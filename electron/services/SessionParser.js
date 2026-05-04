@@ -41,7 +41,7 @@ function freshMeta({ sessionId, parentSessionId, filePath, fileSize, mtime }) {
     startedAt: null, lastActivityAt: null,
     entrypoint: null, cwd: null, gitBranch: null, version: null,
     model: null, models: [], serviceTier: null,
-    summary: null, aiTitle: null, firstUserPrompt: null,
+    summary: null, aiTitle: null, firstUserPrompt: null, forkedFrom: null,
     messageCount: 0,
     tokens: emptyBucket(), tokensByModel: {}, lastContextTokens: 0,
     serverToolUse: { webSearch: 0, webFetch: 0 },
@@ -143,11 +143,16 @@ export class SessionParser {
       }
     }
 
-    if (t === 'user' && !meta.firstUserPrompt) {
-      const text = extractText(obj.message?.content)
-      if (text && !text.includes('<local-command-caveat>') && !text.startsWith('<command-name>')) {
-        meta.firstUserPrompt = text.slice(0, 500)
-        if (text.includes('<scheduled-task')) meta.hasScheduledTask = true
+    if (t === 'user') {
+      if (!meta.forkedFrom && obj.forkedFrom?.sessionId) {
+        meta.forkedFrom = obj.forkedFrom
+      }
+      if (!meta.firstUserPrompt) {
+        const text = extractText(obj.message?.content)
+        if (text && !text.includes('<local-command-caveat>') && !text.startsWith('<command-name>')) {
+          meta.firstUserPrompt = text.slice(0, 500)
+          if (text.includes('<scheduled-task')) meta.hasScheduledTask = true
+        }
       }
     } else if (t === 'assistant') {
       const msg = obj.message

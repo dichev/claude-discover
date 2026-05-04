@@ -151,6 +151,11 @@
   margin-right: 6px;
 }
 
+.fork-tag {
+  color: var(--accent);
+  font-weight: bold;
+}
+
 .session-label {
   font-size: 12px;
   display: -webkit-box;
