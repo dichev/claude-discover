@@ -119,25 +119,25 @@ export class SessionsService {
     }, this.debounceMs)
   }
 
+  async _listDirs(p) {
+    const entries = await fsp.readdir(p, { withFileTypes: true }).catch(() => [])
+    return entries.filter(e => !!e.isDirectory()).map(e => path.join(e.parentPath, e.name))
+  }
+
   async _scanDay(day, onBatch = null) {
-    let dirs
-    try {
-      dirs = await fsp.readdir(this.root, { withFileTypes: true })
-    } catch (err) {
-      console.error('day scan failed', err)
-      return
-    }
+    const projects = await this._listDirs(this.root)
+    const subagents = (await Promise.all(projects.map(d => this._listDirs(d)))).flat().map(d => path.join(d, 'subagents'))
     await Promise.all(
-      dirs.filter((e) => e.isDirectory()).map(async (e) => {
-        const dirPath = path.join(e.parentPath, e.name)
+      [...projects, ...subagents].map(async (dirPath) => {
         const stat = await fsp.stat(dirPath).catch(() => null)
-        if (!stat || stat.mtimeMs < day.start) return
-        const files = await fsp.readdir(dirPath, { withFileTypes: true }).catch(() => [])
-        const filePaths = files
-          .filter((f) => f.isFile() && f.name.endsWith('.jsonl'))
-          .map((f) => path.join(f.parentPath, f.name))
-        const results = await Promise.all(filePaths.map((p) => this._processFile(p, day, { skipBeforeDay: true })))
-        if (onBatch && results.some(Boolean)) await onBatch() // emit after each dir so the UI updates incrementally
+        if (stat && stat.mtimeMs >= day.start) { // skip if there are no sessions before the current day
+          const files = await fsp.readdir(dirPath, {withFileTypes: true}).catch(() => [])
+          const filePaths = files
+            .filter((f) => f.isFile() && f.name.endsWith('.jsonl'))
+            .map((f) => path.join(f.parentPath, f.name))
+          const results = await Promise.all(filePaths.map(p => this._processFile(p, day, {skipBeforeDay: true})))
+          if (onBatch && results.some(Boolean)) await onBatch() // emit after each dir so the UI updates incrementally
+        }
       })
     )
   }
