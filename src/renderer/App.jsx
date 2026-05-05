@@ -49,7 +49,7 @@ export default function App() {
     if (!q) return list
     return list.filter((s) => {
       const blob = [
-        s.customTitle, s.agentName, s.aiTitle, s.summary, s.firstUserPrompt, s.cwd, s.sessionId, s.model, s.gitBranch
+        s.customTitle, s.agentName, s.aiTitle, s.summary, s.firstUserPrompt, s.firstUserCommand, s.cwd, s.sessionId, s.model, s.gitBranch
       ].filter(Boolean).join(' ').toLowerCase()
       return blob.includes(q)
     })

@@ -25,9 +25,9 @@ export default function SessionList({ sessions, selectedId, onSelect, filter, on
 
   const cmd = (text) => {
     const c = parseCommand(text)
-    return c ? `${c.name} ${c.args}` : ''
+    return c ? `${c.name || c.message} ${c.args}` : ''
   }
-  const sessionLabel = (s) => s.aiTitle || s.summary || cmd(s.firstUserPrompt) || s.firstUserPrompt || s.sessionId || ''
+  const sessionLabel = (s) => s.aiTitle || s.summary || s.firstUserPrompt || cmd(s.firstUserCommand) || s.sessionId || ''
 
 
   const changeSort = (next) => {

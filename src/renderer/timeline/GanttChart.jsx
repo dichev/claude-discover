@@ -92,7 +92,7 @@ export default function GanttChart({
     for (const s of sessions) {
       const item = {
         id: s.sessionId,
-        label: s.summary || s.firstUserPrompt || s.sessionId,
+        label: s.summary || s.firstUserPrompt || s.firstUserCommand || s.sessionId,
         start: s.startedAt,
         end: Math.max(s.lastActivityAt, s.startedAt + 60_000),
         source: s.source,

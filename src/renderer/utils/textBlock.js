@@ -53,13 +53,14 @@ export function fenceBlocks(text) {
 
 export function parseCommand(text) {
   if (typeof text !== 'string' || !text.includes('<command-name>')) return null
-  const name = text.match(/<command-name>([\s\S]*?)<\/command-name>/)
-  if (!name) return null
-  const args = text.match(/<command-args>([\s\S]*?)<\/command-args>/)
+  const name    = text.match(/<command-name>([\s\S]*?)<\/command-name>/)
+  const message = text.match(/<command-message>([\s\S]*?)<\/command-message>/)
+  const args    = text.match(/<command-args>([\s\S]*?)<\/command-args>/)
   const stdout = text.match(/<local-command-stdout>([\s\S]*?)<\/local-command-stdout>/)
   return {
     name: name ? name[1] : '',
+    message: message ? message[1] : '',
     args: args ? args[1] : '',
-    stdout: stdout ? stdout[1]: '',
+    stdout: stdout ? stdout[1] : '',
   }
 }

@@ -41,7 +41,7 @@ function freshMeta({ sessionId, parentSessionId, filePath, fileSize, mtime }) {
     startedAt: null, lastActivityAt: null,
     entrypoint: null, cwd: null, gitBranch: null, version: null,
     model: null, models: [], serviceTier: null,
-    summary: null, aiTitle: null, customTitle: null, agentName: null, firstUserPrompt: null, forkedFrom: null,
+    summary: null, aiTitle: null, customTitle: null, agentName: null, firstUserPrompt: null, firstUserCommand: null, forkedFrom: null,
     messageCount: 0,
     tokens: emptyBucket(), tokensByModel: {}, lastContextTokens: 0,
     serverToolUse: { webSearch: 0, webFetch: 0 },
@@ -149,13 +149,26 @@ export class SessionParser {
       if (!meta.forkedFrom && obj.forkedFrom?.sessionId) {
         meta.forkedFrom = obj.forkedFrom
       }
-      if (!meta.firstUserPrompt) {
-        const text = extractText(obj.message?.content)
-        if (text && !text.startsWith('<local-command-caveat>')) {
-          meta.firstUserPrompt = text.slice(0, 500)
-          if (text.includes('<scheduled-task')) meta.hasScheduledTask = true
+      const text = extractText(obj.message?.content)
+      if (text) {
+        if (text.startsWith('<command-name>') || text.startsWith('<command-message>')) {
+          if (!meta.firstUserCommand) meta.firstUserCommand = text
+        }
+        else if (text.startsWith('<local-command-stdout>')) { // this is sent as a separate message
+          if (meta.firstUserCommand) meta.firstUserCommand += '\n' + text
+        }
+        else if (text.startsWith('<local-command-caveat>')) {
+          // skip
+        }
+        else if (text.startsWith('<scheduled-task')) {
+           meta.hasScheduledTask = true
+        }
+        else {
+           if (!meta.firstUserPrompt)  meta.firstUserPrompt = text.slice(0, 300)
         }
       }
+
+
     } else if (t === 'assistant') {
       const msg = obj.message
       // Skip local error/limit notices (e.g. "limit reached") — not real model calls.
