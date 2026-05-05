@@ -37,6 +37,10 @@ export class SessionFile {
     try { return await fsp.stat(this.filePath) } catch { return null }
   }
 
+  readText() {
+    return fsp.readFile(this.filePath, 'utf8')
+  }
+
   async streamFrom(offset, onLine) {
     let consumed = 0
     let leftover = ''

@@ -1,12 +1,7 @@
-import fsp from 'node:fs/promises'
-import path from 'node:path'
-import os from 'node:os'
-import chokidar from 'chokidar'
 import { startOfDay, endOfDay, parseISO } from 'date-fns'
 import { SessionFile, loadSessionNames } from '../sessions/SessionFile.js'
 import { scanSession, dedupAcrossSessions } from '../sessions/SessionParser.js'
-
-const PROJECTS_ROOT = path.join(os.homedir(), '.claude', 'projects')
+import { SessionsScanner } from '../sessions/SessionsScanner.js'
 
 function dayBounds(date) {
   const d = parseISO(date)
@@ -35,23 +30,20 @@ export async function dedupSessions(metas, range = null) {
 }
 
 export class SessionsService {
-  constructor({ root = PROJECTS_ROOT, onUpdate = () => {}, debounceMs = 200 } = {}) {
-    this.root = root
+  constructor({ root, onUpdate = () => {}, debounceMs = 200, scanner = null } = {}) {
+    this.scanner = scanner ?? new SessionsScanner(root ? { root } : {})
     this.onUpdate = onUpdate
     this.debounceMs = debounceMs
     this.cache = new Map()
     this.byId = new Map()
     this.activeDay = null
     this.updateTimer = null
-    this.watcher = null
   }
 
   async readLogFile(filePath) {
-    const resolved = path.resolve(filePath || '')
-    if (!resolved.startsWith(this.root + path.sep)) {
-      return { ok: false, error: 'Path outside projects directory' }
-    }
-    const text = await fsp.readFile(resolved, 'utf8')
+    const resolved = this.scanner.resolveWithinRoot(filePath)
+    if (!resolved) return { ok: false, error: 'Path outside projects directory' }
+    const text = await new SessionFile(resolved).readText()
     return { ok: true, text }
   }
 
@@ -76,45 +68,52 @@ export class SessionsService {
       if (this.activeDay?.date !== date) return // guard against stale day navigation
       this.onUpdate(await dedupSessions(filterDay(this.cache, day, names), day))
     }
-    this._scanDay(day, emit).then(emit).catch(console.error) // fire-and-forget; streams updates as dirs complete
+    const onFile = (filePath, stat) => this._processFile(filePath, day, stat)
+    this.scanner.scan(day, { onFile, onBatchDone: emit }).then(emit).catch(console.error) // fire-and-forget; streams updates as dirs complete
     return dedupSessions(filterDay(this.cache, day, names), day) // return current cache immediately (empty on first visit)
   }
 
   async start() {
-    this._startWatcher()
+    this.scanner.watch({
+      onChange: (p, stat) => this._refresh(p, stat),
+      onUnlink: (p) => this._evict(p)
+    })
     return this
   }
 
   stop() {
-    if (this.watcher) {
-      this.watcher.close()
-      this.watcher = null
-    }
+    this.scanner.stop()
     if (this.updateTimer) {
       clearTimeout(this.updateTimer)
       this.updateTimer = null
     }
   }
 
-  async _processFile(filePath, day, { skipBeforeDay = false } = {}) {
-    const reader = new SessionFile(filePath)
-    const stat = await reader.stat()
+  _processFile(filePath, day, stat) {
     if (!stat) return null
-    if (skipBeforeDay && stat.mtimeMs < day.start) return null
     const cached = this.cache.get(filePath)
     if (isUnchanged(cached, stat)) return null
-    const meta = await scanSession(reader, { prev: cached, range: day, stat })
-    if (!meta) return null
-    this.cache.set(filePath, meta)
-    this.byId.set(meta.sessionId, meta)
-    return meta
+    return scanSession(new SessionFile(filePath), { prev: cached, range: day, stat }).then((meta) => {
+      if (!meta) return null
+      this.cache.set(filePath, meta)
+      this.byId.set(meta.sessionId, meta)
+      return meta
+    })
   }
 
-  async _refresh(filePath) {
+  async _refresh(filePath, stat) {
     const day = this.activeDay
     if (!day) return
-    const meta = await this._processFile(filePath, day)
+    const meta = await this._processFile(filePath, day, stat)
     if (meta && intersectsDay(meta, day)) this._scheduleUpdate()
+  }
+
+  _evict(filePath) {
+    const cached = this.cache.get(filePath)
+    if (this.cache.delete(filePath)) {
+      if (cached) this.byId.delete(cached.sessionId)
+      this._scheduleUpdate()
+    }
   }
 
   _scheduleUpdate() {
@@ -126,47 +125,5 @@ export class SessionsService {
       const names = await loadSessionNames()
       this.onUpdate(await dedupSessions(filterDay(this.cache, day, names), day))
     }, this.debounceMs)
-  }
-
-  async _listDirs(p) {
-    const entries = await fsp.readdir(p, { withFileTypes: true }).catch(() => [])
-    return entries.filter(e => !!e.isDirectory()).map(e => path.join(e.parentPath, e.name))
-  }
-
-  async _scanDay(day, onBatch = null) {
-    const projects = await this._listDirs(this.root)
-    const subagents = (await Promise.all(projects.map(d => this._listDirs(d)))).flat().map(d => path.join(d, 'subagents'))
-    await Promise.all(
-      [...projects, ...subagents].map(async (dirPath) => {
-        const stat = await fsp.stat(dirPath).catch(() => null)
-        if (stat && stat.mtimeMs >= day.start) { // skip if there are no sessions before the current day
-          const files = await fsp.readdir(dirPath, {withFileTypes: true}).catch(() => [])
-          const filePaths = files
-            .filter((f) => f.isFile() && f.name.endsWith('.jsonl'))
-            .map((f) => path.join(f.parentPath, f.name))
-          const results = await Promise.all(filePaths.map(p => this._processFile(p, day, {skipBeforeDay: true})))
-          if (onBatch && results.some(Boolean)) await onBatch() // emit after each dir so the UI updates incrementally
-        }
-      })
-    )
-  }
-
-  _startWatcher() {
-    this.watcher = chokidar.watch(this.root, {
-      ignoreInitial: true,
-      awaitWriteFinish: { stabilityThreshold: 400, pollInterval: 100 },
-      ignored: (p, stats) => !!stats?.isFile() && !p.endsWith('.jsonl')
-    })
-    const isJsonl = (p) => p.endsWith('.jsonl')
-    this.watcher.on('add', (p) => isJsonl(p) && this._refresh(p))
-    this.watcher.on('change', (p) => isJsonl(p) && this._refresh(p))
-    this.watcher.on('unlink', (p) => {
-      if (!isJsonl(p)) return
-      const cached = this.cache.get(p)
-      if (this.cache.delete(p)) {
-        if (cached) this.byId.delete(cached.sessionId)
-        this._scheduleUpdate()
-      }
-    })
   }
 }
