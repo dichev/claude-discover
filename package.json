@@ -1,7 +1,7 @@
 {
   "name": "agentic-workflow",
   "private": true,
-  "version": "0.1.0",
+  "version": "1.0.2",
   "type": "module",
   "description": "Agentic Workflow — read-only browser for local Claude Code sessions",
   "main": "out/main/main.js",

@@ -13,6 +13,7 @@ npm run dev
 ## Production
 
 ```
+npm install
 npm build
 npm start
 ```

@@ -27,6 +27,7 @@ function createWindow() {
     height: state.height,
     backgroundColor: '#0b0d12',
     autoHideMenuBar: true,
+    title: `Agentic Workflow v${app.getVersion()} - Discover`,
     webPreferences: {
       preload: path.join(__dirname, '../preload/preload.mjs'),
       contextIsolation: true,
@@ -36,7 +37,7 @@ function createWindow() {
   })
 
   state.manage(mainWindow)
-
+  mainWindow.on('page-title-updated', (e) => e.preventDefault())
   if (DEV_URL) {
     mainWindow.loadURL(DEV_URL)
   } else {

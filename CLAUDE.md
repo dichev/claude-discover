@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 Read-only Electron desktop browser for local Claude Code session transcripts.
 
-## How to install and update the app on macOS
+## How to install and update the app (Windows / macOS)
 ```
 git fetch
 git reset --hard origin/main
@@ -17,7 +17,8 @@ npm start
 
 - `npm run dev` — Vite dev server + Electron.
 - `npm run build` / `npm start` — build / preview.
-- No tests, lint, or typecheck configured.
+- `npm test` — run Vitest suite (`vitest run`); single file: `npx vitest run path/to/file.test.js`.
+- No lint or typecheck configured.
 
 ## Architecture
 - Two processes. All disk I/O lives in `electron/` (main + preload); the renderer (`src/`) reaches it only through `window.api` exposed via `contextBridge`.
