@@ -1,0 +1,42 @@
+.editable-md-raw {
+  white-space: pre-wrap;
+  word-break: break-word;
+  font-family: var(--font-mono), monospace;
+  font-size: 12px;
+  line-height: 1.5;
+  margin: 0;
+  outline: none;
+}
+
+.editable-md-raw:focus {
+  outline: 1px solid #4a9eff;
+  outline-offset: 4px;
+}
+
+.editable-md-styled {
+  cursor: text;
+}
+
+.editable-md-wrap {
+  position: relative;
+}
+
+.editable-md-reset {
+  position: absolute;
+  top: 0;
+  right: 0;
+  font-size: 11px;
+  color: var(--text-dim);
+  background: var(--bg, #1a1a1a);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  padding: 2px 10px;
+  cursor: pointer;
+  font-family: inherit;
+  z-index: 2;
+}
+
+.editable-md-reset:hover {
+  color: var(--text);
+  border-color: var(--border-strong);
+}

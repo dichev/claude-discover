@@ -6,6 +6,7 @@ import { fmtDuration, fmtBytes, fmtNum, fmtUSD, fmtCompact } from '../utils/form
 import { THRESHOLDS as T } from '../utils/thresholds.js'
 import { flatten } from './ConversationView.jsx'
 import Toggle from './Toggle.jsx'
+import EditableMarkdown from './EditableMarkdown.jsx'
 import './AgentView.css'
 
 const CONTEXT_WINDOW = T.context.danger
@@ -83,7 +84,7 @@ You are analyzing a Claude Code session to find token-reduction opportunities.
 **Output**:
 - Ranked list (1–3), highest impact first. No preamble.
 - Each item formatted as:
-**N. [Change title]** — [est. token/cost savings]: \n [1–2 sentence explanation with simple clear languagr for not too technical human readers]
+**N. [Change title]** — [est. token/cost savings]: \n [1–2 sentence explanation with simple clear language for not too technical human readers]
 - At the bottom list a table with the cost/tokes per section of work
 `
 
@@ -126,15 +127,14 @@ You are analyzing a Claude Code session to find token-reduction opportunities.
 
 `
 
-  return `${prompt}
----
-<summary>
+  const body = `<summary>
 ${summary}
 </summary>
 <transcript>
 ${conversation}
-</transcript>
-  `.trim()
+</transcript>`.trim()
+
+  return { prompt: prompt.trim(), body }
 }
 
 export default function AgentView({ meta, items }) {
@@ -142,9 +142,10 @@ export default function AgentView({ meta, items }) {
   const [fullText, setFullText] = useState(false)
   const truncated = !fullText
   const [copied, setCopied] = useState(false)
-  const md = buildMarkdown(meta, items, truncated)
+  const { prompt, body } = buildMarkdown(meta, items, truncated)
+  const [currentPrompt, setCurrentPrompt] = useState(prompt)
   const onCopy = async () => {
-    await navigator.clipboard.writeText(md)
+    await navigator.clipboard.writeText(`${currentPrompt}\n\n---\n${body}`)
     setCopied(true)
     setTimeout(() => setCopied(false), 1500)
   }
@@ -157,9 +158,14 @@ export default function AgentView({ meta, items }) {
           {copied ? 'Copied' : 'Copy'}
         </button>
       </div>
-      {pretty
-        ? <div className="markdown"><ReactMarkdown rehypePlugins={[rehypeHighlight]}>{md}</ReactMarkdown></div>
-        : <pre className="agent-view-raw">{md}</pre>}
+      <div className="agent-view-block">
+        {pretty
+          ? <div className="markdown"><ReactMarkdown rehypePlugins={[rehypeHighlight]}>{body}</ReactMarkdown></div>
+          : <pre className="agent-view-raw">{body}</pre>}
+      </div>
+      <div className="agent-view-block">
+        <EditableMarkdown source={prompt} styled={pretty} onChange={setCurrentPrompt} storageKey="agent-view-prompt" />
+      </div>
     </div>
   )
 }

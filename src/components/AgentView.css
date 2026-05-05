@@ -1,29 +1,39 @@
 .agent-view {
   flex: 1;
   min-height: 0;
-  overflow: auto;
+  display: grid;
+  grid-template-columns: 1fr 30%;
+  grid-template-rows: auto 1fr;
   padding: 16px 20px;
   position: relative;
+  gap: 12px;
 }
 
 .agent-view-actions {
-  position: sticky;
-  top: 0;
-  float: right;
+  grid-column: 1 / -1;
   display: inline-flex;
   align-items: center;
   gap: 8px;
+  justify-self: end;
   z-index: 1;
+}
+
+.agent-view-block {
+  min-height: 0;
+  overflow: auto;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 12px 16px;
 }
 
 .agent-view-copy {
   font-size: 12px;
-  color: var(--text-dim);
+  color: #c6d2e3;
   cursor: pointer;
   user-select: none;
   background: transparent;
   padding: 4px 12px;
-  border: 1px solid var(--border);
+  border: 1px solid #5078a8;
   border-radius: 999px;
   font-family: inherit;
   width: 80px;
@@ -32,8 +42,8 @@
 }
 
 .agent-view-copy:hover {
-  color: var(--text);
-  border-color: var(--border-strong);
+  background: rgba(74, 158, 255, 0.15);
+  border-color: #6cb4ff;
 }
 
 .agent-view-raw {
@@ -44,3 +54,4 @@
   line-height: 1.5;
   margin: 0;
 }
+
