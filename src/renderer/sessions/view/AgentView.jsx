@@ -46,11 +46,11 @@ function renderBlock(b) {
 }
 
 function renderTurn(t, total) {
-  const role = t.role === 'user' ? 'User' : `Assistant${t.model ? ` (${t.model})` : ''}`
+  const role = t.role === 'user' ? 'User' : `Assistant`
   const tokens = total > 0 && t.tokenDelta != null
-    ? ` · ${t.tokenDelta >= 0 ? '+' : ''}${fmtCompact(t.tokenDelta)} / ${fmtCompact(total)}`
+    ? ` (${t.tokenDelta >= 0 ? '+' : ''}${fmtCompact(t.tokenDelta)} / ${fmtCompact(total)} tokens)`
     : ''
-  return `${role}${tokens}\n\n${t.blocks.map(renderBlock).join('\n\n')}`
+  return `**${role}${tokens}:**\n\n${t.blocks.map(renderBlock).join('\n\n')}`
 }
 
 function buildMarkdown(meta, items, truncated) {
@@ -70,7 +70,7 @@ function buildMarkdown(meta, items, truncated) {
     : '_Loading…_'
   const conversation = `# Conversation\n${transcript}`
 
-  const note = truncated ? `Note: this is a transcript of a Claude Code session. To keep it compact, long content has been truncated (lines >${MAX_LINE_CHARS} chars, blocks >${MAX_LINES} lines). Treat the original session as if those parts were present in full; do not assume the assistant or user actually saw only the truncated form.` : ''
+  const note = truncated ? `  - Note: this is a transcript of a Claude Code session. To keep it compact, long content has been truncated (lines >${MAX_LINE_CHARS} chars, blocks >${MAX_LINES} lines). Treat the original session as if those parts were present in full; do not assume the assistant or user actually saw only the truncated form.` : ''
   const prompt = `
 You are analyzing a Claude Code session to find token-reduction opportunities.
 
@@ -79,7 +79,7 @@ You are analyzing a Claude Code session to find token-reduction opportunities.
 **Input**:
   - \`<summary>\`: Primary diagnostic signals (token/cost/cache stats) 
   - \`<transcript>\`: Conversation with user messages, assistant turns, and tool calls.
-  - ${note}
+${note}
 
 **Output**:
 - Ranked list (1–3), highest impact first. No preamble.
@@ -123,13 +123,13 @@ You are analyzing a Claude Code session to find token-reduction opportunities.
 - cwd: ${meta.cwd || '—'}
 - Log file: ${meta.filePath}
 - File size: ${fmtBytes(meta.fileSize)}
-
-
 `
 
-  const body = `<summary>
+  const body = `
+<summary>
 ${summary}
 </summary>
+
 <transcript>
 ${conversation}
 </transcript>`.trim()

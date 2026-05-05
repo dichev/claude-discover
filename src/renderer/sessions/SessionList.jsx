@@ -55,14 +55,10 @@ export default function SessionList({ sessions, selectedId, onSelect, filter, on
           <div className="session-count">{sorted.length} sessions</div>
           <div className="sort-toggle" role="group" aria-label="Sort sessions">
             <span className="sort-toggle-label">Sort by:</span>
-            <button type="button" className={`sort-pill ${sortBy === 'name' ? 'active' : ''}`} onClick={() => setSortBy('name')}
-            >Name</button>
-            <button type="button" className={`sort-pill ${sortBy === 'cost' ? 'active' : ''}`} onClick={() => setSortBy('cost')}
-            >Cost</button>
-            <button type="button" className={`sort-pill ${sortBy === 'tokens' ? 'active' : ''}`} onClick={() => setSortBy('tokens')}
-            >Tokens</button>
-            <button type="button" className={`sort-pill ${sortBy === 'time' ? 'active' : ''}`} onClick={() => setSortBy('time')}
-            >Time</button>
+            <button type="button" className={`sort-pill ${sortBy === 'time'   ? 'active' : ''}`} onClick={() => setSortBy('time')}>Time</button>
+            <button type="button" className={`sort-pill ${sortBy === 'name'   ? 'active' : ''}`} onClick={() => setSortBy('name')}>Name</button>
+            <button type="button" className={`sort-pill ${sortBy === 'cost'   ? 'active' : ''}`} onClick={() => setSortBy('cost')}>Cost</button>
+            <button type="button" className={`sort-pill ${sortBy === 'tokens' ? 'active' : ''}`} onClick={() => setSortBy('tokens')}>Tokens</button>
           </div>
         </div>
       </div>
