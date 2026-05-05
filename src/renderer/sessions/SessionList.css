@@ -136,6 +136,15 @@
 }
 
 .session-time { color: var(--text-faint); font-family: var(--font-mono), monospace; margin-left: auto; }
+.session-time-bottom {
+  margin-top: 4px;
+  display: flex;
+  gap: 0px;
+  font-family: var(--font-mono), monospace;
+  font-size: 10px;
+  color: var(--text-faint);
+}
+.session-model { color: var(--text-dim); }
 .session-time-meta { color: var(--text-faint); }
 
 .session-name {
@@ -159,7 +168,7 @@
 .session-label {
   font-size: 12px;
   display: -webkit-box;
-  -webkit-line-clamp: 2;
+  -webkit-line-clamp: 1;
   -webkit-box-orient: vertical;
   overflow: hidden;
 

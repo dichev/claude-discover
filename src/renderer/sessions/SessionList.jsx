@@ -1,4 +1,4 @@
-import React, { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
+import React, { useEffect, useMemo, useRef, useState } from 'react'
 import { SOURCE_COLORS, SOURCE_LABELS } from '../utils/colors.js'
 import { format } from 'date-fns'
 import { fmtCompact, fmtNum, fmtUSD, fmtDuration, tone } from '../utils/formatting.js'
@@ -8,19 +8,11 @@ import './SessionList.css'
 
 export default function SessionList({ sessions, selectedId, onSelect, filter, onFilterChange }) {
   const selectedRef = useRef(null)
-  const pendingTop = useRef(null)
   const [sortBy, setSortBy] = useState('time')
 
   useEffect(() => {
     selectedRef.current?.scrollIntoView({ block: 'nearest' })
   }, [selectedId])
-
-  useLayoutEffect(() => {
-    const el = selectedRef.current
-    if (pendingTop.current == null || !el) return
-    el.parentElement.scrollTop = el.offsetTop - pendingTop.current
-    pendingTop.current = null
-  }, [sortBy])
 
 
   const cmd = (text) => {
@@ -28,13 +20,6 @@ export default function SessionList({ sessions, selectedId, onSelect, filter, on
     return c ? `${c.name || c.message} ${c.args}` : ''
   }
   const sessionLabel = (s) => s.aiTitle || s.summary || s.firstUserPrompt || cmd(s.firstUserCommand) || s.sessionId || ''
-
-
-  const changeSort = (next) => {
-    const el = selectedRef.current
-    if (el) pendingTop.current = el.offsetTop - el.parentElement.scrollTop
-    setSortBy(next)
-  }
 
   const sorted = useMemo(() => {
     if (sortBy === 'cost')   return [...sessions].sort((a, b) => (b.cost || 0) - (a.cost || 0))
@@ -70,13 +55,13 @@ export default function SessionList({ sessions, selectedId, onSelect, filter, on
           <div className="session-count">{sorted.length} sessions</div>
           <div className="sort-toggle" role="group" aria-label="Sort sessions">
             <span className="sort-toggle-label">Sort by:</span>
-            <button type="button" className={`sort-pill ${sortBy === 'name' ? 'active' : ''}`} onClick={() => changeSort('name')}
+            <button type="button" className={`sort-pill ${sortBy === 'name' ? 'active' : ''}`} onClick={() => setSortBy('name')}
             >Name</button>
-            <button type="button" className={`sort-pill ${sortBy === 'cost' ? 'active' : ''}`} onClick={() => changeSort('cost')}
+            <button type="button" className={`sort-pill ${sortBy === 'cost' ? 'active' : ''}`} onClick={() => setSortBy('cost')}
             >Cost</button>
-            <button type="button" className={`sort-pill ${sortBy === 'tokens' ? 'active' : ''}`} onClick={() => changeSort('tokens')}
+            <button type="button" className={`sort-pill ${sortBy === 'tokens' ? 'active' : ''}`} onClick={() => setSortBy('tokens')}
             >Tokens</button>
-            <button type="button" className={`sort-pill ${sortBy === 'time' ? 'active' : ''}`} onClick={() => changeSort('time')}
+            <button type="button" className={`sort-pill ${sortBy === 'time' ? 'active' : ''}`} onClick={() => setSortBy('time')}
             >Time</button>
           </div>
         </div>
@@ -114,21 +99,18 @@ export default function SessionList({ sessions, selectedId, onSelect, filter, on
                   {sessionName && <span className="session-name">{sessionName}</span>}
                   {sessionLabel(s)}
                 </div>
+                <div className="session-time-bottom">
+                  <span>{format(s.lastActivityAt, 'HH:mm:ss')}</span>
+                  {s.models?.length > 0 && <span className="session-model">, {s.models.map((m) => m.replace(/^claude-/, '')).join(', ')}</span>}
+                </div>
               </div>
               <div className="session-row-stats">
-                {(sortBy === 'cost' || sortBy === 'tokens') && (
-                  <>
-                    <span className={`${sortBy === 'tokens' ? 'stat-primary' : 'stat-secondary'} ${tone(s.totalTokens, T.tokens)}`} title={s.totalTokens ? `${s.totalTokens.toLocaleString()} tokens` : ''}>
-                      {fmtCompact(s.totalTokens)}
-                    </span>
-                    <span className={`${sortBy === 'cost' ? 'stat-primary' : 'stat-secondary'} ${tone(s.cost, T.cost)}`} title={s.cost ? `$${s.cost.toFixed(4)}` : 'No cost data'}>
-                      {s.cost ? fmtUSD(s.cost) : '—'}
-                    </span>
-                  </>
-                )}
-                {(sortBy === 'time' || sortBy === 'name') && (
-                  <span className="stat-primary muted">{format(s.lastActivityAt, 'HH:mm:ss')}</span>
-                )}
+                <span className={`${sortBy === 'tokens' ? 'stat-primary' : 'stat-secondary'} ${tone(s.totalTokens, T.tokens)}`} title={s.totalTokens ? `${s.totalTokens.toLocaleString()} tokens` : ''}>
+                  {fmtCompact(s.totalTokens)}
+                </span>
+                <span className={`${sortBy === 'cost' ? 'stat-primary' : 'stat-secondary'} ${tone(s.cost, T.cost)}`} title={s.cost ? `$${s.cost.toFixed(4)}` : 'No cost data'}>
+                  {s.cost ? fmtUSD(s.cost) : '—'}
+                </span>
               </div>
             </div>
           )
