@@ -1,7 +1,7 @@
 import React from 'react'
 import { format } from 'date-fns'
-import { fmtDuration, fmtBytes, fmtNum, fmtUSD, fmtCompact, tone } from '../utils/formatting.js'
-import { THRESHOLDS as T } from '../utils/thresholds.js'
+import { fmtDuration, fmtBytes, fmtNum, fmtUSD, fmtCompact, tone } from '../../utils/formatting.js'
+import { THRESHOLDS as T } from '../../utils/thresholds.js'
 import './SessionSummary.css'
 
 const CONTEXT_WINDOW = T.context.danger

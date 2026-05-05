@@ -3,8 +3,8 @@ import path from 'node:path'
 import os from 'node:os'
 import chokidar from 'chokidar'
 import { startOfDay, endOfDay, parseISO } from 'date-fns'
-import { SessionReader, loadSessionNames } from './SessionReader.js'
-import { scanSession, dedupAcrossSessions } from './SessionParser.js'
+import { SessionFile, loadSessionNames } from '../sessions/SessionFile.js'
+import { scanSession, dedupAcrossSessions } from '../sessions/SessionParser.js'
 
 const PROJECTS_ROOT = path.join(os.homedir(), '.claude', 'projects')
 
@@ -30,7 +30,7 @@ function isUnchanged(cached, stat) {
 
 export async function dedupSessions(metas, range = null) {
   return dedupAcrossSessions(metas, (m, excludeIds) =>
-    scanSession(new SessionReader(m.filePath), { range, excludeIds })
+    scanSession(new SessionFile(m.filePath), { range, excludeIds })
   )
 }
 
@@ -59,7 +59,7 @@ export class SessionsService {
     const meta = this.byId.get(sessionId)
     if (!meta) return null
     const range = date ? dayBounds(date) : null
-    const { items, nextOffset } = await new SessionReader(meta.filePath).readFrom(offset, range)
+    const { items, nextOffset } = await new SessionFile(meta.filePath).readFrom(offset, range)
     return { meta, items, nextOffset }
   }
 
@@ -97,7 +97,7 @@ export class SessionsService {
   }
 
   async _processFile(filePath, day, { skipBeforeDay = false } = {}) {
-    const reader = new SessionReader(filePath)
+    const reader = new SessionFile(filePath)
     const stat = await reader.stat()
     if (!stat) return null
     if (skipBeforeDay && stat.mtimeMs < day.start) return null

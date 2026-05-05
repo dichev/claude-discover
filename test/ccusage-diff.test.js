@@ -1,5 +1,5 @@
 // Cross-check our token + cost aggregation against `ccusage daily`.
-// Runs SessionReader over every .jsonl in ~/.claude/projects, sums token
+// Runs SessionFile over every .jsonl in ~/.claude/projects, sums token
 // totals + cost, and compares to ccusage's summed daily output.
 // Skipped when no local transcripts exist.
 import { describe, it, expect } from 'vitest'
@@ -8,10 +8,10 @@ import fsp from 'node:fs/promises'
 import path from 'node:path'
 import os from 'node:os'
 import { spawnSync } from 'node:child_process'
-import { SessionReader } from '../electron/services/SessionReader.js'
-import { scanSession } from '../electron/services/SessionParser.js'
-import { dedupSessions } from '../electron/services/SessionsService.js'
-import { costUSD } from '../electron/services/Pricing.js'
+import { SessionFile } from '../src/main/sessions/SessionFile.js'
+import { scanSession } from '../src/main/sessions/SessionParser.js'
+import { dedupSessions } from '../src/main/services/SessionsService.js'
+import { costUSD } from '../src/main/services/Pricing.js'
 
 const PROJECTS_ROOT = path.join(os.homedir(), '.claude', 'projects')
 const COST_TOL_ABS = 0.01
@@ -26,7 +26,7 @@ async function ourTotals() {
   const metas = []
   for (const e of entries) {
     if (!e.isFile() || !e.name.endsWith('.jsonl')) continue
-    const m = await scanSession(new SessionReader(path.join(e.parentPath, e.name)))
+    const m = await scanSession(new SessionFile(path.join(e.parentPath, e.name)))
     if (m) metas.push(m)
   }
   const deduped = await dedupSessions(metas, null)

@@ -1,8 +1,8 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react'
 import ReactMarkdown from 'react-markdown'
 import rehypeHighlight from 'rehype-highlight'
-import { fmtCompact } from '../utils/formatting'
-import { fenceBlocks, parseCommand } from '../utils/textBlock.js'
+import { fmtCompact } from '../../utils/formatting'
+import { fenceBlocks, parseCommand } from '../../utils/textBlock.js'
 import './ConversationView.css'
 
 export function flatten(items) {

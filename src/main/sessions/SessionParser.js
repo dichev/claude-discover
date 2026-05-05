@@ -1,4 +1,4 @@
-import { costUSD } from './Pricing.js'
+import { costUSD } from '../services/Pricing.js'
 
 const ACTIVITY_GAP_MS = 5 * 60 * 1000
 const TOKEN_FIELDS = ['input', 'output', 'cacheRead', 'cacheCreation', 'cacheCreation5m', 'cacheCreation1h']

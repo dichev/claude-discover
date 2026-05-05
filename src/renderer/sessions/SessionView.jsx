@@ -1,8 +1,8 @@
 import React, { useEffect, useRef, useState } from 'react'
-import ConversationView from './ConversationView.jsx'
-import JsonlViewer from './JsonlViewer.jsx'
-import AgentView from './AgentView.jsx'
-import SessionSummary from './SessionSummary.jsx'
+import ConversationView from './view/ConversationView.jsx'
+import JsonlView from './view/JsonlView.jsx'
+import AgentView from './view/AgentView.jsx'
+import SessionSummary from './view/SessionSummary.jsx'
 import './SessionView.css'
 
 export default function SessionView({ meta, date }) {
@@ -58,7 +58,7 @@ export default function SessionView({ meta, date }) {
             </div>
           )}
           {tab === 'agent' && <AgentView meta={meta} items={items} />}
-          {tab === 'jsonl' && <JsonlViewer filePath={meta.filePath} />}
+          {tab === 'jsonl' && <JsonlView filePath={meta.filePath} />}
         </div>
       </div>
     </div>

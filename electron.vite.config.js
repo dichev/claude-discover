@@ -5,19 +5,19 @@ import { resolve } from 'path';
 export default defineConfig({
   main: {
     build: {
-      lib: { entry: resolve('electron/main.js') }
+      lib: { entry: resolve('src/main/main.js') }
     }
   },
   preload: {
     build: {
-      lib: { entry: resolve('electron/preload.js') }
+      lib: { entry: resolve('src/preload/preload.js') }
     }
   },
   renderer: {
-    root: resolve('src'),
+    root: resolve('src/renderer'),
     build: {
       rollupOptions: {
-        input: resolve('src/index.html')
+        input: resolve('src/renderer/index.html')
       }
     },
     server:  { port: 5555, strictPort: true  }, // npm run dev

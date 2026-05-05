@@ -2,8 +2,8 @@
 import fs from 'node:fs'
 import path from 'node:path'
 
-const SEED_PATH = path.resolve(import.meta.dirname, '../../cache/prices.json')
-const CURRENT_PATH = path.resolve(import.meta.dirname, '../../cache/prices.current.json')
+const SEED_PATH = path.resolve(process.cwd(), 'cache/prices.json')
+const CURRENT_PATH = path.resolve(process.cwd(), 'cache/prices.current.json')
 const LITELLM_URL = 'https://raw.githubusercontent.com/BerriAI/litellm/main/model_prices_and_context_window.json'
 const DAY_MS = 24 * 3600 * 1000
 

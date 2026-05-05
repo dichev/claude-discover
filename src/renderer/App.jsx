@@ -1,9 +1,9 @@
 import React, { useEffect, useMemo, useState, useCallback } from 'react'
 import { Group, Panel, Separator, useDefaultLayout } from 'react-resizable-panels'
-import GanttChart from './components/GanttChart.jsx'
-import DailySummary from './components/DailySummary.jsx'
-import SessionList from './components/SessionList.jsx'
-import SessionView from './components/SessionView.jsx'
+import GanttChart from './timeline/GanttChart.jsx'
+import DailySummary from './timeline/DailySummary.jsx'
+import SessionList from './sessions/SessionList.jsx'
+import SessionView from './sessions/SessionView.jsx'
 import { startOfDay, endOfDay, format } from 'date-fns'
 import './App.css'
 

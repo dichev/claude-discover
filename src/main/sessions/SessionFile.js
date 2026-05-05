@@ -25,7 +25,7 @@ export async function loadSessionNames() {
   return map
 }
 
-export class SessionReader {
+export class SessionFile {
   constructor(filePath) {
     this.filePath = filePath
     this.sessionId = path.basename(filePath, '.jsonl')

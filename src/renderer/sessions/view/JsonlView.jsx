@@ -1,7 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react'
 import JsonView from '@uiw/react-json-view'
 import { githubDarkTheme } from '@uiw/react-json-view/githubDark'
-import './JsonlViewer.css'
+import './JsonlView.css'
 
 function prune(value, q) {
   if (!value || typeof value !== 'object') {
@@ -15,7 +15,7 @@ function prune(value, q) {
   return Object.keys(out).length ? out : undefined
 }
 
-export default function JsonlViewer({ filePath }) {
+export default function JsonlView({ filePath }) {
   const [text, setText] = useState(null)
   const [error, setError] = useState(null)
   const [query, setQuery] = useState('')

@@ -2,7 +2,7 @@ import { describe, it, expect, beforeAll, afterAll } from 'vitest'
 import fs from 'node:fs'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
-import { costUSD, pricing, refreshPricesFromLiteLLM } from '../electron/services/Pricing.js'
+import { costUSD, pricing, refreshPricesFromLiteLLM } from '../src/main/services/Pricing.js'
 
 describe('priceFor', () => {
   it('matches a known model exactly', () => {
