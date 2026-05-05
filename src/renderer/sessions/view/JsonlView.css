@@ -23,6 +23,12 @@
   &:focus { outline: none; border-color: var(--accent); }
 }
 
+.jsonl-viewer-content {
+  flex: 1;
+  display: flex;
+  min-height: 0;
+}
+
 .jsonl-viewer-body {
   flex: 1;
   overflow: auto;
@@ -32,6 +38,48 @@
   gap: 4px;
   background: var(--bg);
   font-size: 12px;
+}
+
+.jsonl-viewer-toc {
+  flex: 0 0 160px;
+  overflow: auto;
+  border-left: 1px solid var(--border);
+  background: var(--bg);
+  margin: 0;
+  padding: 6px 0;
+  list-style: none;
+  font-size: 12px;
+}
+
+.jsonl-viewer-toc li { margin: 0; }
+
+.jsonl-viewer-toc button {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  background: transparent;
+  border: 0;
+  color: var(--text);
+  text-align: left;
+  padding: 3px 10px;
+  font: inherit;
+  cursor: pointer;
+
+  &:hover { background: var(--hover, rgba(255,255,255,0.06)); }
+}
+
+.jsonl-viewer-toc-index {
+  color: var(--text-faint);
+  min-width: 22px;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+.jsonl-viewer-toc-label {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .jsonl-viewer-loading,

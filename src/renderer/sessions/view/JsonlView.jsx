@@ -15,11 +15,19 @@ function prune(value, q) {
   return Object.keys(out).length ? out : undefined
 }
 
+function labelFor(entry) {
+  if (!entry || typeof entry !== 'object') return 'entry'
+  const type = entry.type || entry.message?.role
+  const sub = entry.message?.role && entry.message.role !== type ? `:${entry.message.role}` : ''
+  return type ? `${type}${sub}` : 'entry'
+}
+
 export default function JsonlView({ filePath }) {
   const [text, setText] = useState(null)
   const [error, setError] = useState(null)
   const [query, setQuery] = useState('')
   const timerRef = useRef(null)
+  const bodyRef = useRef(null)
 
   useEffect(() => {
     let cancelled = false
@@ -37,6 +45,11 @@ export default function JsonlView({ filePath }) {
     timerRef.current = setTimeout(() => setQuery(val), val ? 500 : 0)
   }
 
+  const scrollTo = (i) => {
+    const el = bodyRef.current?.querySelector(`[data-entry="${i}"]`)
+    if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' })
+  }
+
   const q = query.trim().toLowerCase()
   const entries = (text?.split('\n') ?? [])
     .filter(Boolean)
@@ -48,21 +61,36 @@ export default function JsonlView({ filePath }) {
       <div className="jsonl-viewer-toolbar">
         <input className="jsonl-viewer-search" type="search" placeholder="Filter…" onInput={onInput} />
       </div>
-      <div className="jsonl-viewer-body">
-        {error && <div className="jsonl-viewer-error">{error}</div>}
-        {!text && !error && <div className="jsonl-viewer-loading">Loading…</div>}
-        {entries.map((value, i) => (
-          <JsonView
-            key={`${q}-${i}`}
-            value={value}
-            style={githubDarkTheme}
-            collapsed={q ? false : 1}
-            displayDataTypes={false}
-            displayObjectSize={false}
-            shortenTextAfterLength={0}
-            enableClipboard={false}
-          />
-        ))}
+      <div className="jsonl-viewer-content">
+        <div className="jsonl-viewer-body" ref={bodyRef}>
+          {error && <div className="jsonl-viewer-error">{error}</div>}
+          {!text && !error && <div className="jsonl-viewer-loading">Loading…</div>}
+          {entries.map((value, i) => (
+            <div key={`${q}-${i}`} data-entry={i} className="jsonl-viewer-entry">
+              <JsonView
+                value={value}
+                style={githubDarkTheme}
+                collapsed={q ? false : 2}
+                displayDataTypes={false}
+                displayObjectSize={false}
+                shortenTextAfterLength={0}
+                enableClipboard={false}
+              />
+            </div>
+          ))}
+        </div>
+        {entries.length > 0 && (
+          <ul className="jsonl-viewer-toc">
+            {entries.map((value, i) => (
+              <li key={i}>
+                <button type="button" onClick={() => scrollTo(i)} title={labelFor(value)}>
+                  <span className="jsonl-viewer-toc-index">{i + 1}</span>
+                  <span className="jsonl-viewer-toc-label">{labelFor(value)}</span>
+                </button>
+              </li>
+            ))}
+          </ul>
+        )}
       </div>
     </div>
   )
