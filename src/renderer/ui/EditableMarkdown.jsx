@@ -1,5 +1,6 @@
 import React, { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import ReactMarkdown from 'react-markdown'
+import remarkGfm from 'remark-gfm'
 import rehypeHighlight from 'rehype-highlight'
 import { useLocalStorage } from '../utils/useLocalStorage.js'
 import './EditableMarkdown.css'
@@ -25,7 +26,7 @@ export default function EditableMarkdown({ source, styled, onChange, storageKey 
       )}
       {showStyled
         ? <div className="markdown editable-md-styled" onClick={() => setEditing(true)} title="Click to edit">
-            <ReactMarkdown rehypePlugins={[rehypeHighlight]}>{value}</ReactMarkdown>
+            <ReactMarkdown remarkPlugins={[remarkGfm]} rehypePlugins={[rehypeHighlight]}>{value}</ReactMarkdown>
           </div>
         : <pre
             ref={ref}
