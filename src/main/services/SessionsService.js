@@ -1,5 +1,5 @@
 import { startOfDay, endOfDay, parseISO } from 'date-fns'
-import { SessionFile, loadSessionNames } from '../sessions/SessionFile.js'
+import { SessionFile } from '../sessions/SessionFile.js'
 import { scanSession, dedupAcrossSessions } from '../sessions/SessionParser.js'
 import { SessionsScanner } from '../sessions/SessionsScanner.js'
 
@@ -12,15 +12,10 @@ function intersectsDay(meta, day) {
   return meta.lastActivityAt >= day.start && meta.startedAt <= day.end
 }
 
-function filterDay(cache, day, names) {
+function filterDay(cache, day) {
   return Array.from(cache.values())
     .filter((m) => intersectsDay(m, day))
     .sort((a, b) => b.lastActivityAt - a.lastActivityAt)
-    .map((m) => names?.has(m.sessionId) ? { ...m, name: names.get(m.sessionId) } : m)
-}
-
-function isUnchanged(cached, stat) {
-  return cached && cached.fileSize === stat.size && cached.mtime === stat.mtimeMs
 }
 
 export async function dedupSessions(metas, range = null) {
@@ -62,15 +57,14 @@ export class SessionsService {
       this.byId.clear()
     }
     this.activeDay = day
-    const names = await loadSessionNames()
     // emit is called after each dir batch and once more when the full scan completes
     const emit = async () => {
       if (this.activeDay?.date !== date) return // guard against stale day navigation
-      this.onUpdate(await dedupSessions(filterDay(this.cache, day, names), day))
+      this.onUpdate(await dedupSessions(filterDay(this.cache, day), day))
     }
     const onFile = (filePath, stat) => this._processFile(filePath, day, stat)
     this.scanner.scan(day, { onFile, onBatchDone: emit }).then(emit).catch(console.error) // fire-and-forget; streams updates as dirs complete
-    return dedupSessions(filterDay(this.cache, day, names), day) // return current cache immediately (empty on first visit)
+    return dedupSessions(filterDay(this.cache, day), day) // return current cache immediately (empty on first visit)
   }
 
   async start() {
@@ -92,7 +86,6 @@ export class SessionsService {
   _processFile(filePath, day, stat) {
     if (!stat) return null
     const cached = this.cache.get(filePath)
-    if (isUnchanged(cached, stat)) return null
     return scanSession(new SessionFile(filePath), { prev: cached, range: day, stat }).then((meta) => {
       if (!meta) return null
       this.cache.set(filePath, meta)
@@ -103,7 +96,10 @@ export class SessionsService {
 
   async _refresh(filePath, stat) {
     const day = this.activeDay
-    if (!day) return
+    if (!day || !stat) return
+    const cached = this.cache.get(filePath)
+    const isChanged = !cached || cached.fileSize !== stat.size || cached.mtime !== stat.mtimeMs
+    if (!isChanged) return
     const meta = await this._processFile(filePath, day, stat)
     if (meta && intersectsDay(meta, day)) this._scheduleUpdate()
   }
@@ -122,8 +118,7 @@ export class SessionsService {
       this.updateTimer = null
       const day = this.activeDay
       if (!day) return
-      const names = await loadSessionNames()
-      this.onUpdate(await dedupSessions(filterDay(this.cache, day, names), day))
+      this.onUpdate(await dedupSessions(filterDay(this.cache, day), day))
     }, this.debounceMs)
   }
 }

@@ -27,7 +27,7 @@ export default function SessionList({ sessions, selectedId, onSelect, filter, on
     const c = parseCommand(text)
     return c ? `${c.name} ${c.args}` : ''
   }
-  const sessionLabel = (s) => s.name || s.aiTitle || s.summary || cmd(s.firstUserPrompt) || s.firstUserPrompt || s.sessionId || ''
+  const sessionLabel = (s) => s.aiTitle || s.summary || cmd(s.firstUserPrompt) || s.firstUserPrompt || s.sessionId || ''
 
 
   const changeSort = (next) => {
@@ -88,6 +88,9 @@ export default function SessionList({ sessions, selectedId, onSelect, filter, on
         {grouped.map(({ session: s, isChild }) => {
           const isSubagent = s.sessionId.startsWith('agent-')
           const isFork = !!s.forkedFrom
+          const sessionName = s.customTitle && s.agentName && s.customTitle !== s.agentName
+            ? `${s.customTitle} [${s.agentName}]`
+            : (s.customTitle || s.agentName || '')
           return (
             <div
               key={s.sessionId}
@@ -108,7 +111,7 @@ export default function SessionList({ sessions, selectedId, onSelect, filter, on
                   {s.activeMs > T.workTime.warn && s.activeMs <= T.workTime.danger && <span className="warn-badge" title={`Working time: ${fmtDuration(s.activeMs)}`}>TIME</span>}
                   {isSubagent && <span className="subagent-tag">[subagent]</span>}
                   {isFork && <span className="fork-tag" title={`Forked from session ${s.forkedFrom.sessionId}`}>↳</span>}
-                  {s.name && <span className="session-name">{s.name}</span>}
+                  {sessionName && <span className="session-name">{sessionName}</span>}
                   {sessionLabel(s)}
                 </div>
               </div>

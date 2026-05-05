@@ -41,7 +41,7 @@ function freshMeta({ sessionId, parentSessionId, filePath, fileSize, mtime }) {
     startedAt: null, lastActivityAt: null,
     entrypoint: null, cwd: null, gitBranch: null, version: null,
     model: null, models: [], serviceTier: null,
-    summary: null, aiTitle: null, firstUserPrompt: null, forkedFrom: null,
+    summary: null, aiTitle: null, customTitle: null, agentName: null, firstUserPrompt: null, forkedFrom: null,
     messageCount: 0,
     tokens: emptyBucket(), tokensByModel: {}, lastContextTokens: 0,
     serverToolUse: { webSearch: 0, webFetch: 0 },
@@ -113,6 +113,8 @@ export class SessionParser {
     const t = obj.type
     if (t === 'summary' && obj.summary) { meta.summary = obj.summary; return }
     if (t === 'ai-title' && obj.aiTitle) { meta.aiTitle = obj.aiTitle; return }
+    if (t === 'custom-title' && obj.customTitle) { meta.customTitle = obj.customTitle; return }
+    if (t === 'agent-name' && obj.agentName) { meta.agentName = obj.agentName; return }
     if (t === 'queue-operation' && obj.content?.includes('<scheduled-task')) {
       meta.hasScheduledTask = true
       return
