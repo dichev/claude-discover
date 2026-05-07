@@ -82,6 +82,12 @@
   white-space: nowrap;
 }
 
+.jsonl-viewer-mark {
+  background: rgb(168 168 168 / 0.35);
+  color: inherit;
+  border-radius: 2px;
+  padding: 0 1px;
+}
 .jsonl-viewer-loading,
 .jsonl-viewer-error {
   color: var(--text-faint);

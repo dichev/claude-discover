@@ -3,6 +3,12 @@ import JsonView from '@uiw/react-json-view'
 import { githubDarkTheme } from '@uiw/react-json-view/githubDark'
 import './JsonlView.css'
 
+function highlight(text, q) {
+  const escaped = q.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+  return String(text ?? '').split(new RegExp(`(${escaped})`, 'i'))
+    .map((p, i) => i % 2 ? <mark key={i} className="jsonl-viewer-mark">{p}</mark> : p)
+}
+
 function prune(value, q) {
   if (!value || typeof value !== 'object') {
     return String(value ?? '').toLowerCase().includes(q) ? value : undefined
@@ -91,7 +97,16 @@ export default function JsonlView({ filePath }) {
                 displayObjectSize={false}
                 shortenTextAfterLength={0}
                 enableClipboard={false}
-              />
+              >
+                <JsonView.String render={({ children, ...rest }, { type }) => q && type === 'value'
+                  ? <span {...rest}>"{highlight(children, q)}"</span>
+                  : undefined
+                } />
+                <JsonView.KeyName render={({ children, ...rest }) => q
+                  ? <span {...rest}>{highlight(children, q)}</span>
+                  : undefined
+                } />
+              </JsonView>
             </div>
           ))}
         </div>
