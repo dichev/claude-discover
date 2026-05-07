@@ -3,13 +3,15 @@ import ConversationView from './view/ConversationView.jsx'
 import JsonlView from './view/JsonlView.jsx'
 import AgentView from './view/AgentView.jsx'
 import SessionSummary from './view/SessionSummary.jsx'
+import Toggle from '../ui/Toggle.jsx'
 import { useAgent } from '../agent/Agent.js'
 import './SessionView.css'
 
 export default function SessionView({ meta, date }) {
   const [items, setItems] = useState(null)
   const [loading, setLoading] = useState(false)
-  const [tab, setTab] = useState('conversation')
+  const [mode, setMode] = useState('conversation')
+  const [agentOpen, setAgentOpen] = useState(false)
   const offsetRef = useRef(0)
   const sessionId = meta?.sessionId
   const fileSize = meta?.fileSize
@@ -42,33 +44,34 @@ export default function SessionView({ meta, date }) {
     <div className="session-view">
       <div className="view-body">
         <div className="view-conversation">
-          <div className="view-tabs">
-            <Tab active={tab === 'conversation'} onClick={() => setTab('conversation')}>Conversation</Tab>
-            <Tab active={tab === 'jsonl'} onClick={() => setTab('jsonl')}>JSONL</Tab>
-          </div>
-          {tab === 'conversation' && (
+          {agentOpen ? (
+            <AgentView meta={meta} items={items} agent={agent} onClose={() => setAgentOpen(false)} />
+          ) : (
             <div className="view-tab-pane">
               <div className="view-tab-pane-row">
                 <div className="view-tab-pane-main">
-                  {loading && <div className="empty">Loading conversation…</div>}
-                  {items && <ConversationView items={items} />}
+                  <div className="view-mode-toggle">
+                    <Toggle
+                      checked={mode === 'jsonl'}
+                      onChange={(v) => setMode(v ? 'jsonl' : 'conversation')}
+                      label="JSONL"
+                    />
+                  </div>
+                  {mode === 'conversation' ? (
+                    <div className="view-tab-pane-content">
+                      {loading && <div className="empty">Loading conversation…</div>}
+                      {items && <ConversationView items={items} />}
+                    </div>
+                  ) : (
+                    <JsonlView filePath={meta.filePath} />
+                  )}
                 </div>
-                <SessionSummary meta={meta} items={items} agent={agent} onOpenAgent={() => setTab('agent')} />
+                <SessionSummary meta={meta} items={items} agent={agent} onOpenAgent={() => setAgentOpen(true)} />
               </div>
             </div>
           )}
-          {tab === 'agent' && <AgentView meta={meta} items={items} agent={agent} onClose={() => setTab('conversation')} />}
-          {tab === 'jsonl' && <JsonlView filePath={meta.filePath} />}
         </div>
       </div>
     </div>
-  )
-}
-
-function Tab({ active, onClick, children }) {
-  return (
-    <button type="button" className={`view-tab ${active ? 'active' : ''}`} onClick={onClick}>
-      {children}
-    </button>
   )
 }

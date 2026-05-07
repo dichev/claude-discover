@@ -7,7 +7,7 @@
 
 .jsonl-viewer-toolbar {
   display: flex;
-  padding: 6px 12px;
+  padding: 16px 20px;
 }
 
 .jsonl-viewer-search {
@@ -43,7 +43,7 @@
 .jsonl-viewer-toc {
   flex: 0 0 160px;
   overflow: auto;
-  border-left: 1px solid var(--border);
+  border-right: 1px solid var(--border);
   background: var(--bg);
   margin: 0;
   padding: 6px 0;

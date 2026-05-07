@@ -53,8 +53,12 @@ export default function JsonlView({ filePath }) {
   const q = query.trim().toLowerCase()
   const entries = (text?.split('\n') ?? [])
     .filter(Boolean)
-    .map((l) => q ? prune(JSON.parse(l), q) : JSON.parse(l))
-    .filter((v) => v !== undefined)
+    .map((l) => {
+      const parsed = JSON.parse(l)
+      const value = q ? prune(parsed, q) : parsed
+      return value === undefined ? undefined : { value, label: labelFor(parsed) }
+    })
+    .filter((e) => e !== undefined)
 
   return (
     <div className="jsonl-viewer">
@@ -62,10 +66,22 @@ export default function JsonlView({ filePath }) {
         <input className="jsonl-viewer-search" type="search" placeholder="Filter…" onInput={onInput} />
       </div>
       <div className="jsonl-viewer-content">
+        {entries.length > 0 && (
+          <ul className="jsonl-viewer-toc">
+            {entries.map(({ label }, i) => (
+              <li key={i}>
+                <button type="button" onClick={() => scrollTo(i)} title={label}>
+                  <span className="jsonl-viewer-toc-index">{i + 1}</span>
+                  <span className="jsonl-viewer-toc-label">{label}</span>
+                </button>
+              </li>
+            ))}
+          </ul>
+        )}
         <div className="jsonl-viewer-body" ref={bodyRef}>
           {error && <div className="jsonl-viewer-error">{error}</div>}
           {!text && !error && <div className="jsonl-viewer-loading">Loading…</div>}
-          {entries.map((value, i) => (
+          {entries.map(({ value }, i) => (
             <div key={`${q}-${i}`} data-entry={i} className="jsonl-viewer-entry">
               <JsonView
                 value={value}
@@ -79,18 +95,6 @@ export default function JsonlView({ filePath }) {
             </div>
           ))}
         </div>
-        {entries.length > 0 && (
-          <ul className="jsonl-viewer-toc">
-            {entries.map((value, i) => (
-              <li key={i}>
-                <button type="button" onClick={() => scrollTo(i)} title={labelFor(value)}>
-                  <span className="jsonl-viewer-toc-index">{i + 1}</span>
-                  <span className="jsonl-viewer-toc-label">{labelFor(value)}</span>
-                </button>
-              </li>
-            ))}
-          </ul>
-        )}
       </div>
     </div>
   )

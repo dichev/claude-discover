@@ -27,36 +27,6 @@
   min-height: 0;
 }
 
-.view-tabs {
-  display: flex;
-  justify-content: flex-end;
-  gap: 2px;
-  padding: 6px 12px 0;
-  border-bottom: 1px solid var(--border);
-  background: var(--bg);
-}
-
-.view-tab {
-  background: transparent;
-  border: 1px solid transparent;
-  border-bottom: none;
-  color: var(--text-faint);
-  padding: 10px 14px 8px;
-  font-size: 12px;
-  font-family: inherit;
-  cursor: pointer;
-  border-radius: 4px 4px 0 0;
-
-  &:hover { color: var(--text); }
-
-  &.active {
-    color: var(--text);
-    background: var(--bg);
-    border-color: var(--border);
-    margin-bottom: -1px;
-  }
-}
-
 .view-tab-pane {
   flex: 1;
   min-height: 0;
@@ -75,8 +45,28 @@
   flex: 1;
   min-width: 0;
   min-height: 0;
+  display: flex;
+  flex-direction: column;
+  position: relative;
+  padding-top: 10px;
+}
+
+.view-mode-toggle {
+  position: absolute;
+  top: 16px;
+  right: 20px;
+  z-index: 2;
+}
+
+.view-tab-pane-content {
+  flex: 1;
+  min-height: 0;
   overflow-y: auto;
   padding: 12px 16px;
+}
+
+.view-tab-pane-main > .jsonl-viewer .jsonl-viewer-toolbar {
+  padding-right: 120px;
 }
 
 .view-tab-pane-row > .session-summary {
