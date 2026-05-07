@@ -1,15 +1,3 @@
-.agent-prompt {
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-  min-height: 0;
-}
-
-.agent-prompt > .agent-view-block {
-  flex: 1;
-  min-height: 0;
-}
-
 .agent-prompt-typing {
   display: inline-flex;
   align-items: center;

@@ -4,17 +4,17 @@ import rehypeHighlight from 'rehype-highlight'
 import { useLocalStorage } from '../../utils/useLocalStorage.js'
 import { markdownSession } from '../MarkdownSession.js'
 import Toggle from '../../ui/Toggle.jsx'
-import AgentPrompt, { AgentPromptOutput, buildAgentPrompt } from '../../agent/AgentPrompt.jsx'
+import EditableMarkdown from '../../ui/EditableMarkdown.jsx'
+import AgentOutput from '../../agent/AgentOutput.jsx'
 import './AgentView.css'
 
 export default function AgentView({ meta, items, agent, onClose }) {
   const [pretty, setPretty] = useLocalStorage('agent.pretty', true)
-  const [fullText, setFullText] = useLocalStorage('agent.fullText', false)
-  const truncated = !fullText
   const [copied, setCopied] = useState(false)
-  const { body } = markdownSession(meta, items, truncated)
-  const defaultPrompt = buildAgentPrompt(truncated)
+
+  const { body } = markdownSession(meta, items, agent.truncated)
   const combinedText = `${agent.prompt}\n\n---\n${body}`
+
   const onCopy = async () => {
     await navigator.clipboard.writeText(combinedText)
     setCopied(true)
@@ -23,7 +23,7 @@ export default function AgentView({ meta, items, agent, onClose }) {
   return (
     <div className="agent-view">
       <div className="agent-view-actions">
-        <Toggle checked={fullText} onChange={setFullText} label="full text" />
+        <Toggle checked={agent.truncated} onChange={agent.setTruncated} label="truncated" />
         <Toggle checked={pretty} onChange={setPretty} label="human-friendly" />
         {onClose && (
           <button type="button" className="agent-view-close" onClick={onClose} aria-label="Close" title="Close">
@@ -42,7 +42,9 @@ export default function AgentView({ meta, items, agent, onClose }) {
       <div className="agent-view-right">
         <div className="agent-prompt-wrap">
           <div className="agent-view-label">Prompt</div>
-          <AgentPrompt prompt={defaultPrompt} onPromptChange={agent.setPrompt} pretty={pretty} />
+          <div className="agent-view-block">
+            <EditableMarkdown source={agent.defaultPrompt} edited={agent.editedPrompt} setEdited={agent.setEditedPrompt} styled={pretty} />
+          </div>
           <div className="agent-prompt-actions">
             <button type="button" className="button-primary" onClick={onCopy}>
               {copied ? 'Copied' : 'Copy'}
@@ -54,7 +56,7 @@ export default function AgentView({ meta, items, agent, onClose }) {
         </div>
         <div className="agent-view-output-wrap">
           <div className="agent-view-label">AI Result</div>
-          <AgentPromptOutput output={agent.output} pretty={pretty} running={agent.running} error={agent.error} />
+          <AgentOutput output={agent.output} pretty={pretty} running={agent.running} error={agent.error} />
         </div>
       </div>
     </div>

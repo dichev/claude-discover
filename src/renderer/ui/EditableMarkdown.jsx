@@ -1,18 +1,15 @@
-import React, { useEffect, useLayoutEffect, useRef, useState } from 'react'
+import React, { useLayoutEffect, useRef, useState } from 'react'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 import rehypeHighlight from 'rehype-highlight'
-import { useLocalStorage } from '../utils/useLocalStorage.js'
 import './EditableMarkdown.css'
 
-export default function EditableMarkdown({ source, styled, onChange, storageKey }) {
+export default function EditableMarkdown({ source, edited, setEdited, styled }) {
   const ref = useRef(null)
-  const [edited, setEdited] = useLocalStorage(storageKey, '')
   const [editing, setEditing] = useState(false)
   const value = edited || source
   const showStyled = styled && !editing
 
-  useEffect(() => { onChange?.(value) }, [value, onChange])
   useLayoutEffect(() => {
     if (!showStyled && ref.current && ref.current.innerText !== value) {
       ref.current.innerText = value

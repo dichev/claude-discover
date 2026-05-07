@@ -3,7 +3,7 @@ import ConversationView from './view/ConversationView.jsx'
 import JsonlView from './view/JsonlView.jsx'
 import AgentView from './view/AgentView.jsx'
 import SessionSummary from './view/SessionSummary.jsx'
-import { useAgentPrompt } from '../agent/AgentPrompt.jsx'
+import { useAgent } from '../agent/Agent.js'
 import './SessionView.css'
 
 export default function SessionView({ meta, date }) {
@@ -13,7 +13,7 @@ export default function SessionView({ meta, date }) {
   const offsetRef = useRef(0)
   const sessionId = meta?.sessionId
   const fileSize = meta?.fileSize
-  const agent = useAgentPrompt(`${sessionId}|${date}`)
+  const agent = useAgent(`${sessionId}|${date}`)
 
   useEffect(() => {
     offsetRef.current = 0

@@ -2,7 +2,7 @@ import React from 'react'
 import { format } from 'date-fns'
 import { fmtDuration, fmtBytes, fmtNum, fmtUSD, fmtCompact, tone } from '../../utils/formatting.js'
 import { THRESHOLDS as T } from '../../utils/thresholds.js'
-import { AgentPromptOutput } from '../../agent/AgentPrompt.jsx'
+import AgentOutput from '../../agent/AgentOutput.jsx'
 import { markdownSession } from '../MarkdownSession.js'
 import './SessionSummary.css'
 
@@ -10,8 +10,7 @@ const CONTEXT_WINDOW = T.context.danger
 
 export default function SessionSummary({ meta, items, agent, onOpenAgent }) {
   const onAnalyze = () => {
-    const fullText = JSON.parse(localStorage.getItem('agent.fullText') ?? 'false')
-    const { body } = markdownSession(meta, items, !fullText)
+    const { body } = markdownSession(meta, items, agent.truncated)
     agent.send(`${agent.prompt}\n\n---\n${body}`)
   }
   const t = meta.tokens
@@ -47,11 +46,9 @@ export default function SessionSummary({ meta, items, agent, onOpenAgent }) {
             ⚙
           </button>
         </div>
-        {(agent.output || agent.running || agent.error) && (
-          <div className="summary-ai-output">
-            <AgentPromptOutput output={agent.output} pretty={true} running={agent.running} error={agent.error} />
-          </div>
-        )}
+        <div className="summary-ai-output">
+          <AgentOutput output={agent.output} pretty={true} running={agent.running} error={agent.error} />
+        </div>
       </div>
 
       <Section title="Summary">

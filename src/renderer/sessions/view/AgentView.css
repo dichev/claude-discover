@@ -69,7 +69,7 @@
 
 .agent-view-left > .agent-view-block,
 .agent-view-output-wrap > .agent-prompt-output,
-.agent-prompt-wrap > .agent-prompt {
+.agent-prompt-wrap > .agent-view-block {
   flex: 1;
   min-height: 0;
 }
