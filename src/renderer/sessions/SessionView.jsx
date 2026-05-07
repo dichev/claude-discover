@@ -3,6 +3,7 @@ import ConversationView from './view/ConversationView.jsx'
 import JsonlView from './view/JsonlView.jsx'
 import AgentView from './view/AgentView.jsx'
 import SessionSummary from './view/SessionSummary.jsx'
+import { useAgentPrompt } from '../agent/AgentPrompt.jsx'
 import './SessionView.css'
 
 export default function SessionView({ meta, date }) {
@@ -10,9 +11,9 @@ export default function SessionView({ meta, date }) {
   const [loading, setLoading] = useState(false)
   const [tab, setTab] = useState('conversation')
   const offsetRef = useRef(0)
-
   const sessionId = meta?.sessionId
   const fileSize = meta?.fileSize
+  const agent = useAgentPrompt(`${sessionId}|${date}`)
 
   useEffect(() => {
     offsetRef.current = 0
@@ -44,7 +45,6 @@ export default function SessionView({ meta, date }) {
           <div className="view-tabs">
             <Tab active={tab === 'conversation'} onClick={() => setTab('conversation')}>Conversation</Tab>
             <Tab active={tab === 'jsonl'} onClick={() => setTab('jsonl')}>JSONL</Tab>
-            <Tab active={tab === 'agent'} onClick={() => setTab('agent')}>Agent</Tab>
           </div>
           {tab === 'conversation' && (
             <div className="view-tab-pane">
@@ -53,11 +53,11 @@ export default function SessionView({ meta, date }) {
                   {loading && <div className="empty">Loading conversation…</div>}
                   {items && <ConversationView items={items} />}
                 </div>
-                <SessionSummary meta={meta} />
+                <SessionSummary meta={meta} items={items} agent={agent} onOpenAgent={() => setTab('agent')} />
               </div>
             </div>
           )}
-          {tab === 'agent' && <AgentView meta={meta} items={items} />}
+          {tab === 'agent' && <AgentView meta={meta} items={items} agent={agent} onClose={() => setTab('conversation')} />}
           {tab === 'jsonl' && <JsonlView filePath={meta.filePath} />}
         </div>
       </div>

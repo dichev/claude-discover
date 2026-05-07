@@ -5,12 +5,14 @@ import windowStateKeeper from 'electron-window-state'
 import { SessionsService } from './services/SessionsService.js'
 import { refreshPricesFromLiteLLM } from './services/Pricing.js'
 import { readWorkHours, writeWorkHours } from './services/WorkHours.js'
+import { AgentRunner } from './services/AgentRunner.js'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 const DEV_URL = process.env.ELECTRON_RENDERER_URL
 
 let mainWindow
 let sessionsService
+const agentRunner = new AgentRunner()
 
 if (!app.isPackaged && process.env.ELECTRON_RENDERER_URL) {
   app.commandLine.appendSwitch('remote-debugging-port', '9333')
@@ -72,6 +74,7 @@ app.whenReady().then(async () => {
   ipcMain.handle('sessions:read-log-file', (_e, filePath) => sessionsService.readLogFile(filePath))
   ipcMain.handle('work-hours:get', () => readWorkHours())
   ipcMain.handle('work-hours:set', (_e, data) => writeWorkHours(data))
+  ipcMain.handle('agent:run', (e, text, systemTools) => agentRunner.run(text, e.sender, systemTools))
 
 
   createWindow()

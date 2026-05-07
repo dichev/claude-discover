@@ -10,6 +10,41 @@
   overflow-y: auto;
 }
 
+.summary-ai {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding-bottom: 15px;
+  border-bottom: 1px solid var(--border);
+}
+
+.summary-ai-gear {
+  padding: 4px 8px;
+  font-size: 14px;
+  line-height: 1;
+  color: var(--text-faint);
+  background: transparent;
+  cursor: pointer;
+  border: none;
+
+  &:hover { color: var(--text); background: transparent; }
+}
+
+
+.summary-ai-output {
+  max-height: 320px;
+  overflow: auto;
+  background: var(--bg-elev-1, var(--bg));
+  font-size: 12px;
+
+  .agent-prompt-output {
+    padding: 0;
+    border: none;
+    border-radius: 0;
+  }
+}
+
+
 .summary-section {
   display: flex;
   flex-direction: column;

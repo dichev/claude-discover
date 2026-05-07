@@ -2,11 +2,18 @@ import React from 'react'
 import { format } from 'date-fns'
 import { fmtDuration, fmtBytes, fmtNum, fmtUSD, fmtCompact, tone } from '../../utils/formatting.js'
 import { THRESHOLDS as T } from '../../utils/thresholds.js'
+import { AgentPromptOutput } from '../../agent/AgentPrompt.jsx'
+import { markdownSession } from '../MarkdownSession.js'
 import './SessionSummary.css'
 
 const CONTEXT_WINDOW = T.context.danger
 
-export default function SessionSummary({ meta }) {
+export default function SessionSummary({ meta, items, agent, onOpenAgent }) {
+  const onAnalyze = () => {
+    const fullText = JSON.parse(localStorage.getItem('agent.fullText') ?? 'false')
+    const { body } = markdownSession(meta, items, !fullText)
+    agent.send(`${agent.prompt}\n\n---\n${body}`)
+  }
   const t = meta.tokens
   const totalTokens = meta.totalTokens
   const wallDuration = meta.lastActivityAt - meta.startedAt
@@ -20,6 +27,33 @@ export default function SessionSummary({ meta }) {
 
   return (
     <div className="session-summary">
+      <div className="summary-ai">
+        <div className="summary-ai-row">
+          <button
+            type="button"
+            className="button-primary"
+            onClick={onAnalyze}
+            disabled={agent.running || !items}
+          >
+            {agent.running ? '⚡︎ Analyzing…' : '⚡︎ AI Analyze'}
+          </button>
+          <button
+            type="button"
+            className="summary-ai-gear"
+            onClick={onOpenAgent}
+            title="Open Agent tab"
+            aria-label="Open Agent tab"
+          >
+            ⚙
+          </button>
+        </div>
+        {(agent.output || agent.running || agent.error) && (
+          <div className="summary-ai-output">
+            <AgentPromptOutput output={agent.output} pretty={true} running={agent.running} error={agent.error} />
+          </div>
+        )}
+      </div>
+
       <Section title="Summary">
         <Field label="Working time" value={
           <span className={tone(activeDuration, T.workTime)}>{fmtDuration(activeDuration)}</span>
