@@ -4,7 +4,11 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 Read-only Electron desktop browser for local Claude Code session transcripts.
 
-## How to install and update the app (Windows / macOS)
+## How to install and update the app
+
+**macOS:** double-click `start.command` (auto-updates to `origin/main` and starts the app).
+
+**Windows:**
 ```
 git fetch
 git reset --hard origin/main

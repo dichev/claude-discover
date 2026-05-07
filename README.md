@@ -12,10 +12,12 @@ npm run dev
 
 ## Production
 
+**macOS:** 
+- double-click `start.command` (auto-updates and starts the app)
+
+**Windows:**
 ```
 npm install
-npm build
+npm run build
 npm start
 ```
-
-Works on Windows and macOS.
