@@ -1,6 +1,7 @@
 import { defineConfig } from 'electron-vite';
 import react from '@vitejs/plugin-react';
 import { resolve } from 'path';
+import pkg from './package.json' with { type: 'json' };
 
 export default defineConfig({
   main: {
@@ -22,6 +23,9 @@ export default defineConfig({
     },
     server:  { port: 5555, strictPort: true  }, // npm run dev
     preview: { port: 5555, strictPort: false }, // npm start (serves built output)
-    plugins: [react()]
+    plugins: [react()],
+    define: {
+      __APP_VERSION__: JSON.stringify(pkg.version)
+    }
   }
 });

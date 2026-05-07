@@ -72,7 +72,7 @@ export default function GanttChart({
 }) {
   const containerRef = useRef(null)
   const [width, setWidth] = useState(1200)
-  const [view, setView] = useLocalStorage('ganttChart.view', { dayAnchor, start: dayRange.start, end: dayRange.end })
+  const [view, setView] = useLocalStorage('gantt-chart.view', { dayAnchor, start: dayRange.start, end: dayRange.end })
 
   useEffect(() => {
     if (view.dayAnchor !== dayAnchor) setView({ dayAnchor, start: dayRange.start, end: dayRange.end })
