@@ -12,7 +12,7 @@ export class AgentRunner {
         prompt: text,
         options: {
           includePartialMessages: true,
-          env: { FORCE_PROMPT_CACHING_5M: '1' },
+          env: { ...process.env, FORCE_PROMPT_CACHING_5M: '1' },  // process.env must be included (for macOS)
           tools: systemTools ? undefined : [],
           settingSources: systemTools ? undefined : [],
         }
