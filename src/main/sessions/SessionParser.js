@@ -1,5 +1,3 @@
-import { pricing } from '../services/Pricing.js'
-
 const ACTIVITY_GAP_MS = 5 * 60 * 1000
 const TOKEN_FIELDS = ['input', 'output', 'cacheRead', 'cacheCreation', 'cacheCreation5m', 'cacheCreation1h']
 
@@ -93,9 +91,10 @@ function recordDedupedUsage(meta, msg, excludeIds) {
 }
 
 export class SessionParser {
-  constructor({ sessionId, parentSessionId, filePath, fileSize, mtime, prev = null, range = null, excludeIds = null }) {
+  constructor({ sessionId, parentSessionId, filePath, fileSize, mtime, pricing, prev = null, range = null, excludeIds = null }) {
     this.range = range
     this.excludeIds = excludeIds
+    this.pricing = pricing
     // excludeIds disables incremental reuse — the exclusion changes the totals.
     const reuse = prev && fileSize >= prev.fileSize && !excludeIds
     this.reused = reuse
@@ -192,12 +191,12 @@ export class SessionParser {
     meta.totalTokens = t.input + t.output + t.cacheRead + t.cacheCreation
     const cacheDenom = t.cacheRead + t.cacheCreation
     meta.cacheHitRatio = cacheDenom > 0 ? t.cacheRead / cacheDenom : null
-    meta.cost = pricing.costUSD(meta.tokensByModel)
+    meta.cost = this.pricing.costUSD(meta.tokensByModel)
     return meta
   }
 }
 
-export async function scanSession(reader, { prev = null, range = null, excludeIds = null, stat = null } = {}) {
+export async function scanSession(reader, { pricing, prev = null, range = null, excludeIds = null, stat = null }) {
   if (!stat) stat = await reader.stat()
   if (!stat) return null
   const parser = new SessionParser({
@@ -206,7 +205,7 @@ export async function scanSession(reader, { prev = null, range = null, excludeId
     filePath: reader.filePath,
     fileSize: stat.size,
     mtime: stat.mtimeMs,
-    prev, range, excludeIds,
+    prev, range, excludeIds, pricing,
   })
   const nextOffset = await reader.streamFrom(parser.startOffset, (obj) => parser.feed(obj))
   const meta = parser.finalize(stat.mtimeMs)

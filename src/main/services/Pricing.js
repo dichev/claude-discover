@@ -10,6 +10,8 @@ const DAY_MS = 24 * 3600 * 1000
 export class Pricing {
   constructor() {
     this.load()
+    // refresh in the background; early reads use the seed table
+    this.refreshFromLiteLLM().catch(err => console.warn('[pricing] refresh failed:', err.message))
   }
 
   load() {
@@ -52,31 +54,27 @@ export class Pricing {
   }
 
   async refreshFromLiteLLM() {
-    try {
-      if (fs.existsSync(CURRENT_PATH) && Date.now() - fs.statSync(CURRENT_PATH).mtimeMs < DAY_MS) return
-      const res = await fetch(LITELLM_URL, { signal: AbortSignal.timeout(10_000) })
-      if (!res.ok) throw new Error(`HTTP ${res.status}`)
-      const litellm = await res.json()
-      // LiteLLM keys look like 'anthropic.claude-opus-4-5-20251101-v1:0' — strip provider and dated suffix.
-      const norm = k => k.toLowerCase().replace(/^anthropic\./, '').replace(/-\d{8}(-v\d+:\d+)?$|-v\d+:\d+$/, '')
-      const out = {}
-      for (const [k, v] of Object.entries(litellm)) {
-        const ourKey = Object.keys(this.prices).find(key => norm(k) === key)
-        if (!ourKey || out[ourKey]) continue
-        const i = v?.input_cost_per_token, o = v?.output_cost_per_token
-        const r = v?.cache_read_input_token_cost, w = v?.cache_creation_input_token_cost
-        const w1h = v?.cache_creation_input_token_cost_above_1hr
-        if (!i || !o || !r || !w || !w1h) continue
-        const M = 1e6
-        out[ourKey] = { input: i * M, output: o * M, cacheRead: r * M, cacheWrite: w * M, cacheWrite1h: w1h * M }
-      }
-      if (!Object.keys(out).length) return
-      fs.writeFileSync(CURRENT_PATH, JSON.stringify(out, null, 2) + '\n')
-      this.load()
-    } catch (err) {
-      console.warn('[pricing] refresh failed:', err.message)
+    if (fs.existsSync(CURRENT_PATH) && Date.now() - fs.statSync(CURRENT_PATH).mtimeMs < DAY_MS) return
+    console.info('[pricing] refreshing prices from LiteLLM:', LITELLM_URL)
+    const res = await fetch(LITELLM_URL, { signal: AbortSignal.timeout(10_000) })
+    if (!res.ok) throw new Error(`HTTP ${res.status}`)
+    const litellm = await res.json()
+    // LiteLLM keys look like 'anthropic.claude-opus-4-5-20251101-v1:0' — strip provider and dated suffix.
+    const norm = k => k.toLowerCase().replace(/^anthropic\./, '').replace(/-\d{8}(-v\d+:\d+)?$|-v\d+:\d+$/, '')
+    const out = {}
+    for (const [k, v] of Object.entries(litellm)) {
+      const ourKey = Object.keys(this.prices).find(key => norm(k) === key)
+      if (!ourKey || out[ourKey]) continue
+      const i = v?.input_cost_per_token, o = v?.output_cost_per_token
+      const r = v?.cache_read_input_token_cost, w = v?.cache_creation_input_token_cost
+      const w1h = v?.cache_creation_input_token_cost_above_1hr
+      if (!i || !o || !r || !w || !w1h) continue
+      const M = 1e6
+      out[ourKey] = { input: i * M, output: o * M, cacheRead: r * M, cacheWrite: w * M, cacheWrite1h: w1h * M }
     }
+    if (!Object.keys(out).length) return
+    fs.writeFileSync(CURRENT_PATH, JSON.stringify(out, null, 2) + '\n')
+    this.load()
+    console.info(`[pricing] updated ${Object.keys(out).length} model prices`)
   }
 }
-
-export const pricing = new Pricing()

@@ -2,6 +2,7 @@ import { startOfDay, endOfDay, parseISO } from 'date-fns'
 import { SessionFile } from '../sessions/SessionFile.js'
 import { scanSession, dedupAcrossSessions } from '../sessions/SessionParser.js'
 import { SessionsScanner } from '../sessions/SessionsScanner.js'
+import { Pricing } from './Pricing.js'
 
 function dayBounds(date) {
   const d = parseISO(date)
@@ -18,15 +19,16 @@ function filterDay(cache, day) {
     .sort((a, b) => b.lastActivityAt - a.lastActivityAt)
 }
 
-export async function dedupSessions(metas, range = null) {
+export async function dedupSessions(metas, pricing, range = null) {
   return dedupAcrossSessions(metas, (m, excludeIds) =>
-    scanSession(new SessionFile(m.filePath), { range, excludeIds })
+    scanSession(new SessionFile(m.filePath), { range, excludeIds, pricing })
   )
 }
 
 export class SessionsService {
   constructor({ root, onUpdate = () => {}, debounceMs = 200, scanner = null } = {}) {
     this.scanner = scanner ?? new SessionsScanner(root ? { root } : {})
+    this.pricing = new Pricing()
     this.onUpdate = onUpdate
     this.debounceMs = debounceMs
     this.cache = new Map()
@@ -60,11 +62,11 @@ export class SessionsService {
     // emit is called after each dir batch and once more when the full scan completes
     const emit = async () => {
       if (this.activeDay?.date !== date) return // guard against stale day navigation
-      this.onUpdate(await dedupSessions(filterDay(this.cache, day), day))
+      this.onUpdate(await dedupSessions(filterDay(this.cache, day), this.pricing, day))
     }
     const onFile = (filePath, stat) => this._processFile(filePath, day, stat)
     this.scanner.scan(day, { onFile, onBatchDone: emit }).then(emit).catch(console.error) // fire-and-forget; streams updates as dirs complete
-    return dedupSessions(filterDay(this.cache, day), day) // return current cache immediately (empty on first visit)
+    return dedupSessions(filterDay(this.cache, day), this.pricing, day) // return current cache immediately (empty on first visit)
   }
 
   async start() {
@@ -86,7 +88,7 @@ export class SessionsService {
   _processFile(filePath, day, stat) {
     if (!stat) return null
     const cached = this.cache.get(filePath)
-    return scanSession(new SessionFile(filePath), { prev: cached, range: day, stat }).then((meta) => {
+    return scanSession(new SessionFile(filePath), { prev: cached, range: day, stat, pricing: this.pricing }).then((meta) => {
       if (!meta) return null
       this.cache.set(filePath, meta)
       this.byId.set(meta.sessionId, meta)
@@ -118,7 +120,7 @@ export class SessionsService {
       this.updateTimer = null
       const day = this.activeDay
       if (!day) return
-      this.onUpdate(await dedupSessions(filterDay(this.cache, day), day))
+      this.onUpdate(await dedupSessions(filterDay(this.cache, day), this.pricing, day))
     }, this.debounceMs)
   }
 }

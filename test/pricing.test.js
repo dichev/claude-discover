@@ -2,7 +2,9 @@ import { describe, it, expect, beforeAll, afterAll } from 'vitest'
 import fs from 'node:fs'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
-import { pricing } from '../src/main/services/Pricing.js'
+import { Pricing } from '../src/main/services/Pricing.js'
+
+const pricing = new Pricing()
 
 describe('priceFor', () => {
   it('matches a known model exactly', () => {

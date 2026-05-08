@@ -11,7 +11,9 @@ import { spawnSync } from 'node:child_process'
 import { SessionFile } from '../src/main/sessions/SessionFile.js'
 import { scanSession } from '../src/main/sessions/SessionParser.js'
 import { dedupSessions } from '../src/main/services/SessionsService.js'
-import { pricing } from '../src/main/services/Pricing.js'
+import { Pricing } from '../src/main/services/Pricing.js'
+
+const pricing = new Pricing()
 
 const PROJECTS_ROOT = path.join(os.homedir(), '.claude', 'projects')
 const COST_TOL_ABS = 0.01
@@ -26,10 +28,10 @@ async function ourTotals() {
   const metas = []
   for (const e of entries) {
     if (!e.isFile() || !e.name.endsWith('.jsonl')) continue
-    const m = await scanSession(new SessionFile(path.join(e.parentPath, e.name)))
+    const m = await scanSession(new SessionFile(path.join(e.parentPath, e.name)), { pricing })
     if (m) metas.push(m)
   }
-  const deduped = await dedupSessions(metas, null)
+  const deduped = await dedupSessions(metas, pricing)
   const totals = { input: 0, output: 0, cacheRead: 0, cacheCreation: 0 }
   let cost = 0
   for (const m of deduped) {

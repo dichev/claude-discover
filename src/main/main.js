@@ -3,7 +3,6 @@ import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import windowStateKeeper from 'electron-window-state'
 import { SessionsService } from './services/SessionsService.js'
-import { pricing } from './services/Pricing.js'
 import { WorkHours } from './services/WorkHours.js'
 import { AgentRunner } from './services/AgentRunner.js'
 
@@ -53,8 +52,6 @@ app.whenReady().then(async () => {
     const {installExtension, REACT_DEVELOPER_TOOLS} = await import('@tomjs/electron-devtools-installer')
     await installExtension(REACT_DEVELOPER_TOOLS)
   }
-
-  pricing.refreshFromLiteLLM() // refresh in the background; early reads use the seed table
 
   sessionsService = new SessionsService({
     onUpdate: (sessions) => {
