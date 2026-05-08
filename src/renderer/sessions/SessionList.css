@@ -98,15 +98,15 @@
     color: var(--text-dim);
 
     &.muted { color: var(--text-dim); }
-    &.warn { color: #fbbf24; }
-    &.danger { color: #b34242; }
+    &.warn { color: var(--warn); }
+    &.danger { color: var(--danger); }
   }
 
   & .stat-secondary {
     font-size: 10px;
     color: var(--text-faint);
-    &.warn { color: #fbbf24; }
-    &.danger { color: #b34242; }
+    &.warn { color: var(--warn); }
+    &.danger { color: var(--danger); }
   }
 }
 

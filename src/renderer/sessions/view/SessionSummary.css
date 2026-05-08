@@ -120,8 +120,8 @@
 
   &.mono { font-family: var(--font-mono), monospace; }
 
-  & .warn { color: #fbbf24; }
-  & .danger { color: #b34242; }
+  & .warn { color: var(--warn); }
+  & .danger { color: var(--danger); }
 }
 
 .progress-bar {
@@ -138,6 +138,6 @@
     transition: width 120ms ease;
   }
 
-  &.tone-warn .progress-bar-fill { background: #fbbf24; }
+  &.tone-warn .progress-bar-fill { background: var(--warn); }
   &.tone-danger .progress-bar-fill { background: var(--danger); }
 }

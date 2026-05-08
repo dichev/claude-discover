@@ -87,6 +87,6 @@
     line-height: 1;
     padding: 0 5px;
     margin: 0 -5px;
-    color: #fbbf24;
+    color: var(--warn);
   }
 }
