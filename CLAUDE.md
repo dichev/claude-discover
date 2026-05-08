@@ -41,13 +41,17 @@ Read-only Electron desktop browser for local Claude Code session transcripts.
 - `src/renderer/sessions/view/AgentView.jsx` duplicates information from `ConversationView.jsx` and `SessionSummary.jsx` (rendered as markdown for AI consumption). When you add, remove, or change fields/blocks in either of those files, also update `AgentView.jsx` to keep them in sync.
 
 ## Code Style
+- **Backend (`src/main/`) is OOP** — every service/module is a class
+- **Frontend (`src/renderer/`) is functional** — React components are function components, state is hooks, shared logic lives in custom hooks
 - No semicolons in JS/JSX
 - Single-argument arrow functions: omit parens (`x => ...`, not `(x) => ...`)
 - Align consecutive React `use*` hook declarations: pad the destructured pair with spaces so the `=` (and the hook calls after it) line up in a column.
 - IPC channel names use `namespace:kebab-case-action` (e.g. `sessions:read-log-file`, not `sessions:readLogFile`)
 
-## UI testing
+## UI testing / debugging
 
-With `npm run dev` running, use the Playwright MCP server (configured in `.mcp.json`) to inspect the frontend. It connects to the Electron app over CDP at `http://localhost:9333` — use the `mcp__playwright__*` tools to navigate, snapshot, click, evaluate, etc.
+Use the Playwright MCP server (configured in `.mcp.json`) to inspect the frontend. It connects to the Electron app over CDP at `http://localhost:9333` — use the `mcp__playwright__*` tools to navigate, snapshot, click, evaluate, etc.
+
+Prefer the user's already-running app: try connecting first (e.g. `mcp__playwright__browser_navigate` to `http://localhost:9333`) and only start `npm run dev` yourself (in the background) if nothing is listening on that port.
 
 The CDP port (`9333`) is configured in `src/main/main.js` via `app.commandLine.appendSwitch('remote-debugging-port', '9333')` when not packaged.

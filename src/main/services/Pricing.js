@@ -7,7 +7,7 @@ const CURRENT_PATH = path.resolve(process.cwd(), 'cache/prices.current.json')
 const LITELLM_URL = 'https://raw.githubusercontent.com/BerriAI/litellm/main/model_prices_and_context_window.json'
 const DAY_MS = 24 * 3600 * 1000
 
-class Pricing {
+export class Pricing {
   constructor() {
     this.load()
   }
@@ -67,8 +67,8 @@ class Pricing {
         const r = v?.cache_read_input_token_cost, w = v?.cache_creation_input_token_cost
         const w1h = v?.cache_creation_input_token_cost_above_1hr
         if (!i || !o || !r || !w || !w1h) continue
-        const perMillion = x => x * 1e6
-        out[ourKey] = { input: perMillion(i), output: perMillion(o), cacheRead: perMillion(r), cacheWrite: perMillion(w), cacheWrite1h: perMillion(w1h) }
+        const M = 1e6
+        out[ourKey] = { input: i * M, output: o * M, cacheRead: r * M, cacheWrite: w * M, cacheWrite1h: w1h * M }
       }
       if (!Object.keys(out).length) return
       fs.writeFileSync(CURRENT_PATH, JSON.stringify(out, null, 2) + '\n')
@@ -80,5 +80,3 @@ class Pricing {
 }
 
 export const pricing = new Pricing()
-export const costUSD = (tokensByModel, opts) => pricing.costUSD(tokensByModel, opts)
-export const refreshPricesFromLiteLLM = () => pricing.refreshFromLiteLLM()

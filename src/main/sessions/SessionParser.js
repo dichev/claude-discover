@@ -1,4 +1,4 @@
-import { costUSD } from '../services/Pricing.js'
+import { pricing } from '../services/Pricing.js'
 
 const ACTIVITY_GAP_MS = 5 * 60 * 1000
 const TOKEN_FIELDS = ['input', 'output', 'cacheRead', 'cacheCreation', 'cacheCreation5m', 'cacheCreation1h']
@@ -192,7 +192,7 @@ export class SessionParser {
     meta.totalTokens = t.input + t.output + t.cacheRead + t.cacheCreation
     const cacheDenom = t.cacheRead + t.cacheCreation
     meta.cacheHitRatio = cacheDenom > 0 ? t.cacheRead / cacheDenom : null
-    meta.cost = costUSD(meta.tokensByModel)
+    meta.cost = pricing.costUSD(meta.tokensByModel)
     return meta
   }
 }

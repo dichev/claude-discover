@@ -11,7 +11,7 @@ import { spawnSync } from 'node:child_process'
 import { SessionFile } from '../src/main/sessions/SessionFile.js'
 import { scanSession } from '../src/main/sessions/SessionParser.js'
 import { dedupSessions } from '../src/main/services/SessionsService.js'
-import { costUSD } from '../src/main/services/Pricing.js'
+import { pricing } from '../src/main/services/Pricing.js'
 
 const PROJECTS_ROOT = path.join(os.homedir(), '.claude', 'projects')
 const COST_TOL_ABS = 0.01
@@ -38,7 +38,7 @@ async function ourTotals() {
     totals.cacheRead += m.tokens.cacheRead
     totals.cacheCreation += m.tokens.cacheCreation
     // ccusage doesn't distinguish 1h-TTL cache writes — it prices all at the 5-min rate
-    cost += costUSD({ [m.model]: m.tokens }, { ignoreCache1hPremium: true }) || 0
+    cost += pricing.costUSD({ [m.model]: m.tokens }, { ignoreCache1hPremium: true }) || 0
   }
   return { totals, cost }
 }
