@@ -7,7 +7,14 @@ import { parseISO } from 'date-fns'
 import {CLAUDE_CREDENTIALS} from '../paths.js'
 
 
+const CLAUDE_USAGE_POLL_INTERVAL_MS = 5 * 60_000
+
+
 export class AgentRunner {
+
+  constructor() {
+    this.latestUsage = null
+  }
 
   async run(text, sender, systemTools = false) {
     const send = chunk => {
@@ -34,20 +41,35 @@ export class AgentRunner {
     return { code: 0 }
   }
 
+  collectUsage(onUpdate) {
+    const tick = async () => {
+      try {
+        this.latestUsage = await this.usage()
+      } catch (err) {
+        console.warn('[agent] Usage poll failed:', err.message)
+        this.latestUsage = { error: err.message || String(err) }
+      }
+      onUpdate(this.latestUsage)
+    }
+    tick()
+    setInterval(tick, CLAUDE_USAGE_POLL_INTERVAL_MS)
+  }
 
-  async usage(){
+  async usage() {
     const token = await this.readOAuthToken()
 
     // Unofficial Anthropic API — used internally by Claude Code, may change without notice.
     const res = await fetch('https://api.anthropic.com/api/oauth/usage', {
-      headers: {Authorization: `Bearer ${token}`},
+      headers: { Authorization: `Bearer ${token}` },
     })
-
-
+    if (!res.ok) throw new Error(`HTTP ${res.status} ${res.statusText}`)
     const json = await res.json()
+    if (json.error) throw new Error(json.error.message || json.error.type || JSON.stringify(json.error))
+
+    console.info('[agent] Fetched Claude AI usage', {five_hour: json.five_hour, seven_day: json.seven_day})
     return {
-      five_hour: { utilization: json.five_hour.utilization, resets_at: parseISO(json.five_hour.resets_at) },
-      seven_day: { utilization: json.seven_day.utilization, resets_at: parseISO(json.seven_day.resets_at) },
+      five_hour: { utilization: json.five_hour?.utilization, resets_at: json.five_hour ? parseISO(json.five_hour?.resets_at) : null },
+      seven_day: { utilization: json.seven_day?.utilization, resets_at: json.seven_day ? parseISO(json.seven_day?.resets_at) : null },
       _raw_response: json,
     }
   }

@@ -12,6 +12,12 @@ contextBridge.exposeInMainWorld('api', {
   setWorkHours: (data) => ipcRenderer.invoke('work-hours:set', data),
   readLogFile: (filePath) => ipcRenderer.invoke('sessions:read-log-file', filePath),
   runAgentPrompt: (text, systemTools) => ipcRenderer.invoke('agent:run', text, systemTools),
+  getAgentUsage: () => ipcRenderer.invoke('agent:usage'),
+  onAgentUsage: (cb) => {
+    const listener = (_e, usage) => cb(usage)
+    ipcRenderer.on('agent:usage-update', listener)
+    return () => { ipcRenderer.removeListener('agent:usage-update', listener) }
+  },
   onAgentOutput: (cb) => {
     const listener = (_e, chunk) => cb(chunk)
     ipcRenderer.on('agent:output', listener)

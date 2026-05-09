@@ -73,11 +73,16 @@ app.whenReady().then(async () => {
   ipcMain.handle('work-hours:get', () => workHours.read())
   ipcMain.handle('work-hours:set', (_e, data) => workHours.write(data))
   ipcMain.handle('agent:run', (e, text, systemTools) => agentRunner.run(text, e.sender, systemTools))
+  ipcMain.handle('agent:usage', () => agentRunner.latestUsage)
 
 
   createWindow()
 
-  app.on('activate', () => {
+  agentRunner.collectUsage(u => {
+    if (mainWindow && !mainWindow.isDestroyed()) mainWindow.webContents.send('agent:usage-update', u)
+  })
+
+  app.on('activate', () => { // macOS
     if (BrowserWindow.getAllWindows().length === 0) createWindow()
   })
 })

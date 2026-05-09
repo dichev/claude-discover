@@ -17,9 +17,17 @@
   & .work-handle-grip { fill: #cbd1dc; }
 }
 
+.work-handles {
+  & .work-handle-line { opacity: 0.3; transition: opacity 120ms ease; }
+  & .work-handle-grip { opacity: 0;   transition: opacity 120ms ease; }
+}
+.work-overlay:hover .work-handles {
+  & .work-handle-line { opacity: 1; }
+  & .work-handle-grip { opacity: 1; }
+}
+
 .work-offhours-shade {
   fill: url(#work-offhours-stripes);
-  pointer-events: none;
 }
 
 .work-offhours-stripe {
@@ -29,6 +37,15 @@
 }
 
 .now-line {
-  & line { stroke: #ef4444; stroke-width: 1.5; }
-  & text { fill: #ef4444; font-size: 11px; }
+  & line { stroke: var(--danger); stroke-width: 1.5; }
+  & text { fill: var(--danger); font-size: 11px; }
 }
+
+.limit-line {
+  & line { stroke-width: 1; stroke-dasharray: 3 3; }
+  & text { font-size: 11px; }
+}
+.limit-line.limit-ok     { & line { stroke: var(--ok);     } & text { fill: var(--ok);     } }
+.limit-line.limit-warn   { & line { stroke: var(--warn);   } & text { fill: var(--warn);   } }
+.limit-line.limit-danger { & line { stroke: var(--danger); } & text { fill: var(--danger); } }
+.limit-line.limit-unavailable { & text { fill: #868e9d; font-style: italic; } }
