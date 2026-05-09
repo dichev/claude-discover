@@ -1,14 +1,12 @@
 import fsp from 'node:fs/promises'
 import path from 'node:path'
-import os from 'node:os'
 import chokidar from 'chokidar'
-
-const PROJECTS_ROOT = path.join(os.homedir(), '.claude', 'projects')
+import {CLAUDE_PROJECTS_DIR} from '../paths.js'
 
 const isJsonl = (p) => p.endsWith('.jsonl')
 
 export class SessionsScanner {
-  constructor({ root = PROJECTS_ROOT } = {}) {
+  constructor({ root = CLAUDE_PROJECTS_DIR } = {}) {
     this.root = root
     this.watcher = null
   }

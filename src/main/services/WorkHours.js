@@ -1,12 +1,11 @@
 import fs from 'node:fs'
 import path from 'node:path'
-import os from 'node:os'
+import {WORK_HOURS} from '../paths.js'
 
-const FILE_PATH = path.join(os.homedir(), '.claude', '.work-hours.json')
 const DEFAULT = { work_hours: { start: '09:00', end: '17:00' } }
 
 export class WorkHours {
-  constructor(filePath = FILE_PATH) {
+  constructor(filePath = WORK_HOURS) {
     this.filePath = filePath
   }
 
