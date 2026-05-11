@@ -30,24 +30,30 @@ export class Pricing {
     return null
   }
 
-  costUSD(tokensByModel, { ignoreCache1hPremium = false } = {}) {
+  costForDelta(model, bucket, { ignoreCache1hPremium = false } = {}) {
+    const p = this.priceFor(model)
+    if (!p || !bucket) return null
+    const tokens5m = ignoreCache1hPremium ? 0 : (bucket.cacheCreation5m || 0)
+    const tokens1h = ignoreCache1hPremium ? 0 : (bucket.cacheCreation1h || 0)
+    const tokensUnknown = (bucket.cacheCreation || 0) - tokens5m - tokens1h
+    return (
+      (bucket.input || 0) * p.input +
+      (bucket.output || 0) * p.output +
+      (bucket.cacheRead || 0) * p.cacheRead +
+      tokens5m * p.cacheWrite +
+      tokens1h * p.cacheWrite1h +
+      tokensUnknown * p.cacheWrite
+    ) / 1e6
+  }
+
+  costUSD(tokensByModel, opts = {}) {
     if (!tokensByModel) return null
     let total = 0
     let priced = false
     for (const [model, bucket] of Object.entries(tokensByModel)) {
-      const p = this.priceFor(model)
-      if (!p) continue
-      const tokens5m = ignoreCache1hPremium ? 0 : (bucket.cacheCreation5m || 0)
-      const tokens1h = ignoreCache1hPremium ? 0 : (bucket.cacheCreation1h || 0)
-      const tokensUnknown = (bucket.cacheCreation || 0) - tokens5m - tokens1h
-      total += (
-        (bucket.input || 0) * p.input +
-        (bucket.output || 0) * p.output +
-        (bucket.cacheRead || 0) * p.cacheRead +
-        tokens5m * p.cacheWrite +
-        tokens1h * p.cacheWrite1h +
-        tokensUnknown * p.cacheWrite
-      ) / 1e6
+      const c = this.costForDelta(model, bucket, opts)
+      if (c == null) continue
+      total += c
       priced = true
     }
     return priced ? total : null

@@ -45,6 +45,7 @@ function freshMeta({ sessionId, parentSessionId, filePath, fileSize, mtime }) {
     serverToolUse: { webSearch: 0, webFetch: 0 },
     hasScheduledTask: false,
     activityPeriods: [],
+    costSamples: [],
     seenMessageIds: new Set()
   }
 }
@@ -56,6 +57,7 @@ function cloneMeta(prev, fileSize, mtime) {
     tokensByModel: Object.fromEntries(Object.entries(prev.tokensByModel).map(([k, v]) => [k, { ...v }])),
     serverToolUse: { ...prev.serverToolUse },
     activityPeriods: prev.activityPeriods.map((p) => ({ ...p })),
+    costSamples: (prev.costSamples || []).slice(),
     seenMessageIds: new Set(prev.seenMessageIds || [])
   }
 }
@@ -104,6 +106,7 @@ export class SessionParser {
     const tsValid = !Number.isNaN(ts)
     if (this.range && (!tsValid || ts < this.range.start || ts > this.range.end)) return false
     if (tsValid) {
+      obj._ts = ts
       if (meta.startedAt == null || ts < meta.startedAt) meta.startedAt = ts
       if (ts > meta.lastActivityAt) meta.lastActivityAt = ts
     }
@@ -185,6 +188,16 @@ export class SessionParser {
     obj._tokenDelta = (obj._tokenDelta || 0) + delta.output
     obj._tokenTotal = this.tokenTotal
     if (this.excludeIds?.has(msgId)) return
+    const model = msg.model || 'unknown'
+    if (this.pricing && obj._ts != null) {
+      const cost = this.pricing.costForDelta(model, delta)
+      if (cost != null && cost > 0) {
+        const end = obj._ts
+        const prevTs = this.prevMessage?._ts
+        const start = prevTs != null && prevTs < end ? prevTs : end
+        meta.costSamples.push({ start, end, cost })
+      }
+    }
     addUsage(meta.tokens, delta)
     // Prompt size on this turn — overwritten each assistant message so the last wins.
     meta.lastContextTokens = contextSize
@@ -193,7 +206,6 @@ export class SessionParser {
       meta.serverToolUse.webSearch += u.server_tool_use.web_search_requests || 0
       meta.serverToolUse.webFetch += u.server_tool_use.web_fetch_requests || 0
     }
-    const model = msg.model || 'unknown'
     addUsage(meta.tokensByModel[model] || (meta.tokensByModel[model] = emptyBucket()), delta)
   }
 

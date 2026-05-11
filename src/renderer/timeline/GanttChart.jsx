@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useRef, useState, useCallback } from 'react'
 import { SOURCE_COLORS, SOURCE_LABELS } from '../utils/colors.js'
 import { useLocalStorage } from '../utils/useLocalStorage.js'
+import HeatStrip from './HeatStrip.jsx'
 import WorkTimeOverlay from './WorkTimeOverlay.jsx'
 import './GanttChart.css'
 
@@ -193,6 +194,13 @@ export default function GanttChart({
           })}
         </div>
       </div>
+      <HeatStrip
+        sessions={sessions}
+        viewStart={view.start}
+        viewEnd={view.end}
+        width={width}
+        gutter={GUTTER_WIDTH}
+      />
       <div className="gantt-canvas" ref={containerRef} onMouseDown={handleMouseDown}>
         <svg width={width} height={totalHeight}>
           <rect x={0} y={0} width={GUTTER_WIDTH} height={totalHeight} className="gantt-gutter" />

@@ -23,6 +23,21 @@ describe('priceFor', () => {
   })
 })
 
+describe('costForDelta', () => {
+  it('matches costUSD when summed across models', () => {
+    const byModel = {
+      'claude-opus-4-7':  { input: 500_000, output: 200_000, cacheRead: 1_000_000, cacheCreation: 300_000 },
+      'claude-haiku-4-5': { input: 1_000_000, output: 0, cacheRead: 0, cacheCreation: 0 },
+    }
+    const summed = Object.entries(byModel).reduce((a, [m, b]) => a + (pricing.costForDelta(m, b) || 0), 0)
+    expect(summed).toBeCloseTo(pricing.costUSD(byModel), 6)
+  })
+
+  it('returns null for unpriced model', () => {
+    expect(pricing.costForDelta('gpt-5', { input: 1_000_000, output: 0, cacheRead: 0, cacheCreation: 0 })).toBeNull()
+  })
+})
+
 describe('costUSD', () => {
   it('sums input/output/cacheRead/cacheCreation rates', () => {
     const cost = pricing.costUSD({
