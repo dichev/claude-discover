@@ -4,6 +4,8 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 Read-only Electron desktop browser for local Claude Code session transcripts.
 
+Windows is the default OS, but we must support also **macOS**. When adding a macOS specific fix, add comment // @macOS 
+
 ## How to install and update the app (on macOS only)
 
 **macOS:** double-click `start.command` (auto-updates to `origin/main` and starts the app).
@@ -20,6 +22,7 @@ Read-only Electron desktop browser for local Claude Code session transcripts.
 - Data source: `~/.claude/projects/**/*.jsonl` (sessions).
 - Date-scoped: the frontend picks a single date and the backend returns sessions only for that date. Neither side needs to handle multi-day ranges.
 - Main-process backend uses classes: `src/main/services/` (`SessionsService`, `WorkHours`, `AgentRunner`, `Pricing`) and `src/main/sessions/` (`SessionsScanner` watches the projects dir via chokidar; `SessionFile` / `SessionParser` parse individual `.jsonl` files). React renderer uses functional style.
+- Long-lived backend services that push to the renderer (`SessionsService`, `AgentRunner`) extend `EventEmitter` — wire listeners with `service.on(event, cb)` before calling `start()` / `startUsagePolling()`.
 - Agent feature: `AgentRunner` (main) calls `@anthropic-ai/claude-agent-sdk`'s `query()` in-process and forwards `text_delta` events to the renderer over `agent:output`. The renderer side is `src/renderer/agent/` (`Agent.js` hook + `AgentOutput.jsx`); the prompt template is `src/renderer/agent/ANALYZE_PROMPT.md`, imported via Vite's `?raw`.
 - Built with **electron-vite**
 
@@ -29,12 +32,14 @@ Read-only Electron desktop browser for local Claude Code session transcripts.
 - `getWorkHours()` / `setWorkHours(data)` — persist daily work-hour settings.
 - `readLogFile(filePath)` — read a raw `.jsonl` file by absolute path (used by `JsonlView`).
 - `runAgentPrompt(text, systemTools)` / `onAgentOutput(cb)` — start the analysis agent and subscribe to its streamed output chunks.
+- `getAgentUsage()` / `onAgentUsage(cb)` — read/subscribe to the Claude AI usage poll (`five_hour` / `seven_day` utilization).
 
 ## Frontend layout
 - `src/renderer/timeline/` — day-level views: `GanttChart` (swimlane, drives `sourceFilter`/`cwdFilter`), `DailySummary` (aggregated stats), `WorkTimeOverlay`.
 - `src/renderer/sessions/` — `SessionList` (picker, left pane) and `SessionView` (detail container with Conversation/JSONL/Agent tabs).
 - `src/renderer/sessions/view/` — the pieces composed by `SessionView`: `ConversationView`, `JsonlView`, `AgentView` (the three tabs) and `SessionSummary` (right-hand metadata column shown next to the Conversation tab). Note: `view/AgentView.jsx` builds the markdown payload sent to the agent; the actual run/stream UI is `src/renderer/agent/AgentOutput.jsx`.
 - `src/renderer/ui/` — generic primitives (`Toggle`, `EditableMarkdown`).
+- `src/renderer/utils/useLocalStorage.js` — `useLocalStorage(key, initial)` is a `useState` drop-in that persists to `localStorage` (supports lazy-init like React's). Use it for any user-facing UI preference that should survive reloads (filters, toggles, expanded panes). The same file exports `clearOutdatedLocalStorage()`, called from `main.jsx`, which wipes storage on major/minor app version bumps — so don't rely on values surviving across releases.
 - `src/renderer/styles.css` + `src/renderer/markdown.css` — app-wide CSS, imported by `main.jsx`.
 
 ## Cross-component sync
@@ -54,4 +59,4 @@ Use the Playwright MCP server (configured in `.mcp.json`) to inspect the fronten
 
 Prefer the user's already-running app: try connecting first (e.g. `mcp__playwright__browser_navigate` to `http://localhost:9333`) and only start `npm run dev` yourself (in the background) if nothing is listening on that port.
 
-The CDP port (`9333`) is configured in `src/main/main.js` via `app.commandLine.appendSwitch('remote-debugging-port', '9333')` when not packaged.
+The CDP port (`9333`) is configured in `src/main/debug.js`, which is loaded only in dev — `main.js` gates the import on `import.meta.env.DEV`, so the remote-debugging switch and the React DevTools install are tree-shaken from production builds.

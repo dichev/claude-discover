@@ -1,26 +1,22 @@
 import { contextBridge, ipcRenderer } from 'electron'
 
+const subscribe = channel => cb => {
+  const listener = (_e, payload) => cb(payload)
+  ipcRenderer.on(channel, listener)
+  return () => { ipcRenderer.removeListener(channel, listener) }
+}
+
 contextBridge.exposeInMainWorld('api', {
   listSessions: (date) => ipcRenderer.invoke('sessions:list', date),
   readSession: (id, offset = 0, date = null) => ipcRenderer.invoke('sessions:read', id, offset, date),
-  onSessionsUpdate: (cb) => {
-    const listener = (_e, sessions) => cb(sessions)
-    ipcRenderer.on('sessions:update', listener)
-    return () => { ipcRenderer.removeListener('sessions:update', listener) }
-  },
+  onSessionsUpdate: subscribe('sessions:update'),
+  readLogFile: (filePath) => ipcRenderer.invoke('sessions:read-log-file', filePath),
+
   getWorkHours: () => ipcRenderer.invoke('work-hours:get'),
   setWorkHours: (data) => ipcRenderer.invoke('work-hours:set', data),
-  readLogFile: (filePath) => ipcRenderer.invoke('sessions:read-log-file', filePath),
+
   runAgentPrompt: (text, systemTools) => ipcRenderer.invoke('agent:run', text, systemTools),
   getAgentUsage: () => ipcRenderer.invoke('agent:usage'),
-  onAgentUsage: (cb) => {
-    const listener = (_e, usage) => cb(usage)
-    ipcRenderer.on('agent:usage-update', listener)
-    return () => { ipcRenderer.removeListener('agent:usage-update', listener) }
-  },
-  onAgentOutput: (cb) => {
-    const listener = (_e, chunk) => cb(chunk)
-    ipcRenderer.on('agent:output', listener)
-    return () => { ipcRenderer.removeListener('agent:output', listener) }
-  }
+  onAgentUsage: subscribe('agent:usage-update'),
+  onAgentOutput: subscribe('agent:output')
 })

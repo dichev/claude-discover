@@ -1,3 +1,4 @@
+import { EventEmitter } from 'node:events'
 import { query } from '@anthropic-ai/claude-agent-sdk'
 import {readFile} from 'node:fs/promises'
 import {execFile} from 'node:child_process'
@@ -10,9 +11,10 @@ import {CLAUDE_CREDENTIALS} from '../paths.js'
 const CLAUDE_USAGE_POLL_INTERVAL_MS = 5 * 60_000
 
 
-export class AgentRunner {
+export class AgentRunner extends EventEmitter {
 
   constructor() {
+    super()
     this.latestUsage = null
   }
 
@@ -41,7 +43,7 @@ export class AgentRunner {
     return { code: 0 }
   }
 
-  collectUsage(onUpdate) {
+  startUsagePolling() {
     const tick = async () => {
       try {
         this.latestUsage = await this.usage()
@@ -49,7 +51,7 @@ export class AgentRunner {
         console.warn('[agent] Usage poll failed:', err.message)
         this.latestUsage = { error: err.message || String(err) }
       }
-      onUpdate(this.latestUsage)
+      this.emit('usage', this.latestUsage)
     }
     tick()
     setInterval(tick, CLAUDE_USAGE_POLL_INTERVAL_MS)
