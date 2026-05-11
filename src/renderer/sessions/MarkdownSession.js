@@ -39,10 +39,10 @@ function renderBlock(b) {
   return fence(JSON.stringify(b, null, 2), 'json')
 }
 
-function renderTurn(t, total) {
+function renderTurn(t) {
   const role = t.role === 'user' ? 'User' : `Assistant`
-  const tokens = total > 0 && t.tokenDelta != null
-    ? ` (${t.tokenDelta >= 0 ? '+' : ''}${fmtCompact(t.tokenDelta)} / ${fmtCompact(total)} tokens)`
+  const tokens = t.tokenTotal > 0 && t.tokenDelta != null
+    ? ` (${t.tokenDelta >= 0 ? '+' : ''}${fmtCompact(t.tokenDelta)} / ${fmtCompact(t.tokenTotal)} tokens)`
     : ''
   return `**${role}${tokens}:**\n\n${t.blocks.map(renderBlock).join('\n\n')}`
 }
@@ -58,12 +58,8 @@ export function markdownSession(meta, items, truncated) {
   const wallDuration = meta.lastActivityAt - meta.startedAt
   const contextPct = Math.round((meta.lastContextTokens / CONTEXT_WINDOW) * 100)
   const cacheHitPct = (meta.cacheHitRatio * 100).toFixed(0)
-  let cumulative = 0
   const transcript = items
-    ? flatten(items).map(t => {
-        if (t.tokenDelta != null) cumulative += t.tokenDelta
-        return renderTurn(t, cumulative)
-      }).join('\n\n---\n\n')
+    ? flatten(items).map(renderTurn).join('\n\n---\n\n')
     : '_Loading…_'
   const conversation = `\n# Conversation\n\n${transcript}`
 

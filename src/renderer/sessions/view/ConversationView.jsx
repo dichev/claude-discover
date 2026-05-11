@@ -12,16 +12,25 @@ export function flatten(items) {
     if (it.type === 'attachment' && it.attachment) {
       const block = { type: 'attachment', attachment: it.attachment }
       const last = turns[turns.length - 1]
-      if (last && last.role === 'user') {
+      // Coalesce consecutive harness-injected attachments into one meta turn.
+      // Never merge into a real user/assistant turn — that would pull tool_result
+      // turns out of their tool-group bucket and render them as user bubbles.
+      if (last && last.isMeta && last.blocks.every(b => b.type === 'attachment')) {
         last.blocks.push(block)
+        if (it._tokenDelta != null) last.tokenDelta = (last.tokenDelta ?? 0) + it._tokenDelta
+        if (it._tokenTotal != null) last.tokenTotal = it._tokenTotal
       } else {
+        // Side the meta belongs to: attachments after an assistant turn (between tool cycles)
+        // are part of what the assistant just produced/received; otherwise they sit with the user.
         turns.push({
           uuid: it.uuid,
-          role: 'user',
-          isMeta: false,
+          role: last?.role === 'assistant' ? 'assistant' : 'user',
+          isMeta: true,
           ts: it.timestamp ? Date.parse(it.timestamp) : null,
           model: null,
           usage: null,
+          tokenDelta: it._tokenDelta ?? null,
+          tokenTotal: it._tokenTotal ?? null,
           blocks: [block]
         })
       }
@@ -42,6 +51,7 @@ export function flatten(items) {
       model: msg.model || null,
       usage: msg.usage || null,
       tokenDelta: it._tokenDelta ?? null,
+      tokenTotal: it._tokenTotal ?? null,
       blocks
     })
   }
@@ -93,18 +103,15 @@ export default function ConversationView({ items }) {
   const turns = useMemo(() => flatten(items), [items])
   const groups = useMemo(() => groupTurns(turns), [turns])
   const groupsWithMeta = useMemo(() => {
-    let cumulative = 0
     return groups.map(g => {
       let delta = null
-      if (g.kind === 'turn') {
-        if (g.turn.tokenDelta != null) delta = g.turn.tokenDelta
-      } else {
-        for (const t of g.turns) {
-          if (t.tokenDelta != null) delta = (delta ?? 0) + t.tokenDelta
-        }
+      let total = null
+      const turns = g.kind === 'turn' ? [g.turn] : g.turns
+      for (const t of turns) {
+        if (t.tokenDelta != null) delta = (delta ?? 0) + t.tokenDelta
+        if (t.tokenTotal != null) total = t.tokenTotal
       }
-      if (delta != null) cumulative += delta
-      return { g, usageMeta: cumulative > 0 ? { total: cumulative, delta } : null }
+      return { g, usageMeta: total > 0 ? { total, delta } : null }
     })
   }, [groups])
   if (turns.length === 0) {
@@ -120,7 +127,7 @@ export default function ConversationView({ items }) {
   )
 }
 
-const CONTEXT_ATTACHMENT_TYPES = new Set(['deferred_tools_delta', 'skill_listing', 'selected_lines_in_ide'])
+const CONTEXT_ATTACHMENT_TYPES = new Set(['deferred_tools_delta', 'skill_listing', 'selected_lines_in_ide', 'diagnostics'])
 
 function TurnRow({ turn, usageMeta }) {
   const contextBlocks = [], otherBlocks = []
@@ -260,7 +267,7 @@ function Attachment({ att }) {
 function Label({ title, className }) {
   return (
     <div className={`aux ${className || ''}`}>
-      <span className="aux-label">• {title}</span>
+      <span className="aux-label"><span className="aux-chevron">•</span><span>{title}</span></span>
     </div>
   )
 }
@@ -270,7 +277,8 @@ function Collapsible({ title, children, className, defaultOpen = true }) {
   return (
     <div className={`aux ${className || ''}`}>
       <button className="aux-toggle" onClick={() => setOpen((v) => !v)}>
-        {open ? '▾' : '▸'} {title}
+        <span className="aux-chevron">{open ? '▾' : '▸'}</span>
+        <span>{title}</span>
       </button>
       {open && <div className="aux-body">{children}</div>}
     </div>

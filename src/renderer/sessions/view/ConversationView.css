@@ -40,8 +40,15 @@
 
 .turn-user {
   & .turn-blocks { align-items: flex-end; }
-  & .turn-blocks > .aux,
+  & .turn-blocks > .aux { align-self: stretch; text-align: right; }
+  & .turn-blocks > .aux .aux-body { text-align: left; }
   & .turn-blocks > .tool-result { align-self: stretch; }
+
+  .turn-meta,
+  .aux .aux-toggle,
+  .aux .aux-label {
+    color: #3b6a7f;
+  }
 
   & .block-text {
     background: var(--bg-elev-2);
@@ -56,8 +63,6 @@
 .turn-assistant .block-text { color: var(--text); }
 
 .turn-meta-note {
-  & .turn-blocks { align-items: center; }
-
   & .block-text {
     background: transparent;
     border: 1px dashed var(--border);
@@ -68,6 +73,7 @@
     max-width: 100%;
   }
 }
+.turn-assistant.turn-meta-note .turn-blocks > .aux { align-self: flex-start; }
 
 .tool-result {
   font-size: 12px;
@@ -151,15 +157,24 @@
   font-size: 11px;
   cursor: pointer;
   font-family: var(--font-mono), monospace;
+  display: inline-flex;
+  gap: 4px;
 
   &:hover { color: var(--text-dim); background: transparent; }
 }
+
+.turn-user .aux-toggle { flex-direction: row-reverse; }
+.turn-user .aux-chevron { display: inline-block; transform: scaleX(-1); }
 
 .aux-label {
   color: var(--text-faint);
   font-size: 11px;
   font-family: var(--font-mono), monospace;
+  display: inline-flex;
+  gap: 4px;
 }
+
+.turn-user .aux-label { flex-direction: row-reverse; }
 
 .aux-body {
   margin-top: 4px;
