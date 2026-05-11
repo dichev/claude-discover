@@ -1,7 +1,7 @@
 import { EventEmitter } from 'node:events'
 import { startOfDay, endOfDay, parseISO } from 'date-fns'
 import { SessionFile } from '../sessions/SessionFile.js'
-import { scanSession, dedupAcrossSessions } from '../sessions/SessionParser.js'
+import { SessionParser } from '../sessions/SessionParser.js'
 import { SessionsScanner } from '../sessions/SessionsScanner.js'
 import { Pricing } from './Pricing.js'
 
@@ -20,10 +20,45 @@ function filterDay(cache, day) {
     .sort((a, b) => b.lastActivityAt - a.lastActivityAt)
 }
 
+// Stat the file, stream every line through a fresh SessionParser, finalize,
+// and stitch the post-stream offset onto the meta. `prev` enables incremental
+// reuse; `excludeIds` skips message ids already counted in an earlier session.
+export async function scanSession(reader, { pricing, prev = null, range = null, excludeIds = null, stat = null }) {
+  if (!stat) stat = await reader.stat()
+  if (!stat) return null
+  const parser = new SessionParser({
+    sessionId: reader.sessionId,
+    parentSessionId: reader.parentSessionId,
+    filePath: reader.filePath,
+    fileSize: stat.size,
+    mtime: stat.mtimeMs,
+    prev, range, excludeIds, pricing,
+  })
+  const nextOffset = await reader.streamFrom(parser.startOffset, (obj) => parser.feed(obj))
+  const meta = parser.finalize(stat.mtimeMs)
+  meta.nextOffset = nextOffset
+  return meta
+}
+
+// Resume/fork copies prior message.ids verbatim. Walk earliest-first; if a
+// session's ids overlap one already counted, rescan it with the overlap
+// excluded so it contributes only its NEW messages.
 export async function dedupSessions(metas, pricing, range = null) {
-  return dedupAcrossSessions(metas, (m, excludeIds) =>
-    scanSession(new SessionFile(m.filePath), { range, excludeIds, pricing })
-  )
+  const sorted = [...metas].sort((a, b) => a.startedAt - b.startedAt)
+  const globalSeen = new Set()
+  const rescans = new Map()
+  for (const m of sorted) {
+    let overlap = null
+    for (const id of m.seenMessageIds || []) {
+      if (globalSeen.has(id)) (overlap ||= new Set()).add(id)
+      globalSeen.add(id)
+    }
+    if (overlap) rescans.set(m.sessionId, scanSession(new SessionFile(m.filePath), { range, excludeIds: overlap, pricing }))
+  }
+  return Promise.all(metas.map(async (m) => {
+    const rescanned = await rescans.get(m.sessionId)
+    return rescanned ? { ...m, ...rescanned } : m
+  }))
 }
 
 export class SessionsService extends EventEmitter {
@@ -49,7 +84,10 @@ export class SessionsService extends EventEmitter {
     const meta = this.byId.get(sessionId)
     if (!meta) return null
     const range = date ? dayBounds(date) : null
-    const { items, nextOffset } = await new SessionFile(meta.filePath).readFrom(offset, range)
+    const reader = new SessionFile(meta.filePath)
+    const parser = new SessionParser({ sessionId: reader.sessionId, parentSessionId: reader.parentSessionId, filePath: reader.filePath, range })
+    const items = []
+    const nextOffset = await reader.streamFrom(offset, (obj) => { if (parser.feed(obj)) items.push(obj) })
     return { meta, items, nextOffset }
   }
 
@@ -60,17 +98,17 @@ export class SessionsService extends EventEmitter {
       this.byId.clear()
     }
     this.activeDay = day
-    // emit is called after each dir batch and once more when the full scan completes
+    // Called after each dir batch and once more when the full scan completes.
     const emit = async () => {
       if (this.activeDay?.date !== date) return // guard against stale day navigation
-      this.emit('update', await dedupSessions(filterDay(this.cache, day), this.pricing, day))
+      this.emit('update', await this._dedupedDay(day))
     }
     const onFile = (filePath, stat) => this._processFile(filePath, day, stat)
     this.scanner.scan(day, { onFile, onBatchDone: emit }).then(emit).catch(console.error) // fire-and-forget; streams updates as dirs complete
-    return dedupSessions(filterDay(this.cache, day), this.pricing, day) // return current cache immediately (empty on first visit)
+    return this._dedupedDay(day) // return current cache immediately (empty on first visit)
   }
 
-  async start() {
+  start() {
     this.scanner.watch({
       onChange: (p, stat) => this._refresh(p, stat),
       onUnlink: (p) => this._evict(p)
@@ -86,15 +124,17 @@ export class SessionsService extends EventEmitter {
     }
   }
 
-  _processFile(filePath, day, stat) {
-    if (!stat) return null
+  _dedupedDay(day) {
+    return dedupSessions(filterDay(this.cache, day), this.pricing, day)
+  }
+
+  async _processFile(filePath, day, stat) {
     const cached = this.cache.get(filePath)
-    return scanSession(new SessionFile(filePath), { prev: cached, range: day, stat, pricing: this.pricing }).then((meta) => {
-      if (!meta) return null
-      this.cache.set(filePath, meta)
-      this.byId.set(meta.sessionId, meta)
-      return meta
-    })
+    const meta = await scanSession(new SessionFile(filePath), { prev: cached, range: day, stat, pricing: this.pricing })
+    if (!meta) return null
+    this.cache.set(filePath, meta)
+    this.byId.set(meta.sessionId, meta)
+    return meta
   }
 
   async _refresh(filePath, stat) {
@@ -121,7 +161,7 @@ export class SessionsService extends EventEmitter {
       this.updateTimer = null
       const day = this.activeDay
       if (!day) return
-      this.emit('update', await dedupSessions(filterDay(this.cache, day), this.pricing, day))
+      this.emit('update', await this._dedupedDay(day))
     }, this.debounceMs)
   }
 }

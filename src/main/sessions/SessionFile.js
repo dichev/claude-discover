@@ -42,39 +42,4 @@ export class SessionFile {
     })
     return offset + consumed
   }
-
-  async readFrom(offset = 0, range = null) {
-    const items = []
-    const seenIds = new Set()
-    let tokenTotal = 0
-    let prevMessage = null
-    const nextOffset = await this.streamFrom(offset, (obj) => {
-      if (range) {
-        const ts = obj.timestamp ? Date.parse(obj.timestamp) : NaN
-        if (Number.isNaN(ts) || ts < range.start || ts > range.end) return
-      }
-      // Standalone attachment entries are always harness-injected context
-      // (diagnostics, task_reminder, selected_lines_in_ide, etc.), never user input.
-      if (obj.type === 'attachment') obj.isMeta = true
-      const u = obj.message?.usage
-      const msgId = obj.message?.id
-      if (u && msgId && !seenIds.has(msgId)) {
-        seenIds.add(msgId)
-        const input = (u.input_tokens || 0) + (u.cache_read_input_tokens || 0) + (u.cache_creation_input_tokens || 0)
-        const output = u.output_tokens || 0
-        // Attribute input tokens to the turn that caused the call (user prompt or tool_result),
-        // not the assistant — the model is billed for *reading* the preceding turn.
-        const inputTarget = prevMessage && prevMessage._tokenDelta == null ? prevMessage : obj
-        tokenTotal += input
-        inputTarget._tokenDelta = (inputTarget._tokenDelta || 0) + input
-        inputTarget._tokenTotal = tokenTotal
-        tokenTotal += output
-        obj._tokenDelta = (obj._tokenDelta || 0) + output
-        obj._tokenTotal = tokenTotal
-      }
-      items.push(obj)
-      if (obj.type === 'user' || obj.type === 'assistant' || obj.type === 'attachment') prevMessage = obj
-    })
-    return { items, nextOffset }
-  }
 }

@@ -9,8 +9,7 @@ import path from 'node:path'
 import os from 'node:os'
 import { spawnSync } from 'node:child_process'
 import { SessionFile } from '../src/main/sessions/SessionFile.js'
-import { scanSession } from '../src/main/sessions/SessionParser.js'
-import { dedupSessions } from '../src/main/services/SessionsService.js'
+import { scanSession, dedupSessions } from '../src/main/services/SessionsService.js'
 import { Pricing } from '../src/main/services/Pricing.js'
 
 const pricing = new Pricing()

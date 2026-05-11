@@ -13,7 +13,7 @@ export class SessionsScanner {
 
   async _listDirs(p) {
     const entries = await fsp.readdir(p, { withFileTypes: true }).catch(() => [])
-    return entries.filter(e => !!e.isDirectory()).map(e => path.join(e.parentPath, e.name))
+    return entries.filter(e => e.isDirectory()).map(e => path.join(e.parentPath, e.name))
   }
 
   // Walks projects + their subagents/ dirs. For each .jsonl whose mtime >= day.start,

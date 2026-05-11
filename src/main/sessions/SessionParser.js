@@ -60,41 +60,14 @@ function cloneMeta(prev, fileSize, mtime) {
   }
 }
 
-// One assistant reply spans several jsonl lines that share message.id + usage —
-// count only first sight. `excludeIds` skips ids already counted in an earlier
-// (resumed-from) session.
-function recordDedupedUsage(meta, msg, excludeIds) {
-  const u = msg?.usage
-  const msgId = msg?.id
-  if (!u || !msgId || meta.seenMessageIds.has(msgId)) return
-  meta.seenMessageIds.add(msgId)
-  if (excludeIds?.has(msgId)) return
-  const cc = u.cache_creation || {}
-  const delta = {
-    input: u.input_tokens || 0,
-    output: u.output_tokens || 0,
-    cacheRead: u.cache_read_input_tokens || 0,
-    cacheCreation: u.cache_creation_input_tokens || 0,
-    cacheCreation5m: cc.ephemeral_5m_input_tokens || 0,
-    cacheCreation1h: cc.ephemeral_1h_input_tokens || 0,
-  }
-  addUsage(meta.tokens, delta)
-  // Prompt size on this turn — overwritten each assistant message so the last wins.
-  meta.lastContextTokens = delta.input + delta.cacheRead + delta.cacheCreation
-  if (u.service_tier) meta.serviceTier = u.service_tier
-  if (u.server_tool_use) {
-    meta.serverToolUse.webSearch += u.server_tool_use.web_search_requests || 0
-    meta.serverToolUse.webFetch += u.server_tool_use.web_fetch_requests || 0
-  }
-  const model = msg.model || 'unknown'
-  addUsage(meta.tokensByModel[model] || (meta.tokensByModel[model] = emptyBucket()), delta)
-}
-
 export class SessionParser {
-  constructor({ sessionId, parentSessionId, filePath, fileSize, mtime, pricing, prev = null, range = null, excludeIds = null }) {
+  constructor({ sessionId, parentSessionId, filePath, fileSize = 0, mtime = 0, pricing = null, prev = null, range = null, excludeIds = null }) {
     this.range = range
     this.excludeIds = excludeIds
     this.pricing = pricing
+    // Per-stream state for stamping items with running totals; not part of meta.
+    this.prevMessage = null
+    this.tokenTotal = 0
     // excludeIds disables incremental reuse — the exclusion changes the totals.
     const reuse = prev && fileSize >= prev.fileSize && !excludeIds
     this.reused = reuse
@@ -107,16 +80,19 @@ export class SessionParser {
     return this.reused ? this.meta.nextOffset : 0
   }
 
+  // Returns true if the item belongs to the requested range (i.e. should be
+  // surfaced to a consumer collecting items). Returns false for non-message
+  // metadata lines and for items filtered out by `this.range`.
   feed(obj) {
     const meta = this.meta
     const t = obj.type
-    if (t === 'summary' && obj.summary) { meta.summary = obj.summary; return }
-    if (t === 'ai-title' && obj.aiTitle) { meta.aiTitle = obj.aiTitle; return }
-    if (t === 'custom-title' && obj.customTitle) { meta.customTitle = obj.customTitle; return }
-    if (t === 'agent-name' && obj.agentName) { meta.agentName = obj.agentName; return }
+    if (t === 'summary' && obj.summary) { meta.summary = obj.summary; return false }
+    if (t === 'ai-title' && obj.aiTitle) { meta.aiTitle = obj.aiTitle; return false }
+    if (t === 'custom-title' && obj.customTitle) { meta.customTitle = obj.customTitle; return false }
+    if (t === 'agent-name' && obj.agentName) { meta.agentName = obj.agentName; return false }
     if (t === 'queue-operation' && obj.content?.includes('<scheduled-task')) {
       meta.hasScheduledTask = true
-      return
+      return false
     }
 
     if (obj.cwd && !meta.cwd) meta.cwd = obj.cwd
@@ -126,13 +102,20 @@ export class SessionParser {
 
     const ts = obj.timestamp ? Date.parse(obj.timestamp) : NaN
     const tsValid = !Number.isNaN(ts)
-    if (this.range && (!tsValid || ts < this.range.start || ts > this.range.end)) return
+    if (this.range && (!tsValid || ts < this.range.start || ts > this.range.end)) return false
     if (tsValid) {
       if (meta.startedAt == null || ts < meta.startedAt) meta.startedAt = ts
       if (ts > meta.lastActivityAt) meta.lastActivityAt = ts
     }
 
-    if (t !== 'user' && t !== 'assistant') return
+    // Standalone attachment entries are always harness-injected context
+    // (diagnostics, task_reminder, selected_lines_in_ide, etc.), never user input.
+    if (t === 'attachment') {
+      obj.isMeta = true
+      this.prevMessage = obj
+      return true
+    }
+    if (t !== 'user' && t !== 'assistant') return true
     meta.messageCount += 1
 
     if (tsValid) {
@@ -145,39 +128,73 @@ export class SessionParser {
     }
 
     if (t === 'user') {
-      if (!meta.forkedFrom && obj.forkedFrom?.sessionId) {
-        meta.forkedFrom = obj.forkedFrom
-      }
+      if (!meta.forkedFrom && obj.forkedFrom?.sessionId) meta.forkedFrom = obj.forkedFrom
       const text = extractText(obj.message?.content)
-      if (text) {
-        if (text.startsWith('<command-name>') || text.startsWith('<command-message>')) {
-          if (!meta.firstUserCommand) meta.firstUserCommand = text
-        }
-        else if (text.startsWith('<local-command-stdout>')) { // this is sent as a separate message
-          if (meta.firstUserCommand) meta.firstUserCommand += '\n' + text
-        }
-        else if (text.startsWith('<local-command-caveat>')) {
-          // skip
-        }
-        else if (text.startsWith('<scheduled-task')) {
-           meta.hasScheduledTask = true
-        }
-        else {
-           if (!meta.firstUserPrompt)  meta.firstUserPrompt = text.slice(0, 300)
-        }
+      if (text.startsWith('<command-name>') || text.startsWith('<command-message>')) {
+        if (!meta.firstUserCommand) meta.firstUserCommand = text
+      } else if (text.startsWith('<local-command-stdout>')) {
+        // stdout arrives as a separate message after the command-name entry
+        if (meta.firstUserCommand) meta.firstUserCommand += '\n' + text
+      } else if (text.startsWith('<scheduled-task')) {
+        meta.hasScheduledTask = true
+      } else if (text && !text.startsWith('<local-command-caveat>')) {
+        if (!meta.firstUserPrompt) meta.firstUserPrompt = text.slice(0, 300)
       }
-
-
     } else if (t === 'assistant') {
       const msg = obj.message
       // Skip local error/limit notices (e.g. "limit reached") — not real model calls.
-      if (!msg || msg.model === '<synthetic>') return
+      if (!msg || msg.model === '<synthetic>') return true
       if (msg.model) {
         if (!meta.model) meta.model = msg.model
         if (!meta.models.includes(msg.model)) meta.models.push(msg.model)
       }
-      recordDedupedUsage(meta, msg, this.excludeIds)
+      this._recordUsage(obj)
     }
+    this.prevMessage = obj
+    return true
+  }
+
+  // One assistant reply spans several jsonl lines that share message.id + usage —
+  // count only first sight. Always stamps per-item running totals on the obj;
+  // session-level aggregation is skipped for ids in `excludeIds` (already
+  // counted in an earlier resumed-from session).
+  _recordUsage(obj) {
+    const meta = this.meta
+    const msg = obj.message
+    const u = msg?.usage
+    const msgId = msg?.id
+    if (!u || !msgId || meta.seenMessageIds.has(msgId)) return
+    meta.seenMessageIds.add(msgId)
+    const cc = u.cache_creation || {}
+    const delta = {
+      input: u.input_tokens || 0,
+      output: u.output_tokens || 0,
+      cacheRead: u.cache_read_input_tokens || 0,
+      cacheCreation: u.cache_creation_input_tokens || 0,
+      cacheCreation5m: cc.ephemeral_5m_input_tokens || 0,
+      cacheCreation1h: cc.ephemeral_1h_input_tokens || 0,
+    }
+    const contextSize = delta.input + delta.cacheRead + delta.cacheCreation
+    // Input tokens attribute to the turn that *caused* the call (user prompt
+    // or tool_result) — the model is billed for reading the preceding turn.
+    const inputTarget = this.prevMessage && this.prevMessage._tokenDelta == null ? this.prevMessage : obj
+    this.tokenTotal += contextSize
+    inputTarget._tokenDelta = (inputTarget._tokenDelta || 0) + contextSize
+    inputTarget._tokenTotal = this.tokenTotal
+    this.tokenTotal += delta.output
+    obj._tokenDelta = (obj._tokenDelta || 0) + delta.output
+    obj._tokenTotal = this.tokenTotal
+    if (this.excludeIds?.has(msgId)) return
+    addUsage(meta.tokens, delta)
+    // Prompt size on this turn — overwritten each assistant message so the last wins.
+    meta.lastContextTokens = contextSize
+    if (u.service_tier) meta.serviceTier = u.service_tier
+    if (u.server_tool_use) {
+      meta.serverToolUse.webSearch += u.server_tool_use.web_search_requests || 0
+      meta.serverToolUse.webFetch += u.server_tool_use.web_fetch_requests || 0
+    }
+    const model = msg.model || 'unknown'
+    addUsage(meta.tokensByModel[model] || (meta.tokensByModel[model] = emptyBucket()), delta)
   }
 
   finalize(mtimeFallback) {
@@ -191,45 +208,8 @@ export class SessionParser {
     meta.totalTokens = t.input + t.output + t.cacheRead + t.cacheCreation
     const cacheDenom = t.cacheRead + t.cacheCreation
     meta.cacheHitRatio = cacheDenom > 0 ? t.cacheRead / cacheDenom : null
-    meta.cost = this.pricing.costUSD(meta.tokensByModel)
+    meta.cost = this.pricing ? this.pricing.costUSD(meta.tokensByModel) : 0
     return meta
   }
 }
 
-export async function scanSession(reader, { pricing, prev = null, range = null, excludeIds = null, stat = null }) {
-  if (!stat) stat = await reader.stat()
-  if (!stat) return null
-  const parser = new SessionParser({
-    sessionId: reader.sessionId,
-    parentSessionId: reader.parentSessionId,
-    filePath: reader.filePath,
-    fileSize: stat.size,
-    mtime: stat.mtimeMs,
-    prev, range, excludeIds, pricing,
-  })
-  const nextOffset = await reader.streamFrom(parser.startOffset, (obj) => parser.feed(obj))
-  const meta = parser.finalize(stat.mtimeMs)
-  meta.nextOffset = nextOffset
-  return meta
-}
-
-// Resume/fork copies prior message.ids verbatim. Walk earliest-first; if a
-// session's ids overlap one already counted, rescan it with the overlap
-// excluded so it contributes only its NEW messages.
-export async function dedupAcrossSessions(metas, rescan) {
-  const sorted = [...metas].sort((a, b) => a.startedAt - b.startedAt)
-  const globalSeen = new Set()
-  const overlaps = []
-  for (const m of sorted) {
-    let overlap = null
-    for (const id of m.seenMessageIds || []) {
-      if (globalSeen.has(id)) (overlap ||= new Set()).add(id)
-      globalSeen.add(id)
-    }
-    overlaps.push(overlap)
-  }
-  const rescanned = await Promise.all(sorted.map((m, i) => overlaps[i] ? rescan(m, overlaps[i]) : null))
-  const adjusted = new Map()
-  sorted.forEach((m, i) => adjusted.set(m.sessionId, rescanned[i] ? { ...m, ...rescanned[i] } : m))
-  return metas.map((m) => adjusted.get(m.sessionId) || m)
-}
