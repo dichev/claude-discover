@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState, useCallback } from 'react'
+import { format, startOfDay, isSameDay } from 'date-fns'
 import { SOURCE_COLORS, SOURCE_LABELS } from '../utils/colors.js'
 import { useLocalStorage } from '../utils/useLocalStorage.js'
 import HeatStrip from './HeatStrip.jsx'
@@ -176,10 +177,23 @@ export default function GanttChart({
   return (
     <div className="gantt-wrap">
       <div className="gantt-toolbar">
-        <div className="gantt-controls">
-          <button className="gantt-nav-btn" onClick={() => onShiftDay(-1)} title="Previous day" aria-label="Previous day">←</button>
-          <button className="gantt-today-btn" onClick={onResetToday}>Today</button>
-          <button className="gantt-nav-btn" onClick={() => onShiftDay(1)} title="Next day" aria-label="Next day">→</button>
+        <div className="gantt-pill-wrap">
+          <div className="gantt-controls">
+            <button className="gantt-nav-btn" onClick={() => onShiftDay(-1)} title="Previous day" aria-label="Previous day">←</button>
+            <span className="gantt-date-label">{format(dayAnchor, 'MMM d')}</span>
+            <button
+              className="gantt-nav-btn"
+              onClick={() => onShiftDay(1)}
+              title="Next day"
+              aria-label="Next day"
+              style={{ visibility: isSameDay(dayAnchor, startOfDay(Date.now())) ? 'hidden' : 'visible' }}
+            >→</button>
+          </div>
+          <button
+            className="gantt-today-btn"
+            onClick={onResetToday}
+            style={{ visibility: isSameDay(dayAnchor, startOfDay(Date.now())) ? 'hidden' : 'visible' }}
+          >Today</button>
         </div>
         <div className="gantt-legend">
           {['cli','sdk','desktop','scheduled','other'].map((k) => {

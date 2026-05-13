@@ -23,6 +23,7 @@
   border-radius: 6px;
   overflow: hidden;
   box-shadow: 0 1px 0 rgba(0,0,0,0.3);
+  user-select: none;
 }
 
 .gantt-controls > button {
@@ -54,14 +55,49 @@
   line-height: 1.1;
 }
 
+.gantt-date-label {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 5px 14px;
+  margin: -2px 0;
+  font-size: 12px;
+  font-weight: 600;
+  color: #e6edf6;
+  border-left: 1px solid var(--border);
+  border-right: 1px solid var(--border);
+  white-space: nowrap;
+  min-width: 70px;
+  font-variant-numeric: tabular-nums;
+}
+
+.gantt-pill-wrap {
+  position: relative;
+  display: inline-flex;
+}
+
 .gantt-today-btn {
+  position: absolute;
+  left: 100%;
+  top: 0;
+  margin-left: 8px;
+  background: var(--bg-elev);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  color: var(--accent);
+  font-size: 12px;
   font-weight: 600;
   letter-spacing: 0.3px;
-  color: var(--accent) !important;
+  padding: 5px 14px;
+  cursor: pointer;
+  transition: background 0.12s, color 0.12s;
+  box-shadow: 0 1px 0 rgba(0,0,0,0.3);
+  user-select: none;
 }
 
 .gantt-today-btn:hover {
-  background: rgba(96,165,250,0.12) !important;
+  background: rgba(96,165,250,0.12);
+  color: #fff;
 }
 
 .gantt-legend {
