@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from 'react'
+import React, { useRef, useState } from 'react'
 import JsonView from '@uiw/react-json-view'
 import { githubDarkTheme } from '@uiw/react-json-view/githubDark'
 import './JsonlView.css'
@@ -28,22 +28,10 @@ function labelFor(entry) {
   return type ? `${type}${sub}` : 'entry'
 }
 
-export default function JsonlView({ filePath }) {
-  const [text, setText] = useState(null)
-  const [error, setError] = useState(null)
+export default function JsonlView({ items }) {
   const [query, setQuery] = useState('')
   const timerRef = useRef(null)
   const bodyRef = useRef(null)
-
-  useEffect(() => {
-    let cancelled = false
-    setText(null); setError(null)
-    window.api.readLogFile(filePath).then((res) => {
-      if (cancelled) return
-      res?.ok ? setText(res.text) : setError(res?.error || 'Failed to read file')
-    })
-    return () => { cancelled = true }
-  }, [filePath])
 
   const onInput = (e) => {
     const val = e.target.value
@@ -57,10 +45,8 @@ export default function JsonlView({ filePath }) {
   }
 
   const q = query.trim().toLowerCase()
-  const entries = (text?.split('\n') ?? [])
-    .filter(Boolean)
-    .map((l) => {
-      const parsed = JSON.parse(l)
+  const entries = (items ?? [])
+    .map((parsed) => {
       const value = q ? prune(parsed, q) : parsed
       return value === undefined ? undefined : { value, label: labelFor(parsed) }
     })
@@ -85,8 +71,7 @@ export default function JsonlView({ filePath }) {
           </ul>
         )}
         <div className="jsonl-viewer-body" ref={bodyRef}>
-          {error && <div className="jsonl-viewer-error">{error}</div>}
-          {!text && !error && <div className="jsonl-viewer-loading">Loading…</div>}
+          {!items && <div className="jsonl-viewer-loading">Loading…</div>}
           {entries.map(({ value }, i) => (
             <div key={`${q}-${i}`} data-entry={i} className="jsonl-viewer-entry">
               <JsonView

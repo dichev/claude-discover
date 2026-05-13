@@ -28,9 +28,8 @@ Windows is the default OS, but we must support also **macOS**. When adding a mac
 
 ## IPC surface (`window.api`)
 - `listSessions(date)` — returns session metadata array for a `yyyy-MM-dd` date string; also pushes live updates via `onSessionsUpdate`.
-- `readSession(id, offset, date)` — streams conversation entries for a session.
+- `readSession(id, offset, date)` — streams conversation entries for a session (used by both `ConversationView` and `JsonlView`; backend filters lines to the active date).
 - `getWorkHours()` / `setWorkHours(data)` — persist daily work-hour settings.
-- `readLogFile(filePath)` — read a raw `.jsonl` file by absolute path (used by `JsonlView`).
 - `runAgentPrompt(text, systemTools)` / `onAgentOutput(cb)` — start the analysis agent and subscribe to its streamed output chunks.
 - `getAgentUsage()` / `onAgentUsage(cb)` — read/subscribe to the Claude AI usage poll (`five_hour` / `seven_day` utilization).
 

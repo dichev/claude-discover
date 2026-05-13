@@ -63,7 +63,7 @@ export default function SessionView({ meta, date }) {
                       {items && <ConversationView items={items} />}
                     </div>
                   ) : (
-                    <JsonlView filePath={meta.filePath} />
+                    <JsonlView items={items} />
                   )}
                 </div>
                 <SessionSummary meta={meta} items={items} agent={agent} onOpenAgent={() => setAgentOpen(true)} />

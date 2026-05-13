@@ -73,13 +73,6 @@ export class SessionsService extends EventEmitter {
     this.updateTimer = null
   }
 
-  async readLogFile(filePath) {
-    const resolved = this.scanner.resolveWithinRoot(filePath)
-    if (!resolved) return { ok: false, error: 'Path outside projects directory' }
-    const text = await new SessionFile(resolved).readText()
-    return { ok: true, text }
-  }
-
   async readSession(sessionId, offset = 0, date = null) {
     const meta = this.byId.get(sessionId)
     if (!meta) return null

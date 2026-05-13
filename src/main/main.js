@@ -26,9 +26,8 @@ app.whenReady().then(() => {
     if (BrowserWindow.getAllWindows().length === 0) win.create()
   })
 
-  ipcMain.handle('sessions:list',          (_e, date) => sessionsService.list(date))
-  ipcMain.handle('sessions:read',          (_e, sessionId, offset, date) => sessionsService.readSession(sessionId, offset, date))
-  ipcMain.handle('sessions:read-log-file', (_e, filePath) => sessionsService.readLogFile(filePath))
+  ipcMain.handle('sessions:list', (_e, date) => sessionsService.list(date))
+  ipcMain.handle('sessions:read', (_e, sessionId, offset, date) => sessionsService.readSession(sessionId, offset, date))
 
   ipcMain.handle('work-hours:get', () => workHours.read())
   ipcMain.handle('work-hours:set', (_e, data) => workHours.write(data))

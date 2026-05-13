@@ -53,11 +53,6 @@ export class SessionsScanner {
     this.watcher.on('unlink', (p) => isJsonl(p) && onUnlink?.(p))
   }
 
-  resolveWithinRoot(filePath) {
-    const resolved = path.resolve(filePath || '')
-    return resolved.startsWith(this.root + path.sep) ? resolved : null
-  }
-
   stop() {
     if (this.watcher) {
       this.watcher.close()
