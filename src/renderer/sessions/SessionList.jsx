@@ -6,9 +6,10 @@ import { THRESHOLDS as T } from '../utils/thresholds.js'
 import { parseCommand } from '../utils/textBlock.js'
 import './SessionList.css'
 
-export default function SessionList({ sessions, selectedId, onSelect, filter, onFilterChange }) {
+export default function SessionList({ sessions, selectedId, onSelect }) {
   const selectedRef = useRef(null)
   const [sortBy, setSortBy] = useState('time')
+  const [filter, setFilter] = useState('')
 
   useEffect(() => {
     selectedRef.current?.scrollIntoView({ block: 'nearest' })
@@ -21,16 +22,15 @@ export default function SessionList({ sessions, selectedId, onSelect, filter, on
   }
   const sessionLabel = (s) => s.aiTitle || s.summary || s.firstUserPrompt || cmd(s.firstUserCommand) || s.sessionId || ''
 
-  const sorted = useMemo(() => {
-    if (sortBy === 'cost')   return [...sessions].sort((a, b) => (b.cost || 0) - (a.cost || 0))
-    if (sortBy === 'tokens') return [...sessions].sort((a, b) => (b.totalTokens || 0) - (a.totalTokens || 0))
-    if (sortBy === 'name')   return [...sessions].sort((a, b) => {
-      const labelA = sessionLabel(a).toLowerCase()
-      const labelB = sessionLabel(b).toLowerCase()
-      return labelA.localeCompare(labelB)
-    })
-    return sessions
-  }, [sessions, sortBy])
+  const q = filter.trim().toLowerCase()
+  const filtered = q ? sessions.filter((s) => [
+    s.customTitle, s.agentName, s.aiTitle, s.summary, s.firstUserPrompt, s.firstUserCommand, s.cwd, s.sessionId, s.model, s.gitBranch
+  ].filter(Boolean).join(' ').toLowerCase().includes(q)) : sessions
+
+  const sorted = sortBy === 'cost'   ? [...filtered].sort((a, b) => (b.cost || 0) - (a.cost || 0))
+               : sortBy === 'tokens' ? [...filtered].sort((a, b) => (b.totalTokens || 0) - (a.totalTokens || 0))
+               : sortBy === 'name'   ? [...filtered].sort((a, b) => sessionLabel(a).toLowerCase().localeCompare(sessionLabel(b).toLowerCase()))
+               : filtered
 
   const grouped = useMemo(() => {
     const ids = new Set(sorted.map((s) => s.sessionId))
@@ -49,7 +49,7 @@ export default function SessionList({ sessions, selectedId, onSelect, filter, on
           className="filter"
           placeholder="Filter sessions…"
           value={filter}
-          onChange={(e) => onFilterChange(e.target.value)}
+          onChange={(e) => setFilter(e.target.value)}
         />
         <div className="session-list-header-row">
           <div className="session-count">{sorted.length} sessions</div>

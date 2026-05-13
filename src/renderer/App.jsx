@@ -12,7 +12,6 @@ export default function App() {
   const [loading, setLoading] = useState(true)
   const [dayAnchor, setDayAnchor] = useState(() => +startOfDay(Date.now()))
   const [selectedId, setSelectedId] = useState(null)
-  const [filter, setFilter] = useState('')
   const [sourceFilter, setSourceFilter] = useState(null)
   const [cwdFilter, setCwdFilter] = useState(null)
   const { defaultLayout, onLayoutChanged } = useDefaultLayout({ id: 'agenticWorkflow.body', panelIds: ['list', 'detail'], storage: localStorage })
@@ -26,13 +25,16 @@ export default function App() {
 
   useEffect(() => {
     let cancelled = false
-    window.api.listSessions(format(dayAnchor, 'yyyy-MM-dd'))
-      .then((s) => {
-        if (!cancelled) { setSessions(s || []); setLoading(false) }
-      })
+    const timer = setTimeout(() => {
+      window.api.listSessions(format(dayAnchor, 'yyyy-MM-dd'))
+        .then((s) => {
+          if (!cancelled) { setSessions(s || []); setLoading(false) }
+        })
+    }, 120)
     const off = window.api.onSessionsUpdate((s) => { if (!cancelled) setSessions(s || [])
      })
     return () => { cancelled = true
+     clearTimeout(timer)
      off()
      }
   }, [dayAnchor])
@@ -42,18 +44,6 @@ export default function App() {
     const past = cwdFilter ? sourceFiltered.filter((s) => (s.cwd || '(no cwd)') === cwdFilter) : sourceFiltered
     return { sourceFiltered, past }
   }, [sessions, sourceFilter, cwdFilter])
-
-  const filteredSessions = useMemo(() => {
-    const q = filter.trim().toLowerCase()
-    const list = dayItems.past
-    if (!q) return list
-    return list.filter((s) => {
-      const blob = [
-        s.customTitle, s.agentName, s.aiTitle, s.summary, s.firstUserPrompt, s.firstUserCommand, s.cwd, s.sessionId, s.model, s.gitBranch
-      ].filter(Boolean).join(' ').toLowerCase()
-      return blob.includes(q)
-    })
-  }, [dayItems.past, filter])
 
   const selected = useMemo(
     () => sessions.find((s) => s.sessionId === selectedId) || null,
@@ -102,11 +92,9 @@ export default function App() {
         >
         <Panel id="list" defaultSize={350} minSize={200} maxSize={700} className="body-pane">
           <SessionList
-            sessions={filteredSessions}
+            sessions={dayItems.past}
             selectedId={selectedId}
             onSelect={setSelectedId}
-            filter={filter}
-            onFilterChange={setFilter}
           />
         </Panel>
         <Separator className="resize-handle resize-handle-v" />
