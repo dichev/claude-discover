@@ -3,6 +3,7 @@ import ReactMarkdown from 'react-markdown'
 import rehypeHighlight from 'rehype-highlight'
 import { fmtCompact } from '../../utils/formatting'
 import { fenceBlocks, parseCommand } from '../../utils/textBlock.js'
+import LazyMount from '../../ui/LazyMount.jsx'
 import './ConversationView.css'
 
 export function flatten(items) {
@@ -119,10 +120,13 @@ export default function ConversationView({ items }) {
   }
   return (
     <div className="conversation">
-      {groupsWithMeta.map(({ g, usageMeta }, i) => g.kind === 'turn'
-        ? <TurnRow key={g.turn.uuid} turn={g.turn} usageMeta={usageMeta} />
-        : <ToolGroup key={i} turns={g.turns} usageMeta={usageMeta} />
-      )}
+      {groupsWithMeta.map(({ g, usageMeta }, i) => (
+        <LazyMount key={g.kind === 'turn' ? g.turn.uuid : `tools-${i}`} eager={i < 8} placeholderMinHeight={80}>
+          {g.kind === 'turn'
+            ? <TurnRow turn={g.turn} usageMeta={usageMeta} />
+            : <ToolGroup turns={g.turns} usageMeta={usageMeta} />}
+        </LazyMount>
+      ))}
     </div>
   )
 }

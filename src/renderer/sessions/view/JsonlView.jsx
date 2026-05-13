@@ -1,6 +1,7 @@
 import React, { useRef, useState } from 'react'
 import JsonView from '@uiw/react-json-view'
 import { githubDarkTheme } from '@uiw/react-json-view/githubDark'
+import LazyMount from '../../ui/LazyMount.jsx'
 import './JsonlView.css'
 
 function highlight(text, q) {
@@ -30,14 +31,7 @@ function labelFor(entry) {
 
 export default function JsonlView({ items }) {
   const [query, setQuery] = useState('')
-  const timerRef = useRef(null)
   const bodyRef = useRef(null)
-
-  const onInput = (e) => {
-    const val = e.target.value
-    clearTimeout(timerRef.current)
-    timerRef.current = setTimeout(() => setQuery(val), val ? 500 : 0)
-  }
 
   const scrollTo = (i) => {
     const el = bodyRef.current?.querySelector(`[data-entry="${i}"]`)
@@ -55,7 +49,7 @@ export default function JsonlView({ items }) {
   return (
     <div className="jsonl-viewer">
       <div className="jsonl-viewer-toolbar">
-        <input className="jsonl-viewer-search" type="search" placeholder="Filter…" onInput={onInput} />
+        <input className="jsonl-viewer-search" type="search" placeholder="Filter…" onInput={(e) => setQuery(e.target.value)} />
       </div>
       <div className="jsonl-viewer-content">
         {entries.length > 0 && (
@@ -73,7 +67,7 @@ export default function JsonlView({ items }) {
         <div className="jsonl-viewer-body" ref={bodyRef}>
           {!items && <div className="jsonl-viewer-loading">Loading…</div>}
           {entries.map(({ value }, i) => (
-            <div key={`${q}-${i}`} data-entry={i} className="jsonl-viewer-entry">
+            <LazyMount key={`${q}-${i}`} eager={i < 8} data-entry={i} className="jsonl-viewer-entry">
               <JsonView
                 value={value}
                 style={githubDarkTheme}
@@ -92,7 +86,7 @@ export default function JsonlView({ items }) {
                   : undefined
                 } />
               </JsonView>
-            </div>
+            </LazyMount>
           ))}
         </div>
       </div>
