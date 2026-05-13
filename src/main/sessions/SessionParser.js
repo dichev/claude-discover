@@ -70,6 +70,7 @@ export class SessionParser {
     // Per-stream state for stamping items with running totals; not part of meta.
     this.prevMessage = null
     this.tokenTotal = 0
+    this.lastSeenTs = null
     // excludeIds disables incremental reuse — the exclusion changes the totals.
     const reuse = prev && fileSize >= prev.fileSize && !excludeIds
     this.reused = reuse
@@ -82,33 +83,31 @@ export class SessionParser {
     return this.reused ? this.meta.nextOffset : 0
   }
 
-  // Returns true if the item belongs to the requested range (i.e. should be
-  // surfaced to a consumer collecting items). Returns false for non-message
-  // metadata lines and for items filtered out by `this.range`.
+  // Returns true if the item passes `this.range`.
   feed(obj) {
     const meta = this.meta
     const t = obj.type
-    if (t === 'summary' && obj.summary) { meta.summary = obj.summary; return false }
-    if (t === 'ai-title' && obj.aiTitle) { meta.aiTitle = obj.aiTitle; return false }
-    if (t === 'custom-title' && obj.customTitle) { meta.customTitle = obj.customTitle; return false }
-    if (t === 'agent-name' && obj.agentName) { meta.agentName = obj.agentName; return false }
-    if (t === 'queue-operation' && obj.content?.includes('<scheduled-task')) {
-      meta.hasScheduledTask = true
-      return false
-    }
+    if (t === 'summary' && obj.summary) meta.summary = obj.summary
+    if (t === 'ai-title' && obj.aiTitle) meta.aiTitle = obj.aiTitle
+    if (t === 'custom-title' && obj.customTitle) meta.customTitle = obj.customTitle
+    if (t === 'agent-name' && obj.agentName) meta.agentName = obj.agentName
+    if (t === 'queue-operation' && obj.content?.includes('<scheduled-task')) meta.hasScheduledTask = true
 
     if (obj.cwd && !meta.cwd) meta.cwd = obj.cwd
     if (obj.gitBranch && !meta.gitBranch) meta.gitBranch = obj.gitBranch
     if (obj.entrypoint && !meta.entrypoint) meta.entrypoint = obj.entrypoint
     if (obj.version && !meta.version) meta.version = obj.version
 
-    const ts = obj.timestamp ? Date.parse(obj.timestamp) : NaN
-    const tsValid = !Number.isNaN(ts)
-    if (this.range && (!tsValid || ts < this.range.start || ts > this.range.end)) return false
-    if (tsValid) {
-      obj._ts = ts
-      if (meta.startedAt == null || ts < meta.startedAt) meta.startedAt = ts
-      if (ts > meta.lastActivityAt) meta.lastActivityAt = ts
+    // Untimestamped events (permission-mode, ai-title, last-prompt, …) inherit the previous timestamped event's ts; if none has been seen yet, fall back to file mtime — but don't let that mtime fallback extend session bounds (mtime can be much later than the real events, e.g. when the file is touched by an unrelated process).
+    const parsed = obj.timestamp && Date.parse(obj.timestamp)
+    const inherited = parsed > 0 ? parsed : this.lastSeenTs
+    const ts = inherited ?? meta.mtime
+    if (parsed > 0) this.lastSeenTs = parsed
+    if (this.range && (ts < this.range.start || ts > this.range.end)) return false
+    obj._ts = ts
+    if (inherited != null) {
+      if (meta.startedAt == null || inherited < meta.startedAt) meta.startedAt = inherited
+      if (inherited > meta.lastActivityAt) meta.lastActivityAt = inherited
     }
 
     // Standalone attachment entries are always harness-injected context
@@ -121,13 +120,11 @@ export class SessionParser {
     if (t !== 'user' && t !== 'assistant') return true
     meta.messageCount += 1
 
-    if (tsValid) {
-      const last = meta.activityPeriods[meta.activityPeriods.length - 1]
-      if (last && ts - last.end <= ACTIVITY_GAP_MS) {
-        if (ts > last.end) last.end = ts
-      } else {
-        meta.activityPeriods.push({ start: ts, end: ts })
-      }
+    const last = meta.activityPeriods[meta.activityPeriods.length - 1]
+    if (last && ts - last.end <= ACTIVITY_GAP_MS) {
+      if (ts > last.end) last.end = ts
+    } else {
+      meta.activityPeriods.push({ start: ts, end: ts })
     }
 
     if (t === 'user') {

@@ -78,9 +78,10 @@ export class SessionsService extends EventEmitter {
     if (!meta) return null
     const range = date ? dayBounds(date) : null
     const reader = new SessionFile(meta.filePath)
-    const parser = new SessionParser({ sessionId: reader.sessionId, parentSessionId: reader.parentSessionId, filePath: reader.filePath, range })
+    const parser = new SessionParser({ sessionId: reader.sessionId, parentSessionId: reader.parentSessionId, filePath: reader.filePath, mtime: meta.mtime, range })
     const items = []
     const nextOffset = await reader.streamFrom(offset, (obj) => { if (parser.feed(obj)) items.push(obj) })
+    for (const o of items) delete o._ts
     return { meta, items, nextOffset }
   }
 
