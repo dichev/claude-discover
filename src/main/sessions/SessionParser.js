@@ -26,11 +26,7 @@ function shortCwd(cwd) {
 
 function classifySource(meta) {
   if (meta.hasScheduledTask) return 'scheduled'
-  const ep = (meta.entrypoint || '').toLowerCase()
-  if (ep === 'cli') return 'cli'
-  if (ep.includes('desktop')) return 'desktop'
-  if (ep.includes('sdk')) return 'sdk'
-  return 'other'
+  return (meta.entrypoint || '').toLowerCase() || 'other'
 }
 
 function freshMeta({ sessionId, parentSessionId, filePath, fileSize, mtime }) {

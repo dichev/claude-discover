@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState, useCallback } from 'react'
 import { format, startOfDay, isSameDay } from 'date-fns'
-import { SOURCE_COLORS, SOURCE_LABELS } from '../utils/colors.js'
+import { SOURCE_COLORS, SOURCE_LABELS, SOURCE_ORDER } from '../utils/colors.js'
 import { useLocalStorage } from '../utils/useLocalStorage.js'
 import HeatStrip from './HeatStrip.jsx'
 import WorkTimeOverlay from './WorkTimeOverlay.jsx'
@@ -70,7 +70,7 @@ function HourTicks({ viewStart, viewEnd, width, span }) {
 
 export default function GanttChart({
   dayRange, sessions, onSelect, selectedId, onShiftDay, onResetToday, dayAnchor,
-  sourceFilter, onToggleSourceFilter, cwdFilter, onToggleCwdFilter,
+  sourceFilter, availableSources, onToggleSourceFilter, cwdFilter, onToggleCwdFilter,
 }) {
   const containerRef = useRef(null)
   const [width, setWidth] = useState(1200)
@@ -196,13 +196,16 @@ export default function GanttChart({
           >Today</button>
         </div>
         <div className="gantt-legend">
-          {['cli','sdk','desktop','scheduled','other'].map((k) => {
+          {(availableSources ?? []).slice().sort((a, b) => {
+            const ia = SOURCE_ORDER.indexOf(a), ib = SOURCE_ORDER.indexOf(b)
+            return (ia === -1 ? SOURCE_ORDER.length : ia) - (ib === -1 ? SOURCE_ORDER.length : ib)
+          }).map((k) => {
             const active = sourceFilter === k
             const dim = sourceFilter && !active
             return (
               <button key={k} type="button" className={`legend-chip ${active ? 'active' : ''} ${dim ? 'dim' : ''}`} onClick={() => onToggleSourceFilter?.(k)}>
-                <span className="swatch" style={{ background: SOURCE_COLORS[k] }} />
-                {SOURCE_LABELS[k]}
+                <span className="swatch" style={{ background: SOURCE_COLORS[k] || SOURCE_COLORS.other }} />
+                {SOURCE_LABELS[k] || k}
               </button>
             )
           })}

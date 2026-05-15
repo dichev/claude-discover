@@ -42,7 +42,8 @@ export default function App() {
   const dayItems = useMemo(() => {
     const sourceFiltered = sourceFilter ? sessions.filter((s) => (s.source || 'other') === sourceFilter) : sessions
     const past = cwdFilter ? sourceFiltered.filter((s) => (s.cwd || '(no cwd)') === cwdFilter) : sourceFiltered
-    return { sourceFiltered, past }
+    const availableSources = [...new Set(sessions.map((s) => s.source || 'other'))]
+    return { sourceFiltered, past, availableSources }
   }, [sessions, sourceFilter, cwdFilter])
 
   const selected = useMemo(
@@ -76,6 +77,7 @@ export default function App() {
           onResetToday={() => { setCwdFilter(null); setDayAnchor(+startOfDay(Date.now())) }}
           dayAnchor={dayAnchor}
           sourceFilter={sourceFilter}
+          availableSources={dayItems.availableSources}
           onToggleSourceFilter={(src) => setSourceFilter((cur) => (cur === src ? null : src))}
           cwdFilter={cwdFilter}
           onToggleCwdFilter={(cwd) => setCwdFilter((cur) => (cur === cwd ? null : cwd))}
