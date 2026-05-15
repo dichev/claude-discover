@@ -42,11 +42,13 @@ export class SessionsScanner {
   }
 
   watch({ onChange, onUnlink } = {}) {
+    const isUNC = this.root.startsWith('\\\\') || this.root.startsWith('//') // native fs.watch fails on UNC (e.g. \\wsl.localhost\...)
     this.watcher = chokidar.watch(this.root, {
       ignoreInitial: true,
       alwaysStat: true,
       awaitWriteFinish: { stabilityThreshold: 400, pollInterval: 100 },
-      ignored: (p, stats) => !!stats?.isFile() && !isJsonl(p)
+      ignored: (p, stats) => !!stats?.isFile() && !isJsonl(p),
+      ...(isUNC && { usePolling: true, interval: 1000 }),
     })
     this.watcher.on('add', (p, stat) => isJsonl(p) && onChange?.(p, stat))
     this.watcher.on('change', (p, stat) => isJsonl(p) && onChange?.(p, stat))
