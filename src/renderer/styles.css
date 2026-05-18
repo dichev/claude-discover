@@ -4,6 +4,15 @@
   padding: 0;
 }
 
+.tippy-box {
+  font-family: var(--font-sans);
+  font-size: 12px;
+  background: var(--bg);
+  filter: drop-shadow(0 0 1px var(--border-strong));
+}
+.tippy-box .tippy-content { background: var(--bg); border-radius: 5px; }
+.tippy-box .tippy-arrow { color: var(--bg); }
+
 :focus, :focus-visible {
   outline: none;
 }

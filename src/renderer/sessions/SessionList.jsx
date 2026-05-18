@@ -79,7 +79,6 @@ export default function SessionList({ sessions, selectedId, onSelect }) {
               className={`session-row ${selectedId === s.sessionId ? 'selected' : ''} ${isChild ? 'is-subagent-child' : ''}`}
               onClick={() => onSelect(selectedId === s.sessionId ? null : s.sessionId)}
               style={{ borderLeftColor: SOURCE_COLORS[s.source] || SOURCE_COLORS.other }}
-              title={s.cwd || ''}
             >
               <div className="session-row-main">
                 <div className="session-label">
@@ -101,10 +100,10 @@ export default function SessionList({ sessions, selectedId, onSelect }) {
                 </div>
               </div>
               <div className="session-row-stats">
-                <span className={`${sortBy === 'tokens' ? 'stat-primary' : 'stat-secondary'} ${tone(s.totalTokens, T.tokens)}`} title={s.totalTokens ? `${s.totalTokens.toLocaleString()} tokens` : ''}>
+                <span className={`${sortBy === 'tokens' ? 'stat-primary' : 'stat-secondary'} ${tone(s.totalTokens, T.tokens)}`}>
                   {fmtCompact(s.totalTokens)}
                 </span>
-                <span className={`${sortBy === 'cost' ? 'stat-primary' : 'stat-secondary'} ${tone(s.cost, T.cost)}`} title={s.cost ? `$${s.cost.toFixed(4)}` : 'No cost data'}>
+                <span className={`${sortBy === 'cost' ? 'stat-primary' : 'stat-secondary'} ${tone(s.cost, T.cost)}`}>
                   {s.cost ? fmtUSD(s.cost) : '—'}
                 </span>
               </div>

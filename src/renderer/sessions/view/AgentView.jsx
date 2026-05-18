@@ -26,7 +26,7 @@ export default function AgentView({ meta, items, agent, onClose }) {
         <Toggle checked={agent.truncated} onChange={agent.setTruncated} label="truncated" />
         <Toggle checked={pretty} onChange={setPretty} label="human-friendly" />
         {onClose && (
-          <button type="button" className="agent-view-close" onClick={onClose} aria-label="Close" title="Close">
+          <button type="button" className="agent-view-close" onClick={onClose} aria-label="Close">
             ✕
           </button>
         )}

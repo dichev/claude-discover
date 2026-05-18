@@ -143,7 +143,7 @@ function TurnRow({ turn, usageMeta }) {
     <div className={`turn turn-${turn.role} ${turn.isMeta ? 'turn-meta-note' : ''}`}>
       <div className="turn-blocks">
         {contextBlocks.length > 0 && (
-          <Collapsible title="context" className="attachment" defaultOpen={false}>
+          <Collapsible className="attachment" defaultOpen={false}>
             {contextBlocks.map((b, i) => <Attachment key={i} att={b.attachment} />)}
           </Collapsible>
         )}
