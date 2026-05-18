@@ -19,7 +19,7 @@ Windows is the default OS, but we must support also **macOS**. When adding a mac
 
 ## Architecture
 - Two processes. All disk I/O lives in `src/main/` and `src/preload/`; the renderer (`src/renderer/`) reaches it only through `window.api` exposed via `contextBridge`.
-- Data source: `~/.claude/projects/**/*.jsonl` (sessions).
+- Data source: `<CLAUDE_DIR>/projects/**/*.jsonl` (sessions). `CLAUDE_DIR` is resolved in `src/main/paths.js` — user override in `~/.agentic-workflow.json` (`claudeDir`, plus a `recents` list for the source-switcher) wins over `$CLAUDE_CONFIG_DIR`, which wins over the `~/.claude` default. Use `getConfig()` / `setConfig()` from `paths.js` to read or persist these settings; don't write the file directly.
 - Date-scoped: the frontend picks a single date and the backend returns sessions only for that date. Neither side needs to handle multi-day ranges.
 - Main-process backend uses classes: `src/main/services/` (`SessionsService`, `WorkHours`, `AgentRunner`, `Pricing`) and `src/main/sessions/` (`SessionsScanner` watches the projects dir via chokidar; `SessionFile` / `SessionParser` parse individual `.jsonl` files). React renderer uses functional style.
 - Long-lived backend services that push to the renderer (`SessionsService`, `AgentRunner`) extend `EventEmitter` — wire listeners with `service.on(event, cb)` before calling `start()` / `startUsagePolling()`.

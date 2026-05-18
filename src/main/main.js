@@ -3,6 +3,8 @@ import { SessionsService } from './services/SessionsService.js'
 import { WorkHours } from './services/WorkHours.js'
 import { AgentRunner } from './services/AgentRunner.js'
 import { MainWindow } from './window.js'
+import { CLAUDE_DIR } from './paths.js'
+
 if (import.meta.env.DEV) await import('./debug.js')
 
 
@@ -34,6 +36,8 @@ app.whenReady().then(() => {
 
   ipcMain.handle('agent:run',   (e, text, systemTools) => agentRunner.run(text, e.sender, systemTools))
   ipcMain.handle('agent:usage', () => agentRunner.latestUsage)
+
+  ipcMain.on('claude-dir:get', e => { e.returnValue = CLAUDE_DIR })
 })
 
 app.on('window-all-closed', () => {

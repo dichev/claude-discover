@@ -177,6 +177,13 @@ export default function GanttChart({
   return (
     <div className="gantt-wrap">
       <div className="gantt-toolbar">
+        <div
+          className="gantt-claude-dir-wrap"
+          title="Use the File menu (press Alt) to change directory."
+        >
+          <span className="gantt-claude-dir-label">Claude dir:</span>
+          <span className="gantt-claude-dir">{window.api.claudeDir}</span>
+        </div>
         <div className="gantt-pill-wrap">
           <div className="gantt-controls">
             <button className="gantt-nav-btn" onClick={() => onShiftDay(-1)} title="Previous day" aria-label="Previous day">←</button>

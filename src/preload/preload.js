@@ -7,6 +7,7 @@ const subscribe = channel => cb => {
 }
 
 contextBridge.exposeInMainWorld('api', {
+  claudeDir: ipcRenderer.sendSync('claude-dir:get'),
   listSessions: (date) => ipcRenderer.invoke('sessions:list', date),
   readSession: (id, offset = 0, date = null) => ipcRenderer.invoke('sessions:read', id, offset, date),
   onSessionsUpdate: subscribe('sessions:update'),

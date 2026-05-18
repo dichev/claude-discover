@@ -1,7 +1,8 @@
-import { app, BrowserWindow } from 'electron'
+import { app, BrowserWindow, Menu } from 'electron'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import windowStateKeeper from 'electron-window-state'
+import { buildAppMenu } from './menu.js'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 const DEV_URL = process.env.ELECTRON_RENDERER_URL
@@ -12,8 +13,9 @@ export class MainWindow {
   }
 
   create() {
-    const state = windowStateKeeper({ defaultWidth: 1500, defaultHeight: 900 })
+    Menu.setApplicationMenu(buildAppMenu())
 
+    const state = windowStateKeeper({ defaultWidth: 1500, defaultHeight: 900 })
     this.win = new BrowserWindow({
       x: state.x,
       y: state.y,
