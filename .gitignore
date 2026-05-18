@@ -4,5 +4,4 @@ out/
 .claude/
 .playwright-mcp/
 cache/prices.current.json
-bin/
 *.ignore*

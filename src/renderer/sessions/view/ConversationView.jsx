@@ -37,6 +37,17 @@ export function flatten(items) {
       }
       continue
     }
+    if (it.type === 'instructions-loaded') {
+      turns.push({
+        uuid: `instr-${it.file_path}-${it.timestamp}`,
+        role: 'instruction',
+        isMeta: true,
+        ts: it.timestamp ? Date.parse(it.timestamp) : null,
+        model: null, usage: null, tokenDelta: null, tokenTotal: null,
+        blocks: [{ type: 'instruction', it }]
+      })
+      continue
+    }
     if (it.type !== 'user' && it.type !== 'assistant') continue
     const msg = it.message || {}
     const blocks = normalizeContent(msg.content)
@@ -83,20 +94,24 @@ function normalizeContent(content) {
 function groupTurns(turns) {
   const groups = []
   let bucket = null
+  const flush = () => { if (bucket) { groups.push(bucket); bucket = null } }
   for (const t of turns) {
+    if (t.role === 'instruction') {
+      flush()
+      groups.push({ kind: 'instruction', turn: t })
+      continue
+    }
     const hasText = t.blocks.some((b) => b.type === 'text')
     const hasAttachment = t.blocks.some((b) => b.type === 'attachment')
     if (hasText || (t.role === 'user' && hasAttachment)) {
-      if (bucket) { groups.push(bucket)
-       bucket = null
-       }
+      flush()
       groups.push({ kind: 'turn', turn: t })
     } else {
       if (!bucket) bucket = { kind: 'tools', turns: [] }
       bucket.turns.push(t)
     }
   }
-  if (bucket) groups.push(bucket)
+  flush()
   return groups
 }
 
@@ -107,7 +122,7 @@ export default function ConversationView({ items }) {
     return groups.map(g => {
       let delta = null
       let total = null
-      const turns = g.kind === 'turn' ? [g.turn] : g.turns
+      const turns = g.kind === 'tools' ? g.turns : [g.turn]
       for (const t of turns) {
         if (t.tokenDelta != null) delta = (delta ?? 0) + t.tokenDelta
         if (t.tokenTotal != null) total = t.tokenTotal
@@ -115,16 +130,13 @@ export default function ConversationView({ items }) {
       return { g, usageMeta: total > 0 ? { total, delta } : null }
     })
   }, [groups])
-  if (turns.length === 0) {
-    return <div className="empty">No user/assistant turns to display.</div>
-  }
   return (
     <div className="conversation">
       {groupsWithMeta.map(({ g, usageMeta }, i) => (
-        <LazyMount key={g.kind === 'turn' ? g.turn.uuid : `tools-${i}`} eager={i < 8} placeholderMinHeight={80}>
-          {g.kind === 'turn'
-            ? <TurnRow turn={g.turn} usageMeta={usageMeta} />
-            : <ToolGroup turns={g.turns} usageMeta={usageMeta} />}
+        <LazyMount key={g.kind === 'tools' ? `tools-${i}` : g.turn.uuid} eager={i < 8} placeholderMinHeight={80}>
+          {g.kind === 'turn'      ? <TurnRow turn={g.turn} usageMeta={usageMeta} />
+           : g.kind === 'tools'   ? <ToolGroup turns={g.turns} usageMeta={usageMeta} />
+           :                        <InstructionFile it={g.turn.blocks[0].it} showNote={groups[i - 1]?.kind !== 'instruction'} />}
         </LazyMount>
       ))}
     </div>
@@ -304,6 +316,40 @@ function safeJson(x) {
   try { return JSON.stringify(x, null, 2)
    } catch { return String(x)
    }
+}
+
+function InstructionFile({ it, showNote }) {
+  const [open, setOpen] = useState(false)
+  const title           = `${it.memory_type || '?'} · ${it.file_path} (${it.load_reason || 'unknown'})`
+  return (
+    <div className="aux custom-event">
+      {showNote && (
+        <div className="instructions-note">
+          Snapshotted by the <code>InstructionsLoaded</code> hook. Auto-memory (<code>MEMORY.md</code>) isn't captured — it skips the hook.
+        </div>
+      )}
+      <button className="aux-toggle" onClick={() => setOpen(v => !v)}>
+        <span className="aux-chevron">{open ? '▾' : '▸'}</span>
+        <span>{title}</span>
+      </button>
+      {open && (
+        <div className="aux-body">
+          {(it.parent_file_path || it.trigger_file_path || it.globs) && (
+            <div className="initial-context-meta">
+              {it.parent_file_path  && <div>included by: {it.parent_file_path}</div>}
+              {it.trigger_file_path && <div>triggered by: {it.trigger_file_path}</div>}
+              {it.globs?.length     && <div>matched globs: {it.globs.join(', ')}</div>}
+            </div>
+          )}
+          {it.error
+            ? <pre className="error">{it.error}</pre>
+            : <div className="block-text markdown">
+                <ReactMarkdown rehypePlugins={[rehypeHighlight]}>{it.content || ''}</ReactMarkdown>
+              </div>}
+        </div>
+      )}
+    </div>
+  )
 }
 
 

@@ -224,3 +224,28 @@
 
   &.error { border-left: 2px solid var(--danger); padding-left: 6px; margin-left: -8px; }
 }
+
+.initial-context-meta {
+  font-size: 11px;
+  color: var(--text-faint);
+  font-family: var(--font-mono), monospace;
+  margin-bottom: 6px;
+}
+/* Events synthesized by this app (e.g. instructions-loaded), not produced by Claude Code. */
+.custom-event {
+  border-left: 2px solid var(--accent);
+  padding-left: 8px;
+  margin-left: -10px;
+}
+
+.instructions-note {
+  font-size: 11px;
+  color: var(--text-faint);
+  margin-bottom: 8px;
+  padding-bottom: 6px;
+  border-bottom: 1px dashed var(--border);
+  line-height: 1.5;
+}
+.instructions-note code {
+  font-size: 10px;
+}

@@ -8,9 +8,9 @@ import { useAgent } from '../agent/Agent.js'
 import './SessionView.css'
 
 export default function SessionView({ meta, date }) {
-  const [items, setItems] = useState(null)
-  const [loading, setLoading] = useState(false)
-  const [mode, setMode] = useState('conversation')
+  const [items, setItems]         = useState(null)
+  const [loading, setLoading]     = useState(false)
+  const [mode, setMode]           = useState('conversation')
   const [agentOpen, setAgentOpen] = useState(false)
   const offsetRef = useRef(0)
   const sessionId = meta?.sessionId

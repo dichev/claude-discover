@@ -20,6 +20,15 @@ function filterDay(cache, day) {
     .sort((a, b) => b.lastActivityAt - a.lastActivityAt)
 }
 
+// Splice `extras` into `items` by timestamp; items lacking a timestamp are skipped over.
+function mergeByTimestamp(items, extras) {
+  for (const x of extras) {
+    const ts = Date.parse(x.timestamp)
+    const idx = items.findIndex(i => i.timestamp && Date.parse(i.timestamp) > ts)
+    if (idx === -1) items.push(x); else items.splice(idx, 0, x)
+  }
+}
+
 // Stat the file, stream every line through a fresh SessionParser, finalize,
 // and stitch the post-stream offset onto the meta. `prev` enables incremental
 // reuse; `excludeIds` skips message ids already counted in an earlier session.
@@ -82,6 +91,9 @@ export class SessionsService extends EventEmitter {
     const items = []
     const nextOffset = await reader.streamFrom(offset, (obj) => { if (parser.feed(obj)) items.push(obj) })
     for (const o of items) delete o._ts
+    if (offset === 0) { // Only on the first read for this session; mid-session instruction loads become visible on the next session re-open to keep it simple
+      mergeByTimestamp(items, await reader.readContext())
+    }
     return { meta, items, nextOffset }
   }
 

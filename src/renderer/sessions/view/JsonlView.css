@@ -88,6 +88,9 @@
   border-radius: 2px;
   padding: 0 1px;
 }
+/* Custom events synthesized by this app (e.g. instructions-loaded), not part of Claude's transcript. */
+.jsonl-viewer-toc-custom .jsonl-viewer-toc-label { color: var(--accent); }
+
 .jsonl-viewer-loading,
 .jsonl-viewer-error {
   color: var(--text-faint);
