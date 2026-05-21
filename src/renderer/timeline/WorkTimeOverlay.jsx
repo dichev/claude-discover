@@ -23,7 +23,6 @@ export default function WorkTimeOverlay({
   const [dragging, setDragging] = useState(null)
   const [now,      setNow]      = useState(() => Date.now())
   const [usage,    setUsage]    = useState(null)
-  const [usageErr, setUsageErr] = useState(null)
 
   useEffect(() => {
     window.api.getWorkHours().then(({ work_hours: w }) => setWorkTime({ startMin: parseHM(w.start), endMin: parseHM(w.end) }))
@@ -35,7 +34,7 @@ export default function WorkTimeOverlay({
   }, [])
 
   useEffect(() => {
-    const apply = u => { if (u) { setUsage(u); setUsageErr(u.error || null) } }
+    const apply = u => { if (u) setUsage(u) }
     window.api.getAgentUsage().then(apply)
     return window.api.onAgentUsage(apply)
   }, [])
@@ -119,13 +118,7 @@ export default function WorkTimeOverlay({
           <text x={xForTs(now) + 4} y={headerHeight - 2}>now</text>
         </g>
       )}
-      {usageErr && (
-        <g className="limit-line limit-unavailable">
-          <title>{`Claude usage unavailable: ${usageErr}`}</title>
-          <text x={chartRight - 4} y={headerHeight - 2} textAnchor="end">Claude usage unavailable</text>
-        </g>
-      )}
-      {!usageErr && LIMITS.map(({ key, label, windowMs, thresholds }, i) => {
+      {LIMITS.map(({ key, label, windowMs, thresholds }, i) => {
         const entry = usage?.[key]
         if (!entry?.resets_at) return null
         const ts = new Date(entry.resets_at).getTime()

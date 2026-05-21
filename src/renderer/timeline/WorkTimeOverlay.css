@@ -51,4 +51,3 @@
 .limit-line.limit-ok     { & line { stroke: var(--ok);     } & text { fill: var(--ok);     } }
 .limit-line.limit-warn   { & line { stroke: var(--warn);   } & text { fill: var(--warn);   } }
 .limit-line.limit-danger { & line { stroke: var(--danger); } & text { fill: var(--danger); } }
-.limit-line.limit-unavailable { & text { fill: #868e9d; font-style: italic; } }
