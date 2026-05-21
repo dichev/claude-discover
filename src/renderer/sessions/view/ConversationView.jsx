@@ -1,7 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react'
 import ReactMarkdown from 'react-markdown'
 import rehypeHighlight from 'rehype-highlight'
-import { fmtCompact } from '../../utils/formatting'
 import { fenceBlocks, parseCommand } from '../../utils/textBlock.js'
 import LazyMount from '../../ui/LazyMount.jsx'
 import './ConversationView.css'
@@ -76,15 +75,6 @@ export function flatten(items) {
 }
 
 
-function AccumUsage({ usageMeta }) {
-  if (!usageMeta?.delta) return null
-  const { total, delta } = usageMeta
-  const sign = delta >= 0 ? '+' : ''
-  return <>
-    <span className="meta-delta">{sign}{fmtCompact(delta)} / </span>{fmtCompact(total)}
-  </>
-}
-
 function normalizeContent(content) {
   if (typeof content === 'string') return [{ type: 'text', text: content }]
   if (!Array.isArray(content)) return []
@@ -116,26 +106,14 @@ function groupTurns(turns) {
 }
 
 export default function ConversationView({ items }) {
-  const turns = useMemo(() => flatten(items), [items])
+  const turns  = useMemo(() => flatten(items), [items])
   const groups = useMemo(() => groupTurns(turns), [turns])
-  const groupsWithMeta = useMemo(() => {
-    return groups.map(g => {
-      let delta = null
-      let total = null
-      const turns = g.kind === 'tools' ? g.turns : [g.turn]
-      for (const t of turns) {
-        if (t.tokenDelta != null) delta = (delta ?? 0) + t.tokenDelta
-        if (t.tokenTotal != null) total = t.tokenTotal
-      }
-      return { g, usageMeta: total > 0 ? { total, delta } : null }
-    })
-  }, [groups])
   return (
     <div className="conversation">
-      {groupsWithMeta.map(({ g, usageMeta }, i) => (
+      {groups.map((g, i) => (
         <LazyMount key={g.kind === 'tools' ? `tools-${i}` : g.turn.uuid} eager={i < 8} placeholderMinHeight={80}>
-          {g.kind === 'turn'      ? <TurnRow turn={g.turn} usageMeta={usageMeta} />
-           : g.kind === 'tools'   ? <ToolGroup turns={g.turns} usageMeta={usageMeta} />
+          {g.kind === 'turn'      ? <TurnRow turn={g.turn} />
+           : g.kind === 'tools'   ? <ToolGroup turns={g.turns} />
            :                        <InstructionFile it={g.turn.blocks[0].it} showNote={groups[i - 1]?.kind !== 'instruction'} />}
         </LazyMount>
       ))}
@@ -145,7 +123,7 @@ export default function ConversationView({ items }) {
 
 const CONTEXT_ATTACHMENT_TYPES = new Set(['deferred_tools_delta', 'skill_listing', 'selected_lines_in_ide', 'diagnostics'])
 
-function TurnRow({ turn, usageMeta }) {
+function TurnRow({ turn }) {
   const contextBlocks = [], otherBlocks = []
   for (const b of turn.blocks) {
     const isContextAttachment = b.type === 'attachment' && CONTEXT_ATTACHMENT_TYPES.has(b.attachment?.type)
@@ -161,18 +139,15 @@ function TurnRow({ turn, usageMeta }) {
         )}
         {otherBlocks.map((b, i) => <Block key={i} block={b} />)}
       </div>
-      {usageMeta?.delta && <div className="turn-meta"><AccumUsage usageMeta={usageMeta} /></div>}
     </div>
   )
 }
 
-function ToolGroup({ turns, usageMeta }) {
+function ToolGroup({ turns }) {
   const [open, setOpen] = useState(false)
   const toolBlocks = turns.flatMap(t => t.blocks.filter(b => b.type === 'tool_use'))
   const toolCount = toolBlocks.length
-  const names = toolBlocks.map(b => b.name)
   if (toolCount === 0) return <>{turns.map((t) => <TurnRow key={t.uuid} turn={t} />)}</>
-  const preview = names.slice(0, 4).join(', ') + (names.length > 4 ? `, +${names.length - 4}` : '')
   const errorCount = toolBlocks.filter(b => b.result?.is_error).length
   return (
     <div className={`tool-group${errorCount > 0 ? ' error' : ''}`}>
@@ -181,7 +156,6 @@ function ToolGroup({ turns, usageMeta }) {
           {preview && <span className="tool-group-preview"> · {preview}</span>}
           {errorCount > 0 && <span className="tool-group-errors"> · {errorCount} error{errorCount === 1 ? '' : 's'}</span>}
         </span>
-        {usageMeta?.delta && <span className="tool-group-usage"><AccumUsage usageMeta={usageMeta} /></span>}
       </button>
       {open && (
         <div className="tool-group-body">
