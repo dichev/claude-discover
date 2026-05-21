@@ -5,8 +5,12 @@ import { basename } from 'node:path'
 import { CLAUDE_SETTINGS, HOOK_PATH } from '../src/main/paths.js'
 import { ClaudeSettings } from '../src/main/services/ClaudeSettings.js'
 
-const HOOK_FILE = basename(HOOK_PATH)
-const HOOK_CMD  = `node "${HOOK_PATH}"`
+const HOOK_FILE   = basename(HOOK_PATH)
+const HOOK_CMD    = `node "${HOOK_PATH}"`
+const HOOK_EVENTS = ['InstructionsLoaded', 'SessionStart']
+
+
+console.log(`Installing capture-context hook into ${CLAUDE_SETTINGS}...`)
 
 const settings = new ClaudeSettings()
 if (settings.loadFailed) {
@@ -14,16 +18,25 @@ if (settings.loadFailed) {
   process.exit(1)
 }
 
-const existing = settings.hooks('InstructionsLoaded').find(h => h.command?.includes(HOOK_FILE))
-if (!existing) {
-  console.log(`Installing capture-context hook → ${HOOK_CMD}`)
-  settings.addHook('InstructionsLoaded', HOOK_CMD)
-} else if (existing.command === HOOK_CMD) {
-  console.log(`Already installed in ${CLAUDE_SETTINGS}`)
+let changed = false
+for (const event of HOOK_EVENTS) {
+  const existing = settings.hooks(event).find(h => h.command?.includes(HOOK_FILE))
+  if (!existing) {
+    console.log(` • Installing capture-context hook on ${event} → ${HOOK_CMD}`)
+    settings.addHook(event, HOOK_CMD)
+    changed = true
+  } else if (existing.command === HOOK_CMD) {
+    console.log(` • ${event} hook: already installed`)
+  } else {
+    console.log(` • ${event} hook: repairing stale entry: ${existing.command} → ${HOOK_CMD}`)
+    existing.command = HOOK_CMD
+    changed = true
+  }
+}
+console.log(`--------------------------------------------`)
+if (!changed) {
+  console.log(`No changes needed in ${CLAUDE_SETTINGS}`)
   process.exit(0)
-} else {
-  console.log(`Repairing stale entry: ${existing.command} → ${HOOK_CMD}`)
-  existing.command = HOOK_CMD
 }
 
 settings.save()

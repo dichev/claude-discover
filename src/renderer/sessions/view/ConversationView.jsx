@@ -320,12 +320,12 @@ function safeJson(x) {
 
 function InstructionFile({ it, showNote }) {
   const [open, setOpen] = useState(false)
-  const title           = `${it.memory_type || '?'} · ${it.file_path} (${it.load_reason || 'unknown'})`
+  const title           = `${it.file_path} (${it.memory_type}, ${it.hook_event_name} hook)`
   return (
     <div className="aux custom-event">
       {showNote && (
         <div className="instructions-note">
-          Snapshotted by the capture context hook. Auto-memory (<code>MEMORY.md</code>) isn't captured — it skips the hook.
+          Snapshotted by the capture context hook (<code>InstructionsLoaded</code> + <code>SessionStart</code>).
         </div>
       )}
       <button className="aux-toggle" onClick={() => setOpen(v => !v)}>
