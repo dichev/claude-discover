@@ -7,6 +7,7 @@ Reads from `~/.claude/projects/**/*.jsonl`.
 
 ```
 npm install
+npm run setup-hook
 npm run dev
 ```
 
@@ -18,25 +19,19 @@ npm run dev
 **Windows:**
 ```
 npm install
+npm run setup-hook # optional
 npm run build
 npm start
 ```
 
 ## Optional: capture initial context (CLAUDE.md)
 
-Claude Code's jsonl transcripts don't record CLAUDE.md. Wire the bundled hook into `~/.claude/settings.json` to snapshot them into a `<session>.context.ndjson`:
+Claude Code doesn't save your CLAUDE.md instructions in its session logs, so this app can't show them as a context. You can install a Claude hook that logs that context alongside each session in a separate file:
 
-```json
-{
-  "hooks": {
-    "InstructionsLoaded": [
-      { "hooks": [{ "type": "command", "command": "node /ABSOLUTE/PATH/TO/agentic-workflow/bin/capture-context.hook.mjs" }] }
-    ]
-  }
-}
-```
+- `<session>.jsonl` — the transcript
+- `<session>.context.ndjson` — the context snapshot
 
-On Windows use forward slashes (`D:/AI/...`) — backslashes get eaten as shell escapes. After this, captured instructions appear inline in the Conversation and JSONL tabs.
+Then your CLAUDE.md content shows up in the Conversation and JSONL tabs. Run `npm run setup-hook` to install the hook into `<CLAUDE_DIR>/settings.json`.
 
 ### Notes
 

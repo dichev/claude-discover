@@ -325,7 +325,7 @@ function InstructionFile({ it, showNote }) {
     <div className="aux custom-event">
       {showNote && (
         <div className="instructions-note">
-          Snapshotted by the <code>InstructionsLoaded</code> hook. Auto-memory (<code>MEMORY.md</code>) isn't captured — it skips the hook.
+          Snapshotted by the capture context hook. Auto-memory (<code>MEMORY.md</code>) isn't captured — it skips the hook.
         </div>
       )}
       <button className="aux-toggle" onClick={() => setOpen(v => !v)}>

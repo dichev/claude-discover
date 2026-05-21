@@ -9,3 +9,12 @@
   font-size: 12px;
   color: var(--text-faint);
 }
+
+.statusbar-group { display: inline-flex; align-items: center; gap: 8px; }
+
+.statusbar-tooltip p  { margin: 0 0 6px; }
+.statusbar-tooltip ul { margin: 0 0 6px; padding-left: 18px; }
+.statusbar-tooltip li { margin: 2px 0; }
+.statusbar-tooltip > :last-child { margin-bottom: 0; }
+.statusbar-off { color: var(--warn); }
+.statusbar-on  { color: var(--ok); }

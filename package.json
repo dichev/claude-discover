@@ -9,6 +9,7 @@
     "dev": "electron-vite dev",
     "build": "electron-vite build",
     "start": "electron-vite preview",
+    "setup-hook": "node bin/setup-hook.mjs",
     "test": "vitest run"
   },
   "dependencies": {

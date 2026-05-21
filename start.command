@@ -36,4 +36,5 @@ if [ ! -d node_modules ]; then
   npm run build
 fi
 
+npm run setup-hook
 npm start

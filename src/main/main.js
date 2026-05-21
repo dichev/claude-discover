@@ -3,7 +3,8 @@ import { SessionsService } from './services/SessionsService.js'
 import { WorkHours } from './services/WorkHours.js'
 import { AgentRunner } from './services/AgentRunner.js'
 import { MainWindow } from './window.js'
-import { CLAUDE_DIR } from './paths.js'
+import { CLAUDE_DIR, HOOK_PATH } from './paths.js'
+import { ClaudeSettings } from './services/ClaudeSettings.js'
 
 if (import.meta.env.DEV) await import('./debug.js')
 
@@ -22,11 +23,13 @@ app.whenReady().then(() => {
     sessionsService.stop()
     powerMonitor.once('resume', () => setTimeout(() => sessionsService.start(), 1000))
   })
+  const hookInstalled = new ClaudeSettings().hooks('InstructionsLoaded').some(h => h.command?.includes(HOOK_PATH))
 
   win.create()
   app.on('activate', () => { // @macOS
     if (BrowserWindow.getAllWindows().length === 0) win.create()
   })
+
 
   ipcMain.handle('sessions:list', (_e, date) => sessionsService.list(date))
   ipcMain.handle('sessions:read', (_e, sessionId, offset, date) => sessionsService.readSession(sessionId, offset, date))
@@ -37,7 +40,8 @@ app.whenReady().then(() => {
   ipcMain.handle('agent:run',   (e, text, systemTools) => agentRunner.run(text, e.sender, systemTools))
   ipcMain.handle('agent:usage', () => agentRunner.latestUsage)
 
-  ipcMain.on('claude-dir:get', e => { e.returnValue = CLAUDE_DIR })
+  ipcMain.on('claude-dir:get',     e => { e.returnValue = CLAUDE_DIR })
+  ipcMain.on('hook:installed:get', e => { e.returnValue = hookInstalled })
 })
 
 app.on('window-all-closed', () => {
