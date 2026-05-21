@@ -20,11 +20,11 @@ export function flatten(items) {
         if (it._tokenDelta != null) last.tokenDelta = (last.tokenDelta ?? 0) + it._tokenDelta
         if (it._tokenTotal != null) last.tokenTotal = it._tokenTotal
       } else {
-        // Side the meta belongs to: attachments after an assistant turn (between tool cycles)
+        // Side the meta belongs to: attachments after an assistant or tool turn (between tool cycles)
         // are part of what the assistant just produced/received; otherwise they sit with the user.
         turns.push({
           uuid: it.uuid,
-          role: last?.role === 'assistant' ? 'assistant' : 'user',
+          role: (last?.role === 'assistant' || last?.role === 'tool') ? 'assistant' : 'user',
           isMeta: true,
           ts: it.timestamp ? Date.parse(it.timestamp) : null,
           model: null,
@@ -54,9 +54,12 @@ export function flatten(items) {
     for (const b of blocks) {
       if (b.type === 'tool_result' && b.tool_use_id) results[b.tool_use_id] = b
     }
+    // Anthropic's API has no `tool` role — tool_result blocks ride inside user messages.
+    // Re-tag those turns as `tool` so they group with the assistant's tool calls, not the user.
+    const role = it.type === 'user' && blocks.every(b => b.type === 'tool_result') ? 'tool' : it.type
     turns.push({
       uuid: it.uuid,
-      role: it.type,
+      role,
       isMeta: !!it.isMeta,
       ts: it.timestamp ? Date.parse(it.timestamp) : null,
       model: msg.model || null,
@@ -121,19 +124,18 @@ export default function ConversationView({ items }) {
   )
 }
 
-const CONTEXT_ATTACHMENT_TYPES = new Set(['deferred_tools_delta', 'skill_listing', 'selected_lines_in_ide', 'diagnostics'])
-
-function TurnRow({ turn }) {
+function TurnRow({ turn, inToolGroup = false }) {
   const contextBlocks = [], otherBlocks = []
+  // Tool groups already wrap their contents in a collapsible — don't double-wrap.
+  const groupAttachments = turn.role === 'user' && !inToolGroup
   for (const b of turn.blocks) {
-    const isContextAttachment = b.type === 'attachment' && CONTEXT_ATTACHMENT_TYPES.has(b.attachment?.type)
-    if (isContextAttachment) contextBlocks.push(b); else otherBlocks.push(b);
+    if (b.type === 'attachment' && groupAttachments) contextBlocks.push(b); else otherBlocks.push(b);
   }
   return (
     <div className={`turn turn-${turn.role} ${turn.isMeta ? 'turn-meta-note' : ''}`}>
       <div className="turn-blocks">
         {contextBlocks.length > 0 && (
-          <Collapsible className="attachment" defaultOpen={false}>
+          <Collapsible className="attachment" defaultOpen={false} title={`context · ${contextBlocks.length} item${contextBlocks.length === 1 ? '' : 's'}`}>
             {contextBlocks.map((b, i) => <Attachment key={i} att={b.attachment} />)}
           </Collapsible>
         )}
@@ -153,13 +155,12 @@ function ToolGroup({ turns }) {
     <div className={`tool-group${errorCount > 0 ? ' error' : ''}`}>
       <button className="aux-toggle tool-group-toggle" onClick={() => setOpen((v) => !v)}>
         <span>{open ? '▾' : '▸'} {toolCount} tool call{toolCount === 1 ? '' : 's'}
-          {preview && <span className="tool-group-preview"> · {preview}</span>}
           {errorCount > 0 && <span className="tool-group-errors"> · {errorCount} error{errorCount === 1 ? '' : 's'}</span>}
         </span>
       </button>
       {open && (
         <div className="tool-group-body">
-          {turns.map((t) => <TurnRow key={t.uuid} turn={t} />)}
+          {turns.map((t) => <TurnRow key={t.uuid} turn={t} inToolGroup />)}
         </div>
       )}
     </div>
@@ -188,12 +189,12 @@ function Block({ block }) {
     )
   }
   if (block.type === 'thinking') {
-    if (!block.thinking) return <Label title="thinking" />
+    if (!block.thinking) return <Label title="Thinking" />
     return <Collapsible title="thinking" defaultOpen={false}><pre>{block.thinking}</pre></Collapsible>
   }
   if (block.type === 'tool_use') {
     return (
-      <Collapsible title={`→ ${block.name}`}>
+      <Collapsible title={`${block.name}`}>
         <JsonBlock value={block.input} />
         {block.result && <Block block={block.result} />}
       </Collapsible>
@@ -204,7 +205,7 @@ function Block({ block }) {
     const parts = Array.isArray(c) ? c : [typeof c === 'string' ? { type: 'text', text: c } : c]
     return (
       <div className={`tool-result ${block.is_error ? 'error' : ''}`}>
-        <div className="tool-result-label">{block.is_error ? 'error:' : 'result:'}</div>
+        <div className="tool-result-label">{block.is_error ? 'Error:' : 'Result:'}</div>
         {parts.map((p, i) => p.type === 'text'
           ? <pre key={i}>{p.text}</pre>
           : <Block key={i} block={p} />)}
@@ -235,9 +236,9 @@ const ATTACHMENT_RENDERERS = {
     const f = a.content?.file
     return { title: `file · ${a.displayPath || f?.filePath || a.filename || ''}`, body: f?.content ?? safeJson(a.content) }
   },
-  skill_listing: (a) => ({ title: `skills (${a.skillCount ?? '?'})`, body: a.content || '', defaultOpen: false }),
+  skill_listing: (a) => ({ title: `${a.skillCount} skills`, body: a.content || '', defaultOpen: false }),
   deferred_tools_delta: (a) => ({
-    title: `deferred tools · +${a.addedNames?.length || 0} -${a.removedNames?.length || 0}`,
+    title: `${a.addedNames?.length || 0} deferred tools ${a.removedNames?.length ? `(removed: ${a.removedNames.length})` : ''}`,
     body: safeJson({ added: a.addedNames, removed: a.removedNames }),
     defaultOpen: false,
   }),

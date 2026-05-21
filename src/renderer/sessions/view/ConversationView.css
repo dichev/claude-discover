@@ -25,6 +25,11 @@
   & .turn-blocks { align-items: flex-end; }
   & .turn-blocks > .aux { align-self: stretch; text-align: right; }
   & .turn-blocks > .aux .aux-body { text-align: left; }
+  & .turn-blocks > .aux.attachment > .aux-body {
+    text-align: right;
+    border-left: none;
+    border-right: 2px solid #3b6a7f;
+  }
   & .turn-blocks > .tool-result { align-self: stretch; }
 
   .aux .aux-toggle,
@@ -142,7 +147,7 @@
   display: inline-flex;
   gap: 4px;
 
-  &:hover { color: var(--text-dim); background: transparent; }
+  &:hover { color: var(--text); background: var(--bg-elev-2); border-radius: 3px;  }
 }
 
 .turn-user .aux-toggle { flex-direction: row-reverse; }
