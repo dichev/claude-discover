@@ -17,6 +17,7 @@ clearOutdatedLocalStorage()
 delegate('body', { // replace title attributes with tippy tooltips
   target: '[title]',
   delay: [0, 0],
+  allowHTML: true,
   content(reference) {
     const title = reference.getAttribute('title')
     reference.removeAttribute('title')

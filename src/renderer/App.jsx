@@ -4,6 +4,7 @@ import GanttChart from './timeline/GanttChart.jsx'
 import DailySummary from './timeline/DailySummary.jsx'
 import SessionList from './sessions/SessionList.jsx'
 import SessionView from './sessions/SessionView.jsx'
+import StatusBar from './ui/StatusBar.jsx'
 import { startOfDay, endOfDay, format } from 'date-fns'
 import './App.css'
 
@@ -61,9 +62,10 @@ export default function App() {
   }
 
   return (
+    <div className="app">
     <Group
       orientation="vertical"
-      className="app"
+      className="app-main"
       defaultLayout={rootLayout}
       onLayoutChanged={onRootLayoutChanged}
     >
@@ -106,5 +108,7 @@ export default function App() {
         </Group>
       </Panel>
     </Group>
+    <StatusBar />
+    </div>
   )
 }
