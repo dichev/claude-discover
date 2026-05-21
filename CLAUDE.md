@@ -15,6 +15,7 @@ Windows is the default OS, but we must support also **macOS**. When adding a mac
 - `npm run dev` — Vite dev server + Electron.
 - `npm run build` / `npm start` — build / preview.
 - `npm test` — run Vitest suite (`vitest run`); single file: `npx vitest run test/pricing.test.js`. Tests live in `test/` at the repo root.
+- `npm run setup-hook` — install/repair the capture-context hook in `<CLAUDE_DIR>/settings.json` (see Hooks below). Idempotent.
 - No lint or typecheck configured.
 
 ## Architecture
@@ -24,7 +25,7 @@ Windows is the default OS, but we must support also **macOS**. When adding a mac
 - Main-process backend uses classes: `src/main/services/` (`SessionsService`, `WorkHours`, `AgentRunner`, `Pricing`) and `src/main/sessions/` (`SessionsScanner` watches the projects dir via chokidar; `SessionFile` / `SessionParser` parse individual `.jsonl` files). React renderer uses functional style.
 - Long-lived backend services that push to the renderer (`SessionsService`, `AgentRunner`) extend `EventEmitter` — wire listeners with `service.on(event, cb)` before calling `start()` / `startUsagePolling()`.
 - Agent feature: `AgentRunner` (main) calls `@anthropic-ai/claude-agent-sdk`'s `query()` in-process and forwards `text_delta` events to the renderer over `agent:output`. The renderer side is `src/renderer/agent/` (`Agent.js` hook + `AgentOutput.jsx`); the prompt template is `src/renderer/agent/ANALYZE_PROMPT.md`, imported via Vite's `?raw`.
-- Instructions capture: `bin/capture-context.hook.mjs` runs on Claude Code's `InstructionsLoaded` hook (wired in `~/.claude/settings.json`) and appends one record per loaded CLAUDE.md / memory file to `<session>.context.ndjson` next to the transcript. `SessionFile.readContext()` reads it; `readSession` merges the records into `items` by timestamp so the renderer sees one unified stream (no separate IPC channel). The sidecar uses `.ndjson` deliberately — `SessionsScanner` filters by `.jsonl` and would otherwise treat it as a transcript. `bin/` is gitignored, so cloners need their own copy.
+- Instructions capture: `bin/capture-context.hook.mjs` runs on Claude Code's `InstructionsLoaded` + `SessionStart` hooks (wired in `<CLAUDE_DIR>/settings.json`) and appends one record per loaded CLAUDE.md / memory file to `<session>.context.ndjson` next to the transcript. `SessionFile.readContext()` reads it; `readSession` merges the records into `items` by timestamp so the renderer sees one unified stream (no separate IPC channel). The sidecar uses `.ndjson` deliberately — `SessionsScanner` filters by `.jsonl` and would otherwise treat it as a transcript. See Hooks below for details.
 - Built with **electron-vite**
 
 ## IPC surface (`window.api`)
@@ -41,6 +42,15 @@ Windows is the default OS, but we must support also **macOS**. When adding a mac
 - `src/renderer/ui/` — generic primitives (`Toggle`, `EditableMarkdown`).
 - `src/renderer/utils/useLocalStorage.js` — `useLocalStorage(key, initial)` is a `useState` drop-in that persists to `localStorage` (supports lazy-init like React's). Use it for any user-facing UI preference that should survive reloads (filters, toggles, expanded panes). The same file exports `clearOutdatedLocalStorage()`, called from `main.jsx`, which wipes storage on major/minor app version bumps — so don't rely on values surviving across releases.
 - `src/renderer/styles.css` + `src/renderer/markdown.css` — app-wide CSS, imported by `main.jsx`.
+
+## Hooks (capture-context)
+- The two scripts in `bin/` are both checked into git (only `*.ignore*` files are gitignored — e.g. `bin/fix-commit-dates.ignore.sh`).
+- `bin/capture-context.hook.mjs` is the hook body itself. It reads the hook event JSON from stdin, writes one NDJSON record to `<transcript>.context.ndjson`, and **must stay silent** — any error is appended to `<CLAUDE_DIR>/.agentic-workflow.hook.error.log` instead of stderr, so Claude Code never surfaces hook failures to the user. Don't add `console.log`/`console.error` here.
+- Two events are handled, dispatched by `event.hook_event_name`:
+  - `InstructionsLoaded` — fires per file Claude Code loads; record carries `file_path`, `memory_type`, `load_reason`, plus the file contents.
+  - `SessionStart` — Claude Code does **not** emit `InstructionsLoaded` for auto-memory, so this branch reads `<projectDir>/memory/MEMORY.md` itself. Skipped when `event.source === 'resume'` (already captured on the first start) and when the file doesn't exist. The timestamp is backdated 500ms so the record sorts above the first real transcript events.
+- `bin/setup-hook.mjs` (run via `npm run setup-hook`) installs/repairs the hook. It uses `src/main/services/ClaudeSettings.js` — a thin wrapper around `<CLAUDE_DIR>/settings.json` with `hooks(event)` / `addHook(event, cmd)` / `save()`. `save()` refuses to write if the file was modified on disk since load (mtime guard). Match by **basename** of the hook file when checking "already installed" so the absolute path can be repaired in place.
+- `HOOK_PATH` (in `src/main/paths.js`) resolves the hook script relative to the source tree, so the installed command is always an absolute path to this checkout.
 
 ## Cross-component sync
 - `src/renderer/sessions/view/AgentView.jsx` duplicates information from `ConversationView.jsx` and `SessionSummary.jsx` (rendered as markdown for AI consumption). When you add, remove, or change fields/blocks in either of those files, also update `AgentView.jsx` to keep them in sync.

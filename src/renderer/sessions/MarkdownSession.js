@@ -36,10 +36,15 @@ function renderBlock(b) {
   }
   if (b.type === 'tool_result') return `${b.is_error ? 'error' : 'result'}:\n${fence(resultText(b))}`
   if (b.type === 'image') return '[image]'
+  if (b.type === 'instruction') {
+    const it = b.it
+    return `_${it.file_path} (${it.memory_type})_\n${fence(it.error ? `error: ${it.error}` : (it.content || ''))}`
+  }
   return fence(JSON.stringify(b, null, 2), 'json')
 }
 
 function renderTurn(t) {
+  if (t.role === 'instruction') return `**Instructions loaded:**\n\n${t.blocks.map(renderBlock).join('\n\n')}`
   const role = t.role === 'user' ? 'User' : `Assistant`
   const tokens = t.tokenTotal > 0 && t.tokenDelta != null
     ? ` (${t.tokenDelta >= 0 ? '+' : ''}${fmtCompact(t.tokenDelta)} / ${fmtCompact(t.tokenTotal)} tokens)`

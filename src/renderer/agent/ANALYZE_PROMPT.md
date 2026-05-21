@@ -49,7 +49,7 @@ Visible in `<summary>`.
 # Input
 
 `<summary>` is rich — the app pre-computes it for you. Read every field and reason from numbers, not vibes
-`<transcript>` shows the actual turns, labeled with per-turn token deltas like `(+12k / 340k tokens)`. Use the deltas to find expensive moments and to ground each recommendation in a concrete event.
+`<transcript>` shows the actual turns, labeled with per-turn token deltas like `(+12k / 340k tokens)`. Use the deltas to find expensive moments and to ground each recommendation in a concrete event. **Instructions loaded** rows are CLAUDE.md / memory files Claude Code injected into the system prompt — they re-pay on every turn, so their size and relevance are a direct cost lever.
 {{TRUNCATION_NOTE}}
 
 # How to analyze
