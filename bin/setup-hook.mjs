@@ -7,7 +7,7 @@ import { ClaudeSettings } from '../src/main/services/ClaudeSettings.js'
 
 const HOOK_FILE   = basename(HOOK_PATH)
 const HOOK_CMD    = `node "${HOOK_PATH}"`
-const HOOK_EVENTS = ['InstructionsLoaded', 'SessionStart']
+const HOOK_EVENTS = ['InstructionsLoaded', 'SessionStart', 'SessionEnd']
 
 
 console.log(`Installing capture-context hook into ${CLAUDE_SETTINGS}...`)
