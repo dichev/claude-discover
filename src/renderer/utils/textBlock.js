@@ -33,20 +33,25 @@ export function fenceBlocks(text) {
   if (typeof text !== 'string') return text
   if (!text.includes('{') && !text.includes('[')) return text
 
+  // Odd number of ``` lines before an offset => it's inside an open fence; skip it (already highlighted).
+  const insideFence = i => (text.slice(0, i).match(/^```/gm)?.length ?? 0) % 2
+
   const startRe = /^([^\n{[]*)([{[])/gm
   let out = '', cursor = 0, m
   while ((m = startRe.exec(text)) !== null) {
     const [, prefix, open] = m
     const bodyStart = m.index + prefix.length
-    const end = findMatchingClose(text, bodyStart)
-    if (end < 0) continue
-    if (end !== text.length && text[end] !== '\n') continue
-    const body = text.slice(bodyStart, end)
-    const lang = detectLang(body)
-    if (!lang) continue
-    const fence = '\n```' + lang + '\n' + body + '\n```\n'
-    out += text.slice(cursor, m.index) + prefix.trimEnd() + fence
-    cursor = startRe.lastIndex = end
+    if (!insideFence(bodyStart)) {
+        const end = findMatchingClose(text, bodyStart)
+        if (end < 0) continue
+        if (end !== text.length && text[end] !== '\n' && text[end] !== '\r') continue
+        const body = text.slice(bodyStart, end)
+        const lang = detectLang(body)
+        if (!lang) continue
+        const fence = '\n```' + lang + '\n' + body + '\n```\n'
+        out += text.slice(cursor, m.index) + prefix.trimEnd() + fence
+        cursor = startRe.lastIndex = end
+      }
   }
   return out + text.slice(cursor)
 }
