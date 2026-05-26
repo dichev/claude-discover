@@ -5,6 +5,23 @@ import { fenceBlocks, parseCommand } from '../../utils/textBlock.js'
 import LazyMount from '../../ui/LazyMount.jsx'
 import './ConversationView.css'
 
+// Intercept link clicks (no navigation guard in the renderer) and let main open
+// them: external in the browser, relative paths against basePath. Local links
+// without a known basePath aren't resolvable, so render them as plain text.
+function buildLinkComponents(basePath = null) {
+  return {
+    a: ({ href, children, ...props }) => {
+      const isExternal = href => /^(https?:|mailto:)/i.test(href || '')
+      const clickable = href && (isExternal(href) || basePath)
+      if (!clickable) return <>{children}</>
+      return <a href={href} onClick={e => { e.preventDefault(); void window.api.openLink(href, basePath) }} {...props}>{children}</a>
+    },
+  }
+}
+
+// Cached no-base variant: text blocks have no containing file, so only external links are clickable.
+const linkComponents = buildLinkComponents()
+
 export function flatten(items) {
   const turns = []
   const results = {}
@@ -182,7 +199,7 @@ function Block({ block }) {
     }
     return (
       <div className="block-text markdown">
-        <ReactMarkdown rehypePlugins={[rehypeHighlight]}>
+        <ReactMarkdown rehypePlugins={[rehypeHighlight]} components={linkComponents}>
           {fenceBlocks(block.text)}
         </ReactMarkdown>
       </div>
@@ -296,6 +313,7 @@ function safeJson(x) {
 function InstructionFile({ it, showNote }) {
   const [open, setOpen] = useState(false)
   const title           = `${it.file_path} (${it.memory_type}, ${it.hook_event_name} hook)`
+  const components       = useMemo(() => buildLinkComponents(it.file_path), [it.file_path])
   return (
     <div className="aux custom-event">
       {showNote && (
@@ -319,7 +337,7 @@ function InstructionFile({ it, showNote }) {
           {it.error
             ? <pre className="error">{it.error}</pre>
             : <div className="block-text markdown">
-                <ReactMarkdown rehypePlugins={[rehypeHighlight]}>{it.content || ''}</ReactMarkdown>
+                <ReactMarkdown rehypePlugins={[rehypeHighlight]} components={components}>{it.content || ''}</ReactMarkdown>
               </div>}
         </div>
       )}

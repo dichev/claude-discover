@@ -19,5 +19,7 @@ contextBridge.exposeInMainWorld('api', {
   runAgentPrompt: (text, systemTools) => ipcRenderer.invoke('agent:run', text, systemTools),
   getAgentUsage: () => ipcRenderer.invoke('agent:usage'),
   onAgentUsage: subscribe('agent:usage-update'),
-  onAgentOutput: subscribe('agent:output')
+  onAgentOutput: subscribe('agent:output'),
+
+  openLink: (href, baseFile) => ipcRenderer.invoke('shell:open-link', href, baseFile)
 })

@@ -1,4 +1,5 @@
-import { app, BrowserWindow, ipcMain, powerMonitor } from 'electron'
+import { app, BrowserWindow, ipcMain, powerMonitor, shell } from 'electron'
+import path from 'node:path'
 import { SessionsService } from './services/SessionsService.js'
 import { WorkHours } from './services/WorkHours.js'
 import { AgentRunner } from './services/AgentRunner.js'
@@ -40,6 +41,8 @@ app.whenReady().then(() => {
   ipcMain.handle('agent:run',   (e, text, systemTools) => agentRunner.run(text, e.sender, systemTools))
   ipcMain.handle('agent:usage', () => agentRunner.latestUsage)
 
+  ipcMain.handle('shell:open-link', (_e, href, baseFile) => openLink(href, baseFile))
+
   ipcMain.on('claude-dir:get',     e => { e.returnValue = CLAUDE_DIR })
   ipcMain.on('hook:installed:get', e => { e.returnValue = hookInstalled })
 })
@@ -47,3 +50,11 @@ app.whenReady().then(() => {
 app.on('window-all-closed', () => {
   if (process.platform !== 'darwin') app.quit()
 })
+
+async function openLink(href, baseFile) {
+  if (/^(https?:|mailto:)/i.test(href)) return shell.openExternal(href)
+  const abs = path.resolve(path.dirname(baseFile), decodeURIComponent(href))
+  const err = await shell.openPath(abs) // returns '' on success, error string otherwise
+  if (err) shell.showItemInFolder(abs)  // no associated app (or missing) -> reveal it instead
+  return err
+}

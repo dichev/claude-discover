@@ -34,6 +34,7 @@ Windows is the default OS, but we must support also **macOS**. When adding a mac
 - `getWorkHours()` / `setWorkHours(data)` — persist daily work-hour settings.
 - `runAgentPrompt(text, systemTools)` / `onAgentOutput(cb)` — start the analysis agent and subscribe to its streamed output chunks.
 - `getAgentUsage()` / `onAgentUsage(cb)` — read/subscribe to the Claude AI usage poll (`five_hour` / `seven_day` utilization).
+- `openLink(href, baseFile)` — open a link from rendered markdown via the OS shell. The renderer has no navigation guard, so `ConversationView`'s ReactMarkdown `a` overrides (defined inline there) intercept the click and hand it to main, which routes it: http(s)/mailto → `shell.openExternal`; relative paths → resolved against `baseFile`'s dir and opened with `shell.openPath` (falling back to `shell.showItemInFolder` on error). Only `ConversationView` wires these up (text blocks via `linkComponents`; instruction/memory files via `buildLinkComponents(file_path)`) — other markdown surfaces (AgentView, AgentOutput, EditableMarkdown) keep plain ReactMarkdown. Local links only render clickable where a containing-file path is known; elsewhere they fall back to plain text.
 
 ## Frontend layout
 - `src/renderer/timeline/` — day-level views: `GanttChart` (swimlane, drives `sourceFilter`/`cwdFilter`), `DailySummary` (aggregated stats), `WorkTimeOverlay`.
