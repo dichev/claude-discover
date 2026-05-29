@@ -37,6 +37,12 @@ const ERROR_LOG = '.claude-discover.hook.error.log'
 const CLEAR_ORPHAN_LOGS_AFTER_MS = 24 * 60 * 60_000 // Sweep orphan ndjson logs older than this. default: 1 day, set to 0 / false to disable
 
 
+function appendRecord(logPath, record) {
+  fs.mkdirSync(path.dirname(logPath), {recursive: true}) // The project dir may not exist yet the first time a session loads instructions.
+  fs.appendFileSync(logPath, JSON.stringify(record) + '\n')
+}
+
+
 function readContent(filePath) {
   if (!filePath) return { error: 'no file_path' }
   try {
@@ -65,7 +71,7 @@ async function main() {
         timestamp: new Date(Date.now() + offsetMs).toISOString(),
         ...content
       }
-      fs.appendFileSync(logPath, JSON.stringify(record) + '\n')
+      appendRecord(logPath, record)
     }
     else if (event.hook_event_name === CLAUDE_HOOKS.SESSION_START) {
       // Claude Code does not emit InstructionsLoaded for auto-memory, so capture <projectDir>/memory/MEMORY.md ourselves.
@@ -82,7 +88,7 @@ async function main() {
           timestamp: new Date(Date.now() + offsetMs).toISOString(),
           ...content,
         }
-        fs.appendFileSync(logPath, JSON.stringify(record) + '\n')
+        appendRecord(logPath, record)
       }
     }
     else if (event.hook_event_name === CLAUDE_HOOKS.SESSION_END) {
