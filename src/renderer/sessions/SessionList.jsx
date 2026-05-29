@@ -89,6 +89,7 @@ export default function SessionList({ sessions, selectedId, onSelect }) {
                   {s.messageCount > T.messages.warn && s.messageCount <= T.messages.danger && <span className="warn-badge" title={`${fmtNum(s.messageCount)} messages`}>MSG</span>}
                   {s.activeMs > T.workTime.danger && <span className="danger-badge" title={`Working time: ${fmtDuration(s.activeMs)}`}>TIME</span>}
                   {s.activeMs > T.workTime.warn && s.activeMs <= T.workTime.danger && <span className="warn-badge" title={`Working time: ${fmtDuration(s.activeMs)}`}>TIME</span>}
+                  {s.speed === 'fast' && <span className={`fast-badge ${s.fastPricingUnknown ? 'fast-badge-unknown' : ''}`} title={s.fastPricingUnknown ? 'Used fast mode — cost is INACCURATE: no fast-mode price multiplier known for this model' : 'Used fast mode (speed: fast)'}>↯</span>}
                   {isSubagent && <span className="subagent-tag">[subagent]</span>}
                   {isFork && <span className="fork-tag" title={`Forked from session ${s.forkedFrom.sessionId}`}>↳</span>}
                   {sessionName && <span className="session-name">{sessionName}</span>}

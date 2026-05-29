@@ -6,6 +6,7 @@ const SEED_PATH = path.resolve(process.cwd(), 'cache/prices.json')
 const CURRENT_PATH = path.resolve(process.cwd(), 'cache/prices.current.json')
 const LITELLM_URL = 'https://raw.githubusercontent.com/BerriAI/litellm/main/model_prices_and_context_window.json'
 const DAY_MS = 24 * 3600 * 1000
+const MILLION = 1e6
 
 export class Pricing {
   constructor() {
@@ -30,20 +31,29 @@ export class Pricing {
     return null
   }
 
-  costForDelta(model, bucket, { ignoreCache1hPremium = false } = {}) {
+  // Fast mode (usage.speed === "fast") bills at a flat per-model multiple of
+  // standard rates, applied uniformly across every token category. Sourced from
+  // LiteLLM's provider_specific_entry.fast. null when unknown for the model.
+  fastMultiplier(model) {
+    return this.priceFor(model)?.fastModeMplr ?? null
+  }
+
+  costForDelta(model, bucket, { ignoreCache1hPremium = false, fast = false } = {}) {
     const p = this.priceFor(model)
     if (!p || !bucket) return null
     const tokens5m = ignoreCache1hPremium ? 0 : (bucket.cacheCreation5m || 0)
     const tokens1h = ignoreCache1hPremium ? 0 : (bucket.cacheCreation1h || 0)
     const tokensUnknown = (bucket.cacheCreation || 0) - tokens5m - tokens1h
-    return (
+    const base = (
       (bucket.input || 0) * p.input +
       (bucket.output || 0) * p.output +
       (bucket.cacheRead || 0) * p.cacheRead +
       tokens5m * p.cacheWrite +
       tokens1h * p.cacheWrite1h +
       tokensUnknown * p.cacheWrite
-    ) / 1e6
+    ) / MILLION
+    // Unknown multiplier → best-effort 1×; callers flag the session as inaccurate.
+    return fast ? base * (this.fastMultiplier(model) ?? 1) : base
   }
 
   costUSD(tokensByModel, opts = {}) {
@@ -81,17 +91,19 @@ export class Pricing {
     const models = new Set([...Object.keys(anthropic), ...Object.keys(claude)])
 
     // Merge and remap
-    const M = 1e6  // 1M tokens
     const out = {}
     for (const name of models) {
       const m = Object.assign({}, anthropic[name], claude[name]) // Merge each model: anthropic.* backfills, claude-* wins (they disagree on claude-3-haiku's cache rates)
       out['claude-' + name] = {
-        input: m.input_cost_per_token * M,
-        output: m.output_cost_per_token * M,
-        cacheRead: m.cache_read_input_token_cost * M,
-        cacheWrite: m.cache_creation_input_token_cost * M,
-        cacheWrite1h: m.cache_creation_input_token_cost_above_1hr * M,
+        input: m.input_cost_per_token * MILLION,
+        output: m.output_cost_per_token * MILLION,
+        cacheRead: m.cache_read_input_token_cost * MILLION,
+        cacheWrite: m.cache_creation_input_token_cost * MILLION,
+        cacheWrite1h: m.cache_creation_input_token_cost_above_1hr * MILLION,
       }
+      // Fast-mode multiplier lives only on the first-party claude-* variant.
+      const fast = m.provider_specific_entry?.fast
+      if (typeof fast === 'number') out['claude-' + name].fastModeMplr = fast
     }
     if (Object.keys(out).length) {
       fs.writeFileSync(CURRENT_PATH, JSON.stringify(out, null, 2) + '\n')

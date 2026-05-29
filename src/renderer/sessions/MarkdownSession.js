@@ -96,6 +96,7 @@ export function markdownSession(meta, items, truncated) {
 ## Identity
 - Model: ${meta.models.join(', ') || '—'}
 - Service tier: ${meta.serviceTier || '—'}
+- Speed: ${meta.speed ? (meta.speed === 'fast' ? (meta.fastPricingUnknown ? 'fast (pricing unknown)' : 'fast') : meta.speed) : '—'}
 - Git branch: ${meta.gitBranch || '—'}
 - Source: ${meta.source || meta.entrypoint || '—'}
 - Scheduled: ${meta.hasScheduledTask ? 'yes' : 'no'}

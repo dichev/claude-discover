@@ -34,10 +34,10 @@ function freshMeta({ sessionId, parentSessionId, filePath, fileSize, mtime }) {
     sessionId, parentSessionId, filePath, fileSize, mtime,
     startedAt: null, lastActivityAt: null,
     entrypoint: null, cwd: null, gitBranch: null, version: null,
-    model: null, models: [], serviceTier: null,
+    model: null, models: [], serviceTier: null, speed: null, fastPricingUnknown: false,
     summary: null, aiTitle: null, customTitle: null, agentName: null, firstUserPrompt: null, firstUserCommand: null, forkedFrom: null,
     messageCount: 0,
-    tokens: emptyBucket(), tokensByModel: {}, lastContextTokens: 0,
+    tokens: emptyBucket(), tokensByModel: {}, tokensByModelFast: {}, lastContextTokens: 0,
     serverToolUse: { webSearch: 0, webFetch: 0 },
     hasScheduledTask: false,
     activityPeriods: [],
@@ -51,6 +51,7 @@ function cloneMeta(prev, fileSize, mtime) {
     ...prev, fileSize, mtime,
     tokens: { ...prev.tokens },
     tokensByModel: Object.fromEntries(Object.entries(prev.tokensByModel).map(([k, v]) => [k, { ...v }])),
+    tokensByModelFast: Object.fromEntries(Object.entries(prev.tokensByModelFast).map(([k, v]) => [k, { ...v }])),
     serverToolUse: { ...prev.serverToolUse },
     activityPeriods: prev.activityPeriods.map((p) => ({ ...p })),
     costSamples: (prev.costSamples || []).slice(),
@@ -182,8 +183,9 @@ export class SessionParser {
     obj._tokenTotal = this.tokenTotal
     if (this.excludeIds?.has(msgId)) return
     const model = msg.model || 'unknown'
+    const fast = u.speed === 'fast'
     if (this.pricing && obj._ts != null) {
-      const cost = this.pricing.costForDelta(model, delta)
+      const cost = this.pricing.costForDelta(model, delta, { fast })
       if (cost != null && cost > 0) {
         const end = obj._ts
         const prevTs = this.prevMessage?._ts
@@ -195,11 +197,21 @@ export class SessionParser {
     // Prompt size on this turn — overwritten each assistant message so the last wins.
     meta.lastContextTokens = contextSize
     if (u.service_tier) meta.serviceTier = u.service_tier
+    if (fast) {
+      meta.speed = 'fast'
+      // No known multiplier → fast cost can't be computed accurately; flag it.
+      if (this.pricing && this.pricing.fastMultiplier(model) == null) meta.fastPricingUnknown = true
+    } else if (u.speed && meta.speed !== 'fast') {
+      meta.speed = u.speed // 'standard'; 'fast' once seen stays sticky
+    }
     if (u.server_tool_use) {
       meta.serverToolUse.webSearch += u.server_tool_use.web_search_requests || 0
       meta.serverToolUse.webFetch += u.server_tool_use.web_fetch_requests || 0
     }
-    addUsage(meta.tokensByModel[model] || (meta.tokensByModel[model] = emptyBucket()), delta)
+    // Fast and standard tokens price at different rates, so keep them in separate
+    // per-model buckets (the grand-total `meta.tokens` already holds both).
+    const byModel = fast ? meta.tokensByModelFast : meta.tokensByModel
+    addUsage(byModel[model] || (byModel[model] = emptyBucket()), delta)
   }
 
   finalize(mtimeFallback) {
@@ -213,7 +225,9 @@ export class SessionParser {
     meta.totalTokens = t.input + t.output + t.cacheRead + t.cacheCreation
     const cacheDenom = t.cacheRead + t.cacheCreation
     meta.cacheHitRatio = cacheDenom > 0 ? t.cacheRead / cacheDenom : null
-    meta.cost = this.pricing ? this.pricing.costUSD(meta.tokensByModel) : 0
+    const stdCost  = this.pricing ? this.pricing.costUSD(meta.tokensByModel) : 0
+    const fastCost = this.pricing ? this.pricing.costUSD(meta.tokensByModelFast, { fast: true }) : 0
+    meta.cost = (stdCost || 0) + (fastCost || 0)
     return meta
   }
 }

@@ -38,8 +38,11 @@ async function ourTotals() {
     totals.output += m.tokens.output
     totals.cacheRead += m.tokens.cacheRead
     totals.cacheCreation += m.tokens.cacheCreation
-    // ccusage doesn't distinguish 1h-TTL cache writes — it prices all at the 5-min rate
-    cost += pricing.costUSD({ [m.model]: m.tokens }, { ignoreCache1hPremium: true }) || 0
+    // ccusage doesn't distinguish 1h-TTL cache writes — it prices all at the 5-min rate.
+    // Fast-mode turns bill at the per-model multiplier (ccusage applies it too), so price
+    // the standard and fast buckets separately, exactly as SessionParser.finalize does.
+    cost += (pricing.costUSD(m.tokensByModel, { ignoreCache1hPremium: true }) || 0)
+          + (pricing.costUSD(m.tokensByModelFast, { ignoreCache1hPremium: true, fast: true }) || 0)
   }
   return { totals, cost }
 }

@@ -25,6 +25,7 @@ Windows is the default OS, but we must support also **macOS**. When adding a mac
 - Main-process backend uses classes: `src/main/services/` (`SessionsService`, `WorkHours`, `AgentRunner`, `Pricing`) and `src/main/sessions/` (`SessionsScanner` watches the projects dir via chokidar; `SessionFile` / `SessionParser` parse individual `.jsonl` files). React renderer uses functional style.
 - Long-lived backend services that push to the renderer (`SessionsService`, `AgentRunner`) extend `EventEmitter` — wire listeners with `service.on(event, cb)` before calling `start()` / `startUsagePolling()`.
 - Agent feature: `AgentRunner` (main) calls `@anthropic-ai/claude-agent-sdk`'s `query()` in-process and forwards `text_delta` events to the renderer over `agent:output`. The renderer side is `src/renderer/agent/` (`Agent.js` hook + `AgentOutput.jsx`); the prompt template is `src/renderer/agent/ANALYZE_PROMPT.md`, imported via Vite's `?raw`.
+- Pricing: `Pricing` service computes per-session USD cost. Seed rates in `cache/prices.json`; on startup it refreshes from LiteLLM into `cache/prices.current.json` (daily TTL), merging first-party `claude-*` over Bedrock `anthropic.claude-*` and stripping dated/versioned suffixes so variants collapse to one model id. `priceFor` matches by longest key prefix. "Fast" sessions (`usage.speed === "fast"`) bill at a per-model `fastModeMplr`; when the multiplier is unknown, `SessionParser` flags `fastPricingUnknown` and falls back to 1×.
 - Instructions capture: `bin/capture-context.hook.mjs` runs on Claude Code's `InstructionsLoaded` + `SessionStart` + `SessionEnd` hooks (wired in `<CLAUDE_DIR>/settings.json`) and appends one record per loaded CLAUDE.md / memory file to `<session>.context.ndjson` next to the transcript (and deletes that sidecar on `SessionEnd` when no transcript was ever written). `SessionFile.readContext()` reads it; `readSession` merges the records into `items` by timestamp so the renderer sees one unified stream (no separate IPC channel). The sidecar uses `.ndjson` deliberately — `SessionsScanner` filters by `.jsonl` and would otherwise treat it as a transcript. See Hooks below for details.
 - Built with **electron-vite**
 
@@ -40,7 +41,8 @@ Windows is the default OS, but we must support also **macOS**. When adding a mac
 - `src/renderer/timeline/` — day-level views: `GanttChart` (swimlane, drives `sourceFilter`/`cwdFilter`), `DailySummary` (aggregated stats), `WorkTimeOverlay`.
 - `src/renderer/sessions/` — `SessionList` (picker, left pane) and `SessionView` (detail container with Conversation/JSONL/Agent tabs).
 - `src/renderer/sessions/view/` — the pieces composed by `SessionView`: `ConversationView`, `JsonlView`, `AgentView` (the three tabs) and `SessionSummary` (right-hand metadata column shown next to the Conversation tab). Note: `view/AgentView.jsx` builds the markdown payload sent to the agent; the actual run/stream UI is `src/renderer/agent/AgentOutput.jsx`.
-- `src/renderer/ui/` — generic primitives (`Toggle`, `EditableMarkdown`).
+- `src/renderer/ui/` — generic primitives (`Toggle`, `EditableMarkdown`) plus `StatusBar` (footer showing Claude usage poll state and capture-hook install state, each with a tooltip).
+- `src/renderer/sessions/MarkdownSession.js` — `markdownSession(meta, items, truncated)` renders a session (summary + transcript) to the markdown payload fed to the agent and shown in the Agent tab; `truncated` caps line/char counts. It reuses `flatten` from `ConversationView`.
 - `src/renderer/utils/useLocalStorage.js` — `useLocalStorage(key, initial)` is a `useState` drop-in that persists to `localStorage` (supports lazy-init like React's). Use it for any user-facing UI preference that should survive reloads (filters, toggles, expanded panes). The same file exports `clearOutdatedLocalStorage()`, called from `main.jsx`, which wipes storage on major/minor app version bumps — so don't rely on values surviving across releases.
 - `src/renderer/styles.css` + `src/renderer/markdown.css` — app-wide CSS, imported by `main.jsx`.
 
@@ -55,7 +57,7 @@ Windows is the default OS, but we must support also **macOS**. When adding a mac
 - `HOOK_PATH` (in `src/main/paths.js`) resolves the hook script relative to the source tree, so the installed command is always an absolute path to this checkout.
 
 ## Cross-component sync
-- `src/renderer/sessions/view/AgentView.jsx` duplicates information from `ConversationView.jsx` and `SessionSummary.jsx` (rendered as markdown for AI consumption). When you add, remove, or change fields/blocks in either of those files, also update `AgentView.jsx` to keep them in sync.
+- `src/renderer/sessions/MarkdownSession.js` duplicates information from `ConversationView.jsx` and `SessionSummary.jsx` (rendered as markdown for AI consumption; `AgentView.jsx` just lays it out). When you add, remove, or change fields/blocks in either of those files, also update `MarkdownSession.js` to keep them in sync.
 
 ## Code Style
 - **Backend (`src/main/`) is OOP** — every service/module is a class

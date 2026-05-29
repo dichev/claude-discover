@@ -98,6 +98,22 @@ button:hover { background: var(--border); }
   border: 1px solid rgba(179, 66, 66, 0.35);
 }
 
+.fast-badge {
+  display: inline-flex; align-items: center;
+  font-size: 12px; font-weight: 700; line-height: 1;
+  padding: 1px 5px; border-radius: 3px;
+  background: rgba(251, 146, 60, 0.16);
+  color: #fb923c;
+  border: 1px solid rgba(251, 146, 60, 0.4);
+}
+
+/* Fast mode used but no multiplier known — reported cost is inaccurate. */
+.fast-badge-unknown {
+  background: rgba(179, 66, 66, 0.14);
+  color: var(--danger);
+  border-color: rgba(179, 66, 66, 0.35);
+}
+
 /* Scrollbars */
 ::-webkit-scrollbar { width: 5px; height: 5px; }
 ::-webkit-scrollbar-track { background: transparent; }

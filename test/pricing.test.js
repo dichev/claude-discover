@@ -8,7 +8,7 @@ const pricing = new Pricing()
 
 describe('priceFor', () => {
   it('matches a known model exactly', () => {
-    expect(pricing.priceFor('claude-opus-4-7')).toEqual({ input: 5, output: 25, cacheRead: 0.5, cacheWrite: 6.25, cacheWrite1h: 10 })
+    expect(pricing.priceFor('claude-opus-4-7')).toEqual({ input: 5, output: 25, cacheRead: 0.5, cacheWrite: 6.25, cacheWrite1h: 10, fastModeMplr: 6 })
   })
 
   it('prefers the longest matching prefix', () => {
@@ -64,6 +64,29 @@ describe('costUSD', () => {
     expect(pricing.costUSD(null)).toBeNull()
     expect(pricing.costUSD({})).toBeNull()
     expect(pricing.costUSD({ 'gpt-5': { input: 1_000_000, output: 0, cacheRead: 0, cacheCreation: 0 } })).toBeNull()
+  })
+})
+
+describe('fast mode', () => {
+  const bucket = { input: 1_000_000, output: 1_000_000, cacheRead: 1_000_000, cacheCreation: 1_000_000 }
+
+  it('reads the per-model fast multiplier, null when absent', () => {
+    expect(pricing.fastMultiplier('claude-opus-4-8')).toBe(2)
+    expect(pricing.fastMultiplier('claude-opus-4-7')).toBe(6)
+    expect(pricing.fastMultiplier('claude-sonnet-4-6')).toBeNull()
+    expect(pricing.fastMultiplier('gpt-5')).toBeNull()
+  })
+
+  it('scales the standard cost by the multiplier when fast', () => {
+    const std = pricing.costForDelta('claude-opus-4-8', bucket)
+    expect(pricing.costForDelta('claude-opus-4-8', bucket, { fast: true })).toBeCloseTo(std * 2, 6)
+  })
+
+  it('falls back to 1x when fast but no multiplier is known', () => {
+    // claude-opus-4-5 has no fastModeMplr in the table
+    expect(pricing.fastMultiplier('claude-opus-4-5')).toBeNull()
+    const std = pricing.costForDelta('claude-opus-4-5', bucket)
+    expect(pricing.costForDelta('claude-opus-4-5', bucket, { fast: true })).toBeCloseTo(std, 6)
   })
 })
 
