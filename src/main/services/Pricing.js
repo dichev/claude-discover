@@ -65,22 +65,38 @@ export class Pricing {
     const res = await fetch(LITELLM_URL, { signal: AbortSignal.timeout(10_000) })
     if (!res.ok) throw new Error(`HTTP ${res.status}`)
     const litellm = await res.json()
-    // LiteLLM keys look like 'anthropic.claude-opus-4-5-20251101-v1:0' — strip provider and dated suffix.
-    const norm = k => k.toLowerCase().replace(/^anthropic\./, '').replace(/-\d{8}(-v\d+:\d+)?$|-v\d+:\d+$/, '')
-    const out = {}
-    for (const [k, v] of Object.entries(litellm)) {
-      const ourKey = Object.keys(this.prices).find(key => norm(k) === key)
-      if (!ourKey || out[ourKey]) continue
-      const i = v?.input_cost_per_token, o = v?.output_cost_per_token
-      const r = v?.cache_read_input_token_cost, w = v?.cache_creation_input_token_cost
-      const w1h = v?.cache_creation_input_token_cost_above_1hr
-      if (!i || !o || !r || !w || !w1h) continue
-      const M = 1e6
-      out[ourKey] = { input: i * M, output: o * M, cacheRead: r * M, cacheWrite: w * M, cacheWrite1h: w1h * M }
+
+    // Collect LiteLLM entries matching `prefix` into one record per model id, keyed without the prefix or any dated (-/@YYYYMMDD) / versioned (-vN[:N]) suffix,
+    // so 'anthropic.claude-opus-4-8-20260520-v1:0' and 'claude-opus-4-8' both land under 'opus-4-8'.
+    const collect = prefix => {
+      const id = k => k.slice(prefix.length).replace(/[-@]\d{8}(-v\d+(:\d+)?)?$|-v\d+(:\d+)?$/, '')
+      const out = {}
+      Object.entries(litellm)
+        .filter(([key]) => key.startsWith(prefix))
+        .forEach(([key, v]) => Object.assign(out[id(key)] ??= {}, v))
+      return out
     }
-    if (!Object.keys(out).length) return
-    fs.writeFileSync(CURRENT_PATH, JSON.stringify(out, null, 2) + '\n')
-    this.load()
-    console.info(`[pricing] updated ${Object.keys(out).length} model prices`)
+    const claude = collect('claude-')               // first-party, source of truth
+    const anthropic = collect('anthropic.claude-')  // Bedrock, backfills missing fields
+    const models = new Set([...Object.keys(anthropic), ...Object.keys(claude)])
+
+    // Merge and remap
+    const M = 1e6  // 1M tokens
+    const out = {}
+    for (const name of models) {
+      const m = Object.assign({}, anthropic[name], claude[name]) // Merge each model: anthropic.* backfills, claude-* wins (they disagree on claude-3-haiku's cache rates)
+      out['claude-' + name] = {
+        input: m.input_cost_per_token * M,
+        output: m.output_cost_per_token * M,
+        cacheRead: m.cache_read_input_token_cost * M,
+        cacheWrite: m.cache_creation_input_token_cost * M,
+        cacheWrite1h: m.cache_creation_input_token_cost_above_1hr * M,
+      }
+    }
+    if (Object.keys(out).length) {
+      fs.writeFileSync(CURRENT_PATH, JSON.stringify(out, null, 2) + '\n')
+      this.load()
+      console.info(`[pricing] updated ${Object.keys(out).length} model prices`)
+    }
   }
 }
