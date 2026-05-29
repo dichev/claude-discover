@@ -219,7 +219,6 @@
 
 .bar-fill { opacity: 0.92; }
 .bar-outline { fill: none; stroke: #fff; stroke-width: 1.5; }
-.gantt-cache-bar { fill: #fbbf24; }
 .gantt-idle { fill: #1f2632; }
 
 .bar {
