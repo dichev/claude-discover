@@ -23,7 +23,7 @@ export class MainWindow {
       height: state.height,
       backgroundColor: '#0b0d12',
       autoHideMenuBar: true,
-      title: `Agentic Workflow v${app.getVersion()} - Discover`,
+      title: `Claude Discover v${app.getVersion()}`,
       webPreferences: {
         preload: path.join(__dirname, '../preload/preload.mjs'),
         contextIsolation: true,

@@ -10,13 +10,13 @@ Copy-paste into ~/.claude/settings.json (replace the path):
 {
   "hooks": {
     "InstructionsLoaded": [
-      { "hooks": [{ "type": "command", "command": "node /ABSOLUTE/PATH/TO/agentic-workflow/bin/capture-context.hook.mjs" }] }
+      { "hooks": [{ "type": "command", "command": "node /ABSOLUTE/PATH/TO/claude-discover/bin/capture-context.hook.mjs" }] }
     ],
     "SessionStart": [
-      { "hooks": [{ "type": "command", "command": "node /ABSOLUTE/PATH/TO/agentic-workflow/bin/capture-context.hook.mjs" }] }
+      { "hooks": [{ "type": "command", "command": "node /ABSOLUTE/PATH/TO/claude-discover/bin/capture-context.hook.mjs" }] }
     ],
     "SessionEnd": [
-      { "hooks": [{ "type": "command", "command": "node /ABSOLUTE/PATH/TO/agentic-workflow/bin/capture-context.hook.mjs" }] }
+      { "hooks": [{ "type": "command", "command": "node /ABSOLUTE/PATH/TO/claude-discover/bin/capture-context.hook.mjs" }] }
     ]
   }
 }
@@ -33,7 +33,7 @@ const CLAUDE_HOOKS = {
   SESSION_END:         'SessionEnd',
 }
 const RECORD_TYPE = 'instructions-loaded'
-const ERROR_LOG = '.agentic-workflow.hook.error.log'
+const ERROR_LOG = '.claude-discover.hook.error.log'
 const CLEAR_ORPHAN_LOGS_AFTER_MS = 24 * 60 * 60_000 // Sweep orphan ndjson logs older than this. default: 1 day, set to 0 / false to disable
 
 

@@ -2,7 +2,7 @@ import fs from 'node:fs'
 import {homedir} from 'node:os'
 import {join} from 'node:path'
 
-const CONFIG_FILE = join(homedir(), '.agentic-workflow.json')
+const CONFIG_FILE = join(homedir(), '.claude-discover.json')
 export const getConfig = () => fs.existsSync(CONFIG_FILE) ? JSON.parse(fs.readFileSync(CONFIG_FILE, 'utf8')) : {}
 export const setConfig = data => fs.writeFileSync(CONFIG_FILE, JSON.stringify({ ...getConfig(), ...data }, null, 2))
 

@@ -1,4 +1,4 @@
-# Agentic Workflow
+# Claude Discover
 
 
 Reads from `~/.claude/projects/**/*.jsonl`.
@@ -38,4 +38,4 @@ Then your CLAUDE.md content shows up in the Conversation and JSONL tabs. Run `np
 - Only sessions started **after** the hook is installed will have captured context. Past sessions remain unsnapshotted.
 - The hook captures CLAUDE.md / memory files Claude Code reports via the `InstructionsLoaded` event (project, user-global, nested, includes). On `SessionStart` it also snapshots the project's auto-memory `MEMORY.md` from disk — Claude Code doesn't fire a hook for auto-memory, so this is a best-effort guess based on the conventional path; we can't confirm the model actually loaded it, or that the on-disk contents match what was injected. It does not capture per-turn `<system-reminder>` blocks (skill listings, deferred tools, auto-mode banner).
 - Files larger than 1 MB are recorded as a reference only (no content).
-- Errors are logged to `<CLAUDE_DIR>/.agentic-workflow.hook.error.log` so a broken hook never blocks a session.
+- Errors are logged to `<CLAUDE_DIR>/.claude-discover.hook.error.log` so a broken hook never blocks a session.

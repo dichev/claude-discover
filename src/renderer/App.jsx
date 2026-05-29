@@ -15,8 +15,8 @@ export default function App() {
   const [selectedId, setSelectedId] = useState(null)
   const [sourceFilter, setSourceFilter] = useState(null)
   const [cwdFilter, setCwdFilter] = useState(null)
-  const { defaultLayout, onLayoutChanged } = useDefaultLayout({ id: 'agenticWorkflow.body', panelIds: ['list', 'detail'], storage: localStorage })
-  const { defaultLayout: rootLayout, onLayoutChanged: onRootLayoutChanged } = useDefaultLayout({ id: 'agenticWorkflow.root', panelIds: ['gantt', 'body'], storage: localStorage })
+  const { defaultLayout, onLayoutChanged } = useDefaultLayout({ id: 'app.body', panelIds: ['list', 'detail'], storage: localStorage })
+  const { defaultLayout: rootLayout, onLayoutChanged: onRootLayoutChanged } = useDefaultLayout({ id: 'app.root', panelIds: ['gantt', 'body'], storage: localStorage })
 
   const dayRange = useMemo(() => {
     const start = dayAnchor
