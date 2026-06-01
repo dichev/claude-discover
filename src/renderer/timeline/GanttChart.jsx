@@ -134,15 +134,15 @@ export default function GanttChart({
       }
       const key = s.cwd || '(no cwd)'
       let group = byKey.get(key)
-      if (!group) byKey.set(key, group = { cwdShort: s.cwdShort, items: [] })
+      if (!group) byKey.set(key, group = { cwdShort: s.cwdShort, items: [], cost: 0 })
       group.items.push(item)
+      group.cost += s.cost || 0
     }
-    const arr = [...byKey.entries()].map(([key, { cwdShort, items }]) => {
+    const arr = [...byKey.entries()].map(([key, { cwdShort, items, cost }]) => {
       const { placed, laneCount } = packLanes(items)
-      const activity = items.reduce((sum, i) => sum + (i.end - i.start), 0)
-      return { key, cwdShort, placed, laneCount, activity }
+      return { key, cwdShort, placed, laneCount, cost }
     })
-    arr.sort((a, b) => b.activity - a.activity)
+    arr.sort((a, b) => b.cost - a.cost)
     let y = HEADER_HEIGHT
     for (const g of arr) {
       g.yOffset = y
@@ -208,13 +208,6 @@ export default function GanttChart({
   return (
     <div className="gantt-wrap">
       <div className="gantt-toolbar">
-        <div
-          className="gantt-claude-dir-wrap"
-          title="Use the File menu (press Alt) to change directory."
-        >
-          <span className="gantt-claude-dir-label">Claude dir:</span>
-          <span className="gantt-claude-dir">{window.api.claudeDir}</span>
-        </div>
         <div className="gantt-granularity">
           {GRANULARITIES.map(({ key, label }) => (
             <button

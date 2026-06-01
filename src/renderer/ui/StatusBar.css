@@ -13,6 +13,16 @@
 .statusbar-group { display: inline-flex; align-items: center; gap: 8px; }
 .statusbar > * + * { padding-left: 8px; border-left: 1px solid var(--border); }
 
+/* Pinned to the left; pushes the status messages to the right edge. */
+.statusbar-claude-dir {
+  margin-right: auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+
 .statusbar-tooltip p  { margin: 0 0 6px; }
 .statusbar-tooltip ul { margin: 0 0 6px; padding-left: 18px; }
 .statusbar-tooltip li { margin: 2px 0; }

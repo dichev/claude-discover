@@ -34,6 +34,9 @@ export default function StatusBar() {
 
   return (
     <div className="statusbar">
+      <span className="statusbar-claude-dir" title="Use the File menu (press Alt) to change directory.">
+        Claude dir: <code>{window.api.claudeDir}</code>
+      </span>
       {usage && (usage.error
         ? <span className="statusbar-msg statusbar-unavailable" title={USAGE_TOOLTIP.replace('<!--ERROR-->', `<pre class="statusbar-tooltip-error">Error: ${usage.error}</pre>`)}>
             Claude usage: unavailable

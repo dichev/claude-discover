@@ -148,30 +148,6 @@
   right: 0;
 }
 
-.gantt-claude-dir-wrap {
-  position: absolute;
-  left: 0;
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  max-width: 50%;
-  font-size: 11px;
-  color: var(--text-dim);
-}
-.gantt-claude-dir-label {
-  flex-shrink: 0;
-}
-.gantt-claude-dir {
-  min-width: 0;
-  font-size: 11px;
-  color: var(--text-dim);
-  font-family: 'JetBrains Mono', monospace;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  padding: 3px 6px;
-}
-
 .legend-chip {
   display: inline-flex;
   align-items: center;
