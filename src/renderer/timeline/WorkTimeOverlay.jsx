@@ -14,6 +14,23 @@ const clamp = (v, lo, hi) => Math.min(Math.max(v, lo), hi)
 const fmtHM = (m) => `${String(Math.floor(m / 60)).padStart(2, '0')}:${String(m % 60).padStart(2, '0')}`
 const parseHM = (s) => { const [h, m] = s.split(':').map(Number); return h * 60 + m }
 
+// Saturday/Sunday spans (clamped to the view) for the Weekly/Monthly overlay.
+const weekendSpans = (viewStart, viewEnd) => {
+  const spans = []
+  const d = new Date(viewStart)
+  d.setHours(0, 0, 0, 0)
+  while (d.getTime() < viewEnd) {
+    const day = d.getDay()
+    if (day === 0 || day === 6) {
+      const start = d.getTime()
+      const end = new Date(d).setDate(d.getDate() + 1)
+      spans.push([clamp(start, viewStart, viewEnd), clamp(end, viewStart, viewEnd)])
+    }
+    d.setDate(d.getDate() + 1)
+  }
+  return spans
+}
+
 
 
 export default function WorkTimeOverlay({
@@ -43,12 +60,10 @@ export default function WorkTimeOverlay({
     if (workTime) window.api.setWorkHours({ work_hours: { start: fmtHM(workTime.startMin), end: fmtHM(workTime.endMin) } })
   }, [workTime])
 
-  if (!workTime) return null
-
   const chartRight = chartLeft + chartWidth
   const xForMin = (min) => chartLeft + ((dayStart + min * 60_000 - viewStart) / (viewEnd - viewStart)) * chartWidth
-  const xStart = xForMin(workTime.startMin)
-  const xEnd = xForMin(workTime.endMin)
+  const xStart = workTime ? xForMin(workTime.startMin) : 0
+  const xEnd = workTime ? xForMin(workTime.endMin) : 0
 
   const startDrag = (which) => (e) => {
     e.stopPropagation()
@@ -72,8 +87,12 @@ export default function WorkTimeOverlay({
     document.addEventListener('mouseup', onUp)
   }
 
-  const renderHandle = (which, x, min) => {
-    if (x < chartLeft || x > chartRight) return null
+  const renderHandle = (which, rawX, min) => {
+    // Cull only handles genuinely off-screen (e.g. when zoomed); keep boundary
+    // handles that land on the edge — 00:00/24:00 round a hair past it — and
+    // clamp them onto the chart so they stay visible and grabbable.
+    if (rawX < chartLeft - 1 || rawX > chartRight + 1) return null
+    const x = clamp(rawX, chartLeft, chartRight)
     const isDragging = dragging === which
     const labelOnLeft = which === 'end'
     return (
@@ -104,7 +123,7 @@ export default function WorkTimeOverlay({
           <line className="work-offhours-stripe" x1={0} y1={0} x2={0} y2={8} />
         </pattern>
       </defs>
-      {showWorkBand && (
+      {showWorkBand && workTime && (
         <g className="work-overlay">
           <rect className="work-offhours-shade" x={chartLeft} y={0} width={Math.max(0, shadeL - chartLeft)} height={totalHeight} />
           <rect className="work-offhours-shade" x={shadeR} y={0} width={Math.max(0, chartRight - shadeR)} height={totalHeight} />
@@ -112,6 +131,16 @@ export default function WorkTimeOverlay({
             {renderHandle('start', xStart, workTime.startMin)}
             {renderHandle('end', xEnd, workTime.endMin)}
           </g>
+        </g>
+      )}
+      {!showWorkBand && (
+        <g className="work-overlay">
+          {weekendSpans(viewStart, viewEnd).map(([start, end], i) => {
+            const x = clamp(xForTs(start), chartLeft, chartRight)
+            const w = clamp(xForTs(end), chartLeft, chartRight) - x
+            if (w <= 0) return null
+            return <rect key={i} className="work-offhours-shade" x={x} y={0} width={w} height={totalHeight} />
+          })}
         </g>
       )}
       {showNow && (
