@@ -1,14 +1,7 @@
 import React, { useEffect, useState } from 'react'
-import { THRESHOLDS as T } from '../utils/thresholds.js'
-import { tone } from '../utils/formatting.js'
 import './WorkTimeOverlay.css'
 
 const SNAP_MIN = 5
-const LIMITS = [
-  { key: 'five_hour', label: '5h', windowMs: 5 * 3600_000,  thresholds: T.usage5h },
-  { key: 'seven_day', label: '7d', windowMs: 7 * 86400_000, thresholds: T.usage7d },
-]
-
 
 const clamp = (v, lo, hi) => Math.min(Math.max(v, lo), hi)
 const fmtHM = (m) => `${String(Math.floor(m / 60)).padStart(2, '0')}:${String(m % 60).padStart(2, '0')}`
@@ -39,7 +32,6 @@ export default function WorkTimeOverlay({
   const [workTime, setWorkTime] = useState(null)
   const [dragging, setDragging] = useState(null)
   const [now,      setNow]      = useState(() => Date.now())
-  const [usage,    setUsage]    = useState(null)
 
   useEffect(() => {
     window.api.getWorkHours().then(({ work_hours: w }) => setWorkTime({ startMin: parseHM(w.start), endMin: parseHM(w.end) }))
@@ -48,12 +40,6 @@ export default function WorkTimeOverlay({
   useEffect(() => {
     const id = setInterval(() => setNow(Date.now()), 60000)
     return () => clearInterval(id)
-  }, [])
-
-  useEffect(() => {
-    const apply = u => { if (u) setUsage(u) }
-    window.api.getAgentUsage().then(apply)
-    return window.api.onAgentUsage(apply)
   }, [])
 
   useEffect(() => {
@@ -149,32 +135,6 @@ export default function WorkTimeOverlay({
           <text x={xForTs(now) + 4} y={headerHeight - 2}>now</text>
         </g>
       )}
-      {LIMITS.map(({ key, label, windowMs, thresholds }, i) => {
-        const entry = usage?.[key]
-        if (!entry?.resets_at) return null
-        const ts = new Date(entry.resets_at).getTime()
-        if (ts < viewStart) return null
-        const pct = Math.round(entry.utilization)
-        const projected = Math.round(pct / Math.max(0.05, 1 - (ts - now) / windowMs))
-        const level = tone(projected, thresholds) || 'ok'
-        const tooltip = `Claude usage ${label} limit (${pct}% used, ${projected}% projected), resets ${new Date(ts).toLocaleString()}`
-        if (ts > viewEnd) {
-          return (
-            <g key={key} className={`limit-line limit-line-offscreen limit-${level}`}>
-              <title>{tooltip}</title>
-              <text x={chartRight - (i === 0 ? 64 : 4)} y={headerHeight - 2} textAnchor="end">{`${label} (${pct}%)`}</text>
-            </g>
-          )
-        }
-        const x = xForTs(ts)
-        return (
-          <g key={key} className={`limit-line limit-${level}`}>
-            <title>{tooltip}</title>
-            <line x1={x} x2={x} y1={0} y2={totalHeight} />
-            <text x={x + 4} y={headerHeight - 2}>{`${label} limit (${pct}%)`}</text>
-          </g>
-        )
-      })}
     </g>
   )
 }

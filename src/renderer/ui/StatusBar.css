@@ -27,7 +27,5 @@
 .statusbar-tooltip ul { margin: 0 0 6px; padding-left: 18px; }
 .statusbar-tooltip li { margin: 2px 0; }
 .statusbar-tooltip > :last-child { margin-bottom: 0; }
-.statusbar-tooltip-error { color: var(--warn); margin: 0; white-space: pre-wrap; font-family: inherit; font-size: inherit; }
 .statusbar-off { color: var(--warn); }
 .statusbar-on  { color: var(--ok); }
-.statusbar-unavailable { color: #868e9d; }

@@ -17,9 +17,7 @@ app.whenReady().then(() => {
   const sessionsService = new SessionsService()
 
   sessionsService.on('update', sessions => win.send('sessions:update', sessions))
-  agentRunner.on('usage', u => win.send('agent:usage-update', u))
   sessionsService.start()
-  agentRunner.startUsagePolling()
   powerMonitor.on('suspend', () => {
     sessionsService.stop()
     powerMonitor.once('resume', () => setTimeout(() => sessionsService.start(), 1000))
@@ -38,8 +36,7 @@ app.whenReady().then(() => {
   ipcMain.handle('work-hours:get', () => workHours.read())
   ipcMain.handle('work-hours:set', (_e, data) => workHours.write(data))
 
-  ipcMain.handle('agent:run',   (e, text, systemTools) => agentRunner.run(text, e.sender, systemTools))
-  ipcMain.handle('agent:usage', () => agentRunner.latestUsage)
+  ipcMain.handle('agent:run', (e, text, systemTools) => agentRunner.run(text, e.sender, systemTools))
 
   ipcMain.handle('shell:open-link', (_e, href, baseFile) => openLink(href, baseFile))
 

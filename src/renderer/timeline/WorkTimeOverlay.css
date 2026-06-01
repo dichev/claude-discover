@@ -42,12 +42,3 @@
   & line { stroke: var(--danger); stroke-width: 1.5; }
   & text { fill: var(--danger); font-size: 11px; }
 }
-
-.limit-line {
-  pointer-events: none;
-  & line { stroke-width: 1; stroke-dasharray: 3 3; }
-  & text { font-size: 11px; }
-}
-.limit-line.limit-ok     { & line { stroke: var(--ok);     } & text { fill: var(--ok);     } }
-.limit-line.limit-warn   { & line { stroke: var(--warn);   } & text { fill: var(--warn);   } }
-.limit-line.limit-danger { & line { stroke: var(--danger); } & text { fill: var(--danger); } }

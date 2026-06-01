@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react'
+import React from 'react'
 import './StatusBar.css'
 
 const HOOK_TOOLTIP = `
@@ -14,35 +14,14 @@ const HOOK_TOOLTIP = `
   </div>
 `
 
-const USAGE_TOOLTIP = `
-  <div class="statusbar-tooltip">
-    <p>Polls <code>api.anthropic.com/api/oauth/usage</code> with the OAuth token from your local Claude Code config for your 5-hour and 7-day plan utilization.</p>
-    <p>This in an unofficial endpoint — may break without notice.</p>
-    <!--ERROR-->
-  </div>
-`
-
 export default function StatusBar() {
-  const [usage, setUsage] = useState(null)
-  const installed         = window.api.hookInstalled
-
-  useEffect(() => {
-    const apply = u => { if (u) setUsage(u) }
-    window.api.getAgentUsage().then(apply)
-    return window.api.onAgentUsage(apply)
-  }, [])
+  const installed = window.api.hookInstalled
 
   return (
     <div className="statusbar">
       <span className="statusbar-claude-dir" title="Use the File menu (press Alt) to change directory.">
         Claude dir: <code>{window.api.claudeDir}</code>
       </span>
-      {usage && (usage.error
-        ? <span className="statusbar-msg statusbar-unavailable" title={USAGE_TOOLTIP.replace('<!--ERROR-->', `<pre class="statusbar-tooltip-error">Error: ${usage.error}</pre>`)}>
-            Claude usage: unavailable
-          </span>
-        : <span className="statusbar-msg statusbar-on" title={USAGE_TOOLTIP}>Claude usage: ON</span>
-      )}
       <span className="statusbar-group" title={HOOK_TOOLTIP}>
         <span className={`statusbar-msg ${installed ? 'statusbar-on' : 'statusbar-off'}`}>
           Capture context hook : {installed ? 'ON' : 'off'}
