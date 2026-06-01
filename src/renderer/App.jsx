@@ -1,17 +1,20 @@
 import React, { useEffect, useMemo, useState, useCallback } from 'react'
 import { Group, Panel, Separator, useDefaultLayout } from 'react-resizable-panels'
 import GanttChart from './timeline/GanttChart.jsx'
-import DailySummary from './timeline/DailySummary.jsx'
+import PeriodSummary from './timeline/PeriodSummary.jsx'
 import SessionList from './sessions/SessionList.jsx'
 import SessionView from './sessions/SessionView.jsx'
 import StatusBar from './ui/StatusBar.jsx'
-import { startOfDay, endOfDay, format } from 'date-fns'
+import { format } from 'date-fns'
+import { startOfPeriod, endOfPeriod, addPeriod } from './utils/period.js'
+import { useLocalStorage } from './utils/useLocalStorage.js'
 import './App.css'
 
 export default function App() {
   const [sessions, setSessions] = useState([])
   const [loading, setLoading] = useState(true)
-  const [dayAnchor, setDayAnchor] = useState(() => +startOfDay(Date.now()))
+  const [granularity, setGranularity] = useLocalStorage('gantt.granularity', 'day')
+  const [anchor, setAnchor] = useState(() => startOfPeriod(Date.now(), granularity))
   const [selectedId, setSelectedId] = useState(null)
   const [sourceFilter, setSourceFilter] = useState(null)
   const [cwdFilter, setCwdFilter] = useState(null)
@@ -19,15 +22,15 @@ export default function App() {
   const { defaultLayout: rootLayout, onLayoutChanged: onRootLayoutChanged } = useDefaultLayout({ id: 'app.root', panelIds: ['gantt', 'body'], storage: localStorage })
 
   const dayRange = useMemo(() => {
-    const start = dayAnchor
-    const end = +endOfDay(dayAnchor)
+    const start = anchor
+    const end = endOfPeriod(anchor, granularity)
     return { start, end }
-  }, [dayAnchor])
+  }, [anchor, granularity])
 
   useEffect(() => {
     let cancelled = false
     const timer = setTimeout(() => {
-      window.api.listSessions(format(dayAnchor, 'yyyy-MM-dd'))
+      window.api.listSessions(format(anchor, 'yyyy-MM-dd'), granularity)
         .then((s) => {
           if (!cancelled) { setSessions(s || []); setLoading(false) }
         })
@@ -38,7 +41,7 @@ export default function App() {
      clearTimeout(timer)
      off()
      }
-  }, [dayAnchor])
+  }, [anchor, granularity])
 
   const dayItems = useMemo(() => {
     const sourceFiltered = sourceFilter ? sessions.filter((s) => (s.source || 'other') === sourceFilter) : sessions
@@ -52,10 +55,17 @@ export default function App() {
     [sessions, selectedId]
   )
 
-  const shiftDay = useCallback((deltaDays) => {
+  const shiftPeriod = useCallback((delta) => {
     setCwdFilter(null)
-    setDayAnchor((d) => +startOfDay(d + deltaDays * 86400_000 + 3600_000))
-  }, [])
+    setAnchor((a) => startOfPeriod(addPeriod(a, granularity, delta), granularity))
+  }, [granularity])
+
+  const changeGranularity = useCallback((g) => {
+    setCwdFilter(null)
+    // Snap to the LAST sub-period of the current window (e.g. month → its final week/day), capped at today
+    setAnchor((a) => startOfPeriod(Math.min(endOfPeriod(a, granularity), Date.now()), g))
+    setGranularity(g)
+  }, [granularity, setGranularity])
 
   if (loading) {
     return <div className="app-loading">Loading sessions…</div>
@@ -75,16 +85,18 @@ export default function App() {
           sessions={dayItems.sourceFiltered}
           onSelect={setSelectedId}
           selectedId={selectedId}
-          onShiftDay={shiftDay}
-          onResetToday={() => { setCwdFilter(null); setDayAnchor(+startOfDay(Date.now())) }}
-          dayAnchor={dayAnchor}
+          onShiftDay={shiftPeriod}
+          onResetToday={() => { setCwdFilter(null); setAnchor(startOfPeriod(Date.now(), granularity)) }}
+          dayAnchor={anchor}
+          granularity={granularity}
+          onSetGranularity={changeGranularity}
           sourceFilter={sourceFilter}
           availableSources={dayItems.availableSources}
           onToggleSourceFilter={(src) => setSourceFilter((cur) => (cur === src ? null : src))}
           cwdFilter={cwdFilter}
           onToggleCwdFilter={(cwd) => setCwdFilter((cur) => (cur === cwd ? null : cwd))}
         />
-        <DailySummary sessions={dayItems.past} dayAnchor={dayAnchor} />
+        <PeriodSummary sessions={dayItems.past} dayAnchor={anchor} granularity={granularity} />
       </Panel>
       <Separator className="resize-handle resize-handle-h" />
       <Panel id="body" minSize={20} className="body-outer">
@@ -103,7 +115,7 @@ export default function App() {
         </Panel>
         <Separator className="resize-handle resize-handle-v" />
         <Panel id="detail" minSize={30} className="body-pane">
-          <SessionView meta={selected} date={format(dayAnchor, 'yyyy-MM-dd')} />
+          <SessionView meta={selected} date={format(anchor, 'yyyy-MM-dd')} granularity={granularity} />
         </Panel>
         </Group>
       </Panel>

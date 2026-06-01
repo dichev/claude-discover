@@ -7,7 +7,7 @@ import Toggle from '../ui/Toggle.jsx'
 import { useAgent } from '../agent/Agent.js'
 import './SessionView.css'
 
-export default function SessionView({ meta, date }) {
+export default function SessionView({ meta, date, granularity = 'day' }) {
   const [items, setItems]         = useState(null)
   const [loading, setLoading]     = useState(false)
   const [mode, setMode]           = useState('conversation')
@@ -21,20 +21,20 @@ export default function SessionView({ meta, date }) {
     offsetRef.current = 0
     setItems(null)
     setLoading(!!sessionId)
-  }, [sessionId, date])
+  }, [sessionId, date, granularity])
 
   useEffect(() => {
     if (!sessionId || fileSize <= offsetRef.current) return
     let cancelled = false
     const from = offsetRef.current
-    window.api.readSession(sessionId, from, date || null).then((res) => {
+    window.api.readSession(sessionId, from, date || null, granularity).then((res) => {
       if (cancelled || !res) return
       offsetRef.current = res.nextOffset
       setItems((prev) => from === 0 ? res.items : (prev || []).concat(res.items))
       setLoading(false)
     })
     return () => { cancelled = true }
-  }, [sessionId, date, fileSize])
+  }, [sessionId, date, granularity, fileSize])
 
   if (!meta) {
     return <div className="session-view empty"><div>Select a session to inspect.</div></div>

@@ -1,9 +1,16 @@
 import React, { useMemo, useState } from 'react'
 import { format } from 'date-fns'
+import { endOfPeriod } from '../utils/period.js'
 import { fmtUSD, fmtCompact, fmtDuration } from '../utils/formatting.js'
-import './DailySummary.css'
+import './PeriodSummary.css'
 
-export default function DailySummary({ sessions, dayAnchor }) {
+function periodTitle(anchor, granularity) {
+  if (granularity === 'week') return `${format(anchor, 'MMM d')} – ${format(endOfPeriod(anchor, 'week'), 'MMM d')}`
+  if (granularity === 'month') return format(anchor, 'MMMM yyyy')
+  return format(anchor, 'EEE, MMM d')
+}
+
+export default function PeriodSummary({ sessions, dayAnchor, granularity = 'day' }) {
   const totals = useMemo(() => {
     const t = sessions.reduce((acc, s) => {
       acc.cost += s.cost || 0
@@ -46,7 +53,7 @@ export default function DailySummary({ sessions, dayAnchor }) {
 
   return (
     <aside className="gantt-side">
-      <h2 className="gantt-side-title">{format(dayAnchor, 'EEE, MMM d')}</h2>
+      <h2 className="gantt-side-title">{periodTitle(dayAnchor, granularity)}</h2>
       <div className="gantt-side-section">
         <div className="gantt-side-row"><span>Working time</span><b>{fmtDuration(totals.activeMs)}</b></div>
         <div className="gantt-side-row"><span>Total tokens</span><b>{fmtCompact(totals.totalTokens)}</b></div>

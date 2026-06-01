@@ -26,6 +26,44 @@
   user-select: none;
 }
 
+.gantt-granularity {
+  display: inline-flex;
+  align-items: stretch;
+  margin-right: 12px;
+  background: var(--bg-elev);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  overflow: hidden;
+  box-shadow: 0 1px 0 rgba(0,0,0,0.3);
+  user-select: none;
+}
+
+.gantt-granularity-btn {
+  background: transparent;
+  border: none;
+  border-radius: 0;
+  color: #b7c5da;
+  font-size: 12px;
+  padding: 5px 14px;
+  line-height: 1.4;
+  cursor: pointer;
+  transition: background 0.12s, color 0.12s;
+}
+
+.gantt-granularity-btn + .gantt-granularity-btn {
+  border-left: 1px solid var(--border);
+}
+
+.gantt-granularity-btn:hover {
+  background: rgba(255,255,255,0.05);
+  color: #fff;
+}
+
+.gantt-granularity-btn.active {
+  background: rgba(96,165,250,0.16);
+  color: #fff;
+}
+
 .gantt-controls > button {
   background: transparent;
   border: none;

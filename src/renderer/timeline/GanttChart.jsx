@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState, useCallback } from 'react'
-import { format, startOfDay, isSameDay } from 'date-fns'
+import { format } from 'date-fns'
+import { isSamePeriod, periodLabel } from '../utils/period.js'
 import { SOURCE_COLORS, SOURCE_LABELS, SOURCE_ORDER } from '../utils/colors.js'
 import { useLocalStorage } from '../utils/useLocalStorage.js'
 import HeatStrip from './HeatStrip.jsx'
@@ -39,6 +40,28 @@ function minorIntervalFor(span) {
 }
 
 function HourTicks({ viewStart, viewEnd, width, span }) {
+  // Wide (week / month) spans: tick once per day instead of ~720 hourly lines.
+  if (span > 2 * 86400_000) {
+    const ticks = []
+    const d = new Date(viewStart)
+    d.setHours(0, 0, 0, 0)
+    if (d.getTime() < viewStart) d.setDate(d.getDate() + 1)
+    for (let t = d.getTime(); t <= viewEnd; d.setDate(d.getDate() + 1), t = d.getTime()) {
+      ticks.push({ x: ((t - viewStart) / span) * width, label: format(t, 'MMM d') })
+    }
+    return (
+      <g className="ticks">
+        {ticks.map((tk, i) => (
+          <g key={i} transform={`translate(${tk.x},0)`}>
+            <line y1={0} y2={HEADER_HEIGHT} className="tick-hline tick-major" />
+            <line y1={HEADER_HEIGHT} y2="100%" className="tick-vline tick-major" />
+            <text x={4} y={14} className="tick-text tick-major">{tk.label}</text>
+          </g>
+        ))}
+      </g>
+    )
+  }
+
   const step = minorIntervalFor(span) ?? 3600_000
   const intervalMin = step / 60_000
 
@@ -68,17 +91,26 @@ function HourTicks({ viewStart, viewEnd, width, span }) {
   )
 }
 
+const GRANULARITIES = [
+  { key: 'day', label: 'Daily' },
+  { key: 'week', label: 'Weekly' },
+  { key: 'month', label: 'Monthly' },
+]
+
 export default function GanttChart({
   dayRange, sessions, onSelect, selectedId, onShiftDay, onResetToday, dayAnchor,
+  granularity = 'day', onSetGranularity,
   sourceFilter, availableSources, onToggleSourceFilter, cwdFilter, onToggleCwdFilter,
 }) {
   const containerRef = useRef(null)
   const [width, setWidth] = useState(1200)
-  const [view, setView] = useLocalStorage('gantt-chart.view', { dayAnchor, start: dayRange.start, end: dayRange.end })
+  const [view, setView] = useLocalStorage('gantt-chart.view', { dayAnchor, granularity, start: dayRange.start, end: dayRange.end })
 
   useEffect(() => {
-    if (view.dayAnchor !== dayAnchor) setView({ dayAnchor, start: dayRange.start, end: dayRange.end })
-  }, [dayAnchor])
+    if (view.dayAnchor !== dayAnchor || view.granularity !== granularity) {
+      setView({ dayAnchor, granularity, start: dayRange.start, end: dayRange.end })
+    }
+  }, [dayAnchor, granularity])
 
   useEffect(() => {
     if (!containerRef.current) return
@@ -131,7 +163,7 @@ export default function GanttChart({
     const xInCanvas = e.clientX - rect.left
     const ratio = Math.min(1, Math.max(0, (xInCanvas - GUTTER_WIDTH) / chartWidth))
     if (e.shiftKey || e.ctrlKey) {
-      const newSpan = Math.max(60_000, Math.min(7 * 86400_000, span * Math.exp(e.deltaY * 0.0015)))
+      const newSpan = Math.max(60_000, Math.min(dayRange.end - dayRange.start, span * Math.exp(e.deltaY * 0.0015)))
       const center = view.start + ratio * span
       const start = Math.max(dayRange.start, center - ratio * newSpan)
       const end = Math.min(dayRange.end, center + (1 - ratio) * newSpan)
@@ -183,22 +215,32 @@ export default function GanttChart({
           <span className="gantt-claude-dir-label">Claude dir:</span>
           <span className="gantt-claude-dir">{window.api.claudeDir}</span>
         </div>
+        <div className="gantt-granularity">
+          {GRANULARITIES.map(({ key, label }) => (
+            <button
+              key={key}
+              type="button"
+              className={`gantt-granularity-btn${granularity === key ? ' active' : ''}`}
+              onClick={() => onSetGranularity?.(key)}
+            >{label}</button>
+          ))}
+        </div>
         <div className="gantt-pill-wrap">
           <div className="gantt-controls">
-            <button className="gantt-nav-btn" onClick={() => onShiftDay(-1)} title="Previous day" aria-label="Previous day">←</button>
-            <span className="gantt-date-label">{format(dayAnchor, 'MMM d')}</span>
+            <button className="gantt-nav-btn" onClick={() => onShiftDay(-1)} title="Previous period" aria-label="Previous period">←</button>
+            <span className="gantt-date-label">{periodLabel(dayAnchor, granularity)}</span>
             <button
               className="gantt-nav-btn"
               onClick={() => onShiftDay(1)}
-              title="Next day"
-              aria-label="Next day"
-              style={{ visibility: isSameDay(dayAnchor, startOfDay(Date.now())) ? 'hidden' : 'visible' }}
+              title="Next period"
+              aria-label="Next period"
+              style={{ visibility: isSamePeriod(dayAnchor, Date.now(), granularity) ? 'hidden' : 'visible' }}
             >→</button>
           </div>
           <button
             className="gantt-today-btn"
             onClick={onResetToday}
-            style={{ visibility: isSameDay(dayAnchor, startOfDay(Date.now())) ? 'hidden' : 'visible' }}
+            style={{ visibility: isSamePeriod(dayAnchor, Date.now(), granularity) ? 'hidden' : 'visible' }}
           >Today</button>
         </div>
         <div className="gantt-legend">
@@ -283,6 +325,7 @@ export default function GanttChart({
             </g>
           ))}
           <WorkTimeOverlay
+            showWorkBand={granularity === 'day'}
             dayStart={dayRange.start}
             viewStart={view.start}
             viewEnd={view.end}

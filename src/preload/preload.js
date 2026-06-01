@@ -9,8 +9,8 @@ const subscribe = channel => cb => {
 contextBridge.exposeInMainWorld('api', {
   claudeDir:     ipcRenderer.sendSync('claude-dir:get'),
   hookInstalled: ipcRenderer.sendSync('hook:installed:get'),
-  listSessions: (date) => ipcRenderer.invoke('sessions:list', date),
-  readSession: (id, offset = 0, date = null) => ipcRenderer.invoke('sessions:read', id, offset, date),
+  listSessions: (date, granularity = 'day') => ipcRenderer.invoke('sessions:list', date, granularity),
+  readSession: (id, offset = 0, date = null, granularity = 'day') => ipcRenderer.invoke('sessions:read', id, offset, date, granularity),
   onSessionsUpdate: subscribe('sessions:update'),
 
   getWorkHours: () => ipcRenderer.invoke('work-hours:get'),

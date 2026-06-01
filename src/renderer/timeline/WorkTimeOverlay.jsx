@@ -17,7 +17,7 @@ const parseHM = (s) => { const [h, m] = s.split(':').map(Number); return h * 60 
 
 
 export default function WorkTimeOverlay({
-  dayStart, viewStart, viewEnd, chartLeft, chartWidth, totalHeight, headerHeight, containerRef,
+  showWorkBand = true, dayStart, viewStart, viewEnd, chartLeft, chartWidth, totalHeight, headerHeight, containerRef,
 }) {
   const [workTime, setWorkTime] = useState(null)
   const [dragging, setDragging] = useState(null)
@@ -104,14 +104,16 @@ export default function WorkTimeOverlay({
           <line className="work-offhours-stripe" x1={0} y1={0} x2={0} y2={8} />
         </pattern>
       </defs>
-      <g className="work-overlay">
-        <rect className="work-offhours-shade" x={chartLeft} y={0} width={Math.max(0, shadeL - chartLeft)} height={totalHeight} />
-        <rect className="work-offhours-shade" x={shadeR} y={0} width={Math.max(0, chartRight - shadeR)} height={totalHeight} />
-        <g className="work-handles">
-          {renderHandle('start', xStart, workTime.startMin)}
-          {renderHandle('end', xEnd, workTime.endMin)}
+      {showWorkBand && (
+        <g className="work-overlay">
+          <rect className="work-offhours-shade" x={chartLeft} y={0} width={Math.max(0, shadeL - chartLeft)} height={totalHeight} />
+          <rect className="work-offhours-shade" x={shadeR} y={0} width={Math.max(0, chartRight - shadeR)} height={totalHeight} />
+          <g className="work-handles">
+            {renderHandle('start', xStart, workTime.startMin)}
+            {renderHandle('end', xEnd, workTime.endMin)}
+          </g>
         </g>
-      </g>
+      )}
       {showNow && (
         <g className="now-line">
           <line x1={xForTs(now)} x2={xForTs(now)} y1={0} y2={totalHeight} />

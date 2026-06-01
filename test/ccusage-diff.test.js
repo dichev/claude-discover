@@ -18,10 +18,10 @@ const PROJECTS_ROOT = path.join(os.homedir(), '.claude', 'projects')
 const COST_TOL_ABS = 0.01
 const COST_TOL_REL = 0.005
 
-// Mirrors what the running app does to populate DailySummary:
+// Mirrors what the running app does to populate PeriodSummary:
 //   - scanSession for each .jsonl   (parses + per-file dedup + per-session cost)
 //   - dedupSessions across all metas (cross-session dedup of resumed/forked sessions)
-//   - sum per-session tokens + per-session cost   (DailySummary.jsx:8-20)
+//   - sum per-session tokens + per-session cost   (PeriodSummary.jsx)
 async function ourTotals() {
   const entries = await fsp.readdir(PROJECTS_ROOT, { recursive: true, withFileTypes: true })
   const metas = []
