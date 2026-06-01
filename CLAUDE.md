@@ -68,6 +68,7 @@ Windows is the default OS, but we must support also **macOS**. When adding a mac
 - IPC channel names use `namespace:kebab-case-action` (e.g. `sessions:read-log-file`, not `sessions:readLogFile`)
 
 ## UI testing / debugging
+**Ask before running Playwright UI testing** — don't drive the app via Playwright MCP unless the user has confirmed.
 
 Use the Playwright MCP server (configured in `.mcp.json`) to inspect the frontend. It connects to the Electron app over CDP at `http://localhost:9333` — use the `mcp__playwright__*` tools to navigate, snapshot, click, evaluate, etc.
 

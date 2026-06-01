@@ -1,0 +1,10 @@
+.tick-hline {
+  &.tick-major { stroke: #2a3140; }
+  &.tick-minor { stroke: #1e2a38; }
+}
+.tick-text {
+  fill: #7a8699;
+  font-family: var(--font-mono), monospace;
+  &.tick-major { font-size: 9px; }
+  &.tick-minor { font-size: 9px; }
+}

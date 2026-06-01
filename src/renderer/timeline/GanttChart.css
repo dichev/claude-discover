@@ -216,19 +216,10 @@
 .gantt-cwd-clickable:hover { fill: #ffffff; }
 .gantt-cwd-active { fill: #7aa2f7; font-weight: 600; }
 
-.tick-hline {
-  &.tick-major { stroke: #2a3140; }
-  &.tick-minor { stroke: #1e2a38; }
-}
+/* Full-height grid lines, positioned from TimeAxis's computeTicks. */
 .tick-vline {
   &.tick-major { stroke: #161a22; }
   &.tick-minor { stroke: #181e2a; }
-}
-.tick-text {
-  fill: #7a8699;
-  font-family: var(--font-mono), monospace;
-  &.tick-major { font-size: 9px; }
-  &.tick-minor { font-size: 9px; }
 }
 
 .bar-fill { opacity: 0.92; }
