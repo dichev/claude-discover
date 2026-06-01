@@ -68,6 +68,9 @@ export class SessionParser {
     this.prevMessage = null
     this.tokenTotal = 0
     this.lastSeenTs = null
+    // msgId -> the usage bucket we've already folded into the totals, so later
+    // snapshots of a streamed reply can contribute only their growth.
+    this.appliedById = new Map()
     // excludeIds disables incremental reuse — the exclusion changes the totals.
     const reuse = prev && fileSize >= prev.fileSize && !excludeIds
     this.reused = reuse
@@ -151,19 +154,23 @@ export class SessionParser {
     return true
   }
 
-  // One assistant reply spans several jsonl lines that share message.id + usage —
-  // count only first sight. Always stamps per-item running totals on the obj;
-  // session-level aggregation is skipped for ids in `excludeIds` (already
-  // counted in an earlier resumed-from session).
+  // One assistant reply is written as several jsonl lines sharing message.id:
+  // input/cache stay fixed while output_tokens grows toward its final value. We
+  // add each line's *growth* over the previous one (the full usage on the first
+  // line), so the totals land on the final value — what ccusage bills. The
+  // per-item running-total stamps and the stream-stable metadata come only from
+  // the first line; ids in `excludeIds` (already counted in an earlier
+  // resumed-from session) stamp but never aggregate.
+  // (`appliedById` is per-stream, not persisted, so a reply whose lines straddle a
+  // live incremental rescan can briefly undercount; the next full re-scan fixes it.)
   _recordUsage(obj) {
     const meta = this.meta
     const msg = obj.message
     const u = msg?.usage
     const msgId = msg?.id
-    if (!u || !msgId || meta.seenMessageIds.has(msgId)) return
-    meta.seenMessageIds.add(msgId)
+    if (!u || !msgId) return
     const cc = u.cache_creation || {}
-    const delta = {
+    const usage = {
       input: u.input_tokens || 0,
       output: u.output_tokens || 0,
       cacheRead: u.cache_read_input_tokens || 0,
@@ -171,47 +178,55 @@ export class SessionParser {
       cacheCreation5m: cc.ephemeral_5m_input_tokens || 0,
       cacheCreation1h: cc.ephemeral_1h_input_tokens || 0,
     }
-    const contextSize = delta.input + delta.cacheRead + delta.cacheCreation
-    // Input tokens attribute to the turn that *caused* the call (user prompt
-    // or tool_result) — the model is billed for reading the preceding turn.
-    const inputTarget = this.prevMessage && this.prevMessage._tokenDelta == null ? this.prevMessage : obj
-    this.tokenTotal += contextSize
-    inputTarget._tokenDelta = (inputTarget._tokenDelta || 0) + contextSize
-    inputTarget._tokenTotal = this.tokenTotal
-    this.tokenTotal += delta.output
-    obj._tokenDelta = (obj._tokenDelta || 0) + delta.output
-    obj._tokenTotal = this.tokenTotal
-    if (this.excludeIds?.has(msgId)) return
     const model = msg.model || 'unknown'
     const fast = u.speed === 'fast'
-    if (this.pricing && obj._ts != null) {
-      const cost = this.pricing.costForDelta(model, delta, { fast })
-      if (cost != null && cost > 0) {
-        const end = obj._ts
-        const prevTs = this.prevMessage?._ts
-        const start = prevTs != null && prevTs < end ? prevTs : end
-        meta.costSamples.push({ start, end, cost })
+    const contextSize = usage.input + usage.cacheRead + usage.cacheCreation
+
+    if (!meta.seenMessageIds.has(msgId)) {
+      meta.seenMessageIds.add(msgId)
+      // Input tokens attribute to the turn that *caused* the call (user prompt or
+      // tool_result) — the model is billed for reading the preceding turn.
+      const inputTarget = this.prevMessage && this.prevMessage._tokenDelta == null ? this.prevMessage : obj
+      this.tokenTotal += contextSize
+      inputTarget._tokenDelta = (inputTarget._tokenDelta || 0) + contextSize
+      inputTarget._tokenTotal = this.tokenTotal
+      this.tokenTotal += usage.output
+      obj._tokenDelta = (obj._tokenDelta || 0) + usage.output
+      obj._tokenTotal = this.tokenTotal
+    }
+    if (this.excludeIds?.has(msgId)) return
+
+    const applied = this.appliedById.get(msgId)
+    if (!applied) { // first non-excluded line of this reply — record stream-stable metadata once
+      meta.lastContextTokens = contextSize // prompt size on this turn; last assistant message wins
+      if (u.service_tier) meta.serviceTier = u.service_tier
+      if (fast) {
+        meta.speed = 'fast'
+        // No known multiplier → fast cost can't be computed accurately; flag it.
+        if (this.pricing && this.pricing.fastMultiplier(model) == null) meta.fastPricingUnknown = true
+      } else if (u.speed && meta.speed !== 'fast') {
+        meta.speed = u.speed // 'standard'; 'fast' once seen stays sticky
+      }
+      if (u.server_tool_use) {
+        meta.serverToolUse.webSearch += u.server_tool_use.web_search_requests || 0
+        meta.serverToolUse.webFetch += u.server_tool_use.web_fetch_requests || 0
       }
     }
-    addUsage(meta.tokens, delta)
-    // Prompt size on this turn — overwritten each assistant message so the last wins.
-    meta.lastContextTokens = contextSize
-    if (u.service_tier) meta.serviceTier = u.service_tier
-    if (fast) {
-      meta.speed = 'fast'
-      // No known multiplier → fast cost can't be computed accurately; flag it.
-      if (this.pricing && this.pricing.fastMultiplier(model) == null) meta.fastPricingUnknown = true
-    } else if (u.speed && meta.speed !== 'fast') {
-      meta.speed = u.speed // 'standard'; 'fast' once seen stays sticky
-    }
-    if (u.server_tool_use) {
-      meta.serverToolUse.webSearch += u.server_tool_use.web_search_requests || 0
-      meta.serverToolUse.webFetch += u.server_tool_use.web_fetch_requests || 0
-    }
-    // Fast and standard tokens price at different rates, so keep them in separate
-    // per-model buckets (the grand-total `meta.tokens` already holds both).
+    this.appliedById.set(msgId, usage)
+
+    const growth = emptyBucket()
+    let changed = false
+    for (const k of TOKEN_FIELDS) { growth[k] = usage[k] - (applied?.[k] ?? 0); if (growth[k] !== 0) changed = true }
+    if (!changed) return // a repeat line that added nothing
+    // Fast and standard tokens price differently, so keep separate per-model buckets.
     const byModel = fast ? meta.tokensByModelFast : meta.tokensByModel
-    addUsage(byModel[model] || (byModel[model] = emptyBucket()), delta)
+    addUsage(meta.tokens, growth)
+    addUsage(byModel[model] ??= emptyBucket(), growth)
+    const cost = this.pricing && obj._ts != null ? this.pricing.costForDelta(model, growth, { fast }) : null
+    if (cost > 0) {
+      const prevTs = this.prevMessage?._ts
+      meta.costSamples.push({ start: prevTs != null && prevTs < obj._ts ? prevTs : obj._ts, end: obj._ts, cost })
+    }
   }
 
   finalize(mtimeFallback) {
