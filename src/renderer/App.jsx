@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useState, useCallback } from 'react'
 import { Group, Panel, Separator, useDefaultLayout } from 'react-resizable-panels'
 import GanttChart from './timeline/GanttChart.jsx'
+import Toolbar from './timeline/Toolbar.jsx'
 import PeriodSummary from './timeline/PeriodSummary.jsx'
 import SessionList from './sessions/SessionList.jsx'
 import SessionView from './sessions/SessionView.jsx'
@@ -80,23 +81,29 @@ export default function App() {
       onLayoutChanged={onRootLayoutChanged}
     >
       <Panel id="gantt" defaultSize={400} minSize={180} className="gantt-pane">
-        <GanttChart
-          dayRange={dayRange}
-          sessions={dayItems.sourceFiltered}
-          onSelect={setSelectedId}
-          selectedId={selectedId}
-          onShiftDay={shiftPeriod}
-          onResetToday={() => { setCwdFilter(null); setAnchor(startOfPeriod(Date.now(), granularity)) }}
-          dayAnchor={anchor}
+        <Toolbar
           granularity={granularity}
           onSetGranularity={changeGranularity}
+          dayAnchor={anchor}
+          onShiftDay={shiftPeriod}
+          onResetToday={() => { setCwdFilter(null); setAnchor(startOfPeriod(Date.now(), granularity)) }}
           sourceFilter={sourceFilter}
           availableSources={dayItems.availableSources}
           onToggleSourceFilter={(src) => setSourceFilter((cur) => (cur === src ? null : src))}
-          cwdFilter={cwdFilter}
-          onToggleCwdFilter={(cwd) => setCwdFilter((cur) => (cur === cwd ? null : cwd))}
         />
-        <PeriodSummary sessions={dayItems.past} dayAnchor={anchor} granularity={granularity} />
+        <div className="gantt-body">
+          <GanttChart
+            dayRange={dayRange}
+            sessions={dayItems.sourceFiltered}
+            onSelect={setSelectedId}
+            selectedId={selectedId}
+            dayAnchor={anchor}
+            granularity={granularity}
+            cwdFilter={cwdFilter}
+            onToggleCwdFilter={(cwd) => setCwdFilter((cur) => (cur === cwd ? null : cwd))}
+          />
+          <PeriodSummary sessions={dayItems.past} dayAnchor={anchor} granularity={granularity} />
+        </div>
       </Panel>
       <Separator className="resize-handle resize-handle-h" />
       <Panel id="body" minSize={20} className="body-outer">

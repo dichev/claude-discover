@@ -1,6 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState, useCallback } from 'react'
-import { isSamePeriod, periodLabel } from '../utils/period.js'
-import { SOURCE_COLORS, SOURCE_LABELS, SOURCE_ORDER } from '../utils/colors.js'
+import { SOURCE_COLORS, SOURCE_LABELS } from '../utils/colors.js'
 import { useLocalStorage } from '../utils/useLocalStorage.js'
 import HeatStrip from './HeatStrip.jsx'
 import TimeAxis, { computeTicks } from './TimeAxis.jsx'
@@ -31,16 +30,9 @@ function packLanes(items) {
   return { placed, laneCount: Math.max(1, lanes.length) }
 }
 
-const GRANULARITIES = [
-  { key: 'day', label: 'Daily' },
-  { key: 'week', label: 'Weekly' },
-  { key: 'month', label: 'Monthly' },
-]
-
 export default function GanttChart({
-  dayRange, sessions, onSelect, selectedId, onShiftDay, onResetToday, dayAnchor,
-  granularity = 'day', onSetGranularity,
-  sourceFilter, availableSources, onToggleSourceFilter, cwdFilter, onToggleCwdFilter,
+  dayRange, sessions, onSelect, selectedId, dayAnchor,
+  granularity = 'day', cwdFilter, onToggleCwdFilter,
 }) {
   const containerRef = useRef(null)
   const [width, setWidth] = useState(1200)
@@ -152,51 +144,6 @@ export default function GanttChart({
 
   return (
     <div className="gantt-wrap">
-      <div className="gantt-toolbar">
-        <div className="gantt-granularity">
-          {GRANULARITIES.map(({ key, label }) => (
-            <button
-              key={key}
-              type="button"
-              className={`gantt-granularity-btn${granularity === key ? ' active' : ''}`}
-              onClick={() => onSetGranularity?.(key)}
-            >{label}</button>
-          ))}
-        </div>
-        <div className="gantt-pill-wrap">
-          <div className="gantt-controls">
-            <button className="gantt-nav-btn" onClick={() => onShiftDay(-1)} title="Previous period" aria-label="Previous period">←</button>
-            <span className="gantt-date-label">{periodLabel(dayAnchor, granularity)}</span>
-            <button
-              className="gantt-nav-btn"
-              onClick={() => onShiftDay(1)}
-              title="Next period"
-              aria-label="Next period"
-              style={{ visibility: isSamePeriod(dayAnchor, Date.now(), granularity) ? 'hidden' : 'visible' }}
-            >→</button>
-          </div>
-          <button
-            className="gantt-today-btn"
-            onClick={onResetToday}
-            style={{ visibility: isSamePeriod(dayAnchor, Date.now(), granularity) ? 'hidden' : 'visible' }}
-          >Today</button>
-        </div>
-        <div className="gantt-legend">
-          {(availableSources ?? []).slice().sort((a, b) => {
-            const ia = SOURCE_ORDER.indexOf(a), ib = SOURCE_ORDER.indexOf(b)
-            return (ia === -1 ? SOURCE_ORDER.length : ia) - (ib === -1 ? SOURCE_ORDER.length : ib)
-          }).map((k) => {
-            const active = sourceFilter === k
-            const dim = sourceFilter && !active
-            return (
-              <button key={k} type="button" className={`legend-chip ${active ? 'active' : ''} ${dim ? 'dim' : ''}`} onClick={() => onToggleSourceFilter?.(k)}>
-                <span className="swatch" style={{ background: SOURCE_COLORS[k] || SOURCE_COLORS.other }} />
-                {SOURCE_LABELS[k] || k}
-              </button>
-            )
-          })}
-        </div>
-      </div>
       <HeatStrip
         sessions={sessions}
         viewStart={view.start}

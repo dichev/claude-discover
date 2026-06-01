@@ -23,6 +23,14 @@
 
 .gantt-pane {
   display: flex;
+  flex-direction: column;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.gantt-body {
+  display: flex;
+  flex: 1;
   min-height: 0;
   overflow: hidden;
 
