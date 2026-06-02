@@ -6,12 +6,13 @@ import TimeAxis, { computeTicks } from './TimeAxis.jsx'
 import WorkTimeOverlay from './WorkTimeOverlay.jsx'
 import './GanttChart.css'
 
-const LANE_HEIGHT = 22
-const LANE_GAP = 4
-const HEADER_HEIGHT = 28
-const MIN_BAR_PX = 4
-const GUTTER_WIDTH = 220
-const GROUP_GAP = 8
+const HEADER_HEIGHT  = 28
+const PROJECTS_WIDTH = 220
+const BARS = {
+  day:   { height: 22, min_width: 4, row_gap: 4, group_gap: 8, radius: 3 },
+  week:  { height: 15, min_width: 3, row_gap: 3, group_gap: 4, radius: 2 },
+  month: { height: 10, min_width: 2, row_gap: 2, group_gap: 2, radius: 1 },
+}
 
 function packLanes(items) {
   const lanes = []
@@ -34,6 +35,7 @@ export default function GanttChart({
   dayRange, sessions, onSelect, selectedId, dayAnchor,
   granularity = 'day', cwdFilter, onToggleCwdFilter,
 }) {
+  const bar = BARS[granularity] ?? BARS.day
   const containerRef = useRef(null)
   const [width, setWidth] = useState(1200)
   const [view, setView] = useLocalStorage('gantt-chart.view', { dayAnchor, granularity, start: dayRange.start, end: dayRange.end })
@@ -78,15 +80,15 @@ export default function GanttChart({
     let y = HEADER_HEIGHT
     for (const g of arr) {
       g.yOffset = y
-      g.height = g.laneCount * (LANE_HEIGHT + LANE_GAP)
-      y += g.height + GROUP_GAP
+      g.height = g.laneCount * (bar.height + bar.row_gap)
+      y += g.height + bar.group_gap
     }
-    return { groups: arr, totalHeight: Math.max(HEADER_HEIGHT + LANE_HEIGHT + 12, y + 4) }
-  }, [sessions])
+    return { groups: arr, totalHeight: Math.max(HEADER_HEIGHT + bar.height + 12, y + 4) }
+  }, [sessions, granularity])
 
-  const chartWidth = Math.max(100, width - GUTTER_WIDTH)
+  const chartWidth = Math.max(100, width - PROJECTS_WIDTH)
   const span = view.end - view.start
-  const xFor = (ts) => GUTTER_WIDTH + ((ts - view.start) / span) * chartWidth
+  const xFor = (ts) => PROJECTS_WIDTH + ((ts - view.start) / span) * chartWidth
 
   const ticks = useMemo(
     () => computeTicks({ viewStart: view.start, viewEnd: view.end, width: chartWidth, span }),
@@ -98,7 +100,7 @@ export default function GanttChart({
     e.preventDefault()
     const rect = containerRef.current.getBoundingClientRect()
     const xInCanvas = e.clientX - rect.left
-    const ratio = Math.min(1, Math.max(0, (xInCanvas - GUTTER_WIDTH) / chartWidth))
+    const ratio = Math.min(1, Math.max(0, (xInCanvas - PROJECTS_WIDTH) / chartWidth))
     if (e.shiftKey || e.ctrlKey) {
       const newSpan = Math.max(60_000, Math.min(dayRange.end - dayRange.start, span * Math.exp(e.deltaY * 0.0015)))
       const center = view.start + ratio * span
@@ -149,13 +151,13 @@ export default function GanttChart({
         viewStart={view.start}
         viewEnd={view.end}
         width={width}
-        gutter={GUTTER_WIDTH}
+        gutter={PROJECTS_WIDTH}
       />
       <div className="gantt-canvas" ref={containerRef} onMouseDown={handleMouseDown}>
         <svg width={width} height={totalHeight}>
-          <rect x={0} y={0} width={GUTTER_WIDTH} height={totalHeight} className="gantt-gutter" />
-          <line x1={GUTTER_WIDTH} x2={GUTTER_WIDTH} y1={0} y2={totalHeight} className="gantt-divider" />
-          <g transform={`translate(${GUTTER_WIDTH},0)`}>
+          <rect x={0} y={0} width={PROJECTS_WIDTH} height={totalHeight} className="gantt-gutter" />
+          <line x1={PROJECTS_WIDTH} x2={PROJECTS_WIDTH} y1={0} y2={totalHeight} className="gantt-divider" />
+          <g transform={`translate(${PROJECTS_WIDTH},0)`}>
             {ticks.map((tk, i) => (
               <line
                 key={i}
@@ -171,8 +173,8 @@ export default function GanttChart({
               {gi > 0 && (
                 <line
                   x1={0} x2={width}
-                  y1={g.yOffset - GROUP_GAP / 2}
-                  y2={g.yOffset - GROUP_GAP / 2}
+                  y1={g.yOffset - bar.group_gap / 2}
+                  y2={g.yOffset - bar.group_gap / 2}
                   className="gantt-group-sep"
                 />
               )}
@@ -185,7 +187,7 @@ export default function GanttChart({
                 {g.cwdShort}
               </text>
               {g.placed.map(({ item, lane }) => {
-                const y = g.yOffset + lane * (LANE_HEIGHT + LANE_GAP)
+                const y = g.yOffset + lane * (bar.height + bar.row_gap)
                 const color = SOURCE_COLORS[item.source] || SOURCE_COLORS.other
                 const isSelected = item.id === selectedId
                 const periods = item.activityPeriods?.length
@@ -194,22 +196,22 @@ export default function GanttChart({
 
                 const rawX1 = xFor(item.start)
                 const rawX2 = xFor(item.end)
-                if (rawX2 < GUTTER_WIDTH || rawX1 > width) return null
-                const x = Math.max(GUTTER_WIDTH, rawX1)
-                const w = Math.max(MIN_BAR_PX, Math.min(width, rawX2) - x)
+                if (rawX2 < PROJECTS_WIDTH || rawX1 > width) return null
+                const x = Math.max(PROJECTS_WIDTH, rawX1)
+                const w = Math.max(bar.min_width, Math.min(width, rawX2) - x)
 
                 return (
                   <g key={item.id} className={`bar ${isSelected ? 'selected' : ''}`}
                      onClick={() => onSelect(item.id)}>
-                    <rect x={x} y={y} width={w} height={LANE_HEIGHT} rx={3} fill={color} className="bar-fill" />
+                    <rect x={x} y={y} width={w} height={bar.height} rx={bar.radius} fill={color} className="bar-fill" />
                     {periods.slice(0, -1).map((p, i) => {
-                      const gx1 = Math.max(GUTTER_WIDTH, xFor(p.end))
+                      const gx1 = Math.max(PROJECTS_WIDTH, xFor(p.end))
                       const gx2 = Math.min(width, xFor(periods[i + 1].start))
                       if (gx2 <= gx1) return null
-                      return <rect key={i} x={gx1} y={y} width={gx2 - gx1} height={LANE_HEIGHT} className="gantt-idle" />
+                      return <rect key={i} x={gx1} y={y} width={gx2 - gx1} height={bar.height} className="gantt-idle" />
                     })}
                     {isSelected && (
-                      <rect x={x} y={y} width={w} height={LANE_HEIGHT} rx={3} className="bar-outline" />
+                      <rect x={x} y={y} width={w} height={bar.height} rx={bar.radius} className="bar-outline" />
                     )}
                     <title>{`${SOURCE_LABELS[item.source] || item.source} · ${item.label}\n${g.key}\n${new Date(item.start).toLocaleString()} → ${new Date(item.end).toLocaleString()}`}</title>
                   </g>
@@ -222,7 +224,7 @@ export default function GanttChart({
             dayStart={dayRange.start}
             viewStart={view.start}
             viewEnd={view.end}
-            chartLeft={GUTTER_WIDTH}
+            chartLeft={PROJECTS_WIDTH}
             chartWidth={chartWidth}
             totalHeight={totalHeight}
             headerHeight={HEADER_HEIGHT}
