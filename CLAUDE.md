@@ -16,6 +16,7 @@ Windows is the default OS, but we must support also **macOS**. When adding a mac
 - `npm run build` / `npm start` — build / preview.
 - `npm test` — run Vitest suite (`vitest run`); single file: `npx vitest run test/pricing.test.js`. Tests live in `test/` at the repo root.
 - `npm run setup-hook` — install/repair the capture-context hook in `<CLAUDE_DIR>/settings.json` (see Hooks below). Idempotent.
+- `node bin/usage.mjs [daily|weekly|monthly] [--since …] [--until …] [--timezone …]` — print per-period token usage/cost from local transcripts as a terminal table (granularity defaults to `monthly`). Used to verify our cost math against `npx ccusage` (run both with `--timezone UTC`); the `ccusage-diff.test.js` suite asserts they match.
 - No lint or typecheck configured.
 
 ## Architecture
@@ -23,6 +24,7 @@ Windows is the default OS, but we must support also **macOS**. When adding a mac
 - Data source: `<CLAUDE_DIR>/projects/**/*.jsonl` (sessions). `CLAUDE_DIR` is resolved in `src/main/paths.js` — user override in `~/.claude-discover.json` (`claudeDir`, plus a `recents` list for the source-switcher) wins over `$CLAUDE_CONFIG_DIR`, which wins over the `~/.claude` default. Use `getConfig()` / `setConfig()` from `paths.js` to read or persist these settings; don't write the file directly.
 - Date-scoped: the frontend picks a single date and the backend returns sessions only for that date. Neither side needs to handle multi-day ranges.
 - Main-process backend uses classes: `src/main/services/` (`SessionsService`, `WorkHours`, `AgentRunner`, `Pricing`) and `src/main/sessions/` (`SessionsScanner` watches the projects dir via chokidar; `SessionFile` / `SessionParser` parse individual `.jsonl` files). React renderer uses functional style.
+- `SessionsService.scan(period, { watch })` is the single scan entry point: `watch:true` (UI) streams `update` events per dir batch and returns the cache immediately; `watch:false` (CLIs/tests like `bin/usage.mjs`) awaits the full scan and returns the deduped sessions with no emits. Period bounds come from the shared `periodBounds(date, granularity, tz)` in the same file.
 - Long-lived backend services that push to the renderer (`SessionsService`) extend `EventEmitter` — wire listeners with `service.on(event, cb)` before calling `start()`.
 - Agent feature: `AgentRunner` (main) calls `@anthropic-ai/claude-agent-sdk`'s `query()` in-process and forwards `text_delta` events to the renderer over `agent:output`. The renderer side is `src/renderer/agent/` (`Agent.js` hook + `AgentOutput.jsx`); the prompt template is `src/renderer/agent/ANALYZE_PROMPT.md`, imported via Vite's `?raw`.
 - Pricing: `Pricing` service computes per-session USD cost. Seed rates in `cache/prices.json`; on startup it refreshes from LiteLLM into `cache/prices.current.json` (daily TTL), merging first-party `claude-*` over Bedrock `anthropic.claude-*` and stripping dated/versioned suffixes so variants collapse to one model id. `priceFor` matches by longest key prefix. "Fast" sessions (`usage.speed === "fast"`) bill at a per-model `fastModeMplr`; when the multiplier is unknown, `SessionParser` flags `fastPricingUnknown` and falls back to 1×.
@@ -46,7 +48,7 @@ Windows is the default OS, but we must support also **macOS**. When adding a mac
 - `src/renderer/styles.css` + `src/renderer/markdown.css` — app-wide CSS, imported by `main.jsx`.
 
 ## Hooks (capture-context)
-- The two scripts in `bin/` are both checked into git (only `*.ignore*` files are gitignored — e.g. `bin/fix-commit-dates.ignore.sh`).
+- The scripts in `bin/` are checked into git (only `*.ignore*` files are gitignored — e.g. `bin/fix-commit-dates.ignore.sh`).
 - `bin/capture-context.hook.mjs` is the hook body itself. It reads the hook event JSON from stdin, writes one NDJSON record to `<transcript>.context.ndjson`, and **must stay silent** — any error is appended to `<CLAUDE_DIR>/.claude-discover.hook.error.log` instead of stderr, so Claude Code never surfaces hook failures to the user. Don't add `console.log`/`console.error` here.
 - Three events are handled, dispatched by `event.hook_event_name`:
   - `InstructionsLoaded` — fires per file Claude Code loads; record carries `file_path`, `memory_type`, `load_reason`, plus the file contents.
