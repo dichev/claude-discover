@@ -8,11 +8,12 @@ import { Pricing } from './Pricing.js'
 // Week-scoped views start on Monday — keep in sync with src/renderer/utils/period.js.
 const WEEK = { weekStartsOn: 1 }
 
-function periodBounds(date, granularity = 'day') {
-  const d = parseISO(date)
-  if (granularity === 'week') return { start: +startOfWeek(d, WEEK), end: +endOfWeek(d, WEEK) }
-  if (granularity === 'month') return { start: +startOfMonth(d), end: +endOfMonth(d) }
-  return { start: +startOfDay(d), end: +endOfDay(d) }
+export function periodBounds(date, granularity = 'day', tz = undefined) {
+  const opts = { in: tz }
+  const d = parseISO(date, opts)
+  if (granularity === 'week') return { start: +startOfWeek(d, { ...WEEK, ...opts }), end: +endOfWeek(d, { ...WEEK, ...opts }) }
+  if (granularity === 'month') return { start: +startOfMonth(d, opts), end: +endOfMonth(d, opts) }
+  return { start: +startOfDay(d, opts), end: +endOfDay(d, opts) }
 }
 
 function intersectsDay(meta, day) {
@@ -102,22 +103,33 @@ export class SessionsService extends EventEmitter {
     return { meta, items, nextOffset }
   }
 
-  async list(date, granularity = 'day') {
-    const key = `${granularity}|${date}`
-    const day = { ...periodBounds(date, granularity), date, key }
-    if (this.activeDay?.key !== key) {
+  // Scan `period` ({ start, end } epoch ms, optional `key`/`date`; see periodBounds). watch:true (UI) streams 'update' events per dir batch and returns the current cache immediately; watch:false (CLIs/tests) awaits completion and returns the deduped sessions with no emits.
+  async scan(period, { watch = false } = {}) {
+    const day = period.key ? period : { ...period, key: `${period.start}|${period.end}` }
+    if (this.activeDay?.key !== day.key) { // new period → drop cached metas (re-scan of the same period keeps its cache)
       this.cache.clear()
       this.byId.clear()
     }
     this.activeDay = day
-    // Called after each dir batch and once more when the full scan completes.
-    const emit = async () => {
-      if (this.activeDay?.key !== key) return // guard against stale period navigation
-      this.emit('update', await this._dedupedDay(day))
-    }
     const onFile = (filePath, stat) => this._processFile(filePath, day, stat)
-    this.scanner.scan(day, { onFile, onBatchDone: emit }).then(emit).catch(console.error) // fire-and-forget; streams updates as dirs complete
-    return this._dedupedDay(day) // return current cache immediately (empty on first visit)
+    if (watch) {
+      // fire-and-forget; scanner streams an update per dir batch + a final flush
+      this.scanner.scan(day, { onFile, onBatchDone: async () => {
+        if (this.activeDay?.key !== day.key) return // guard against stale period navigation
+        this.emit('update', await this._dedupedDay(day))
+      } }).catch(console.error)
+      return this._dedupedDay(day)
+    }
+    else {
+      await this.scanner.scan(day, { onFile }) // block until the full scan completes
+      return this._dedupedDay(day)
+    }
+  }
+
+  // IPC/UI entry: build the period from date+granularity and watch it.
+  list(date, granularity = 'day') {
+    const key = `${granularity}|${date}`
+    return this.scan({ ...periodBounds(date, granularity), date, key }, { watch: true })
   }
 
   start() {

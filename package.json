@@ -14,6 +14,7 @@
   },
   "dependencies": {
     "@anthropic-ai/claude-agent-sdk": "^0.2.141",
+    "@date-fns/tz": "^1.5.0",
     "@fontsource/inter": "^5.2.8",
     "@fontsource/jetbrains-mono": "^5.2.8",
     "@uiw/react-json-view": "^2.0.0-alpha.42",

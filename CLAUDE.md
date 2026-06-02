@@ -65,6 +65,7 @@ Windows is the default OS, but we must support also **macOS**. When adding a mac
 - Single-argument arrow functions: omit parens (`x => ...`, not `(x) => ...`)
 - Align consecutive React `use*` hook declarations: pad the destructured pair with spaces so the `=` (and the hook calls after it) line up in a column.
 - IPC channel names use `namespace:kebab-case-action` (e.g. `sessions:read-log-file`, not `sessions:readLogFile`)
+- Prefer clean single-line code comments, over multiline explanations
 
 ## UI testing / debugging
 **Ask before running Playwright UI testing** — don't drive the app via Playwright MCP unless the user has confirmed.

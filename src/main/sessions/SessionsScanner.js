@@ -39,6 +39,7 @@ export class SessionsScanner {
         if (onBatchDone && results.some(Boolean)) await onBatchDone()
       })
     )
+    if (onBatchDone) await onBatchDone() // Callers get a final flush over the fully-scanned state even for empty periods (where no per-project batch fired).
   }
 
   watch({ onChange, onUnlink } = {}) {
