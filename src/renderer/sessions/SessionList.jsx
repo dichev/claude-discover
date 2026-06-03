@@ -4,6 +4,7 @@ import { format } from 'date-fns'
 import { fmtCompact, fmtNum, fmtUSD, fmtDuration, tone } from '../utils/formatting.js'
 import { THRESHOLDS as T } from '../utils/thresholds.js'
 import { parseCommand } from '../utils/textBlock.js'
+import { subagentsByParent } from '../utils/subagents.js'
 import './SessionList.css'
 
 export default function SessionList({ sessions, selectedId, onSelect }) {
@@ -33,11 +34,10 @@ export default function SessionList({ sessions, selectedId, onSelect }) {
                : filtered
 
   const grouped = useMemo(() => {
-    const ids = new Set(sorted.map((s) => s.sessionId))
-    const isChild = (s) => !!s.parentSessionId && ids.has(s.parentSessionId)
-    return sorted.flatMap((s) => isChild(s) ? [] : [
+    const byParent = subagentsByParent(sorted)
+    return sorted.flatMap((s) => byParent.has(s.parentSessionId) ? [] : [
       { session: s, isChild: false },
-      ...sorted.filter((c) => c.parentSessionId === s.sessionId).map((c) => ({ session: c, isChild: true }))
+      ...(byParent.get(s.sessionId) ?? []).map((c) => ({ session: c, isChild: true }))
     ])
   }, [sorted])
 

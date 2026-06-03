@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useRef, useState, useCallback } from 'react'
 import { SOURCE_COLORS, SOURCE_LABELS } from '../utils/colors.js'
 import { useLocalStorage } from '../utils/useLocalStorage.js'
+import { subagentClusters } from '../utils/subagents.js'
 import HeatStrip from './HeatStrip.jsx'
 import TimeAxis, { computeTicks } from './TimeAxis.jsx'
 import WorkTimeOverlay from './WorkTimeOverlay.jsx'
@@ -13,6 +14,9 @@ const BARS = {
   week:  { height: 15, min_width: 3, row_gap: 3, group_gap: 4, radius: 2 },
   month: { height: 10, min_width: 2, row_gap: 2, group_gap: 2, radius: 1 },
 }
+
+const SUBAGENT_SPLIT_GAP = 5 * 60_000 // a longer pause between subagents (user working) splits them into separate bars
+const endOf = (s) => Math.max(s.lastActivityAt, s.startedAt + 60_000)
 
 function packLanes(items) {
   const lanes = []
@@ -56,21 +60,41 @@ export default function GanttChart({
   }, [])
 
   const { groups, totalHeight } = useMemo(() => {
+    // Subagents split into time-separated runs; a run of 2+ collapses into one labelled bar.
+    const clusters = subagentClusters(sessions, SUBAGENT_SPLIT_GAP).filter((c) => c.length >= 2)
+    const collapsed = new Set(clusters.flat().map((s) => s.sessionId))
+
     const byKey = new Map()
-    for (const s of sessions) {
-      const item = {
-        id: s.sessionId,
-        label: s.summary || s.firstUserPrompt || s.firstUserCommand || s.sessionId,
-        start: s.startedAt,
-        end: Math.max(s.lastActivityAt, s.startedAt + 60_000),
-        source: s.source,
-        activityPeriods: s.activityPeriods,
-      }
+    const addItem = (s, item, cost) => {
       const key = s.cwd || '(no cwd)'
       let group = byKey.get(key)
       if (!group) byKey.set(key, group = { cwdShort: s.cwdShort, items: [], cost: 0 })
       group.items.push(item)
-      group.cost += s.cost || 0
+      group.cost += cost || 0
+    }
+
+    for (const s of sessions) {
+      if (collapsed.has(s.sessionId)) continue
+      addItem(s, {
+        id: s.sessionId,
+        label: s.summary || s.firstUserPrompt || s.firstUserCommand || s.sessionId,
+        start: s.startedAt,
+        end: endOf(s),
+        source: s.source,
+        activityPeriods: s.activityPeriods,
+      }, s.cost)
+    }
+
+    for (const subs of clusters) {
+      const periods = subs.map((c) => ({ start: c.startedAt, end: endOf(c) }))
+      addItem(subs[0], {
+        id: `${subs[0].sessionId}::subagents`,
+        start: periods[0].start,
+        end: Math.max(...periods.map((p) => p.end)),
+        source: subs[0].source,
+        activityPeriods: periods,
+        subs,
+      }, subs.reduce((sum, c) => sum + (c.cost || 0), 0))
     }
     const arr = [...byKey.entries()].map(([key, { cwdShort, items, cost }]) => {
       const { placed, laneCount } = packLanes(items)
@@ -155,6 +179,11 @@ export default function GanttChart({
       />
       <div className="gantt-canvas" ref={containerRef} onMouseDown={handleMouseDown}>
         <svg width={width} height={totalHeight}>
+          <defs>
+            <pattern id="gantt-subagent-hatch" patternUnits="userSpaceOnUse" width={5} height={5} patternTransform="rotate(45)">
+              <line x1={0} y1={0} x2={0} y2={5} stroke="#0b0e14" strokeWidth={3.5} />
+            </pattern>
+          </defs>
           <rect x={0} y={0} width={PROJECTS_WIDTH} height={totalHeight} className="gantt-gutter" />
           <line x1={PROJECTS_WIDTH} x2={PROJECTS_WIDTH} y1={0} y2={totalHeight} className="gantt-divider" />
           <g transform={`translate(${PROJECTS_WIDTH},0)`}>
@@ -189,7 +218,7 @@ export default function GanttChart({
               {g.placed.map(({ item, lane }) => {
                 const y = g.yOffset + lane * (bar.height + bar.row_gap)
                 const color = SOURCE_COLORS[item.source] || SOURCE_COLORS.other
-                const isSelected = item.id === selectedId
+                const isSelected = item.subs ? item.subs.some((c) => c.sessionId === selectedId) : item.id === selectedId
                 const periods = item.activityPeriods?.length
                   ? item.activityPeriods
                   : [{ start: item.start, end: item.end }]
@@ -202,7 +231,7 @@ export default function GanttChart({
 
                 return (
                   <g key={item.id} className={`bar ${isSelected ? 'selected' : ''}`}
-                     onClick={() => onSelect(item.id)}>
+                     onClick={() => onSelect(item.subs ? item.subs.at(-1).sessionId : item.id)}>
                     <rect x={x} y={y} width={w} height={bar.height} rx={bar.radius} fill={color} className="bar-fill" />
                     {periods.slice(0, -1).map((p, i) => {
                       const gx1 = Math.max(PROJECTS_WIDTH, xFor(p.end))
@@ -210,10 +239,18 @@ export default function GanttChart({
                       if (gx2 <= gx1) return null
                       return <rect key={i} x={gx1} y={y} width={gx2 - gx1} height={bar.height} className="gantt-idle" />
                     })}
+                    {item.subs && (
+                      <rect x={x} y={y} width={w} height={bar.height} rx={bar.radius} fill="url(#gantt-subagent-hatch)" opacity={0.5} pointerEvents="none" />
+                    )}
+                    {item.subs && (
+                      <text x={x + w / 2} y={y + bar.height / 2} textAnchor="middle" dominantBaseline="central" className="gantt-bar-count">
+                        {item.subs.length}
+                      </text>
+                    )}
                     {isSelected && (
                       <rect x={x} y={y} width={w} height={bar.height} rx={bar.radius} className="bar-outline" />
                     )}
-                    <title>{`${SOURCE_LABELS[item.source] || item.source} · ${item.label}\n${g.key}\n${new Date(item.start).toLocaleString()} → ${new Date(item.end).toLocaleString()}`}</title>
+                    <title>{`${item.subs ? `${item.subs.length} subagents` : `${SOURCE_LABELS[item.source] || item.source} · ${item.label}`}\n${g.key}\n${new Date(item.start).toLocaleString()} → ${new Date(item.end).toLocaleString()}`}</title>
                   </g>
                 )
               })}

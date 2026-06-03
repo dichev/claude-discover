@@ -59,6 +59,17 @@
 .bar-fill { opacity: 0.92; }
 .bar-outline { fill: none; stroke: #fff; stroke-width: 1.5; }
 .gantt-idle { fill: #1f2632; }
+.gantt-bar-count {
+  fill: #ffffff;
+  stroke: #0b0e14;
+  stroke-width: 2.5;
+  paint-order: stroke;
+  stroke-linejoin: round;
+  font-weight: 700;
+  font-family: var(--font-mono), monospace;
+  font-size: 9px;
+  pointer-events: none;
+}
 
 .bar {
   cursor: pointer;
