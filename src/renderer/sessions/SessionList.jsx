@@ -7,7 +7,8 @@ import { parseCommand } from '../utils/textBlock.js'
 import { subagentsByParent } from '../utils/subagents.js'
 import './SessionList.css'
 
-export default function SessionList({ sessions, selectedId, onSelect }) {
+export default function SessionList({ sessions, selectedId, onSelect, granularity = 'day' }) {
+  const timeFormat = granularity === 'day' ? 'HH:mm:ss' : 'MMM d, HH:mm:ss'
   const selectedRef = useRef(null)
   const [sortBy, setSortBy] = useState('time')
   const [filter, setFilter] = useState('')
@@ -96,7 +97,7 @@ export default function SessionList({ sessions, selectedId, onSelect }) {
                   {sessionLabel(s)}
                 </div>
                 <div className="session-time-bottom">
-                  <span>{format(s.lastActivityAt, 'HH:mm:ss')}</span>
+                  <span>{format(s.lastActivityAt, timeFormat)}</span>
                   {s.models?.length > 0 && <span className="session-model">, {s.models.map((m) => m.replace(/^claude-/, '')).join(', ')}</span>}
                 </div>
               </div>

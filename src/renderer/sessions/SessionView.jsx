@@ -66,7 +66,7 @@ export default function SessionView({ meta, date, granularity = 'day' }) {
                     <JsonlView items={items} />
                   )}
                 </div>
-                <SessionSummary meta={meta} items={items} agent={agent} onOpenAgent={() => setAgentOpen(true)} />
+                <SessionSummary meta={meta} items={items} agent={agent} onOpenAgent={() => setAgentOpen(true)} granularity={granularity} />
               </div>
             </div>
           )}

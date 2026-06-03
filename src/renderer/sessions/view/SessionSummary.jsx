@@ -8,7 +8,8 @@ import './SessionSummary.css'
 
 const CONTEXT_WINDOW = T.context.danger
 
-export default function SessionSummary({ meta, items, agent, onOpenAgent }) {
+export default function SessionSummary({ meta, items, agent, onOpenAgent, granularity = 'day' }) {
+  const timeFormat = granularity === 'day' ? 'pp' : 'MMM d, pp'
   const onAnalyze = () => {
     const { body } = markdownSession(meta, items, agent.truncated)
     agent.send(`${agent.prompt}\n\n---\n${body}`)
@@ -84,8 +85,8 @@ export default function SessionSummary({ meta, items, agent, onOpenAgent }) {
       </Section>
 
       <Section title="Activity">
-        <Field label="Started" value={format(meta.startedAt, 'pp')} />
-        <Field label="Last activity" value={format(meta.lastActivityAt, 'pp')} />
+        <Field label="Started" value={format(meta.startedAt, timeFormat)} />
+        <Field label="Last activity" value={format(meta.lastActivityAt, timeFormat)} />
         <Field label="Wall duration" value={fmtDuration(wallDuration)} />
         <Field label="Active periods" value={fmtNum(meta.activityPeriods.length)} />
         <Field label="Messages" value={
