@@ -6,8 +6,9 @@ export class SessionFile {
   constructor(filePath) {
     this.filePath = filePath
     this.sessionId = path.basename(filePath, '.jsonl')
-    const parentDir = path.dirname(filePath)
-    this.parentSessionId = path.basename(parentDir) === 'subagents' ? path.basename(path.dirname(parentDir)) : null
+    // Parent session is the dir segment before the outermost `subagents` (nests deep, e.g. subagents/workflows/<wf>/agent-*).
+    const parts = path.dirname(filePath).split(path.sep)
+    this.parentSessionId = parts[parts.indexOf('subagents') - 1] ?? null
   }
 
   async stat() {
