@@ -69,9 +69,9 @@ export class Pricing {
     return priced ? total : null
   }
 
-  async refreshFromLiteLLM() {
+  async refreshFromLiteLLM(verbose = true) {
     if (fs.existsSync(CURRENT_PATH) && Date.now() - fs.statSync(CURRENT_PATH).mtimeMs < DAY_MS) return
-    console.info('[pricing] refreshing prices from LiteLLM:', LITELLM_URL)
+    if (verbose) console.info('[pricing] refreshing prices from LiteLLM:', LITELLM_URL)
     const res = await fetch(LITELLM_URL, { signal: AbortSignal.timeout(10_000) })
     if (!res.ok) throw new Error(`HTTP ${res.status}`)
     const litellm = await res.json()
@@ -108,7 +108,7 @@ export class Pricing {
     if (Object.keys(out).length) {
       fs.writeFileSync(CURRENT_PATH, JSON.stringify(out, null, 2) + '\n')
       this.load()
-      console.info(`[pricing] updated ${Object.keys(out).length} model prices`)
+      if (verbose) console.info(`[pricing] updated ${Object.keys(out).length} model prices`)
     }
   }
 }

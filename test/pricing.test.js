@@ -106,7 +106,7 @@ describe('refreshPricesFromLiteLLM (live)', () => {
   })
 
   it('fetches and writes cache/prices.current.json with usable rates', async () => {
-    await pricing.refreshFromLiteLLM()
+    await pricing.refreshFromLiteLLM(false)
     expect(fs.existsSync(CURRENT_PATH)).toBe(true)
     const opus = pricing.priceFor('claude-opus-4-7') || pricing.priceFor('claude-opus-4-5')
     expect(opus?.input).toBeGreaterThan(0)
