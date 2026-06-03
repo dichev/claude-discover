@@ -10,7 +10,7 @@
     "build": "electron-vite build",
     "start": "electron-vite preview",
     "setup-hook": "node bin/setup-hook.mjs",
-    "test": "vitest run"
+    "test": "vitest run --reporter=tree"
   },
   "dependencies": {
     "@anthropic-ai/claude-agent-sdk": "^0.2.141",
