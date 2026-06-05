@@ -103,7 +103,7 @@ export default function SessionSummary({ meta, items, agent, onOpenAgent, granul
         {meta.hasScheduledTask && <Field label="Scheduled" value="yes" />}
         <Field label="CLI version" value={meta.version || '—'} mono />
         <Field label="Session ID" value={meta.sessionId} mono full autoselect />
-        <Field label="cwd" value={meta.cwd || '—'} mono full autoselect />
+        <Field label="Project" value={meta.project || '—'} mono full autoselect />
         <Field label="Log file" value={meta.filePath} mono full autoselect />
         <Field label="File size" value={fmtBytes(meta.fileSize)} />
       </Section>

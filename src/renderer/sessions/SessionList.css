@@ -125,14 +125,6 @@
   gap: 6px;
   font-size: 11px;
   min-width: 0;
-
-  & .cwd {
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-    min-width: 0;
-    flex: 0 1 auto;
-  }
 }
 
 .session-time { color: var(--text-faint); font-family: var(--font-mono), monospace; margin-left: auto; }
@@ -175,5 +167,4 @@
   & span { margin-right: 5px; }
 }
 
-.cwd { font-family: var(--font-mono), monospace; color: var(--text-dim); }
 .model-tag { font-family: var(--font-mono), monospace; color: var(--text-faint); margin-left: auto; }

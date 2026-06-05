@@ -18,10 +18,10 @@ function extractText(content) {
     .join('\n')
 }
 
-function shortCwd(cwd) {
-  if (!cwd) return '(no cwd)'
-  const parts = cwd.replace(/\\/g, '/').split('/').filter(Boolean)
-  return parts.slice(-2).join('/') || cwd
+function shortProject(dir) {
+  if (!dir) return '(no project)'
+  const parts = dir.replace(/\\/g, '/').split('/').filter(Boolean)
+  return parts.slice(-2).join('/') || dir
 }
 
 function classifySource(meta) {
@@ -33,7 +33,7 @@ function freshMeta({ sessionId, parentSessionId, filePath, fileSize, mtime }) {
   return {
     sessionId, parentSessionId, filePath, fileSize, mtime,
     startedAt: null, lastActivityAt: null,
-    entrypoint: null, cwd: null, gitBranch: null, version: null,
+    entrypoint: null, project: null, gitBranch: null, version: null,
     model: null, models: [], serviceTier: null, speed: null, fastPricingUnknown: false,
     summary: null, aiTitle: null, customTitle: null, agentName: null, firstUserPrompt: null, firstUserCommand: null, forkedFrom: null,
     messageCount: 0,
@@ -93,7 +93,7 @@ export class SessionParser {
     if (t === 'agent-name' && obj.agentName) meta.agentName = obj.agentName
     if (t === 'queue-operation' && obj.content?.includes('<scheduled-task')) meta.hasScheduledTask = true
 
-    if (obj.cwd && !meta.cwd) meta.cwd = obj.cwd
+    if (obj.cwd && !meta.project) meta.project = obj.cwd
     if (obj.gitBranch && !meta.gitBranch) meta.gitBranch = obj.gitBranch
     if (obj.entrypoint && !meta.entrypoint) meta.entrypoint = obj.entrypoint
     if (obj.version && !meta.version) meta.version = obj.version
@@ -234,7 +234,7 @@ export class SessionParser {
     if (meta.startedAt == null) meta.startedAt = mtimeFallback
     if (meta.lastActivityAt == null) meta.lastActivityAt = mtimeFallback
     meta.source = classifySource(meta)
-    meta.cwdShort = shortCwd(meta.cwd)
+    meta.projectShort = shortProject(meta.project)
     meta.activeMs = meta.activityPeriods.reduce((sum, p) => sum + Math.max(0, p.end - p.start), 0)
     const t = meta.tokens
     meta.totalTokens = t.input + t.output + t.cacheRead + t.cacheCreation

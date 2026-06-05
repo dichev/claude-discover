@@ -18,7 +18,7 @@ export default function App() {
   const [anchor, setAnchor] = useState(() => startOfPeriod(Date.now(), granularity))
   const [selectedId, setSelectedId] = useState(null)
   const [sourceFilter, setSourceFilter] = useState(null)
-  const [cwdFilter, setCwdFilter] = useState(null)
+  const [projectFilter, setProjectFilter] = useState(null)
   const { defaultLayout, onLayoutChanged } = useDefaultLayout({ id: 'app.body', panelIds: ['list', 'detail'], storage: localStorage })
   const { defaultLayout: rootLayout, onLayoutChanged: onRootLayoutChanged } = useDefaultLayout({ id: 'app.root', panelIds: ['gantt', 'body'], storage: localStorage })
 
@@ -46,10 +46,10 @@ export default function App() {
 
   const dayItems = useMemo(() => {
     const sourceFiltered = sourceFilter ? sessions.filter((s) => (s.source || 'other') === sourceFilter) : sessions
-    const past = cwdFilter ? sourceFiltered.filter((s) => (s.cwd || '(no cwd)') === cwdFilter) : sourceFiltered
+    const past = projectFilter ? sourceFiltered.filter((s) => (s.project || '(no project)') === projectFilter) : sourceFiltered
     const availableSources = [...new Set(sessions.map((s) => s.source || 'other'))]
     return { sourceFiltered, past, availableSources }
-  }, [sessions, sourceFilter, cwdFilter])
+  }, [sessions, sourceFilter, projectFilter])
 
   const selected = useMemo(
     () => sessions.find((s) => s.sessionId === selectedId) || null,
@@ -57,12 +57,12 @@ export default function App() {
   )
 
   const shiftPeriod = useCallback((delta) => {
-    setCwdFilter(null)
+    setProjectFilter(null)
     setAnchor((a) => startOfPeriod(addPeriod(a, granularity, delta), granularity))
   }, [granularity])
 
   const changeGranularity = useCallback((g) => {
-    setCwdFilter(null)
+    setProjectFilter(null)
     // Snap to the LAST sub-period of the current window (e.g. month → its final week/day), capped at today
     setAnchor((a) => startOfPeriod(Math.min(endOfPeriod(a, granularity), Date.now()), g))
     setGranularity(g)
@@ -86,7 +86,7 @@ export default function App() {
           onSetGranularity={changeGranularity}
           dayAnchor={anchor}
           onShiftDay={shiftPeriod}
-          onResetToday={() => { setCwdFilter(null); setAnchor(startOfPeriod(Date.now(), granularity)) }}
+          onResetToday={() => { setProjectFilter(null); setAnchor(startOfPeriod(Date.now(), granularity)) }}
           sourceFilter={sourceFilter}
           availableSources={dayItems.availableSources}
           onToggleSourceFilter={(src) => setSourceFilter((cur) => (cur === src ? null : src))}
@@ -99,8 +99,8 @@ export default function App() {
             selectedId={selectedId}
             dayAnchor={anchor}
             granularity={granularity}
-            cwdFilter={cwdFilter}
-            onToggleCwdFilter={(cwd) => setCwdFilter((cur) => (cur === cwd ? null : cwd))}
+            projectFilter={projectFilter}
+            onToggleProjectFilter={(project) => setProjectFilter((cur) => (cur === project ? null : project))}
           />
           <PeriodSummary sessions={dayItems.past} dayAnchor={anchor} granularity={granularity} />
         </div>

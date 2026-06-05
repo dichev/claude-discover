@@ -26,7 +26,7 @@ export default function SessionList({ sessions, selectedId, onSelect, granularit
 
   const q = filter.trim().toLowerCase()
   const filtered = q ? sessions.filter((s) => [
-    s.customTitle, s.agentName, s.aiTitle, s.summary, s.firstUserPrompt, s.firstUserCommand, s.cwd, s.sessionId, s.model, s.gitBranch
+    s.customTitle, s.agentName, s.aiTitle, s.summary, s.firstUserPrompt, s.firstUserCommand, s.project, s.sessionId, s.model, s.gitBranch
   ].filter(Boolean).join(' ').toLowerCase().includes(q)) : sessions
 
   const sorted = sortBy === 'cost'   ? [...filtered].sort((a, b) => (b.cost || 0) - (a.cost || 0))

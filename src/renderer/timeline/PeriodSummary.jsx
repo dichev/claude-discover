@@ -29,13 +29,13 @@ export default function PeriodSummary({ sessions, dayAnchor, granularity = 'day'
     return t
   }, [sessions])
 
-  const byCwd = useMemo(() => {
+  const byProject = useMemo(() => {
     const map = new Map()
     for (const s of sessions) {
-      const key = s.cwd || '(no cwd)'
+      const key = s.project || '(no project)'
       let g = map.get(key)
       if (!g) {
-        g = { key, cwdShort: s.cwdShort, cost: 0, totalTokens: 0 }
+        g = { key, projectShort: s.projectShort, cost: 0, totalTokens: 0 }
         map.set(key, g)
       }
       g.cost += s.cost || 0
@@ -46,9 +46,9 @@ export default function PeriodSummary({ sessions, dayAnchor, granularity = 'day'
 
   const [projectStat, setProjectStat] = useState('cost')
 
-  const sortedByCwd = useMemo(() =>
-    [...byCwd].sort((a, b) => projectStat === 'cost' ? b.cost - a.cost : b.totalTokens - a.totalTokens),
-    [byCwd, projectStat]
+  const sortedByProject = useMemo(() =>
+    [...byProject].sort((a, b) => projectStat === 'cost' ? b.cost - a.cost : b.totalTokens - a.totalTokens),
+    [byProject, projectStat]
   )
 
   return (
@@ -59,7 +59,7 @@ export default function PeriodSummary({ sessions, dayAnchor, granularity = 'day'
         <div className="gantt-side-row"><span>Total tokens</span><b>{fmtCompact(totals.totalTokens)}</b></div>
         <div className="gantt-side-row"><span>Estimated cost</span><b>{fmtUSD(totals.cost)}</b></div>
       </div>
-      {sortedByCwd.length > 0 && (
+      {sortedByProject.length > 0 && (
         <div className="gantt-side-section">
           <div className="gantt-side-heading">
             By project
@@ -69,9 +69,9 @@ export default function PeriodSummary({ sessions, dayAnchor, granularity = 'day'
               title={`Showing ${projectStat} — click to toggle`}
             >{projectStat === 'cost' ? 'T' : '$'}</button>
           </div>
-          {sortedByCwd.map((g) => (
+          {sortedByProject.map((g) => (
             <div key={g.key} className="gantt-side-row">
-              <span>{g.cwdShort}</span>
+              <span>{g.projectShort}</span>
               <b>{projectStat === 'cost' ? fmtUSD(g.cost) : fmtCompact(g.totalTokens)}</b>
             </div>
           ))}

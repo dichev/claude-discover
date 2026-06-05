@@ -37,7 +37,7 @@ function packLanes(items) {
 
 export default function GanttChart({
   dayRange, sessions, onSelect, selectedId, dayAnchor,
-  granularity = 'day', cwdFilter, onToggleCwdFilter,
+  granularity = 'day', projectFilter, onToggleProjectFilter,
 }) {
   const bar = BARS[granularity] ?? BARS.day
   const containerRef = useRef(null)
@@ -66,9 +66,9 @@ export default function GanttChart({
 
     const byKey = new Map()
     const addItem = (s, item, cost) => {
-      const key = s.cwd || '(no cwd)'
+      const key = s.project || '(no project)'
       let group = byKey.get(key)
-      if (!group) byKey.set(key, group = { cwdShort: s.cwdShort, items: [], cost: 0 })
+      if (!group) byKey.set(key, group = { projectShort: s.projectShort, items: [], cost: 0 })
       group.items.push(item)
       group.cost += cost || 0
     }
@@ -96,9 +96,9 @@ export default function GanttChart({
         subs,
       }, subs.reduce((sum, c) => sum + (c.cost || 0), 0))
     }
-    const arr = [...byKey.entries()].map(([key, { cwdShort, items, cost }]) => {
+    const arr = [...byKey.entries()].map(([key, { projectShort, items, cost }]) => {
       const { placed, laneCount } = packLanes(items)
-      return { key, cwdShort, placed, laneCount, cost }
+      return { key, projectShort, placed, laneCount, cost }
     })
     arr.sort((a, b) => b.cost - a.cost)
     let y = HEADER_HEIGHT
@@ -198,7 +198,7 @@ export default function GanttChart({
             <TimeAxis viewStart={view.start} viewEnd={view.end} width={chartWidth} span={span} headerHeight={HEADER_HEIGHT} />
           </g>
           {groups.map((g, gi) => (
-            <g key={g.key} style={cwdFilter && cwdFilter !== g.key ? { opacity: 0.25 } : undefined}>
+            <g key={g.key} style={projectFilter && projectFilter !== g.key ? { opacity: 0.25 } : undefined}>
               {gi > 0 && (
                 <line
                   x1={0} x2={width}
@@ -209,11 +209,11 @@ export default function GanttChart({
               )}
               <text
                 x={8} y={g.yOffset + 14}
-                className={`gantt-cwd gantt-cwd-clickable${cwdFilter === g.key ? ' gantt-cwd-active' : ''}`}
-                onClick={(e) => { e.stopPropagation(); onToggleCwdFilter?.(g.key) }}
+                className={`gantt-project gantt-project-clickable${projectFilter === g.key ? ' gantt-project-active' : ''}`}
+                onClick={(e) => { e.stopPropagation(); onToggleProjectFilter?.(g.key) }}
               >
                 <title>{g.key}</title>
-                {g.cwdShort}
+                {g.projectShort}
               </text>
               {g.placed.map(({ item, lane }) => {
                 const y = g.yOffset + lane * (bar.height + bar.row_gap)

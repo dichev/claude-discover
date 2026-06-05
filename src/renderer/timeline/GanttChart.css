@@ -45,10 +45,10 @@
 .gantt-gutter { fill: #0e1118; }
 .gantt-divider { stroke: #232936; }
 .gantt-group-sep { stroke: #1b212c; }
-.gantt-cwd { fill: #cbd1dc; font-size: 11px;}
-.gantt-cwd-clickable { cursor: pointer; }
-.gantt-cwd-clickable:hover { fill: #ffffff; }
-.gantt-cwd-active { fill: #7aa2f7; font-weight: 600; }
+.gantt-project { fill: #cbd1dc; font-size: 11px;}
+.gantt-project-clickable { cursor: pointer; }
+.gantt-project-clickable:hover { fill: #ffffff; }
+.gantt-project-active { fill: #7aa2f7; font-weight: 600; }
 
 /* Full-height grid lines, positioned from TimeAxis's computeTicks. */
 .tick-vline {
