@@ -80,6 +80,10 @@
     white-space: nowrap;
   }
 
+  &.gantt-side-row-worktree > span {
+    color: var(--text-faint);
+  }
+
   & .warn-badge {
     font-size: inherit;
     font-weight: inherit;

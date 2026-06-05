@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useRef, useState, useCallback } from 'react'
 import { SOURCE_COLORS, SOURCE_LABELS } from '../utils/colors.js'
 import { useLocalStorage } from '../utils/useLocalStorage.js'
-import { subagentClusters } from '../utils/subagents.js'
+import { subagentClusters, groupByRoot } from '../utils/grouping.js'
 import HeatStrip from './HeatStrip.jsx'
 import TimeAxis, { computeTicks } from './TimeAxis.jsx'
 import WorkTimeOverlay from './WorkTimeOverlay.jsx'
@@ -12,7 +12,7 @@ const PROJECTS_WIDTH = 220
 const BARS = {
   day:   { height: 22, min_width: 4, row_gap: 4, group_gap: 8, radius: 3 },
   week:  { height: 15, min_width: 3, row_gap: 3, group_gap: 4, radius: 2 },
-  month: { height: 10, min_width: 2, row_gap: 2, group_gap: 2, radius: 1 },
+  month: { height: 12, min_width: 2, row_gap: 2, group_gap: 2, radius: 1 },
 }
 
 const SUBAGENT_SPLIT_GAP = 5 * 60_000 // a longer pause between subagents (user working) splits them into separate bars
@@ -68,7 +68,7 @@ export default function GanttChart({
     const addItem = (s, item, cost) => {
       const key = s.project || '(no project)'
       let group = byKey.get(key)
-      if (!group) byKey.set(key, group = { projectShort: s.projectShort, items: [], cost: 0 })
+      if (!group) byKey.set(key, group = { projectShort: s.projectShort, root: s.projectRoot || key, rootShort: s.projectRootShort, items: [], cost: 0 })
       group.items.push(item)
       group.cost += cost || 0
     }
@@ -96,18 +96,18 @@ export default function GanttChart({
         subs,
       }, subs.reduce((sum, c) => sum + (c.cost || 0), 0))
     }
-    const arr = [...byKey.entries()].map(([key, { projectShort, items, cost }]) => {
+    const arr = [...byKey.entries()].map(([key, { projectShort, root, rootShort, items, cost }]) => {
       const { placed, laneCount } = packLanes(items)
-      return { key, projectShort, placed, laneCount, cost }
+      return { key, root, rootShort, projectShort, placed, laneCount, cost }
     })
-    arr.sort((a, b) => b.cost - a.cost)
+    const groups = groupByRoot(arr)
     let y = HEADER_HEIGHT
-    for (const g of arr) {
+    for (const g of groups) {
       g.yOffset = y
-      g.height = g.laneCount * (bar.height + bar.row_gap)
+      g.height = (g.laneCount || 1) * (bar.height + bar.row_gap) // label-only header rows (no laneCount) size as one lane
       y += g.height + bar.group_gap
     }
-    return { groups: arr, totalHeight: Math.max(HEADER_HEIGHT + bar.height + 12, y + 4) }
+    return { groups, totalHeight: Math.max(HEADER_HEIGHT + bar.height + 12, y + 4) }
   }, [sessions, granularity])
 
   const chartWidth = Math.max(100, width - PROJECTS_WIDTH)
@@ -197,9 +197,11 @@ export default function GanttChart({
             ))}
             <TimeAxis viewStart={view.start} viewEnd={view.end} width={chartWidth} span={span} headerHeight={HEADER_HEIGHT} />
           </g>
-          {groups.map((g, gi) => (
-            <g key={g.key} style={projectFilter && projectFilter !== g.key ? { opacity: 0.25 } : undefined}>
-              {gi > 0 && (
+          {groups.map((g, gi) => {
+            const isWorktree = g.key !== g.root
+            return (
+            <g key={g.key} style={projectFilter && projectFilter !== g.key && projectFilter !== g.root ? { opacity: 0.25 } : undefined}>
+              {gi > 0 && groups[gi - 1].root !== g.root && (
                 <line
                   x1={0} x2={width}
                   y1={g.yOffset - bar.group_gap / 2}
@@ -208,14 +210,14 @@ export default function GanttChart({
                 />
               )}
               <text
-                x={8} y={g.yOffset + 14}
-                className={`gantt-project gantt-project-clickable${projectFilter === g.key ? ' gantt-project-active' : ''}`}
+                x={isWorktree ? 18 : 8} y={g.yOffset + 10}
+                className={`gantt-project gantt-project-clickable${projectFilter === g.key ? ' gantt-project-active' : ''}${isWorktree ? ' gantt-project-worktree' : ''}`}
                 onClick={(e) => { e.stopPropagation(); onToggleProjectFilter?.(g.key) }}
               >
                 <title>{g.key}</title>
-                {g.projectShort}
+                {isWorktree ? `- ${g.projectShort}` : g.projectShort}
               </text>
-              {g.placed.map(({ item, lane }) => {
+              {g.placed?.map(({ item, lane }) => {
                 const y = g.yOffset + lane * (bar.height + bar.row_gap)
                 const color = SOURCE_COLORS[item.source] || SOURCE_COLORS.other
                 const isSelected = item.subs ? item.subs.some((c) => c.sessionId === selectedId) : item.id === selectedId
@@ -255,7 +257,7 @@ export default function GanttChart({
                 )
               })}
             </g>
-          ))}
+          )})}
           <WorkTimeOverlay
             showWorkBand={granularity === 'day'}
             dayStart={dayRange.start}

@@ -4,7 +4,7 @@ import { format } from 'date-fns'
 import { fmtCompact, fmtNum, fmtUSD, fmtDuration, tone } from '../utils/formatting.js'
 import { THRESHOLDS as T } from '../utils/thresholds.js'
 import { parseCommand } from '../utils/textBlock.js'
-import { subagentsByParent } from '../utils/subagents.js'
+import { subagentsByParent } from '../utils/grouping.js'
 import './SessionList.css'
 
 export default function SessionList({ sessions, selectedId, onSelect, granularity = 'day' }) {
