@@ -102,7 +102,7 @@ export function markdownSession(meta, items, truncated) {
 - Scheduled: ${meta.hasScheduledTask ? 'yes' : 'no'}
 - CLI version: ${meta.version || '—'}
 - Project: ${meta.project || '—'}
-- Log file: ${meta.filePath}
+${meta.worktreePath ? `- Worktree: ${meta.worktreePath}\n` : ''}- Log file: ${meta.filePath}
 - File size: ${fmtBytes(meta.fileSize)}
 `
 

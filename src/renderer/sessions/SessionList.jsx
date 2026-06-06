@@ -26,7 +26,7 @@ export default function SessionList({ sessions, selectedId, onSelect, granularit
 
   const q = filter.trim().toLowerCase()
   const filtered = q ? sessions.filter((s) => [
-    s.customTitle, s.agentName, s.aiTitle, s.summary, s.firstUserPrompt, s.firstUserCommand, s.project, s.sessionId, s.model, s.gitBranch
+    s.customTitle, s.agentName, s.aiTitle, s.summary, s.firstUserPrompt, s.firstUserCommand, s.project, s.worktree, s.sessionId, s.model, s.gitBranch
   ].filter(Boolean).join(' ').toLowerCase().includes(q)) : sessions
 
   const sorted = sortBy === 'cost'   ? [...filtered].sort((a, b) => (b.cost || 0) - (a.cost || 0))
@@ -92,6 +92,7 @@ export default function SessionList({ sessions, selectedId, onSelect, granularit
                   {s.activeMs > T.workTime.warn && s.activeMs <= T.workTime.danger && <span className="warn-badge" title={`Working time: ${fmtDuration(s.activeMs)}`}>TIME</span>}
                   {s.speed === 'fast' && <span className={`fast-badge ${s.fastPricingUnknown ? 'fast-badge-unknown' : ''}`} title={s.fastPricingUnknown ? 'Used fast mode — cost is INACCURATE: no fast-mode price multiplier known for this model' : 'Used fast mode (speed: fast)'}>↯</span>}
                   {isSubagent && <span className="subagent-tag">[subagent]</span>}
+                  {s.worktree && <span className="worktree-tag" title={`Worktree of ${s.projectShort}`}>[{s.worktree}]</span>}
                   {isFork && <span className="fork-tag" title={`Forked from session ${s.forkedFrom.sessionId}`}>↳</span>}
                   {sessionName && <span className="session-name">{sessionName}</span>}
                   {sessionLabel(s)}

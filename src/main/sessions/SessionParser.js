@@ -33,7 +33,7 @@ function freshMeta({ sessionId, parentSessionId, filePath, fileSize, mtime }) {
   return {
     sessionId, parentSessionId, filePath, fileSize, mtime,
     startedAt: null, lastActivityAt: null,
-    entrypoint: null, project: null, gitBranch: null, version: null,
+    entrypoint: null, project: null, worktree: null, worktreePath: null, gitBranch: null, version: null,
     model: null, models: [], serviceTier: null, speed: null, fastPricingUnknown: false,
     summary: null, aiTitle: null, customTitle: null, agentName: null, firstUserPrompt: null, firstUserCommand: null, forkedFrom: null,
     messageCount: 0,
@@ -234,6 +234,13 @@ export class SessionParser {
     if (meta.startedAt == null) meta.startedAt = mtimeFallback
     if (meta.lastActivityAt == null) meta.lastActivityAt = mtimeFallback
     meta.source = classifySource(meta)
+    // Worktree sessions (cwd under <repo>/.claude/worktrees/<name>) belong to the parent repo, not a project of their own
+    const wt = meta.project && meta.project.replace(/\\/g, '/').match(/\/\.claude\/worktrees\/([^/]+)/)
+    if (wt) {
+      meta.worktree = wt[1]
+      meta.worktreePath = meta.project.slice(0, wt.index + wt[0].length)
+      meta.project = meta.project.slice(0, wt.index)
+    }
     meta.projectShort = shortProject(meta.project)
     meta.activeMs = meta.activityPeriods.reduce((sum, p) => sum + Math.max(0, p.end - p.start), 0)
     const t = meta.tokens

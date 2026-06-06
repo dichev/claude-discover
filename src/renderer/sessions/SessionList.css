@@ -145,12 +145,15 @@
   margin-right: 6px;
 }
 
-.subagent-tag {
+.subagent-tag,
+.worktree-tag {
   font-family: var(--font-mono), monospace;
   font-size: 11px;
   color: var(--accent, #4ea1ff);
   margin-right: 6px;
 }
+
+.worktree-tag { color: #34d399; }
 
 .fork-tag {
   color: var(--accent);
