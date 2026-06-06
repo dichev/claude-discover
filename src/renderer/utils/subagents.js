@@ -11,26 +11,6 @@ export function subagentsByParent(sessions) {
   return byParent
 }
 
-// Sort project groups ({ key, root, rootShort, ... }) so worktrees sit right under their root project;
-// roots order by combined stat. When only worktrees of a root are present, a label-only { header: true } row is inserted.
-export function groupByRoot(groups, statOf = g => g.cost) {
-  const rootStat = new Map()
-  for (const g of groups) rootStat.set(g.root, (rootStat.get(g.root) || 0) + statOf(g))
-  const sorted = [...groups].sort((a, b) => {
-    if (a.root !== b.root) return (rootStat.get(b.root) - rootStat.get(a.root)) || a.root.localeCompare(b.root)
-    if (a.key === a.root) return -1
-    if (b.key === b.root) return 1
-    return statOf(b) - statOf(a)
-  })
-  const out = []
-  for (const g of sorted) {
-    if (g.key !== g.root && out.at(-1)?.root !== g.root)
-      out.push({ key: g.root, root: g.root, projectShort: g.rootShort, header: true })
-    out.push(g)
-  }
-  return out
-}
-
 // Split each parent's subagents into time-separated runs (a pause > gap ms = the user worked in between).
 export function subagentClusters(sessions, gap) {
   return [...subagentsByParent(sessions).values()].flatMap(subs =>

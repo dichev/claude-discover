@@ -2,7 +2,6 @@ import React, { useMemo, useState } from 'react'
 import { format } from 'date-fns'
 import { endOfPeriod } from '../utils/period.js'
 import { fmtUSD, fmtCompact, fmtDuration } from '../utils/formatting.js'
-import { groupByRoot } from '../utils/grouping.js'
 import './PeriodSummary.css'
 
 function periodTitle(anchor, granularity) {
@@ -36,7 +35,7 @@ export default function PeriodSummary({ sessions, dayAnchor, granularity = 'day'
       const key = s.project || '(no project)'
       let g = map.get(key)
       if (!g) {
-        g = { key, root: s.projectRoot || key, rootShort: s.projectRootShort, projectShort: s.projectShort, cost: 0, totalTokens: 0 }
+        g = { key, projectShort: s.projectShort, cost: 0, totalTokens: 0 }
         map.set(key, g)
       }
       g.cost += s.cost || 0
@@ -48,7 +47,7 @@ export default function PeriodSummary({ sessions, dayAnchor, granularity = 'day'
   const [projectStat, setProjectStat] = useState('cost')
 
   const sortedByProject = useMemo(() =>
-    groupByRoot(byProject, projectStat === 'cost' ? g => g.cost : g => g.totalTokens),
+    [...byProject].sort((a, b) => projectStat === 'cost' ? b.cost - a.cost : b.totalTokens - a.totalTokens),
     [byProject, projectStat]
   )
 
@@ -71,9 +70,9 @@ export default function PeriodSummary({ sessions, dayAnchor, granularity = 'day'
             >{projectStat === 'cost' ? 'T' : '$'}</button>
           </div>
           {sortedByProject.map((g) => (
-            <div key={g.key} className={`gantt-side-row${g.key !== g.root ? ' gantt-side-row-worktree' : ''}`}>
-              <span title={g.key}>{g.key !== g.root ? `- ${g.projectShort}` : g.projectShort}</span>
-              {!g.header && <b>{projectStat === 'cost' ? fmtUSD(g.cost) : fmtCompact(g.totalTokens)}</b>}
+            <div key={g.key} className="gantt-side-row">
+              <span>{g.projectShort}</span>
+              <b>{projectStat === 'cost' ? fmtUSD(g.cost) : fmtCompact(g.totalTokens)}</b>
             </div>
           ))}
         </div>

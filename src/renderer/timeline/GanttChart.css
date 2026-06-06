@@ -49,7 +49,6 @@
 .gantt-project-clickable { cursor: pointer; }
 .gantt-project-clickable:hover { fill: #ffffff; }
 .gantt-project-active { fill: #7aa2f7; font-weight: 600; }
-.gantt-project-worktree { fill: #8a91a0; }
 
 /* Full-height grid lines, positioned from TimeAxis's computeTicks. */
 .tick-vline {

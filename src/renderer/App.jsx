@@ -46,7 +46,7 @@ export default function App() {
 
   const dayItems = useMemo(() => {
     const sourceFiltered = sourceFilter ? sessions.filter((s) => (s.source || 'other') === sourceFilter) : sessions
-    const past = projectFilter ? sourceFiltered.filter((s) => (s.project || '(no project)') === projectFilter || s.projectRoot === projectFilter) : sourceFiltered
+    const past = projectFilter ? sourceFiltered.filter((s) => (s.project || '(no project)') === projectFilter) : sourceFiltered
     const availableSources = [...new Set(sessions.map((s) => s.source || 'other'))]
     return { sourceFiltered, past, availableSources }
   }, [sessions, sourceFilter, projectFilter])

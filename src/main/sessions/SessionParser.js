@@ -24,13 +24,6 @@ function shortProject(dir) {
   return parts.slice(-2).join('/') || dir
 }
 
-// Claude Code worktrees live at <root>/.claude/worktrees/<name> — sessions there belong to the root project
-const WORKTREE_RE = /[\\/]\.claude[\\/]worktrees[\\/]/
-
-function projectRoot(dir) {
-  return dir ? dir.split(WORKTREE_RE)[0] : dir
-}
-
 function classifySource(meta) {
   if (meta.hasScheduledTask) return 'scheduled'
   return (meta.entrypoint || '').toLowerCase() || 'other'
@@ -242,8 +235,6 @@ export class SessionParser {
     if (meta.lastActivityAt == null) meta.lastActivityAt = mtimeFallback
     meta.source = classifySource(meta)
     meta.projectShort = shortProject(meta.project)
-    meta.projectRoot = projectRoot(meta.project)
-    meta.projectRootShort = shortProject(meta.projectRoot)
     meta.activeMs = meta.activityPeriods.reduce((sum, p) => sum + Math.max(0, p.end - p.start), 0)
     const t = meta.tokens
     meta.totalTokens = t.input + t.output + t.cacheRead + t.cacheCreation
