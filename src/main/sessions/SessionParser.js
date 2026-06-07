@@ -36,7 +36,7 @@ function freshMeta({ sessionId, parentSessionId, filePath, fileSize, mtime }) {
     entrypoint: null, project: null, worktree: null, worktreePath: null, gitBranch: null, version: null,
     model: null, models: [], serviceTier: null, speed: null, fastPricingUnknown: false,
     summary: null, aiTitle: null, customTitle: null, agentName: null, firstUserPrompt: null, firstUserCommand: null, forkedFrom: null,
-    messageCount: 0,
+    messageCount: 0, workflowAgents: 0,
     tokens: emptyBucket(), tokensByModel: {}, tokensByModelFast: {}, lastContextTokens: 0,
     serverToolUse: { webSearch: 0, webFetch: 0 },
     hasScheduledTask: false,
@@ -92,6 +92,7 @@ export class SessionParser {
     if (t === 'custom-title' && obj.customTitle) meta.customTitle = obj.customTitle
     if (t === 'agent-name' && obj.agentName) meta.agentName = obj.agentName
     if (t === 'queue-operation' && obj.content?.includes('<scheduled-task')) meta.hasScheduledTask = true
+    if (t === 'started' && obj.key && obj.agentId) meta.workflowAgents += 1 // workflow journal: one `started` record per agent() call
 
     if (obj.cwd && !meta.project) meta.project = obj.cwd
     if (obj.gitBranch && !meta.gitBranch) meta.gitBranch = obj.gitBranch

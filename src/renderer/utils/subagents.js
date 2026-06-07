@@ -1,3 +1,6 @@
+// Workflow journals (subagents/workflows/<wf>/journal.jsonl) get a `<wfId>-journal` session id.
+export const isJournal = s => s.sessionId.endsWith('-journal')
+
 // Group subagents under their parent (orphans, whose parent is outside the period, are dropped). Map<parentId, child[]>.
 export function subagentsByParent(sessions) {
   const ids = new Set(sessions.map(s => s.sessionId))

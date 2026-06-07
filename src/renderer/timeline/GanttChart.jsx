@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useRef, useState, useCallback } from 'react'
 import { SOURCE_COLORS, SOURCE_LABELS } from '../utils/colors.js'
 import { useLocalStorage } from '../utils/useLocalStorage.js'
-import { subagentClusters } from '../utils/subagents.js'
+import { subagentClusters, isJournal } from '../utils/subagents.js'
 import HeatStrip from './HeatStrip.jsx'
 import TimeAxis, { computeTicks } from './TimeAxis.jsx'
 import WorkTimeOverlay from './WorkTimeOverlay.jsx'
@@ -94,6 +94,7 @@ export default function GanttChart({
         source: subs[0].source,
         activityPeriods: periods,
         subs,
+        subCount: subs.filter(c => !isJournal(c)).length, // journals are workflow logs, not subagents
       }, subs.reduce((sum, c) => sum + (c.cost || 0), 0))
     }
     const arr = [...byKey.entries()].map(([key, { projectShort, items, cost }]) => {
@@ -244,13 +245,13 @@ export default function GanttChart({
                     )}
                     {item.subs && (
                       <text x={x + w / 2} y={y + bar.height / 2} textAnchor="middle" dominantBaseline="central" className="gantt-bar-count">
-                        {item.subs.length}
+                        {item.subCount}
                       </text>
                     )}
                     {isSelected && (
                       <rect x={x} y={y} width={w} height={bar.height} rx={bar.radius} className="bar-outline" />
                     )}
-                    <title>{`${item.subs ? `${item.subs.length} subagents` : `${SOURCE_LABELS[item.source] || item.source} · ${item.label}`}\n${g.key}\n${new Date(item.start).toLocaleString()} → ${new Date(item.end).toLocaleString()}`}</title>
+                    <title>{`${item.subs ? `${item.subCount} subagents` : `${SOURCE_LABELS[item.source] || item.source} · ${item.label}`}\n${g.key}\n${new Date(item.start).toLocaleString()} → ${new Date(item.end).toLocaleString()}`}</title>
                   </g>
                 )
               })}

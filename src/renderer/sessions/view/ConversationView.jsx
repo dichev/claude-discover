@@ -64,6 +64,21 @@ export function flatten(items) {
       })
       continue
     }
+    // Workflow journal records (subagents/workflows/<wf>/journal.jsonl): each `result` carries an
+    // agent's return value — render it as an assistant turn; `started` markers have no content and
+    // fall through to the skip below.
+    if (it.type === 'result' && it.key && it.agentId) {
+      const text = typeof it.result === 'string' ? it.result : '```json\n' + safeJson(it.result) + '\n```'
+      turns.push({
+        uuid: `wf-${it.agentId}`,
+        role: 'assistant',
+        isMeta: false,
+        ts: null,
+        model: null, usage: null, tokenDelta: null, tokenTotal: null,
+        blocks: [{ type: 'text', text: `**agent ${it.agentId}**\n\n${text}` }]
+      })
+      continue
+    }
     if (it.type !== 'user' && it.type !== 'assistant') continue
     const msg = it.message || {}
     const blocks = normalizeContent(msg.content)

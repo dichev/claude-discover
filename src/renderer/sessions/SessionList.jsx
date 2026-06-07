@@ -4,7 +4,7 @@ import { format } from 'date-fns'
 import { fmtCompact, fmtNum, fmtUSD, fmtDuration, tone } from '../utils/formatting.js'
 import { THRESHOLDS as T } from '../utils/thresholds.js'
 import { parseCommand } from '../utils/textBlock.js'
-import { subagentsByParent } from '../utils/subagents.js'
+import { subagentsByParent, isJournal } from '../utils/subagents.js'
 import './SessionList.css'
 
 export default function SessionList({ sessions, selectedId, onSelect, granularity = 'day' }) {
@@ -69,6 +69,7 @@ export default function SessionList({ sessions, selectedId, onSelect, granularit
         )}
         {grouped.map(({ session: s, isChild }) => {
           const isSubagent = s.sessionId.startsWith('agent-')
+          const journal = isJournal(s)
           const isFork = !!s.forkedFrom
           const sessionName = s.customTitle && s.agentName && s.customTitle !== s.agentName
             ? `${s.customTitle} [${s.agentName}]`
@@ -92,6 +93,7 @@ export default function SessionList({ sessions, selectedId, onSelect, granularit
                   {s.activeMs > T.workTime.warn && s.activeMs <= T.workTime.danger && <span className="warn-badge" title={`Working time: ${fmtDuration(s.activeMs)}`}>TIME</span>}
                   {s.speed === 'fast' && <span className={`fast-badge ${s.fastPricingUnknown ? 'fast-badge-unknown' : ''}`} title={s.fastPricingUnknown ? 'Used fast mode — cost is INACCURATE: no fast-mode price multiplier known for this model' : 'Used fast mode (speed: fast)'}>↯</span>}
                   {isSubagent && <span className="subagent-tag">[subagent]</span>}
+                  {journal && <span className="subagent-tag">[journal: {s.workflowAgents} subagent{s.workflowAgents === 1 ? '' : 's'}]</span>}
                   {s.worktree && <span className="worktree-tag" title={`Worktree of ${s.projectShort}`}>[{s.worktree}]</span>}
                   {isFork && <span className="fork-tag" title={`Forked from session ${s.forkedFrom.sessionId}`}>↳</span>}
                   {sessionName && <span className="session-name">{sessionName}</span>}

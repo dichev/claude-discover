@@ -5,10 +5,12 @@ import path from 'node:path'
 export class SessionFile {
   constructor(filePath) {
     this.filePath = filePath
-    this.sessionId = path.basename(filePath, '.jsonl')
     // Parent session is the dir segment before the outermost `subagents` (nests deep, e.g. subagents/workflows/<wf>/agent-*).
     const parts = path.dirname(filePath).split(path.sep)
     this.parentSessionId = parts[parts.indexOf('subagents') - 1] ?? null
+    // Workflow journals are all named journal.jsonl — qualify with the wf dir so ids stay unique
+    const base = path.basename(filePath, '.jsonl')
+    this.sessionId = base === 'journal' ? `${parts.at(-1)}-journal` : base
   }
 
   async stat() {
