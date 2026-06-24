@@ -9,6 +9,13 @@ export function buildAppMenu() {
   return Menu.buildFromTemplate([
     ...(process.platform === 'darwin' ? [{ role: 'appMenu' }] : []), // @macOS
     {
+      label: 'Edit', // @macOS Cmd+C / select-all only work when an Edit menu wires these roles
+      submenu: [
+        { role: 'copy' },
+        { role: 'selectAll' },
+      ],
+    },
+    {
       label: 'File',
       submenu: [
         { label: 'Change directory…', click: (_i, win) => browse(win) },

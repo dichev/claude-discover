@@ -34,6 +34,11 @@ export class MainWindow {
 
     state.manage(this.win)
     this.win.on('page-title-updated', e => e.preventDefault())
+
+    this.win.webContents.on('context-menu', (_e, params) => { // right-click Copy on selected text
+      if (!params.selectionText) return
+      Menu.buildFromTemplate([{ role: 'copy' }]).popup({ window: this.win })
+    })
     if (DEV_URL) {
       this.win.loadURL(DEV_URL)
     } else {
