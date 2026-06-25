@@ -11,14 +11,22 @@ export default defineConfig({
   },
   preload: {
     build: {
-      lib: { entry: resolve('src/preload/preload.js') }
+      lib: {
+        entry: {
+          preload:     resolve('src/preload/preload.js'),
+          findPreload: resolve('src/preload/findPreload.js')
+        }
+      }
     }
   },
   renderer: {
     root: resolve('src/renderer'),
     build: {
       rollupOptions: {
-        input: resolve('src/renderer/index.html')
+        input: {
+          index: resolve('src/renderer/index.html'),
+          find:  resolve('src/renderer/find/find.html')
+        }
       }
     },
     server:  { port: 5555, strictPort: true  }, // npm run dev

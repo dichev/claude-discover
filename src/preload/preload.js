@@ -1,10 +1,5 @@
 import { contextBridge, ipcRenderer } from 'electron'
-
-const subscribe = channel => cb => {
-  const listener = (_e, payload) => cb(payload)
-  ipcRenderer.on(channel, listener)
-  return () => { ipcRenderer.removeListener(channel, listener) }
-}
+import { subscribe } from './subscribe.js'
 
 contextBridge.exposeInMainWorld('api', {
   claudeDir:     ipcRenderer.sendSync('claude-dir:get'),

@@ -5,7 +5,7 @@ const IS_DEV = !!process.env.ELECTRON_RENDERER_URL
 
 
 
-export function buildAppMenu() {
+export function buildAppMenu({ onFind, onEscape } = {}) {
   return Menu.buildFromTemplate([
     ...(process.platform === 'darwin' ? [{ role: 'appMenu' }] : []), // @macOS
     {
@@ -26,7 +26,8 @@ export function buildAppMenu() {
         { role: 'copy' },
         { role: 'paste' },
         { role: 'selectAll' },
-        { label: 'Deselect', accelerator: 'Escape', click: (_i, win) => win?.webContents.unselect() },
+        { label: 'Find…', accelerator: 'CmdOrCtrl+F', click: () => onFind?.() },
+        { label: 'Deselect', accelerator: 'Escape', click: (_i, win) => onEscape?.(win) },
       ],
     },
     {

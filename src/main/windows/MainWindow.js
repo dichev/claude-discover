@@ -3,7 +3,8 @@ import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import windowStateKeeper from 'electron-window-state'
 import contextMenu from 'electron-context-menu'
-import { buildAppMenu } from './menu.js'
+import { buildAppMenu } from '../menu.js'
+import { FindBar } from './FindBar.js'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 const DEV_URL = process.env.ELECTRON_RENDERER_URL
@@ -14,7 +15,10 @@ export class MainWindow {
   }
 
   create() {
-    Menu.setApplicationMenu(buildAppMenu())
+    Menu.setApplicationMenu(buildAppMenu({
+      onFind: () => this.findBar?.show(),
+      onEscape: win => this.findBar?.visible ? this.findBar.hide() : win?.webContents.unselect(),
+    }))
 
     const state = windowStateKeeper({ defaultWidth: 1500, defaultHeight: 900 })
     this.win = new BrowserWindow({
@@ -43,6 +47,7 @@ export class MainWindow {
       this.win.loadFile(path.join(__dirname, '../renderer/index.html'))
     }
 
+    this.findBar = new FindBar(this.win)
     return this.win
   }
 

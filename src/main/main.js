@@ -3,7 +3,7 @@ import path from 'node:path'
 import { SessionsService } from './services/SessionsService.js'
 import { WorkHours } from './services/WorkHours.js'
 import { AgentRunner } from './services/AgentRunner.js'
-import { MainWindow } from './window.js'
+import { MainWindow } from './windows/MainWindow.js'
 import { CLAUDE_DIR, HOOK_PATH } from './paths.js'
 import { ClaudeSettings } from './services/ClaudeSettings.js'
 
@@ -39,6 +39,10 @@ app.whenReady().then(() => {
   ipcMain.handle('agent:run', (e, text, systemTools) => agentRunner.run(text, e.sender, systemTools))
 
   ipcMain.handle('shell:open-link', (_e, href, baseFile) => openLink(href, baseFile))
+
+  ipcMain.on('find:query', (_e, text, options) => win.findBar?.query(text, options))
+  ipcMain.on('find:stop',  () => win.findBar?.stop())
+  ipcMain.on('find:close', () => win.findBar?.hide())
 
   ipcMain.on('claude-dir:get',     e => { e.returnValue = CLAUDE_DIR })
   ipcMain.on('hook:installed:get', e => { e.returnValue = hookInstalled })
