@@ -28,9 +28,8 @@ async function ourTotals(claudeDir, range) {
     totals.output += m.tokens.output
     totals.cacheRead += m.tokens.cacheRead
     totals.cacheCreation += m.tokens.cacheCreation
-    // currently ccusage ignores the 1h premium price: https://github.com/ryoppippi/ccusage/issues/899
-    cost += (pricing.costUSD(m.tokensByModel, { ignoreCache1hPremium: true }) || 0)
-          + (pricing.costUSD(m.tokensByModelFast, { ignoreCache1hPremium: true, fast: true }) || 0)
+    cost += (pricing.costUSD(m.tokensByModel) || 0)
+          + (pricing.costUSD(m.tokensByModelFast, { fast: true }) || 0)
   }
   return { totals, cost }
 }
