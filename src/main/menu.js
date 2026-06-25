@@ -9,13 +9,6 @@ export function buildAppMenu() {
   return Menu.buildFromTemplate([
     ...(process.platform === 'darwin' ? [{ role: 'appMenu' }] : []), // @macOS
     {
-      label: 'Edit', // @macOS Cmd+C / select-all only work when an Edit menu wires these roles
-      submenu: [
-        { role: 'copy' },
-        { role: 'selectAll' },
-      ],
-    },
-    {
       label: 'File',
       submenu: [
         { label: 'Change directory…', click: (_i, win) => browse(win) },
@@ -25,6 +18,15 @@ export function buildAppMenu() {
         })),
         { type: 'separator' },
         { role: 'quit' },
+      ],
+    },
+    { // @macOS Cmd+C/V/A have no key equivalents without an Edit menu; Windows/Linux get these from Chromium
+      label: 'Edit',
+      submenu: [
+        { role: 'copy' },
+        { role: 'paste' },
+        { role: 'selectAll' },
+        { label: 'Deselect', accelerator: 'Escape', click: (_i, win) => win?.webContents.unselect() },
       ],
     },
     {

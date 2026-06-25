@@ -2,6 +2,7 @@ import { app, BrowserWindow, Menu } from 'electron'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import windowStateKeeper from 'electron-window-state'
+import contextMenu from 'electron-context-menu'
 import { buildAppMenu } from './menu.js'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
@@ -35,10 +36,7 @@ export class MainWindow {
     state.manage(this.win)
     this.win.on('page-title-updated', e => e.preventDefault())
 
-    this.win.webContents.on('context-menu', (_e, params) => { // right-click Copy on selected text
-      if (!params.selectionText) return
-      Menu.buildFromTemplate([{ role: 'copy' }]).popup({ window: this.win })
-    })
+    contextMenu({ window: this.win, showSelectAll: true, showCopyImage: true, showCopyLink: true, showInspectElement: !!DEV_URL })
     if (DEV_URL) {
       this.win.loadURL(DEV_URL)
     } else {
