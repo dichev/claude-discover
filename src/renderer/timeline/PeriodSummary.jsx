@@ -14,6 +14,7 @@ export default function PeriodSummary({ sessions, dayAnchor, granularity = 'day'
   const totals = useMemo(() => {
     const t = sessions.reduce((acc, s) => {
       acc.cost += s.cost || 0
+      acc.savingsUsing5mCache += s.savings?.using5mCache || 0
       acc.totalTokens += s.totalTokens || 0
       acc.input += s.tokens.input
       acc.output += s.tokens.output
@@ -23,7 +24,7 @@ export default function PeriodSummary({ sessions, dayAnchor, granularity = 'day'
       acc.cacheCreation1h += s.tokens.cacheCreation1h || 0
       acc.activeMs += s.activeMs || 0
       return acc
-    }, { cost: 0, totalTokens: 0, input: 0, output: 0, cacheRead: 0, cacheCreation: 0, cacheCreation5m: 0, cacheCreation1h: 0, activeMs: 0 })
+    }, { cost: 0, savingsUsing5mCache: 0, totalTokens: 0, input: 0, output: 0, cacheRead: 0, cacheCreation: 0, cacheCreation5m: 0, cacheCreation1h: 0, activeMs: 0 })
     const cacheDenom = t.cacheRead + t.cacheCreation
     t.cacheHitRatio = cacheDenom > 0 ? t.cacheRead / cacheDenom : null
     return t
@@ -59,6 +60,12 @@ export default function PeriodSummary({ sessions, dayAnchor, granularity = 'day'
         <div className="gantt-side-row"><span>Total tokens</span><b>{fmtCompact(totals.totalTokens)}</b></div>
         <div className="gantt-side-row"><span>Estimated cost</span><b>{fmtUSD(totals.cost)}</b></div>
       </div>
+      {totals.savingsUsing5mCache > 0 && (
+        <div className="gantt-side-section">
+          <div className="gantt-side-heading">Potential savings</div>
+          <div className="gantt-side-row"><span>- with 5m cache</span><b>{`${totals.cost > 0 ? `(${(totals.savingsUsing5mCache / totals.cost * 100).toFixed(0)}%) ` : ''}−${fmtUSD(totals.savingsUsing5mCache)}`}</b></div>
+        </div>
+      )}
       {sortedByProject.length > 0 && (
         <div className="gantt-side-section">
           <div className="gantt-side-heading">

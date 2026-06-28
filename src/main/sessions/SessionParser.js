@@ -251,6 +251,10 @@ export class SessionParser {
     const stdCost  = this.pricing ? this.pricing.costUSD(meta.tokensByModel) : 0
     const fastCost = this.pricing ? this.pricing.costUSD(meta.tokensByModelFast, { fast: true }) : 0
     meta.cost = (stdCost || 0) + (fastCost || 0)
+    // What the session would have cost with only 5m cache (no 1h premium); the gap is the potential saving.
+    const stdNo1h  = this.pricing ? this.pricing.costUSD(meta.tokensByModel, { ignoreCache1hPremium: true }) : 0
+    const fastNo1h = this.pricing ? this.pricing.costUSD(meta.tokensByModelFast, { ignoreCache1hPremium: true, fast: true }) : 0
+    meta.savings = { using5mCache: meta.cost - ((stdNo1h || 0) + (fastNo1h || 0)) }
     return meta
   }
 }

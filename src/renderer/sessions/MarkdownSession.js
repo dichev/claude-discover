@@ -75,7 +75,10 @@ export function markdownSession(meta, items, truncated) {
 - Working time: ${fmtDuration(meta.activeMs)}
 - Total tokens: ${fmtCompact(meta.totalTokens)}
 - Estimated cost: ${fmtUSD(meta.cost)}
-- Context size: ${fmtCompact(meta.lastContextTokens)} / ${fmtCompact(CONTEXT_WINDOW)} (${contextPct}%)
+- Context size: ${fmtCompact(meta.lastContextTokens)} / ${fmtCompact(CONTEXT_WINDOW)} (${contextPct}%)${meta.savings.using5mCache > 0 ? `
+
+## Potential savings
+- with 5m cache: ${meta.cost > 0 ? `(${(meta.savings.using5mCache / meta.cost * 100).toFixed(0)}%) ` : ''}−${fmtUSD(meta.savings.using5mCache)}` : ''}
 
 ## Tokens
 - Input: ${fmtNum(t.input)}

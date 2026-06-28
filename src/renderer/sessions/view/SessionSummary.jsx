@@ -65,6 +65,15 @@ export default function SessionSummary({ meta, items, agent, onOpenAgent, granul
         }/>
       </Section>
 
+      {meta.savings.using5mCache > 0 && (
+        <Section title="Potential savings">
+          <Field
+            label="- with 5m cache"
+            value={`${cost > 0 ? `(${(meta.savings.using5mCache / cost * 100).toFixed(0)}%) ` : ''}−${fmtUSD(meta.savings.using5mCache)}`}
+          />
+        </Section>
+      )}
+
       <Section title="Tokens">
         <Field label="Input" value={fmtNum(t.input)} />
         <Field label="Output" value={fmtNum(t.output)} />
