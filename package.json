@@ -1,7 +1,7 @@
 {
   "name": "claude-discover",
   "private": true,
-  "version": "1.5.6",
+  "version": "1.6.0",
   "type": "module",
   "description": "Claude Discover — read-only browser for local Claude Code sessions",
   "main": "out/main/main.js",

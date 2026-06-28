@@ -14,8 +14,27 @@ const HOOK_TOOLTIP = `
   </div>
 `
 
+const RETENTION_TOOLTIP = `
+  <div class="statusbar-tooltip">
+    <p>Claude Code deletes session transcripts older than <code>cleanupPeriodDays</code> (default 30), so this app can only show what hasn't been swept yet.</p>
+    <p>To keep more history browsable, set a larger value in <code>settings.json</code>, e.g. to keep them for 1y set:</p>
+    <ul><li><code>"cleanupPeriodDays": 365</code></li></ul>
+  </div>
+`
+
+const ONE_YEAR_DAYS = 365
+
+// Humanize a day count for the status bar: years once past a year, otherwise raw days.
+function humanizeDays(days) {
+  if (days < ONE_YEAR_DAYS) return `${days}d`
+  const years = days / ONE_YEAR_DAYS
+  return `${Number.isInteger(years) ? years : years.toFixed(1)}y`
+}
+
 export default function StatusBar({ progress, sessionCount = 0 }) {
   const installed = window.api.hookInstalled
+  const retentionDays = window.api.cleanupPeriodDays ?? 30 // Claude Code's default when unset
+  const shortRetention = retentionDays < ONE_YEAR_DAYS
   const scanning = progress?.scanning && progress.total > 0
   const finished = progress && !progress.scanning // keep "Loaded N" visible after the scan completes
   const pct = scanning ? (progress.done / progress.total) * 100 : 0
@@ -36,6 +55,11 @@ export default function StatusBar({ progress, sessionCount = 0 }) {
       )}
       <span className="statusbar-claude-dir" title="Use the File menu (press Alt) to change directory.">
         Claude dir: <code>{window.api.claudeDir}</code>
+      </span>
+      <span className="statusbar-group" title={RETENTION_TOOLTIP}>
+        <span className={`statusbar-msg ${shortRetention ? 'statusbar-off' : ''}`}>
+          {shortRetention && '⚠ '}Session logs retained: {humanizeDays(retentionDays)}
+        </span>
       </span>
       <span className="statusbar-group" title={HOOK_TOOLTIP}>
         <span className={`statusbar-msg ${installed ? 'statusbar-on' : 'statusbar-off'}`}>

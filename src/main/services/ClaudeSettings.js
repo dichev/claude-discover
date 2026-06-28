@@ -21,6 +21,15 @@ export class ClaudeSettings {
     return (this.cfg.hooks?.[eventName] ?? []).flatMap(g => g.hooks ?? [])
   }
 
+  // Days Claude Code keeps transcripts before auto-deleting them; undefined when unset (its default is 30).
+  get cleanupPeriodDays() {
+    return this.cfg.cleanupPeriodDays
+  }
+
+  set cleanupPeriodDays(days) {
+    this.cfg.cleanupPeriodDays = days
+  }
+
   addHook(eventName, command) {
     this.cfg.hooks ??= {}
     this.cfg.hooks[eventName] ??= []

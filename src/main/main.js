@@ -23,7 +23,8 @@ app.whenReady().then(() => {
     sessionsService.stop()
     powerMonitor.once('resume', () => setTimeout(() => sessionsService.start(), 1000))
   })
-  const hookInstalled = new ClaudeSettings().hooks('InstructionsLoaded').some(h => h.command?.includes(HOOK_PATH))
+  const settings = new ClaudeSettings()
+  const hookInstalled = settings.hooks('InstructionsLoaded').some(h => h.command?.includes(HOOK_PATH))
 
   win.create()
   app.on('activate', () => { // @macOS
@@ -45,8 +46,9 @@ app.whenReady().then(() => {
   ipcMain.on('find:stop',  () => win.findBar?.stop())
   ipcMain.on('find:close', () => win.findBar?.hide())
 
-  ipcMain.on('claude-dir:get',     e => { e.returnValue = CLAUDE_DIR })
-  ipcMain.on('hook:installed:get', e => { e.returnValue = hookInstalled })
+  ipcMain.on('claude-dir:get',       e => { e.returnValue = CLAUDE_DIR })
+  ipcMain.on('hook:installed:get',   e => { e.returnValue = hookInstalled })
+  ipcMain.on('cleanup-period:get',   e => { e.returnValue = settings.cleanupPeriodDays ?? null })
 })
 
 app.on('window-all-closed', () => {

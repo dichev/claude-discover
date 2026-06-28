@@ -8,6 +8,7 @@ import { ClaudeSettings } from '../src/main/services/ClaudeSettings.js'
 const HOOK_FILE   = basename(HOOK_PATH)
 const HOOK_CMD    = `node "${HOOK_PATH}"`
 const HOOK_EVENTS = ['InstructionsLoaded', 'SessionStart', 'SessionEnd']
+const RETAIN_DAYS = 365 // 1y; capturing context is pointless if Claude Code sweeps the transcripts first
 
 
 console.log(`Installing capture-context hook into ${CLAUDE_SETTINGS}...`)
@@ -33,6 +34,16 @@ for (const event of HOOK_EVENTS) {
     changed = true
   }
 }
+
+const retention = settings.cleanupPeriodDays ?? 30 // Claude Code's default when unset
+if (retention < RETAIN_DAYS) {
+  console.log(` • Retention: raising cleanupPeriodDays ${retention} → ${RETAIN_DAYS} so transcripts aren't swept`)
+  settings.cleanupPeriodDays = RETAIN_DAYS
+  changed = true
+} else {
+  console.log(` • Retention: cleanupPeriodDays already ${retention} (≥ ${RETAIN_DAYS})`)
+}
+
 console.log(`--------------------------------------------`)
 if (!changed) {
   console.log(`No changes needed in ${CLAUDE_SETTINGS}`)
