@@ -2,6 +2,7 @@ import React, { useMemo, useState } from 'react'
 import { format } from 'date-fns'
 import { endOfPeriod } from '../utils/period.js'
 import { fmtUSD, fmtCompact, fmtDuration } from '../utils/formatting.js'
+import CostBreakdownChart from './CostBreakdownChart.jsx'
 import './PeriodSummary.css'
 
 function periodTitle(anchor, granularity) {
@@ -60,6 +61,7 @@ export default function PeriodSummary({ sessions, dayAnchor, granularity = 'day'
         <div className="gantt-side-row"><span>Total tokens</span><b>{fmtCompact(totals.totalTokens)}</b></div>
         <div className="gantt-side-row"><span>Estimated cost</span><b>{fmtUSD(totals.cost)}</b></div>
       </div>
+      <CostBreakdownChart sessions={sessions} dayAnchor={dayAnchor} granularity={granularity} />
       {totals.savingsUsing5mCache > 0 && (
         <div className="gantt-side-section">
           <div className="gantt-side-heading">Potential savings</div>

@@ -1,0 +1,60 @@
+.cost-chart {
+  position: relative;
+  padding-top: 12px;
+}
+
+.cost-chart-max {
+  position: absolute;
+  top: 0;
+  right: 0;
+  font-size: 9px;
+  line-height: 1;
+  color: var(--text-faint);
+  font-family: var(--font-mono), monospace;
+}
+
+.cost-chart-line {
+  position: absolute;
+  top: 12px;
+  left: 0;
+  right: 0;
+  border-top: 1px dashed var(--border);
+}
+
+.cost-chart-cols {
+  display: flex;
+  align-items: flex-end;
+  gap: 2px;
+}
+
+.cost-chart-col {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+}
+
+.cost-chart-cell {
+  height: 52px;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+}
+
+.cost-chart-bar {
+  background: var(--accent);
+  border-radius: 1px 1px 0 0;
+
+  .cost-chart-col:hover & { filter: brightness(1.25); }
+}
+
+.cost-chart-label {
+  height: 9px;
+  margin-top: 3px;
+  font-size: 9px;
+  line-height: 1;
+  color: var(--text-faint);
+  text-align: center;
+  white-space: nowrap;
+}
