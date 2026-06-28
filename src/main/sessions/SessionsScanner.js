@@ -33,8 +33,11 @@ export class SessionsScanner {
   // (file mtime IS updated on append, unlike dir mtime), calls onFile(filePath, stat).
   // After each project's files are processed, calls onBatchDone() if any onFile returned
   // truthy — lets callers flush UI updates incrementally.
-  async scan(day, { onFile, onBatchDone } = {}) {
+  async scan(day, { onFile, onBatchDone, onProgress } = {}) {
     const projects = await this._listDirs(this.root)
+    const total = projects.length
+    let done = 0
+    onProgress?.({ done, total, scanning: total > 0 }) // project count is the known denominator for the UI progress bar
     await Promise.all(
       projects.map(async (projDir) => {
         const filePaths = []
@@ -46,9 +49,12 @@ export class SessionsScanner {
         const valid = candidates.filter(Boolean)
         const results = onFile ? await Promise.all(valid.map(({ filePath, stat }) => onFile(filePath, stat))) : []
         if (onBatchDone && results.some(Boolean)) await onBatchDone()
+        done++
+        onProgress?.({ done, total, scanning: done < total })
       })
     )
     if (onBatchDone) await onBatchDone() // Callers get a final flush over the fully-scanned state even for empty periods (where no per-project batch fired).
+    onProgress?.({ done: total, total, scanning: false }) // terminal: covers total===0 and guarantees the bar clears
   }
 
   watch({ onChange, onUnlink } = {}) {

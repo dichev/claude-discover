@@ -114,10 +114,17 @@ export class SessionsService extends EventEmitter {
     const onFile = (filePath, stat) => this._processFile(filePath, day, stat)
     if (watch) {
       // fire-and-forget; scanner streams an update per dir batch + a final flush
-      this.scanner.scan(day, { onFile, onBatchDone: async () => {
-        if (this.activeDay?.key !== day.key) return // guard against stale period navigation
-        this.emit('update', await this._dedupedDay(day))
-      } }).catch(console.error)
+      this.scanner.scan(day, {
+        onFile,
+        onBatchDone: async () => {
+          if (this.activeDay?.key !== day.key) return // guard against stale period navigation
+          this.emit('update', await this._dedupedDay(day))
+        },
+        onProgress: (p) => {
+          if (this.activeDay?.key !== day.key) return // same stale-period guard as onBatchDone
+          this.emit('progress', p)
+        }
+      }).catch(console.error)
       return this._dedupedDay(day)
     }
     else {

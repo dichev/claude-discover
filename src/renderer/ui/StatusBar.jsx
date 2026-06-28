@@ -14,11 +14,26 @@ const HOOK_TOOLTIP = `
   </div>
 `
 
-export default function StatusBar() {
+export default function StatusBar({ progress, sessionCount = 0 }) {
   const installed = window.api.hookInstalled
+  const scanning = progress?.scanning && progress.total > 0
+  const finished = progress && !progress.scanning // keep "Loaded N" visible after the scan completes
+  const pct = scanning ? (progress.done / progress.total) * 100 : 0
 
   return (
     <div className="statusbar">
+      {(scanning || finished) && (
+        <span className="statusbar-loading">
+          <span className="statusbar-loading-text">
+            {scanning ? 'Loading' : 'Loaded'} <span className="statusbar-loading-num">{sessionCount}</span> sessions{scanning ? '…' : ''}
+          </span>
+          {scanning && (
+            <span className="progress-bar">
+              <span className="progress-bar-fill" style={{ width: `${pct}%` }} />
+            </span>
+          )}
+        </span>
+      )}
       <span className="statusbar-claude-dir" title="Use the File menu (press Alt) to change directory.">
         Claude dir: <code>{window.api.claudeDir}</code>
       </span>

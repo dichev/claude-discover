@@ -13,9 +13,9 @@
 .statusbar-group { display: inline-flex; align-items: center; gap: 8px; }
 .statusbar > * + * { padding-left: 8px; border-left: 1px solid var(--border); }
 
-/* Pinned to the left; pushes the status messages to the right edge. */
+/* Pinned to the right, just left of the hook status; the auto margin pushes it there. */
 .statusbar-claude-dir {
-  margin-right: auto;
+  margin-left: auto;
   min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -29,3 +29,36 @@
 .statusbar-tooltip > :last-child { margin-bottom: 0; }
 .statusbar-off { color: var(--warn); }
 .statusbar-on  { color: var(--ok); }
+
+/* Session-loading indicator (compact progress bar, mirrors SessionSummary's .progress-bar) */
+/* Pinned to the left; the claude-dir's margin-left:auto pushes everything else right.
+   Fixed width + tabular-nums keep the layout from shifting as the count changes. */
+.statusbar-loading {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  width: 220px;
+}
+.statusbar-loading-text { white-space: nowrap; }
+.statusbar-loading-num {
+  display: inline-block;
+  min-width: 4ch;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+.statusbar-loading .progress-bar {
+  margin-left: auto; /* pin the bar to the right edge so the count never nudges it */
+  flex: none;
+  width: 100px;
+  height: 6px;
+  border-radius: 3px;
+  background: var(--bg-elev-2);
+  border: 1px solid var(--border);
+  overflow: hidden;
+}
+.statusbar-loading .progress-bar-fill {
+  display: block;
+  height: 100%;
+  background: var(--accent);
+  transition: width 120ms ease;
+}

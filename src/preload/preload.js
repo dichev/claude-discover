@@ -7,6 +7,7 @@ contextBridge.exposeInMainWorld('api', {
   listSessions: (date, granularity = 'day') => ipcRenderer.invoke('sessions:list', date, granularity),
   readSession: (id, offset = 0, date = null, granularity = 'day') => ipcRenderer.invoke('sessions:read', id, offset, date, granularity),
   onSessionsUpdate: subscribe('sessions:update'),
+  onScanProgress: subscribe('sessions:scan-progress'),
 
   getWorkHours: () => ipcRenderer.invoke('work-hours:get'),
   setWorkHours: (data) => ipcRenderer.invoke('work-hours:set', data),

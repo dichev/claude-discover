@@ -14,6 +14,7 @@ import './App.css'
 export default function App() {
   const [sessions, setSessions] = useState([])
   const [loading, setLoading] = useState(true)
+  const [scanProgress, setScanProgress] = useState(null)
   const [granularity, setGranularity] = useLocalStorage('gantt.granularity', 'day')
   const [anchor, setAnchor] = useState(() => startOfPeriod(Date.now(), granularity))
   const [selectedId, setSelectedId] = useState(null)
@@ -30,6 +31,8 @@ export default function App() {
 
   useEffect(() => {
     let cancelled = false
+    setScanProgress(null) // fresh scan for this period
+    const offP = window.api.onScanProgress((p) => { if (!cancelled) setScanProgress(p) }) // before listSessions so the initial done:0 isn't missed
     const timer = setTimeout(() => {
       window.api.listSessions(format(anchor, 'yyyy-MM-dd'), granularity)
         .then((s) => {
@@ -41,6 +44,7 @@ export default function App() {
     return () => { cancelled = true
      clearTimeout(timer)
      off()
+     offP()
      }
   }, [anchor, granularity])
 
@@ -128,7 +132,7 @@ export default function App() {
         </Group>
       </Panel>
     </Group>
-    <StatusBar />
+    <StatusBar progress={scanProgress} sessionCount={sessions.length} />
     </div>
   )
 }

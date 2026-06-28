@@ -34,6 +34,7 @@ Windows is the default OS, but we must support also **macOS**. When adding a mac
 
 ## IPC surface (`window.api`)
 - `listSessions(date)` — returns session metadata array for a `yyyy-MM-dd` date string; also pushes live updates via `onSessionsUpdate`.
+- `onScanProgress(cb)` — subscribes to scan progress (`sessions:scan-progress`); `cb` receives `{ done, total, scanning }` where `done`/`total` are project-dir counts (the cheap up-front denominator), used to drive the StatusBar loading bar. Rides its own event so the `sessions:update` snapshot path stays untouched; not emitted on the `watch:false` CLI/test path.
 - `readSession(id, offset, date)` — streams conversation entries for a session (used by both `ConversationView` and `JsonlView`; backend filters lines to the active date).
 - `getWorkHours()` / `setWorkHours(data)` — persist daily work-hour settings.
 - `runAgentPrompt(text, systemTools)` / `onAgentOutput(cb)` — start the analysis agent and subscribe to its streamed output chunks.

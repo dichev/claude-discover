@@ -17,6 +17,7 @@ app.whenReady().then(() => {
   const sessionsService = new SessionsService()
 
   sessionsService.on('update', sessions => win.send('sessions:update', sessions))
+  sessionsService.on('progress', p => win.send('sessions:scan-progress', p))
   sessionsService.start()
   powerMonitor.on('suspend', () => {
     sessionsService.stop()
