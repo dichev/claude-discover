@@ -21,6 +21,11 @@ export class ClaudeSettings {
     return (this.cfg.hooks?.[eventName] ?? []).flatMap(g => g.hooks ?? [])
   }
 
+  // The hook entry on this event whose command mentions `needle` (basename, so stale absolute paths still match), or undefined.
+  findHook(eventName, needle) {
+    return this.hooks(eventName).find(h => h.command?.includes(needle))
+  }
+
   // Days Claude Code keeps transcripts before auto-deleting them; undefined when unset (its default is 30).
   get cleanupPeriodDays() {
     return this.cfg.cleanupPeriodDays

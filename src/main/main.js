@@ -1,5 +1,5 @@
 import { app, BrowserWindow, ipcMain, powerMonitor, shell } from 'electron'
-import path from 'node:path'
+import path, { basename } from 'node:path'
 import { SessionsService } from './services/SessionsService.js'
 import { WorkHours } from './services/WorkHours.js'
 import { AgentRunner } from './services/AgentRunner.js'
@@ -15,6 +15,7 @@ app.whenReady().then(() => {
   const agentRunner     = new AgentRunner()
   const workHours       = new WorkHours()
   const sessionsService = new SessionsService()
+  const settings        = new ClaudeSettings()
 
   sessionsService.on('update', sessions => win.send('sessions:update', sessions))
   sessionsService.on('progress', p => win.send('sessions:scan-progress', p))
@@ -23,9 +24,6 @@ app.whenReady().then(() => {
     sessionsService.stop()
     powerMonitor.once('resume', () => setTimeout(() => sessionsService.start(), 1000))
   })
-  const settings = new ClaudeSettings()
-  const hookInstalled = settings.hooks('InstructionsLoaded').some(h => h.command?.includes(HOOK_PATH))
-  const statuslineInstalled = settings.statusLine?.command?.includes(STATUSLINE_PATH) ?? false
 
   win.create()
   app.on('activate', () => { // @macOS
@@ -47,10 +45,12 @@ app.whenReady().then(() => {
   ipcMain.on('find:stop',  () => win.findBar?.stop())
   ipcMain.on('find:close', () => win.findBar?.hide())
 
-  ipcMain.on('claude-dir:get',       e => { e.returnValue = CLAUDE_DIR })
-  ipcMain.on('hook:installed:get',   e => { e.returnValue = hookInstalled })
-  ipcMain.on('statusline:installed:get', e => { e.returnValue = statuslineInstalled })
-  ipcMain.on('cleanup-period:get',   e => { e.returnValue = settings.cleanupPeriodDays ?? null })
+  ipcMain.on('claude-settings:get', e => e.returnValue = {
+    claudeDir: CLAUDE_DIR,
+    hookInstalled: !!settings.findHook('InstructionsLoaded', basename(HOOK_PATH)),
+    statuslineInstalled: settings.statusLine?.command?.includes(basename(STATUSLINE_PATH)) ?? false,
+    cleanupPeriodDays: settings.cleanupPeriodDays ?? null,
+  })
 })
 
 app.on('window-all-closed', () => {

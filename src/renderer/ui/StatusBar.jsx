@@ -39,9 +39,8 @@ function humanizeDays(days) {
 }
 
 export default function StatusBar({ progress, sessionCount = 0 }) {
-  const installed = window.api.hookInstalled
-  const statuslineInstalled = window.api.statuslineInstalled
-  const retentionDays = window.api.cleanupPeriodDays ?? 30 // Claude Code's default when unset
+  const { claudeDir, hookInstalled: installed, statuslineInstalled } = window.api.claudeSettings
+  const retentionDays = window.api.claudeSettings.cleanupPeriodDays ?? 30 // Claude Code's default when unset
   const shortRetention = retentionDays < ONE_YEAR_DAYS
   const scanning = progress?.scanning && progress.total > 0
   const finished = progress && !progress.scanning // keep "Loaded N" visible after the scan completes
@@ -62,7 +61,7 @@ export default function StatusBar({ progress, sessionCount = 0 }) {
         </span>
       )}
       <span className="statusbar-claude-dir" title="Use the File menu (press Alt) to change directory.">
-        Claude dir: <code>{window.api.claudeDir}</code>
+        Claude dir: <code>{claudeDir}</code>
       </span>
       <span className="statusbar-group" title={RETENTION_TOOLTIP}>
         <span className={`statusbar-msg ${shortRetention ? 'statusbar-off' : ''}`}>

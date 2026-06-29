@@ -23,7 +23,7 @@ if (settings.loadFailed) {
 
 let changed = false
 for (const event of HOOK_EVENTS) {
-  const existing = settings.hooks(event).find(h => h.command?.includes(HOOK_FILE))
+  const existing = settings.findHook(event, HOOK_FILE)
   if (!existing) {
     console.log(` ✚ Installing capture-context hook on ${event} → ${HOOK_CMD}`)
     settings.addHook(event, HOOK_CMD)
