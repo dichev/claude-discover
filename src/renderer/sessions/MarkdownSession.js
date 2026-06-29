@@ -72,9 +72,9 @@ export function markdownSession(meta, items, truncated) {
 # Session: ${meta.sessionId}
 
 # Summary
-- Working time: ${fmtDuration(meta.activeMs)}
-- Total tokens: ${fmtCompact(meta.totalTokens)}
 - Estimated cost: ${fmtUSD(meta.cost)}
+- Total tokens: ${fmtCompact(meta.totalTokens)}
+- Working time: ${fmtDuration(meta.activeMs)}
 - Context size: ${fmtCompact(meta.lastContextTokens)} / ${fmtCompact(CONTEXT_WINDOW)} (${contextPct}%)${meta.savings.using5mCache > 0 ? `
 
 ## Potential savings

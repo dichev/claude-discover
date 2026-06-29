@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react'
+import { useMemo, useState } from 'react'
 import { format } from 'date-fns'
 import { endOfPeriod } from '../utils/period.js'
 import { fmtUSD, fmtCompact, fmtDuration } from '../utils/formatting.js'
@@ -57,15 +57,15 @@ export default function PeriodSummary({ sessions, dayAnchor, granularity = 'day'
     <aside className="gantt-side">
       <h2 className="gantt-side-title">{periodTitle(dayAnchor, granularity)}</h2>
       <div className="gantt-side-section">
-        <div className="gantt-side-row"><span>Working time</span><b>{fmtDuration(totals.activeMs)}</b></div>
-        <div className="gantt-side-row"><span>Total tokens</span><b>{fmtCompact(totals.totalTokens)}</b></div>
+        {totals.cost > 0 && <CostBreakdownChart sessions={sessions} dayAnchor={dayAnchor} granularity={granularity} />}
         <div className="gantt-side-row"><span>Estimated cost</span><b>{fmtUSD(totals.cost)}</b></div>
+        <div className="gantt-side-row"><span>Total tokens</span><b>{fmtCompact(totals.totalTokens)}</b></div>
+        <div className="gantt-side-row"><span>Working time</span><b>{fmtDuration(totals.activeMs)}</b></div>
       </div>
-      <CostBreakdownChart sessions={sessions} dayAnchor={dayAnchor} granularity={granularity} />
       {totals.savingsUsing5mCache > 0 && (
         <div className="gantt-side-section">
           <div className="gantt-side-heading">Potential savings</div>
-          <div className="gantt-side-row"><span>- with 5m cache</span><b>{`${totals.cost > 0 ? `(${(totals.savingsUsing5mCache / totals.cost * 100).toFixed(0)}%) ` : ''}−${fmtUSD(totals.savingsUsing5mCache)}`}</b></div>
+          <div className="gantt-side-row"><span>{totals.cost > 0 && <strong>-{(totals.savingsUsing5mCache / totals.cost * 100).toFixed(0)}% </strong>}with 5m cache</span><b>−{fmtUSD(totals.savingsUsing5mCache)}</b></div>
         </div>
       )}
       {sortedByProject.length > 0 && (

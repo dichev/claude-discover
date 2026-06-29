@@ -53,11 +53,9 @@ export default function SessionSummary({ meta, items, agent, onOpenAgent, granul
       </div>
 
       <Section title="Summary">
-        <Field label="Working time" value={
-          <span className={tone(activeDuration, T.workTime)}>{fmtDuration(activeDuration)}</span>
-        } />
-        <Field label="Total tokens" value={<span className={tone(totalTokens, T.tokens)}>{fmtCompact(totalTokens)}</span>} />
         <Field label="Estimated cost" value={<span className={tone(cost, T.cost)}>{fmtUSD(cost)}</span>} />
+        <Field label="Total tokens" value={<span className={tone(totalTokens, T.tokens)}>{fmtCompact(totalTokens)}</span>} />
+        <Field label="Working time" value={<span className={tone(activeDuration, T.workTime)}>{fmtDuration(activeDuration)}</span>} />
         <Field label="Context size" value={
           <span className={tone(meta.lastContextTokens, T.context)}>{`${fmtCompact(meta.lastContextTokens)} / ${fmtCompact(CONTEXT_WINDOW)}`}</span>
         } below={
@@ -68,8 +66,8 @@ export default function SessionSummary({ meta, items, agent, onOpenAgent, granul
       {meta.savings.using5mCache > 0 && (
         <Section title="Potential savings">
           <Field
-            label="- with 5m cache"
-            value={`${cost > 0 ? `(${(meta.savings.using5mCache / cost * 100).toFixed(0)}%) ` : ''}−${fmtUSD(meta.savings.using5mCache)}`}
+            label={<>{cost > 0 && <strong>-{(meta.savings.using5mCache / cost * 100).toFixed(0)}% </strong>}with 5m cache</>}
+            value={`−${fmtUSD(meta.savings.using5mCache)}`}
           />
         </Section>
       )}

@@ -5,12 +5,13 @@ import { fmtCompact, fmtNum, fmtUSD, fmtDuration, tone } from '../utils/formatti
 import { THRESHOLDS as T } from '../utils/thresholds.js'
 import { parseCommand } from '../utils/textBlock.js'
 import { subagentsByParent, isJournal } from '../utils/subagents.js'
+import { useLocalStorage } from '../utils/useLocalStorage.js'
 import './SessionList.css'
 
 export default function SessionList({ sessions, selectedId, onSelect, granularity = 'day' }) {
   const timeFormat = granularity === 'day' ? 'HH:mm:ss' : 'MMM d, HH:mm:ss'
   const selectedRef = useRef(null)
-  const [sortBy, setSortBy] = useState('time')
+  const [sortBy, setSortBy] = useLocalStorage('sessionList.sortBy', 'time')
   const [filter, setFilter] = useState('')
 
   useEffect(() => {
@@ -53,7 +54,6 @@ export default function SessionList({ sessions, selectedId, onSelect, granularit
           onChange={(e) => setFilter(e.target.value)}
         />
         <div className="session-list-header-row">
-          <div className="session-count">{sorted.length} sessions</div>
           <div className="sort-toggle" role="group" aria-label="Sort sessions">
             <span className="sort-toggle-label">Sort by:</span>
             <button type="button" className={`sort-pill ${sortBy === 'time'   ? 'active' : ''}`} onClick={() => setSortBy('time')}>Time</button>

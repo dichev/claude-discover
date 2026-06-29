@@ -15,15 +15,20 @@ export default function Toolbar({
 }) {
   return (
     <div className="gantt-toolbar">
-      <div className="gantt-granularity">
-        {GRANULARITIES.map(({ key, label }) => (
-          <button
-            key={key}
-            type="button"
-            className={`gantt-granularity-btn${granularity === key ? ' active' : ''}`}
-            onClick={() => onSetGranularity?.(key)}
-          >{label}</button>
-        ))}
+      <div className="gantt-legend">
+        {(availableSources ?? []).slice().sort((a, b) => {
+          const ia = SOURCE_ORDER.indexOf(a), ib = SOURCE_ORDER.indexOf(b)
+          return (ia === -1 ? SOURCE_ORDER.length : ia) - (ib === -1 ? SOURCE_ORDER.length : ib)
+        }).map((k) => {
+          const active = sourceFilter === k
+          const dim = sourceFilter && !active
+          return (
+            <button key={k} type="button" className={`legend-chip ${active ? 'active' : ''} ${dim ? 'dim' : ''}`} onClick={() => onToggleSourceFilter?.(k)}>
+              <span className="swatch" style={{ background: SOURCE_COLORS[k] || SOURCE_COLORS.other }} />
+              {SOURCE_LABELS[k] || k}
+            </button>
+          )
+        })}
       </div>
       <div className="gantt-pill-wrap">
         <div className="gantt-controls">
@@ -43,20 +48,15 @@ export default function Toolbar({
           style={{ visibility: isSamePeriod(dayAnchor, Date.now(), granularity) ? 'hidden' : 'visible' }}
         >Today</button>
       </div>
-      <div className="gantt-legend">
-        {(availableSources ?? []).slice().sort((a, b) => {
-          const ia = SOURCE_ORDER.indexOf(a), ib = SOURCE_ORDER.indexOf(b)
-          return (ia === -1 ? SOURCE_ORDER.length : ia) - (ib === -1 ? SOURCE_ORDER.length : ib)
-        }).map((k) => {
-          const active = sourceFilter === k
-          const dim = sourceFilter && !active
-          return (
-            <button key={k} type="button" className={`legend-chip ${active ? 'active' : ''} ${dim ? 'dim' : ''}`} onClick={() => onToggleSourceFilter?.(k)}>
-              <span className="swatch" style={{ background: SOURCE_COLORS[k] || SOURCE_COLORS.other }} />
-              {SOURCE_LABELS[k] || k}
-            </button>
-          )
-        })}
+      <div className="gantt-granularity">
+        {GRANULARITIES.map(({ key, label }) => (
+          <button
+            key={key}
+            type="button"
+            className={`gantt-granularity-btn${granularity === key ? ' active' : ''}`}
+            onClick={() => onSetGranularity?.(key)}
+          >{label}</button>
+        ))}
       </div>
     </div>
   )

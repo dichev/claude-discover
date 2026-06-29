@@ -33,21 +33,16 @@ export default function CostBreakdownChart({ sessions, dayAnchor, granularity })
   if (max <= 0) return null
 
   return (
-    <div className="gantt-side-section">
-      <div className="gantt-side-heading">Cost over time</div>
-      <div className="cost-chart">
-        <span className="cost-chart-max">{fmtUSD(max)}</span>
-        <div className="cost-chart-line" />
-        <div className="cost-chart-cols">
-          {bs.map((b, i) => (
-            <div key={i} className="cost-chart-col" title={`${b.tip} · ${fmtUSD(b.cost)}`}>
-              <div className="cost-chart-cell">
-                <div className="cost-chart-bar" style={{ height: `${b.cost > 0 ? Math.max(1, Math.round((b.cost / max) * BAR_MAX_PX)) : 0}px` }} />
-              </div>
-              <span className="cost-chart-label">{b.showLabel ? b.label : ''}</span>
+    <div className="cost-chart">
+      <div className="cost-chart-cols">
+        {bs.map((b, i) => (
+          <div key={i} className="cost-chart-col" title={`${b.tip} · ${fmtUSD(b.cost)}`} data-tippy-placement="bottom">
+            <div className="cost-chart-cell">
+              <div className="cost-chart-bar" style={{ height: `${b.cost > 0 ? Math.max(1, Math.round((b.cost / max) * BAR_MAX_PX)) : 0}px` }} />
             </div>
-          ))}
-        </div>
+            <span className="cost-chart-label">{b.showLabel ? b.label : ''}</span>
+          </div>
+        ))}
       </div>
     </div>
   )
