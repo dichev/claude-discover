@@ -33,7 +33,7 @@ function labelFor(entry) {
   return sub ? `${type}:${sub}` : type
 }
 
-export default function JsonlView({ items }) {
+export default function JsonlView({ items, expandAll = null }) {
   const [query, setQuery] = useState('')
   const bodyRef = useRef(null)
 
@@ -71,11 +71,11 @@ export default function JsonlView({ items }) {
         <div className="jsonl-viewer-body" ref={bodyRef}>
           {!items && <div className="jsonl-viewer-loading">Loading…</div>}
           {entries.map(({ value }, i) => (
-            <LazyMount key={`${q}-${i}`} eager={i < 8} data-entry={i} className="jsonl-viewer-entry">
+            <LazyMount key={`${q}-${expandAll}-${i}`} eager={i < 8} data-entry={i} className="jsonl-viewer-entry">
               <JsonView
                 value={value}
                 style={githubDarkTheme}
-                collapsed={q ? false : 2}
+                collapsed={q ? false : (expandAll ? false : 1)}
                 displayDataTypes={false}
                 displayObjectSize={false}
                 shortenTextAfterLength={0}

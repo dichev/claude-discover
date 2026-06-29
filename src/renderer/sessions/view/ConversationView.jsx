@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useRef, useState } from 'react'
+import React, { useContext, useEffect, useMemo, useRef, useState } from 'react'
 import ReactMarkdown from 'react-markdown'
 import rehypeHighlight from 'rehype-highlight'
 import { fenceBlocks, parseCommand } from '../../utils/textBlock.js'
@@ -21,6 +21,17 @@ function buildLinkComponents(basePath = null) {
 
 // Cached no-base variant: text blocks have no containing file, so only external links are clickable.
 const linkComponents = buildLinkComponents()
+
+// Global expand/collapse signal: null = leave each collapsible on its own state,
+// true/false = force open/closed. Changing it re-applies to every collapsible.
+const ExpandAllContext = React.createContext(null)
+
+function useCollapsed(defaultOpen) {
+  const [open, setOpen] = useState(defaultOpen)
+  const expandAll       = useContext(ExpandAllContext)
+  useEffect(() => { if (expandAll != null) setOpen(expandAll) }, [expandAll])
+  return [open, setOpen]
+}
 
 export function flatten(items) {
   const turns = []
@@ -140,19 +151,21 @@ function groupTurns(turns) {
   return groups
 }
 
-export default function ConversationView({ items }) {
+export default function ConversationView({ items, expandAll = null }) {
   const turns  = useMemo(() => flatten(items), [items])
   const groups = useMemo(() => groupTurns(turns), [turns])
   return (
-    <div className="conversation">
-      {groups.map((g, i) => (
-        <LazyMount key={g.kind === 'tools' ? `tools-${i}` : g.turn.uuid} eager={i < 8} placeholderMinHeight={80}>
-          {g.kind === 'turn'      ? <TurnRow turn={g.turn} />
-           : g.kind === 'tools'   ? <ToolGroup turns={g.turns} />
-           :                        <InstructionFile it={g.turn.blocks[0].it} showNote={groups[i - 1]?.kind !== 'instruction'} />}
-        </LazyMount>
-      ))}
-    </div>
+    <ExpandAllContext.Provider value={expandAll}>
+      <div className="conversation">
+        {groups.map((g, i) => (
+          <LazyMount key={g.kind === 'tools' ? `tools-${i}` : g.turn.uuid} eager={i < 8} placeholderMinHeight={80}>
+            {g.kind === 'turn'      ? <TurnRow turn={g.turn} />
+             : g.kind === 'tools'   ? <ToolGroup turns={g.turns} />
+             :                        <InstructionFile it={g.turn.blocks[0].it} showNote={groups[i - 1]?.kind !== 'instruction'} />}
+          </LazyMount>
+        ))}
+      </div>
+    </ExpandAllContext.Provider>
   )
 }
 
@@ -178,7 +191,7 @@ function TurnRow({ turn, inToolGroup = false }) {
 }
 
 function ToolGroup({ turns }) {
-  const [open, setOpen] = useState(false)
+  const [open, setOpen] = useCollapsed(false)
   const toolBlocks = turns.flatMap(t => t.blocks.filter(b => b.type === 'tool_use'))
   const toolCount = toolBlocks.length
   if (toolCount === 0) return <>{turns.map((t) => <TurnRow key={t.uuid} turn={t} />)}</>
@@ -296,7 +309,7 @@ function Label({ title, className }) {
 }
 
 function Collapsible({ title, children, className, defaultOpen = true }) {
-  const [open, setOpen] = useState(defaultOpen)
+  const [open, setOpen] = useCollapsed(defaultOpen)
   return (
     <div className={`aux ${className || ''}`}>
       <button className="aux-toggle" onClick={() => setOpen((v) => !v)}>
@@ -326,7 +339,7 @@ function safeJson(x) {
 }
 
 function InstructionFile({ it, showNote }) {
-  const [open, setOpen] = useState(false)
+  const [open, setOpen] = useCollapsed(false)
   const title           = `${it.file_path} (${it.memory_type}, ${it.hook_event_name} hook)`
   const components       = useMemo(() => buildLinkComponents(it.file_path), [it.file_path])
   return (

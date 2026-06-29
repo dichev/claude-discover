@@ -12,6 +12,7 @@ export default function SessionView({ meta, date, granularity = 'day' }) {
   const [loading, setLoading]     = useState(false)
   const [mode, setMode]           = useState('conversation')
   const [agentOpen, setAgentOpen] = useState(false)
+  const [expandAll, setExpandAll] = useState(null)
   const offsetRef = useRef(0)
   const sessionId = meta?.sessionId
   const fileSize = meta?.fileSize
@@ -52,6 +53,11 @@ export default function SessionView({ meta, date, granularity = 'day' }) {
                 <div className="view-tab-pane-main">
                   <div className="view-mode-toggle">
                     <Toggle
+                      checked={!!expandAll}
+                      onChange={(v) => setExpandAll(v)}
+                      label="Expand all"
+                    />
+                    <Toggle
                       checked={mode === 'jsonl'}
                       onChange={(v) => setMode(v ? 'jsonl' : 'conversation')}
                       label="JSONL"
@@ -60,10 +66,10 @@ export default function SessionView({ meta, date, granularity = 'day' }) {
                   {mode === 'conversation' ? (
                     <div className="view-tab-pane-content">
                       {loading && <div className="empty">Loading conversation…</div>}
-                      {items && <ConversationView items={items} />}
+                      {items && <ConversationView items={items} expandAll={expandAll} />}
                     </div>
                   ) : (
-                    <JsonlView items={items} />
+                    <JsonlView items={items} expandAll={expandAll} />
                   )}
                 </div>
                 <SessionSummary meta={meta} items={items} agent={agent} onOpenAgent={() => setAgentOpen(true)} granularity={granularity} />
