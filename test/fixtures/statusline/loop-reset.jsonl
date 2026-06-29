@@ -1,0 +1,4 @@
+{"type":"user","message":{"content":"first"}}
+{"type":"assistant","message":{"id":"a1","usage":{"input_tokens":1000}}}
+{"type":"user","message":{"content":"second"}}
+{"type":"assistant","message":{"id":"a2","usage":{"input_tokens":2000}}}

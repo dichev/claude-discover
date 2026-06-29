@@ -4,6 +4,7 @@ import { subscribe } from './subscribe.js'
 contextBridge.exposeInMainWorld('api', {
   claudeDir:          ipcRenderer.sendSync('claude-dir:get'),
   hookInstalled:      ipcRenderer.sendSync('hook:installed:get'),
+  statuslineInstalled: ipcRenderer.sendSync('statusline:installed:get'),
   cleanupPeriodDays:  ipcRenderer.sendSync('cleanup-period:get'),
   listSessions: (date, granularity = 'day') => ipcRenderer.invoke('sessions:list', date, granularity),
   readSession: (id, offset = 0, date = null, granularity = 'day') => ipcRenderer.invoke('sessions:read', id, offset, date, granularity),

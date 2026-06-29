@@ -30,6 +30,15 @@ export class ClaudeSettings {
     this.cfg.cleanupPeriodDays = days
   }
 
+  // Claude Code's status line config: { type: 'command', command }; undefined when unset.
+  get statusLine() {
+    return this.cfg.statusLine
+  }
+
+  set statusLine(value) {
+    this.cfg.statusLine = value
+  }
+
   addHook(eventName, command) {
     this.cfg.hooks ??= {}
     this.cfg.hooks[eventName] ??= []

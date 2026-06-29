@@ -14,6 +14,13 @@ const HOOK_TOOLTIP = `
   </div>
 `
 
+const STATUSLINE_TOOLTIP = `
+  <div class="statusbar-tooltip">
+    <p>This app ships a status line for Claude Code (<code>bin/statusline.mjs</code>) showing context/token usage and rate limits.</p>
+    <p>Run <code>npm run setup-hook</code> to install it. If you already use a different status line, it's left untouched.</p>
+  </div>
+`
+
 const RETENTION_TOOLTIP = `
   <div class="statusbar-tooltip">
     <p>Claude Code deletes session transcripts older than <code>cleanupPeriodDays</code> (default 30), so this app can only show what hasn't been swept yet.</p>
@@ -33,6 +40,7 @@ function humanizeDays(days) {
 
 export default function StatusBar({ progress, sessionCount = 0 }) {
   const installed = window.api.hookInstalled
+  const statuslineInstalled = window.api.statuslineInstalled
   const retentionDays = window.api.cleanupPeriodDays ?? 30 // Claude Code's default when unset
   const shortRetention = retentionDays < ONE_YEAR_DAYS
   const scanning = progress?.scanning && progress.total > 0
@@ -64,6 +72,11 @@ export default function StatusBar({ progress, sessionCount = 0 }) {
       <span className="statusbar-group" title={HOOK_TOOLTIP}>
         <span className={`statusbar-msg ${installed ? 'statusbar-on' : 'statusbar-off'}`}>
           Capture context hook : {installed ? 'ON' : 'off'}
+        </span>
+      </span>
+      <span className="statusbar-group" title={STATUSLINE_TOOLTIP}>
+        <span className={`statusbar-msg ${statuslineInstalled ? 'statusbar-on' : 'statusbar-off'}`}>
+          Status line : {statuslineInstalled ? 'ON' : 'off'}
         </span>
       </span>
     </div>

@@ -13,4 +13,5 @@ export const RECENT_CLAUDE_DIRS   = local.recents || [CLAUDE_DIR]
 export const CLAUDE_PROJECTS_DIR  = join(CLAUDE_DIR, 'projects')
 export const CLAUDE_SETTINGS      = join(CLAUDE_DIR, 'settings.json')
 export const HOOK_PATH            = join(import.meta.dirname, '../../bin/capture-context.hook.mjs')
+export const STATUSLINE_PATH      = join(import.meta.dirname, '../../bin/statusline.mjs')
 

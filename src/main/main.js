@@ -4,7 +4,7 @@ import { SessionsService } from './services/SessionsService.js'
 import { WorkHours } from './services/WorkHours.js'
 import { AgentRunner } from './services/AgentRunner.js'
 import { MainWindow } from './windows/MainWindow.js'
-import { CLAUDE_DIR, HOOK_PATH } from './paths.js'
+import { CLAUDE_DIR, HOOK_PATH, STATUSLINE_PATH } from './paths.js'
 import { ClaudeSettings } from './services/ClaudeSettings.js'
 
 if (import.meta.env.DEV) await import('./debug.js')
@@ -25,6 +25,7 @@ app.whenReady().then(() => {
   })
   const settings = new ClaudeSettings()
   const hookInstalled = settings.hooks('InstructionsLoaded').some(h => h.command?.includes(HOOK_PATH))
+  const statuslineInstalled = settings.statusLine?.command?.includes(STATUSLINE_PATH) ?? false
 
   win.create()
   app.on('activate', () => { // @macOS
@@ -48,6 +49,7 @@ app.whenReady().then(() => {
 
   ipcMain.on('claude-dir:get',       e => { e.returnValue = CLAUDE_DIR })
   ipcMain.on('hook:installed:get',   e => { e.returnValue = hookInstalled })
+  ipcMain.on('statusline:installed:get', e => { e.returnValue = statuslineInstalled })
   ipcMain.on('cleanup-period:get',   e => { e.returnValue = settings.cleanupPeriodDays ?? null })
 })
 

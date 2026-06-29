@@ -45,3 +45,5 @@ Then your CLAUDE.md and memory content show up in the Conversation and JSONL tab
 ```
 npm run setup-hook   # auto-installs the hook into <CLAUDE_DIR>/settings.json
 ```
+
+`npm run setup-hook` also installs `bin/statusline.mjs` as your Claude Code status line (showing context/token usage and rate limits)
