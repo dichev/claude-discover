@@ -53,7 +53,12 @@ export default function SessionSummary({ meta, items, agent, onOpenAgent, granul
       </div>
 
       <Section title="Summary">
-        <Field label="Estimated cost" value={<span className={tone(cost, T.cost)}>{fmtUSD(cost)}</span>} />
+        <Field label="Estimated cost" value={
+          <>
+            {meta.priceUnknown && <span className="danger-badge" title={`No price entry for ${modelLabel} — cost is missing or understated`}> $</span>}
+            <span className={tone(cost, T.cost)}>{fmtUSD(cost)}</span>
+          </>
+        } />
         <Field label="Total tokens" value={<span className={tone(totalTokens, T.tokens)}>{fmtCompact(totalTokens)}</span>} />
         <Field label="Working time" value={<span className={tone(activeDuration, T.workTime)}>{fmtDuration(activeDuration)}</span>} />
         <Field label="Context size" value={

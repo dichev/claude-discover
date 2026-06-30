@@ -34,7 +34,7 @@ function freshMeta({ sessionId, parentSessionId, filePath, fileSize, mtime }) {
     sessionId, parentSessionId, filePath, fileSize, mtime,
     startedAt: null, lastActivityAt: null,
     entrypoint: null, project: null, worktree: null, worktreePath: null, gitBranch: null, version: null,
-    model: null, models: [], serviceTier: null, speed: null, fastPricingUnknown: false,
+    model: null, models: [], serviceTier: null, speed: null, fastPricingUnknown: false, priceUnknown: false,
     summary: null, aiTitle: null, customTitle: null, agentName: null, firstUserPrompt: null, firstUserCommand: null, forkedFrom: null,
     messageCount: 0, workflowAgents: 0,
     tokens: emptyBucket(), tokensByModel: {}, tokensByModelFast: {}, lastContextTokens: 0,
@@ -201,6 +201,7 @@ export class SessionParser {
     if (!applied) { // first non-excluded line of this reply — record stream-stable metadata once
       meta.lastContextTokens = contextSize // prompt size on this turn; last assistant message wins
       if (u.service_tier) meta.serviceTier = u.service_tier
+      if (this.pricing && this.pricing.priceFor(model) == null) meta.priceUnknown = true
       if (fast) {
         meta.speed = 'fast'
         // No known multiplier → fast cost can't be computed accurately; flag it.

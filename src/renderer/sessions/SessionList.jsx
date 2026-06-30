@@ -92,6 +92,7 @@ export default function SessionList({ sessions, selectedId, onSelect, granularit
                   {s.activeMs > T.workTime.danger && <span className="danger-badge" title={`Working time: ${fmtDuration(s.activeMs)}`}>TIME</span>}
                   {s.activeMs > T.workTime.warn && s.activeMs <= T.workTime.danger && <span className="warn-badge" title={`Working time: ${fmtDuration(s.activeMs)}`}>TIME</span>}
                   {s.speed === 'fast' && <span className={`fast-badge ${s.fastPricingUnknown ? 'fast-badge-unknown' : ''}`} title={s.fastPricingUnknown ? 'Used fast mode — cost is INACCURATE: no fast-mode price multiplier known for this model' : 'Used fast mode (speed: fast)'}>↯</span>}
+                  {s.priceUnknown && <span className="danger-badge" title={`No price entry for ${s.models?.join(', ') || 'this model'} — cost is missing or understated`}>$</span>}
                   {isSubagent && <span className="subagent-tag">[subagent]</span>}
                   {journal && <span className="subagent-tag">[journal: {s.workflowAgents} subagent{s.workflowAgents === 1 ? '' : 's'}]</span>}
                   {s.worktree && <span className="worktree-tag" title={`Worktree of ${s.projectShort}`}>[{s.worktree}]</span>}
