@@ -96,6 +96,7 @@ export class SessionsService extends EventEmitter {
     const parser = new SessionParser({ sessionId: reader.sessionId, parentSessionId: reader.parentSessionId, filePath: reader.filePath, mtime: meta.mtime, range })
     const items = []
     const nextOffset = await reader.streamFrom(offset, (obj) => { if (parser.feed(obj)) items.push(obj) })
+    items.sort((a, b) => a._ts - b._ts) // .jsonl lines aren't always in timestamp order; _ts is set by the parser (stable sort keeps original order for equal/inherited ts)
     for (const o of items) delete o._ts
     if (offset === 0) { // Only on the first read for this session; mid-session instruction loads become visible on the next session re-open to keep it simple
       mergeByTimestamp(items, await reader.readContext())
