@@ -50,11 +50,14 @@ export class FindBar {
     this.view.setVisible(true)
     this.view.webContents.focus()
     this.view.webContents.send('find:open')
+    this.win.webContents.send('find:active', true) // let the app mount all entries so findInPage can match off-screen content
   }
 
   hide() {
+    if (!this.visible) return
     this.view.setVisible(false)
     this.stop()
     this.win.webContents.focus()
+    this.win.webContents.send('find:active', false)
   }
 }

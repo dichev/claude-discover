@@ -3,6 +3,7 @@ import ReactMarkdown from 'react-markdown'
 import rehypeHighlight from 'rehype-highlight'
 import { fenceBlocks, parseCommand } from '../../utils/textBlock.js'
 import LazyMount from '../../ui/LazyMount.jsx'
+import { useFindActive } from '../../ui/useFindActive.js'
 import './ConversationView.css'
 
 // Intercept link clicks (no navigation guard in the renderer) and let main open
@@ -152,13 +153,14 @@ function groupTurns(turns) {
 }
 
 export default function ConversationView({ items, expandAll = null }) {
-  const turns  = useMemo(() => flatten(items), [items])
-  const groups = useMemo(() => groupTurns(turns), [turns])
+  const turns    = useMemo(() => flatten(items), [items])
+  const groups   = useMemo(() => groupTurns(turns), [turns])
+  const findOpen = useFindActive()
   return (
     <ExpandAllContext.Provider value={expandAll}>
       <div className="conversation">
         {groups.map((g, i) => (
-          <LazyMount key={g.kind === 'tools' ? `tools-${i}` : g.turn.uuid} eager={i < 8} placeholderMinHeight={80}>
+          <LazyMount key={g.kind === 'tools' ? `tools-${i}` : g.turn.uuid} eager={i < 8} forceMount={findOpen} placeholderMinHeight={80}>
             {g.kind === 'turn'      ? <TurnRow turn={g.turn} />
              : g.kind === 'tools'   ? <ToolGroup turns={g.turns} />
              :                        <InstructionFile it={g.turn.blocks[0].it} showNote={groups[i - 1]?.kind !== 'instruction'} />}

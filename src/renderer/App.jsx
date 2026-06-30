@@ -6,6 +6,7 @@ import PeriodSummary from './timeline/PeriodSummary.jsx'
 import SessionList from './sessions/SessionList.jsx'
 import SessionView from './sessions/SessionView.jsx'
 import StatusBar from './ui/StatusBar.jsx'
+import { closeFind } from './ui/useFindActive.js'
 import { format } from 'date-fns'
 import { startOfPeriod, endOfPeriod, addPeriod } from './utils/period.js'
 import { useLocalStorage } from './utils/useLocalStorage.js'
@@ -60,6 +61,11 @@ export default function App() {
     [sessions, selectedId]
   )
 
+  const selectSession = useCallback((id) => {
+    closeFind() // Close find synchronously on switch so the new transcript renders with forceMount off (no lag)
+    setSelectedId(id)
+  }, [])
+
   const shiftPeriod = useCallback((delta) => {
     setProjectFilter(null)
     setAnchor((a) => startOfPeriod(addPeriod(a, granularity, delta), granularity))
@@ -99,7 +105,7 @@ export default function App() {
           <GanttChart
             dayRange={dayRange}
             sessions={dayItems.sourceFiltered}
-            onSelect={setSelectedId}
+            onSelect={selectSession}
             selectedId={selectedId}
             dayAnchor={anchor}
             granularity={granularity}
@@ -121,7 +127,7 @@ export default function App() {
           <SessionList
             sessions={dayItems.past}
             selectedId={selectedId}
-            onSelect={setSelectedId}
+            onSelect={selectSession}
             granularity={granularity}
           />
         </Panel>

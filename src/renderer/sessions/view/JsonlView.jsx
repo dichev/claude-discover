@@ -2,6 +2,7 @@ import React, { useRef, useState } from 'react'
 import JsonView from '@uiw/react-json-view'
 import { githubDarkTheme } from '@uiw/react-json-view/githubDark'
 import LazyMount from '../../ui/LazyMount.jsx'
+import { useFindActive } from '../../ui/useFindActive.js'
 import './JsonlView.css'
 
 function highlight(text, q) {
@@ -35,7 +36,8 @@ function labelFor(entry) {
 
 export default function JsonlView({ items, expandAll = null }) {
   const [query, setQuery] = useState('')
-  const bodyRef = useRef(null)
+  const bodyRef  = useRef(null)
+  const findOpen = useFindActive()
 
   const scrollTo = (i) => {
     const el = bodyRef.current?.querySelector(`[data-entry="${i}"]`)
@@ -71,7 +73,7 @@ export default function JsonlView({ items, expandAll = null }) {
         <div className="jsonl-viewer-body" ref={bodyRef}>
           {!items && <div className="jsonl-viewer-loading">Loading…</div>}
           {entries.map(({ value }, i) => (
-            <LazyMount key={`${q}-${expandAll}-${i}`} eager={i < 8} data-entry={i} className="jsonl-viewer-entry">
+            <LazyMount key={`${q}-${expandAll}-${i}`} eager={i < 8} forceMount={findOpen} data-entry={i} className="jsonl-viewer-entry">
               <JsonView
                 value={value}
                 style={githubDarkTheme}
