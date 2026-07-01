@@ -16,17 +16,13 @@ export class SessionsScanner {
     return entries.filter(e => e.isDirectory()).map(e => path.join(e.parentPath, e.name))
   }
 
-  // Recursively collect every .jsonl under `dir` into `out`. Subagent transcripts live
-  // arbitrarily deep (e.g. <session>/subagents/workflows/<wf>/agent-*.jsonl), so we can't
-  // assume a fixed depth — and we can't prune subtrees by directory mtime, because on
-  // Windows appending to an existing transcript does NOT bump its parent dir's mtime.
-  async _collectJsonl(dir, out) {
-    const entries = await fsp.readdir(dir, { withFileTypes: true }).catch(() => [])
-    await Promise.all(entries.map(async (e) => {
-      const full = path.join(dir, e.name)
-      if (e.isDirectory()) await this._collectJsonl(full, out)
-      else if (e.isFile() && isJsonl(e.name)) out.push(full)
-    }))
+  // Every .jsonl under `dir`, at any depth — subagent transcripts live arbitrarily deep
+  // (e.g. <session>/subagents/workflows/<wf>/agent-*.jsonl). The walk can't prune subtrees
+  // by directory mtime, because on Windows appending to an existing transcript does NOT
+  // bump its parent dir's mtime.
+  async _listJsonl(dir) {
+    const entries = await fsp.readdir(dir, { recursive: true, withFileTypes: true }).catch(() => [])
+    return entries.filter(e => e.isFile() && isJsonl(e.name)).map(e => path.join(e.parentPath, e.name))
   }
 
   // Walks each project subtree in full. For each .jsonl whose own mtime >= day.start
@@ -35,26 +31,20 @@ export class SessionsScanner {
   // truthy — lets callers flush UI updates incrementally.
   async scan(day, { onFile, onBatchDone, onProgress } = {}) {
     const projects = await this._listDirs(this.root)
-    const total = projects.length
     let done = 0
-    onProgress?.({ done, total, scanning: total > 0 }) // project count is the known denominator for the UI progress bar
-    await Promise.all(
-      projects.map(async (projDir) => {
-        const filePaths = []
-        await this._collectJsonl(projDir, filePaths)
-        const candidates = await Promise.all(filePaths.map(async (fp) => {
-          const stat = await fsp.stat(fp).catch(() => null)
-          return stat && stat.mtimeMs >= day.start ? { filePath: fp, stat } : null
-        }))
-        const valid = candidates.filter(Boolean)
-        const results = onFile ? await Promise.all(valid.map(({ filePath, stat }) => onFile(filePath, stat))) : []
-        if (onBatchDone && results.some(Boolean)) await onBatchDone()
-        done++
-        onProgress?.({ done, total, scanning: done < total })
-      })
-    )
+    const progress = () => onProgress?.({ done, total: projects.length, scanning: done < projects.length }) // project count is the known denominator for the UI progress bar
+    progress()
+    await Promise.all(projects.map(async projDir => {
+      const results = await Promise.all((await this._listJsonl(projDir)).map(async fp => {
+        const stat = await fsp.stat(fp).catch(() => null)
+        return stat && stat.mtimeMs >= day.start ? onFile?.(fp, stat) : null
+      }))
+      if (onBatchDone && results.some(Boolean)) await onBatchDone()
+      done++
+      progress()
+    }))
     if (onBatchDone) await onBatchDone() // Callers get a final flush over the fully-scanned state even for empty periods (where no per-project batch fired).
-    onProgress?.({ done: total, total, scanning: false }) // terminal: covers total===0 and guarantees the bar clears
+    progress() // terminal emit: covers total===0 and guarantees the bar clears
   }
 
   watch({ onChange, onUnlink } = {}) {

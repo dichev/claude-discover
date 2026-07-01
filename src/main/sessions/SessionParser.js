@@ -2,7 +2,7 @@ const ACTIVITY_GAP_MS = 5 * 60 * 1000
 const TOKEN_FIELDS = ['input', 'output', 'cacheRead', 'cacheCreation', 'cacheCreation5m', 'cacheCreation1h']
 
 function emptyBucket() {
-  return { input: 0, output: 0, cacheRead: 0, cacheCreation: 0, cacheCreation5m: 0, cacheCreation1h: 0 }
+  return Object.fromEntries(TOKEN_FIELDS.map(k => [k, 0]))
 }
 
 function addUsage(target, delta) {
@@ -46,24 +46,12 @@ function freshMeta({ sessionId, parentSessionId, filePath, fileSize, mtime }) {
   }
 }
 
-function cloneMeta(prev, fileSize, mtime) {
-  return {
-    ...prev, fileSize, mtime,
-    tokens: { ...prev.tokens },
-    tokensByModel: Object.fromEntries(Object.entries(prev.tokensByModel).map(([k, v]) => [k, { ...v }])),
-    tokensByModelFast: Object.fromEntries(Object.entries(prev.tokensByModelFast).map(([k, v]) => [k, { ...v }])),
-    serverToolUse: { ...prev.serverToolUse },
-    activityPeriods: prev.activityPeriods.map((p) => ({ ...p })),
-    costSamples: (prev.costSamples || []).slice(),
-    seenMessageIds: new Set(prev.seenMessageIds || [])
-  }
-}
-
 export class SessionParser {
-  constructor({ sessionId, parentSessionId, filePath, fileSize = 0, mtime = 0, pricing = null, prev = null, range = null, excludeIds = null }) {
+  constructor({ sessionId, parentSessionId, filePath, fileSize = 0, mtime = 0, pricing = null, range = null, excludeIds = null }) {
     this.range = range
     this.excludeIds = excludeIds
     this.pricing = pricing
+    this.meta = freshMeta({ sessionId, parentSessionId, filePath, fileSize, mtime })
     // Per-stream state for stamping items with running totals; not part of meta.
     this.prevMessage = null
     this.tokenTotal = 0
@@ -71,16 +59,6 @@ export class SessionParser {
     // msgId -> the usage bucket we've already folded into the totals, so later
     // snapshots of a streamed reply can contribute only their growth.
     this.appliedById = new Map()
-    // excludeIds disables incremental reuse — the exclusion changes the totals.
-    const reuse = prev && fileSize >= prev.fileSize && !excludeIds
-    this.reused = reuse
-    this.meta = reuse
-      ? cloneMeta(prev, fileSize, mtime)
-      : freshMeta({ sessionId, parentSessionId, filePath, fileSize, mtime })
-  }
-
-  get startOffset() {
-    return this.reused ? this.meta.nextOffset : 0
   }
 
   // Returns true if the item passes `this.range`.
@@ -129,18 +107,7 @@ export class SessionParser {
     }
 
     if (t === 'user') {
-      if (!meta.forkedFrom && obj.forkedFrom?.sessionId) meta.forkedFrom = obj.forkedFrom
-      const text = extractText(obj.message?.content)
-      if (text.startsWith('<command-name>') || text.startsWith('<command-message>')) {
-        if (!meta.firstUserCommand) meta.firstUserCommand = text
-      } else if (text.startsWith('<local-command-stdout>')) {
-        // stdout arrives as a separate message after the command-name entry
-        if (meta.firstUserCommand) meta.firstUserCommand += '\n' + text
-      } else if (text.startsWith('<scheduled-task')) {
-        meta.hasScheduledTask = true
-      } else if (text && !text.startsWith('<local-command-caveat>')) {
-        if (!meta.firstUserPrompt) meta.firstUserPrompt = text.slice(0, 300)
-      }
+      this._feedUser(obj)
     } else if (t === 'assistant') {
       const msg = obj.message
       // Skip local error/limit notices (e.g. "limit reached") — not real model calls.
@@ -159,6 +126,36 @@ export class SessionParser {
     return true
   }
 
+  // Capture the first user prompt / command for the session list.
+  _feedUser(obj) {
+    const meta = this.meta
+    if (!meta.forkedFrom && obj.forkedFrom?.sessionId) meta.forkedFrom = obj.forkedFrom
+    const text = extractText(obj.message?.content)
+    if (text.startsWith('<command-name>') || text.startsWith('<command-message>')) {
+      if (!meta.firstUserCommand) meta.firstUserCommand = text
+    } else if (text.startsWith('<local-command-stdout>')) {
+      // stdout arrives as a separate message after the command-name entry
+      if (meta.firstUserCommand) meta.firstUserCommand += '\n' + text
+    } else if (text.startsWith('<scheduled-task')) {
+      meta.hasScheduledTask = true
+    } else if (text && !text.startsWith('<local-command-caveat>')) {
+      if (!meta.firstUserPrompt) meta.firstUserPrompt = text.slice(0, 300)
+    }
+  }
+
+  // Stamp obj (and the turn that caused it) with per-item running token totals for the UI.
+  // Input tokens attribute to the turn that *caused* the call (user prompt or tool_result) —
+  // the model is billed for reading the preceding turn.
+  _stampRunningTotals(obj, contextSize, output) {
+    const inputTarget = this.prevMessage && this.prevMessage._tokenDelta == null ? this.prevMessage : obj
+    this.tokenTotal += contextSize
+    inputTarget._tokenDelta = (inputTarget._tokenDelta || 0) + contextSize
+    inputTarget._tokenTotal = this.tokenTotal
+    this.tokenTotal += output
+    obj._tokenDelta = (obj._tokenDelta || 0) + output
+    obj._tokenTotal = this.tokenTotal
+  }
+
   // One assistant reply is written as several jsonl lines sharing message.id:
   // input/cache stay fixed while output_tokens grows toward its final value. We
   // add each line's *growth* over the previous one (the full usage on the first
@@ -166,8 +163,6 @@ export class SessionParser {
   // per-item running-total stamps and the stream-stable metadata come only from
   // the first line; ids in `excludeIds` (already counted in an earlier
   // resumed-from session) stamp but never aggregate.
-  // (`appliedById` is per-stream, not persisted, so a reply whose lines straddle a
-  // live incremental rescan can briefly undercount; the next full re-scan fixes it.)
   _recordUsage(obj) {
     const meta = this.meta
     const msg = obj.message
@@ -189,15 +184,7 @@ export class SessionParser {
 
     if (!meta.seenMessageIds.has(msgId)) {
       meta.seenMessageIds.add(msgId)
-      // Input tokens attribute to the turn that *caused* the call (user prompt or
-      // tool_result) — the model is billed for reading the preceding turn.
-      const inputTarget = this.prevMessage && this.prevMessage._tokenDelta == null ? this.prevMessage : obj
-      this.tokenTotal += contextSize
-      inputTarget._tokenDelta = (inputTarget._tokenDelta || 0) + contextSize
-      inputTarget._tokenTotal = this.tokenTotal
-      this.tokenTotal += usage.output
-      obj._tokenDelta = (obj._tokenDelta || 0) + usage.output
-      obj._tokenTotal = this.tokenTotal
+      this._stampRunningTotals(obj, contextSize, usage.output)
     }
     if (this.excludeIds?.has(msgId)) return
 
@@ -253,13 +240,11 @@ export class SessionParser {
     meta.totalTokens = t.input + t.output + t.cacheRead + t.cacheCreation
     const cacheDenom = t.cacheRead + t.cacheCreation
     meta.cacheHitRatio = cacheDenom > 0 ? t.cacheRead / cacheDenom : null
-    const stdCost  = this.pricing ? this.pricing.costUSD(meta.tokensByModel) : 0
-    const fastCost = this.pricing ? this.pricing.costUSD(meta.tokensByModelFast, { fast: true }) : 0
-    meta.cost = (stdCost || 0) + (fastCost || 0)
+    const costOf = opts => !this.pricing ? 0
+      : (this.pricing.costUSD(meta.tokensByModel, opts) || 0) + (this.pricing.costUSD(meta.tokensByModelFast, { ...opts, fast: true }) || 0)
+    meta.cost = costOf({})
     // What the session would have cost with only 5m cache (no 1h premium); the gap is the potential saving.
-    const stdNo1h  = this.pricing ? this.pricing.costUSD(meta.tokensByModel, { ignoreCache1hPremium: true }) : 0
-    const fastNo1h = this.pricing ? this.pricing.costUSD(meta.tokensByModelFast, { ignoreCache1hPremium: true, fast: true }) : 0
-    meta.savings = { using5mCache: meta.cost - ((stdNo1h || 0) + (fastNo1h || 0)) }
+    meta.savings = { using5mCache: meta.cost - costOf({ ignoreCache1hPremium: true }) }
     return meta
   }
 }
