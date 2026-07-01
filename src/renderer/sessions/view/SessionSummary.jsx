@@ -104,6 +104,7 @@ export default function SessionSummary({ meta, items, agent, onOpenAgent, granul
         <Field label="Messages" value={
           <span className={tone(meta.messageCount, T.messages)}>{fmtNum(meta.messageCount)}</span>
         } />
+        <Field label="Tool calls" value={fmtNum(meta.toolCalls)} />
       </Section>
 
       <Section title="Identity">

@@ -36,7 +36,7 @@ function freshMeta({ sessionId, parentSessionId, filePath, fileSize, mtime }) {
     entrypoint: null, project: null, worktree: null, worktreePath: null, gitBranch: null, version: null,
     model: null, models: [], serviceTier: null, speed: null, fastPricingUnknown: false, priceUnknown: false,
     summary: null, aiTitle: null, customTitle: null, agentName: null, firstUserPrompt: null, firstUserCommand: null, forkedFrom: null,
-    messageCount: 0, workflowAgents: 0,
+    messageCount: 0, workflowAgents: 0, toolCalls: 0,
     tokens: emptyBucket(), tokensByModel: {}, tokensByModelFast: {}, lastContextTokens: 0,
     serverToolUse: { webSearch: 0, webFetch: 0 },
     hasScheduledTask: false,
@@ -148,6 +148,10 @@ export class SessionParser {
       if (msg.model) {
         if (!meta.model) meta.model = msg.model
         if (!meta.models.includes(msg.model)) meta.models.push(msg.model)
+      }
+      // tool_use blocks stream across a reply's lines without repeating, so a plain per-line sum is exact.
+      if (Array.isArray(msg.content)) {
+        for (const b of msg.content) if (b?.type === 'tool_use') meta.toolCalls += 1
       }
       this._recordUsage(obj)
     }

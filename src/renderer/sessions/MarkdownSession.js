@@ -95,6 +95,7 @@ export function markdownSession(meta, items, truncated) {
 - Wall duration: ${fmtDuration(wallDuration)}
 - Active periods: ${fmtNum(meta.activityPeriods.length)}
 - Messages: ${fmtNum(meta.messageCount)}
+- Tool calls: ${fmtNum(meta.toolCalls)}
 
 ## Identity
 - Model: ${meta.models.join(', ') || '—'}
