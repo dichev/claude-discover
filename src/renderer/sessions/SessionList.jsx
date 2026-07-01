@@ -54,6 +54,7 @@ export default function SessionList({ sessions, selectedId, onSelect, granularit
           onChange={(e) => setFilter(e.target.value)}
         />
         <div className="session-list-header-row">
+          {q && <span className="filter-count">Filtered {filtered.length}/{sessions.length}</span>}
           <div className="sort-toggle" role="group" aria-label="Sort sessions">
             <span className="sort-toggle-label">Sort by:</span>
             <button type="button" className={`sort-pill ${sortBy === 'time'   ? 'active' : ''}`} onClick={() => setSortBy('time')}>Time</button>

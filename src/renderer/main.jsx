@@ -15,13 +15,17 @@ import './styles.css'
 clearOutdatedLocalStorage()
 
 delegate('body', { // replace title attributes with tippy tooltips
-  target: '[title]',
+  target: '[title], [data-tippy-content]',
   delay: [0, 0],
   allowHTML: true,
   content(reference) {
     const title = reference.getAttribute('title')
     reference.removeAttribute('title')
     return title
+  },
+  onShow(instance) { // re-read data-tippy-content each show so tooltips over live-updating data stay fresh
+    const content = instance.reference.getAttribute('data-tippy-content')
+    if (content != null) instance.setContent(content)
   }
 })
 

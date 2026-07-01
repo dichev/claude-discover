@@ -22,6 +22,12 @@
   gap: 8px;
 }
 
+.filter-count {
+  font-size: 11px;
+  color: var(--text);
+  margin-right: auto;
+}
+
 .session-list-scroll { overflow-y: auto; flex: 1; }
 
 .filter {

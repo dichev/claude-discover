@@ -36,7 +36,7 @@ export default function CostBreakdownChart({ sessions, dayAnchor, granularity })
     <div className="cost-chart">
       <div className="cost-chart-cols">
         {bs.map((b, i) => (
-          <div key={i} className="cost-chart-col" title={`${b.tip} · ${fmtUSD(b.cost)}`} data-tippy-placement="bottom">
+          <div key={i} className="cost-chart-col" data-tippy-content={`${b.tip} · ${fmtUSD(b.cost)}`} data-tippy-placement="bottom">
             <div className="cost-chart-cell">
               <div className="cost-chart-bar" style={{ height: `${b.cost > 0 ? Math.max(1, Math.round((b.cost / max) * BAR_MAX_PX)) : 0}px` }} />
             </div>
