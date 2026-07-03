@@ -141,8 +141,10 @@ function groupTurns(turns) {
       continue
     }
     const hasText = t.blocks.some((b) => b.type === 'text')
-    const hasAttachment = t.blocks.some((b) => b.type === 'attachment')
-    if (hasText || (t.role === 'user' && hasAttachment)) {
+    // User turns always stand alone — flatten re-tags tool_result-only messages as `tool`,
+    // so anything still `user` (text, image-only pastes, user-side context attachments)
+    // must not be swallowed by a collapsed tool group.
+    if (hasText || t.role === 'user') {
       flush()
       groups.push({ kind: 'turn', turn: t })
     } else {
