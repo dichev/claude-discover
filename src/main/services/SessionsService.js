@@ -21,15 +21,22 @@ function intersectsDay(meta, day) {
   return meta.lastActivityAt >= day.start && meta.startedAt <= day.end
 }
 
+// seenMessageIds (one id per message) exists only for dedup here in main — drop it from
+// everything leaving the service, it's dead weight over IPC.
+function stripInternal({ seenMessageIds, ...meta }) {
+  return meta
+}
+
 export class SessionsService extends EventEmitter {
-  constructor({ root, debounceMs = 200, scanner = null } = {}) {
+  constructor({ root, throttleMs = 100, scanner = null } = {}) {
     super()
     this.scanner = scanner ?? new SessionsScanner(root ? { root } : {})
     this.pricing = new Pricing()
-    this.debounceMs = debounceMs
+    this.throttleMs = throttleMs
     this.metaCache = new MetaCache()
     this.activeDay = null
     this.updateTimer = null
+    this.lastUpdateAt = 0
   }
 
   async readSession(sessionId, offset = 0, date = null, granularity = 'day') {
@@ -47,7 +54,7 @@ export class SessionsService extends EventEmitter {
     }
     items.sort((a, b) => a._ts - b._ts) // .jsonl lines aren't always in timestamp order
     for (const o of items) delete o._ts
-    return { meta, items, nextOffset }
+    return { meta: stripInternal(meta), items, nextOffset }
   }
 
   // Scan `period` ({ start, end } epoch ms, optional `key`/`date`; see periodBounds). watch:true (UI) streams 'update' events per dir batch and returns the current cache immediately; watch:false (CLIs/tests) awaits completion and returns the deduped sessions with no emits.
@@ -59,7 +66,7 @@ export class SessionsService extends EventEmitter {
     const scan = this.scanner.scan(day, {
       onFile: (filePath, stat) => this._processFile(filePath, day, stat),
       ...(watch && {
-        onBatchDone: async () => { if (fresh()) this.emit('update', await this._dedupedDay(day)) },
+        onBatchDone: () => { if (fresh()) this._scheduleUpdate() },
         onProgress: p => { if (fresh()) this.emit('progress', p) },
       })
     })
@@ -125,7 +132,7 @@ export class SessionsService extends EventEmitter {
     }
     return Promise.all(metas.map(async m => {
       const rescanned = await rescans.get(m.sessionId)
-      return rescanned ? { ...m, ...rescanned } : m
+      return stripInternal(rescanned ? { ...m, ...rescanned } : m)
     }))
   }
 
@@ -155,13 +162,18 @@ export class SessionsService extends EventEmitter {
     if (this.metaCache.evict(filePath)) this._scheduleUpdate()
   }
 
+  // Leading+trailing throttle: the first call emits immediately, calls within throttleMs
+  // coalesce into one trailing emit — so scans paint fast but bursts cost one update.
   _scheduleUpdate() {
-    if (this.updateTimer) return
-    this.updateTimer = setTimeout(async () => {
+    if (this.updateTimer) return // trailing emit already scheduled
+    const emit = async () => {
       this.updateTimer = null
+      this.lastUpdateAt = Date.now()
       const day = this.activeDay
-      if (!day) return
-      this.emit('update', await this._dedupedDay(day))
-    }, this.debounceMs)
+      if (day) this.emit('update', await this._dedupedDay(day))
+    }
+    const wait = this.lastUpdateAt + this.throttleMs - Date.now()
+    if (wait <= 0) emit()
+    else this.updateTimer = setTimeout(emit, wait)
   }
 }
