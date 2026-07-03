@@ -30,16 +30,45 @@
 
 .session-list-scroll { overflow-y: auto; flex: 1; }
 
+.filter-wrap {
+  position: relative;
+  display: flex;
+}
+
 .filter {
-  background: var(--bg-elev-2);
+  background: black;
   border: 1px solid var(--border);
   border-radius: 4px;
   color: var(--text);
   padding: 6px 8px;
+  padding-right: 26px;
   font-size: 12px;
   outline: none;
+  flex: 1;
 
   &:focus { border-color: var(--accent); }
+}
+
+.filter-clear {
+  position: absolute;
+  right: 6px;
+  top: 50%;
+  transform: translateY(-50%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 16px;
+  height: 16px;
+  padding: 0;
+  border: none;
+  border-radius: 50%;
+  background: var(--bg-elev-2);
+  color: var(--text-dim);
+  font-size: 14px;
+  line-height: 1;
+  cursor: pointer;
+
+  &:hover { color: var(--text); background: var(--border); }
 }
 
 .sort-toggle {

@@ -2,7 +2,6 @@ import {
   startOfDay, endOfDay, addDays, isSameDay,
   startOfWeek, endOfWeek, addWeeks, isSameWeek,
   startOfMonth, endOfMonth, addMonths, isSameMonth,
-  format,
 } from 'date-fns'
 
 // Week-scoped views start on Monday — keep this in sync with periodBounds() in
@@ -31,11 +30,4 @@ export function isSamePeriod(a, b, granularity) {
   if (granularity === 'week') return isSameWeek(a, b, WEEK)
   if (granularity === 'month') return isSameMonth(a, b)
   return isSameDay(a, b)
-}
-
-// Compact label for the Gantt nav pill.
-export function periodLabel(anchor, granularity) {
-  if (granularity === 'week') return `${format(anchor, 'MMM d')} – ${format(endOfPeriod(anchor, 'week'), 'MMM d')}`
-  if (granularity === 'month') return format(anchor, 'MMM yyyy')
-  return format(anchor, 'MMM d')
 }

@@ -12,15 +12,6 @@
   gap: 12px;
 }
 
-.gantt-side-title {
-  margin: 0;
-  font-size: 18px;
-  font-weight: 600;
-  color: var(--text);
-  padding-bottom: 10px;
-  border-bottom: 1px solid var(--border);
-}
-
 .gantt-side-section {
   display: flex;
   flex-direction: column;

@@ -1,15 +1,7 @@
 import { useMemo, useState } from 'react'
-import { format } from 'date-fns'
-import { endOfPeriod } from '../utils/period.js'
 import { fmtUSD, fmtCompact, fmtDuration } from '../utils/formatting.js'
 import CostBreakdownChart from './CostBreakdownChart.jsx'
 import './PeriodSummary.css'
-
-function periodTitle(anchor, granularity) {
-  if (granularity === 'week') return `${format(anchor, 'MMM d')} – ${format(endOfPeriod(anchor, 'week'), 'MMM d')}`
-  if (granularity === 'month') return format(anchor, 'MMMM yyyy')
-  return format(anchor, 'EEE, MMM d')
-}
 
 export default function PeriodSummary({ sessions, dayAnchor, granularity = 'day' }) {
   const totals = useMemo(() => {
@@ -55,7 +47,6 @@ export default function PeriodSummary({ sessions, dayAnchor, granularity = 'day'
 
   return (
     <aside className="gantt-side">
-      <h2 className="gantt-side-title">{periodTitle(dayAnchor, granularity)}</h2>
       <div className="gantt-side-section">
         {totals.cost > 0 && <CostBreakdownChart sessions={sessions} dayAnchor={dayAnchor} granularity={granularity} />}
         <div className="gantt-side-row"><span>Estimated cost</span><b>{fmtUSD(totals.cost)}</b></div>

@@ -47,12 +47,17 @@ export default function SessionList({ sessions, selectedId, onSelect, granularit
   return (
     <div className="session-list">
       <div className="session-list-header">
-        <input
-          className="filter"
-          placeholder="Filter sessions…"
-          value={filter}
-          onChange={(e) => setFilter(e.target.value)}
-        />
+        <div className="filter-wrap">
+          <input
+            className="filter"
+            placeholder="Filter sessions…"
+            value={filter}
+            onChange={(e) => setFilter(e.target.value)}
+          />
+          {filter && (
+            <button type="button" className="filter-clear" aria-label="Clear filter" onClick={() => setFilter('')}>×</button>
+          )}
+        </div>
         <div className="session-list-header-row">
           {q && <span className="filter-count">Filtered {filtered.length}/{sessions.length}</span>}
           <div className="sort-toggle" role="group" aria-label="Sort sessions">
