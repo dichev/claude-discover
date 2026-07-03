@@ -3,7 +3,7 @@
 //   1. an active long-running session whose project dir mtime predates the period
 //      (Windows: appending a file does not bump its parent dir mtime)
 //   2. a subagent transcript nested deeper than <session>/subagents/
-import { describe, it, expect, beforeAll, afterAll } from 'vitest'
+import { describe, it, expect, beforeAll, afterAll, beforeEach, afterEach } from 'vitest'
 import fs from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
@@ -94,5 +94,73 @@ describe('SessionsScanner.scan', () => {
     const { seen, batches } = await scannedPaths()
     expect(seen.every(s => s.stat && s.stat.mtimeMs >= day.start)).toBe(true)
     expect(batches).toBeGreaterThan(0)
+  })
+})
+
+// The stat cache: walks hit the disk until a full walk completes with the watcher live,
+// after which scans serve from the watcher-fed `stats` map (readdir+stat of every file is
+// the bottleneck on remote dirs). A stubbed truthy watcher suffices — only scan()/stop()
+// semantics are under test, the chokidar wiring isn't.
+describe('SessionsScanner stat cache', () => {
+  let cacheRoot, scanner
+  const fakeWatcher = { close() {} }
+
+  const addFile = relPath => {
+    const full = path.join(cacheRoot, relPath)
+    fs.mkdirSync(path.dirname(full), { recursive: true })
+    fs.writeFileSync(full, '{"type":"summary"}\n')
+    fs.utimesSync(full, inWindow, inWindow)
+    return full
+  }
+
+  const scanPaths = async (opts = {}) => {
+    const seen = []
+    await scanner.scan(day, { onFile: fp => { seen.push(fp); return true }, ...opts })
+    return seen.sort()
+  }
+
+  beforeEach(() => {
+    cacheRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'scanner-cache-test-'))
+    scanner = new SessionsScanner({ root: cacheRoot })
+  })
+
+  afterEach(() => fs.rmSync(cacheRoot, { recursive: true, force: true }))
+
+  it('without a watcher every scan re-walks the disk', async () => {
+    const fp = addFile('projA/s1.jsonl')
+    expect(await scanPaths()).toEqual([fp])
+    expect(scanner.statCache.complete).toBe(false) // no watcher → cache never trusted
+    fs.rmSync(fp)
+    expect(await scanPaths()).toEqual([]) // re-walked, deletion noticed
+  })
+
+  it('with the watcher live, a completed walk lets later scans skip the disk', async () => {
+    const fp = addFile('projA/s1.jsonl')
+    scanner.watcher = fakeWatcher
+    expect(await scanPaths()).toEqual([fp])
+    expect(scanner.statCache.complete).toBe(true)
+    fs.rmSync(fp) // no unlink event (stubbed watcher), so the cache still holds it
+    expect(await scanPaths()).toEqual([fp]) // served from cache — proves no disk walk
+  })
+
+  it('an aborted walk never marks the cache complete', async () => {
+    addFile('projA/s1.jsonl')
+    scanner.watcher = fakeWatcher
+    const ac = new AbortController()
+    ac.abort()
+    expect(await scanPaths({ signal: ac.signal })).toEqual([])
+    expect(scanner.statCache.complete).toBe(false)
+  })
+
+  it('stop() drops the cache so the next scan re-walks', async () => {
+    const fp = addFile('projA/s1.jsonl')
+    scanner.watcher = fakeWatcher
+    await scanPaths()
+    scanner.stop()
+    expect(scanner.statCache.complete).toBe(false)
+    expect(scanner.statCache.stats.size).toBe(0)
+    fs.rmSync(fp)
+    scanner.watcher = fakeWatcher
+    expect(await scanPaths()).toEqual([]) // fresh walk, deletion noticed
   })
 })

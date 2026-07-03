@@ -2,6 +2,7 @@ import fsp from 'node:fs/promises'
 import path from 'node:path'
 import chokidar from 'chokidar'
 import {CLAUDE_PROJECTS_DIR} from '../paths.js'
+import { StatCache } from './StatCache.js'
 
 const isJsonl = (p) => p.endsWith('.jsonl')
 
@@ -9,6 +10,7 @@ export class SessionsScanner {
   constructor({ root = CLAUDE_PROJECTS_DIR } = {}) {
     this.root = root
     this.watcher = null
+    this.statCache = new StatCache() // lets warm scans skip the readdir+stat sweep (the bottleneck on remote dirs)
   }
 
   async _listDirs(p) {
@@ -36,8 +38,10 @@ export class SessionsScanner {
   // (file mtime IS updated on append, unlike dir mtime), calls onFile(filePath, stat).
   // After each project's files are processed, calls onBatchDone() if any onFile returned
   // truthy — lets callers flush UI updates incrementally. An aborted `signal` (a superseded
-  // scan) stops the walk: no further stats, onFile calls or emits.
+  // scan) stops the walk: no further stats, onFile calls or emits. Once a walk has completed
+  // with the watcher live, the StatCache mirrors the disk and serves later scans in memory.
   async scan(day, { onFile, onBatchDone, onProgress, signal } = {}) {
+    if (this.statCache.complete && this.watcher) return this.statCache.scan(stat => this._inPeriod(stat, day), { onFile, onBatchDone, onProgress, signal })
     const projects = await this._listDirs(this.root)
     let done = 0
     const progress = () => onProgress?.({ done, total: projects.length, scanning: done < projects.length }) // project count is the known denominator for the UI progress bar
@@ -46,6 +50,7 @@ export class SessionsScanner {
       if (signal?.aborted) return
       const results = await Promise.all((await this._listJsonl(projDir)).map(async fp => {
         const stat = signal?.aborted ? null : await fsp.stat(fp).catch(() => null)
+        this.statCache.record(fp, stat)
         return stat && this._inPeriod(stat, day) && !signal?.aborted ? onFile?.(fp, stat) : null
       }))
       if (signal?.aborted) return
@@ -53,7 +58,8 @@ export class SessionsScanner {
       done++
       progress()
     }))
-    if (signal?.aborted) return
+    if (signal?.aborted) return // partial walk — don't mark the cache complete
+    if (this.watcher) this.statCache.markComplete()
     if (onBatchDone) await onBatchDone() // Callers get a final flush over the fully-scanned state even for empty periods (where no per-project batch fired).
     progress() // terminal emit: covers total===0 and guarantees the bar clears
   }
@@ -67,15 +73,26 @@ export class SessionsScanner {
       ignored: (p, stats) => !!stats?.isFile() && !isJsonl(p),
       ...(isUNC && { usePolling: true, interval: 1000 }),
     })
-    this.watcher.on('add', (p, stat) => isJsonl(p) && onChange?.(p, stat))
-    this.watcher.on('change', (p, stat) => isJsonl(p) && onChange?.(p, stat))
-    this.watcher.on('unlink', (p) => isJsonl(p) && onUnlink?.(p))
+    const changed = (p, stat) => {
+      if (!isJsonl(p)) return
+      this.statCache.record(p, stat)
+      onChange?.(p, stat)
+    }
+    const removed = p => {
+      if (!isJsonl(p)) return
+      this.statCache.remove(p)
+      onUnlink?.(p)
+    }
+    this.watcher.on('add', changed)
+    this.watcher.on('change', changed)
+    this.watcher.on('unlink', removed)
   }
 
   stop() {
     if (this.watcher) {
       this.watcher.close()
       this.watcher = null
+      this.statCache.clear() // events are missed while stopped (e.g. across suspend/resume)
     }
   }
 }
