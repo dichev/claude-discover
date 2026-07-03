@@ -3,6 +3,7 @@ import { startOfDay, endOfDay, startOfWeek, endOfWeek, startOfMonth, endOfMonth,
 import { SessionFile } from '../sessions/SessionFile.js'
 import { SessionParser } from '../sessions/SessionParser.js'
 import { SessionsScanner } from '../sessions/SessionsScanner.js'
+import { MetaCache } from '../sessions/MetaCache.js'
 import { Pricing } from './Pricing.js'
 
 // Week-scoped views start on Monday — keep in sync with src/renderer/utils/period.js.
@@ -26,14 +27,13 @@ export class SessionsService extends EventEmitter {
     this.scanner = scanner ?? new SessionsScanner(root ? { root } : {})
     this.pricing = new Pricing()
     this.debounceMs = debounceMs
-    this.cache = new Map()
-    this.byId = new Map()
+    this.metaCache = new MetaCache()
     this.activeDay = null
     this.updateTimer = null
   }
 
   async readSession(sessionId, offset = 0, date = null, granularity = 'day') {
-    const meta = this.byId.get(sessionId)
+    const meta = this.metaCache.byId(sessionId)
     if (!meta) return null
     const range = date ? periodBounds(date, granularity) : null
     const reader = new SessionFile(meta.filePath)
@@ -53,10 +53,7 @@ export class SessionsService extends EventEmitter {
   // Scan `period` ({ start, end } epoch ms, optional `key`/`date`; see periodBounds). watch:true (UI) streams 'update' events per dir batch and returns the current cache immediately; watch:false (CLIs/tests) awaits completion and returns the deduped sessions with no emits.
   async scan(period, { watch = false } = {}) {
     const day = period.key ? period : { ...period, key: `${period.start}|${period.end}` }
-    if (this.activeDay?.key !== day.key) { // new period → drop cached metas (re-scan of the same period keeps its cache)
-      this.cache.clear()
-      this.byId.clear()
-    }
+    this.metaCache.setPeriod(day.key) // new period → drop period-scoped metas (whole-file metas survive)
     this.activeDay = day
     const fresh = () => this.activeDay?.key === day.key // guard against stale period navigation
     const scan = this.scanner.scan(day, {
@@ -133,24 +130,21 @@ export class SessionsService extends EventEmitter {
   }
 
   _dedupedDay(day) {
-    const metas = [...this.cache.values()]
+    const metas = [...this.metaCache.values()]
       .filter(m => intersectsDay(m, day))
       .sort((a, b) => b.lastActivityAt - a.lastActivityAt)
     return this._dedupSessions(metas, day)
   }
 
-  async _processFile(filePath, day, stat) {
-    const meta = await this._scanSession(new SessionFile(filePath), { range: day, stat })
-    if (!meta) return null
-    this.cache.set(filePath, meta)
-    this.byId.set(meta.sessionId, meta)
-    return meta
+  _processFile(filePath, day, stat) {
+    const parse = range => this._scanSession(new SessionFile(filePath), { range, stat })
+    return this.metaCache.resolve(filePath, stat, day, parse)
   }
 
   async _refresh(filePath, stat) {
     const day = this.activeDay
     if (!day || !stat) return
-    const cached = this.cache.get(filePath)
+    const cached = this.metaCache.get(filePath)
     const isChanged = !cached || cached.fileSize !== stat.size || cached.mtime !== stat.mtimeMs
     if (!isChanged) return
     const meta = await this._processFile(filePath, day, stat)
@@ -158,11 +152,7 @@ export class SessionsService extends EventEmitter {
   }
 
   _evict(filePath) {
-    const cached = this.cache.get(filePath)
-    if (this.cache.delete(filePath)) {
-      if (cached) this.byId.delete(cached.sessionId)
-      this._scheduleUpdate()
-    }
+    if (this.metaCache.evict(filePath)) this._scheduleUpdate()
   }
 
   _scheduleUpdate() {
