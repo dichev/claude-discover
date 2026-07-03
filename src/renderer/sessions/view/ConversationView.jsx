@@ -269,11 +269,14 @@ function Block({ block }) {
   if (block.type === 'text') {
     const cmd = parseCommand(block.text)
     if (cmd) {
+      // A tag matched but its body was blank (e.g. a slash command with no stdout) — nothing to show.
+      if (!cmd.name && !cmd.args && !cmd.stdout && !cmd.caveat) return null
       return (
         <div className="block-command">
-          <span className="cmd-name">{cmd.name}</span>
+          {cmd.name && <span className="cmd-name">{cmd.name}</span>}
           {cmd.args && <span className="cmd-args"> {cmd.args}</span>}
           {cmd.stdout && <div className="cmd-stdout">{cmd.stdout}</div>}
+          {cmd.caveat && <div className="cmd-stdout">{cmd.caveat}</div>}
         </div>
       )
     }

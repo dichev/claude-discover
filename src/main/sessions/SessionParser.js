@@ -133,12 +133,17 @@ export class SessionParser {
     const text = extractText(obj.message?.content)
     if (text.startsWith('<command-name>') || text.startsWith('<command-message>')) {
       if (!meta.firstUserCommand) meta.firstUserCommand = text
+      obj.isMeta = true
     } else if (text.startsWith('<local-command-stdout>')) {
       // stdout arrives as a separate message after the command-name entry
       if (meta.firstUserCommand) meta.firstUserCommand += '\n' + text
+      obj.isMeta = true
+    } else if (text.startsWith('<local-command-caveat>')) {
+      // CLI-injected wrapper note, not real user content
+      obj.isMeta = true
     } else if (text.startsWith('<scheduled-task')) {
       meta.hasScheduledTask = true
-    } else if (text && !text.startsWith('<local-command-caveat>')) {
+    } else if (text) {
       if (!meta.firstUserPrompt) meta.firstUserPrompt = text.slice(0, 300)
     }
   }

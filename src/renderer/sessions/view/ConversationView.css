@@ -210,22 +210,20 @@
 
 .block-command {
   font-family: var(--font-mono), monospace;
-  font-size: 12px;
-  background: var(--bg-elev-2);
-  border: 1px solid var(--border);
-  border-radius: 6px;
+  font-size: 11px;
+  background: transparent;
+  border: 1px dashed var(--border);
+  border-radius: 4px;
   padding: 6px 10px;
-  max-width: 80%;
+  max-width: 100%;
   text-align: left;
+  color: var(--text-faint);
 }
 
 .cmd-name { color: var(--accent); font-weight: 600; }
-.cmd-args { color: var(--text); white-space: pre-wrap; }
+.cmd-args { color: var(--text-dim); white-space: pre-wrap; }
 
 .cmd-stdout {
-  margin-top: 6px;
-  padding-top: 6px;
-  border-top: 1px solid var(--border);
   color: var(--text-dim);
   white-space: pre-wrap;
   word-break: break-word;

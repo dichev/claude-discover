@@ -56,16 +56,22 @@ export function fenceBlocks(text) {
   return out + text.slice(cursor)
 }
 
+// CLI command output carries ANSI SGR/cursor codes (bold model names, the 256-color context-usage bar) — strip them for plain-text display.
+const stripAnsi = s => s.replace(/\x1b\[[0-9;]*[a-zA-Z]/g, '')
+
 export function parseCommand(text) {
-  if (typeof text !== 'string' || !text.includes('<command-name>')) return null
+  if (typeof text !== 'string') return null
+  if (!text.includes('<command-name>') && !text.includes('<local-command-stdout>') && !text.includes('<local-command-caveat>')) return null
   const name    = text.match(/<command-name>([\s\S]*?)<\/command-name>/)
   const message = text.match(/<command-message>([\s\S]*?)<\/command-message>/)
   const args    = text.match(/<command-args>([\s\S]*?)<\/command-args>/)
-  const stdout = text.match(/<local-command-stdout>([\s\S]*?)<\/local-command-stdout>/)
+  const stdout  = text.match(/<local-command-stdout>([\s\S]*?)<\/local-command-stdout>/)
+  const caveat  = text.match(/<local-command-caveat>([\s\S]*?)<\/local-command-caveat>/)
   return {
-    name: name ? name[1] : '',
-    message: message ? message[1] : '',
-    args: args ? args[1] : '',
-    stdout: stdout ? stdout[1] : '',
+    name: name ? stripAnsi(name[1]) : '',
+    message: message ? stripAnsi(message[1]) : '',
+    args: args ? stripAnsi(args[1]) : '',
+    stdout: stdout ? stripAnsi(stdout[1]) : '',
+    caveat: caveat ? stripAnsi(caveat[1]) : '',
   }
 }
