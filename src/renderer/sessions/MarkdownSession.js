@@ -32,7 +32,8 @@ function renderBlock(b) {
   if (b.type === 'thinking') return `thinking:\n${fence(b.thinking || '')}`
   if (b.type === 'tool_use') {
     const tail = b.result ? `\n${b.result.is_error ? 'error' : 'result'}:\n${fence(resultText(b.result))}` : ''
-    return `[${b.name}]\n${fence(JSON.stringify(b.input, null, 2), 'json')}${tail}`
+    const title = b.input?.description ? `${b.name}: ${b.input.description}` : b.name
+    return `[${title}]\n${fence(JSON.stringify(b.input, null, 2), 'json')}${tail}`
   }
   if (b.type === 'tool_result') return `${b.is_error ? 'error' : 'result'}:\n${fence(resultText(b))}`
   if (b.type === 'image') return '[image]'

@@ -294,7 +294,7 @@ function Block({ block }) {
   }
   if (block.type === 'tool_use') {
     return (
-      <Collapsible title={`${block.name}`}>
+      <Collapsible title={block.input?.description ? `${block.name}: ${block.input.description}` : block.name}>
         <JsonBlock value={block.input} />
         {block.result && <Block block={block.result} />}
       </Collapsible>
