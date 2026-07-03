@@ -7,6 +7,107 @@
   margin-right: auto;
 }
 
+/* Token timeline: a right gutter with one time + total point per row, scrolling with the content.
+   Delta and context size are hover-only detail, in the point's title tooltip. */
+.conversation.has-token-timeline {
+  position: relative;
+  max-width: 930px;
+  padding-right: 110px;
+}
+
+.conversation.has-token-timeline::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  right: 95px; /* through the dot centers: gutter 110 − label gap 12 − dot radius 3 */
+  border-left: 1px solid var(--border);
+}
+
+.conv-row { position: relative; }
+
+.token-point {
+  position: absolute;
+  left: calc(100% + 12px);
+  top: 3px;
+  z-index: 1; /* paint the dots over the timeline line (.conversation::after comes later in tree order) */
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  padding: 2px 4px;
+  margin: -2px -4px; /* cancel the padding so the hover box doesn't shift the dot/text */
+  border-radius: 4px;
+  font-family: var(--font-mono), monospace;
+  font-size: 10px;
+  line-height: 1;
+  white-space: nowrap;
+  color: var(--text-dim);
+  transition: background-color .12s ease, color .12s ease;
+  cursor: default;
+}
+
+.token-point:hover {
+  background: var(--bg-elev-2);
+  color: var(--text);
+}
+
+.token-point-dot {
+  flex: none;
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+}
+
+.token-point-user      .token-point-dot { background: #5da9c9; }
+.token-point-assistant .token-point-dot { background: #9aa3b2; }
+.token-point-tool      .token-point-dot { background: #6b7484; }
+.token-point.negative  .token-point-dot { background: #63a76b; } /* compaction shrank the context — good news, so green */
+
+.token-point-time {
+  color: var(--text-faint);
+  opacity: 0.7;
+}
+
+/* Context size fill bar, rendered inside the tooltip (see TokenPoint's `title`): fraction of CTX_LIMIT. */
+.token-point-ctx-bar {
+  display: inline-block;
+  vertical-align: middle;
+  width: 30px;
+  height: 4px;
+  margin-left: 2px;
+  border-radius: 2px;
+  background: var(--bg-elev-2);
+  overflow: hidden;
+
+  & > span {
+    display: block;
+    height: 100%;
+    background: var(--ok);
+  }
+}
+
+/* Narrow pane: collapse the gutter to just the dots and reveal a point's text on hover. */
+@container (max-width: 720px) {
+  .conversation.has-token-timeline { padding-right: 28px; }
+  .conversation.has-token-timeline::after { right: 13px; }
+
+  .token-point {
+    left: auto;
+    right: -18px; /* keeps the dot centered on the line: gutter 28 − line offset 13 + dot radius 2.5 ≈ 18 */
+  }
+
+  .token-point-dot { order: 1; } /* dot stays at the line; hovered text unfolds to its left */
+  .token-point > span:not(.token-point-dot) { display: none; }
+
+  .token-point:hover {
+    z-index: 2;
+    padding: 3px 6px; /* a bit roomier than the base hover box, now that text unfolds */
+    margin: -3px -6px;
+
+    & > span { display: inline; }
+  }
+}
+
 .turn {
   position: relative;
   display: flex;

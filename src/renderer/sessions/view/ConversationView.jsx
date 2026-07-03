@@ -1,6 +1,8 @@
 import React, { useContext, useEffect, useMemo, useRef, useState } from 'react'
 import ReactMarkdown from 'react-markdown'
 import rehypeHighlight from 'rehype-highlight'
+import { format } from 'date-fns'
+import { fmtCompact } from '../../utils/formatting'
 import { fenceBlocks, parseCommand } from '../../utils/textBlock.js'
 import LazyMount from '../../ui/LazyMount.jsx'
 import { useFindActive } from '../../ui/useFindActive.js'
@@ -155,19 +157,65 @@ function groupTurns(turns) {
 export default function ConversationView({ items, expandAll = null }) {
   const turns    = useMemo(() => flatten(items), [items])
   const groups   = useMemo(() => groupTurns(turns), [turns])
+  const points   = useMemo(() => tokenPoints(groups), [groups])
   const findOpen = useFindActive()
   return (
     <ExpandAllContext.Provider value={expandAll}>
-      <div className="conversation">
+      <div className={`conversation${points.some(Boolean) ? ' has-token-timeline' : ''}`}>
         {groups.map((g, i) => (
-          <LazyMount key={g.kind === 'tools' ? `tools-${i}` : g.turn.uuid} eager={i < 8} forceMount={findOpen} placeholderMinHeight={80}>
-            {g.kind === 'turn'      ? <TurnRow turn={g.turn} />
-             : g.kind === 'tools'   ? <ToolGroup turns={g.turns} />
-             :                        <InstructionFile it={g.turn.blocks[0].it} showNote={groups[i - 1]?.kind !== 'instruction'} />}
-          </LazyMount>
+          <div className="conv-row" key={g.kind === 'tools' ? `tools-${i}` : g.turn.uuid}>
+            <LazyMount eager={i < 8} forceMount={findOpen} placeholderMinHeight={80}>
+              {g.kind === 'turn'      ? <TurnRow turn={g.turn} />
+               : g.kind === 'tools'   ? <ToolGroup turns={g.turns} />
+               :                        <InstructionFile it={g.turn.blocks[0].it} showNote={groups[i - 1]?.kind !== 'instruction'} />}
+            </LazyMount>
+            {points[i] && <TokenPoint point={points[i]} />}
+          </div>
         ))}
       </div>
     </ExpandAllContext.Provider>
+  )
+}
+
+// One timeline point per group with usage: `+delta / total`. The delta is derived from
+// consecutive running totals (not the stamped per-turn deltas) so the numbers always
+// telescope — flatten drops turns whose blocks get absorbed elsewhere (e.g. tool_results
+// merged into their tool_use), and their stamped deltas would otherwise go missing.
+function tokenPoints(groups) {
+  let prev = 0
+  return groups.map(g => {
+    const turns = g.kind === 'tools' ? g.turns : [g.turn]
+    let total = null, ctx = null
+    for (const t of turns) {
+      if (t.tokenTotal != null) total = t.tokenTotal
+      const u = t.usage
+      if (u) ctx = (u.input_tokens || 0) + (u.cache_read_input_tokens || 0) + (u.cache_creation_input_tokens || 0)
+    }
+    if (total == null || total === prev) return null
+    const delta = total - prev
+    prev = total
+    const ts = turns.find(t => t.ts != null)?.ts ?? null
+    return { delta, total, ts, ctx, role: g.kind === 'tools' ? 'tool' : g.turn.role }
+  })
+}
+
+const CTX_LIMIT = 200_000 // bar scale: fraction of a full context window
+
+// Sits in the conversation's right gutter at the row's own position, so it scrolls with
+// the content — no scroll syncing or measurement needed. Delta and context size (the less
+// glanceable numbers) live in the tooltip rather than the row, to keep the gutter narrow.
+function TokenPoint({ point: p }) {
+  const ctxPct = p.ctx != null && Math.min(p.ctx / CTX_LIMIT, 1) * 100
+  const title = `
+    Total tokens: ${fmtCompact(p.total)} (${p.delta >= 0 ? '+' : ''}${fmtCompact(p.delta)} added)
+    ${ctxPct === false ? '' : `<br>Context: <span class="token-point-ctx-bar"><span style="width:${ctxPct}%"></span></span>  ${fmtCompact(p.ctx)} `}
+  `.trim()
+  return (
+    <div className={`token-point token-point-${p.role}${p.delta < 0 ? ' negative' : ''}`} title={title}>
+      <span className="token-point-dot" />
+      {p.ts != null && <span className="token-point-time">{format(p.ts, 'HH:mm')}, </span>}
+      <span className="token-point-total">{fmtCompact(p.total)}</span>
+    </div>
   )
 }
 

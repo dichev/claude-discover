@@ -34,7 +34,7 @@
   "devDependencies": {
     "@tomjs/electron-devtools-installer": "^4.0.1",
     "@vitejs/plugin-react": "^5.2.0",
-    "electron": "^42.5.0",
+    "electron": "^41.9.2",
     "electron-vite": "^5.0.0",
     "vite": "^7.3.2",
     "vitest": "^4.1.9"
