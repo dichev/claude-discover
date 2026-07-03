@@ -35,6 +35,7 @@ export class SessionsService extends EventEmitter {
     this.throttleMs = throttleMs
     this.metaCache = new MetaCache()
     this.activeDay = null
+    this.scanAbort = null
     this.updateTimer = null
     this.lastUpdateAt = 0
   }
@@ -62,9 +63,12 @@ export class SessionsService extends EventEmitter {
     const day = period.key ? period : { ...period, key: `${period.start}|${period.end}` }
     this.metaCache.setPeriod(day.key) // new period → drop period-scoped metas (whole-file metas survive)
     this.activeDay = day
+    this.scanAbort?.abort() // a superseded scan stops walking instead of racing the new one
+    this.scanAbort = new AbortController()
     const fresh = () => this.activeDay?.key === day.key // guard against stale period navigation
     const scan = this.scanner.scan(day, {
       onFile: (filePath, stat) => this._processFile(filePath, day, stat),
+      signal: this.scanAbort.signal,
       ...(watch && {
         onBatchDone: () => { if (fresh()) this._scheduleUpdate() },
         onProgress: p => { if (fresh()) this.emit('progress', p) },
@@ -91,6 +95,7 @@ export class SessionsService extends EventEmitter {
 
   stop() {
     this.scanner.stop()
+    this.scanAbort?.abort()
     if (this.updateTimer) {
       clearTimeout(this.updateTimer)
       this.updateTimer = null

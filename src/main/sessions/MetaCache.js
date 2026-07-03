@@ -18,7 +18,7 @@ export class MetaCache {
   byId(sessionId) { return [...this.periodMetas.values()].find(m => m.sessionId === sessionId) }
   values() { return this.periodMetas.values() }
 
-  // Meta for one file within `day` ({ start, end }), or null when it has no activity there.
+  // Meta for one file within `day` ({ start, end, key }), or null when it has no activity there.
   // `parse(range)` runs only on cache misses (range = null → whole file) and for files straddling a period edge.
   async resolve(filePath, stat, day, parse) {
     let e = this.files.get(filePath)
@@ -29,6 +29,7 @@ export class MetaCache {
     let m = e.meta
     if (m && (m.lastActivityAt < day.start || m.startedAt > day.end)) m = null
     else if (m && !(m.startedAt >= day.start && m.lastActivityAt <= day.end)) m = await parse(day)
+    if (day.key !== this.periodKey) return m // stale in-flight scan — don't write another period's meta into the layer
     if (!m) { this.periodMetas.delete(filePath); return null }
     this.periodMetas.set(filePath, m)
     return m

@@ -35,21 +35,25 @@ export class SessionsScanner {
   // Walks each project subtree in full. For each .jsonl whose stat passes _inPeriod
   // (file mtime IS updated on append, unlike dir mtime), calls onFile(filePath, stat).
   // After each project's files are processed, calls onBatchDone() if any onFile returned
-  // truthy — lets callers flush UI updates incrementally.
-  async scan(day, { onFile, onBatchDone, onProgress } = {}) {
+  // truthy — lets callers flush UI updates incrementally. An aborted `signal` (a superseded
+  // scan) stops the walk: no further stats, onFile calls or emits.
+  async scan(day, { onFile, onBatchDone, onProgress, signal } = {}) {
     const projects = await this._listDirs(this.root)
     let done = 0
     const progress = () => onProgress?.({ done, total: projects.length, scanning: done < projects.length }) // project count is the known denominator for the UI progress bar
     progress()
     await Promise.all(projects.map(async projDir => {
+      if (signal?.aborted) return
       const results = await Promise.all((await this._listJsonl(projDir)).map(async fp => {
-        const stat = await fsp.stat(fp).catch(() => null)
-        return stat && this._inPeriod(stat, day) ? onFile?.(fp, stat) : null
+        const stat = signal?.aborted ? null : await fsp.stat(fp).catch(() => null)
+        return stat && this._inPeriod(stat, day) && !signal?.aborted ? onFile?.(fp, stat) : null
       }))
+      if (signal?.aborted) return
       if (onBatchDone && results.some(Boolean)) await onBatchDone()
       done++
       progress()
     }))
+    if (signal?.aborted) return
     if (onBatchDone) await onBatchDone() // Callers get a final flush over the fully-scanned state even for empty periods (where no per-project batch fired).
     progress() // terminal emit: covers total===0 and guarantees the bar clears
   }
