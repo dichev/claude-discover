@@ -25,7 +25,14 @@ export class SessionsScanner {
     return entries.filter(e => e.isFile() && isJsonl(e.name)).map(e => path.join(e.parentPath, e.name))
   }
 
-  // Walks each project subtree in full. For each .jsonl whose own mtime >= day.start
+  // Append-only transcripts span [birthtime, mtime], so files outside the period are skipped
+  // Note birthtime is trusted only when well older than mtime, since copies/restores (git checkout, scp, zip) get a fresh birthtime over old content.
+  _inPeriod(stat, day) {
+    if (stat.mtimeMs < day.start) return false
+    return !(stat.birthtimeMs > day.end && stat.birthtimeMs + 2000 <= stat.mtimeMs)
+  }
+
+  // Walks each project subtree in full. For each .jsonl whose stat passes _inPeriod
   // (file mtime IS updated on append, unlike dir mtime), calls onFile(filePath, stat).
   // After each project's files are processed, calls onBatchDone() if any onFile returned
   // truthy — lets callers flush UI updates incrementally.
@@ -37,7 +44,7 @@ export class SessionsScanner {
     await Promise.all(projects.map(async projDir => {
       const results = await Promise.all((await this._listJsonl(projDir)).map(async fp => {
         const stat = await fsp.stat(fp).catch(() => null)
-        return stat && stat.mtimeMs >= day.start ? onFile?.(fp, stat) : null
+        return stat && this._inPeriod(stat, day) ? onFile?.(fp, stat) : null
       }))
       if (onBatchDone && results.some(Boolean)) await onBatchDone()
       done++

@@ -15,11 +15,19 @@ const day = { start: now - DAY_MS, end: now + DAY_MS }
 const inWindow = new Date(now)               // mtime >= day.start
 const stale = new Date(now - 10 * DAY_MS)    // mtime <  day.start
 
+// Period entirely in the past — files created NOW carry a real (unfakeable) birthtime
+// after its end, exercising the created-after-period prune.
+const pastDay = { start: now - 10 * DAY_MS, end: now - 8 * DAY_MS }
+const inPastDay = new Date(now - 9 * DAY_MS)
+const future = new Date(now + 3600_000)
+
 let root
 const rel = {
   active: 'projA/active-session.jsonl',                              // dir is stale, file is fresh
   nested: 'projA/sess1/subagents/workflows/wf_x/agent-1.jsonl',      // deeply nested subagent
   stale:  'projB/old-session.jsonl',                                 // genuinely out of period
+  copied: 'projB/copied-session.jsonl',                              // mtime in pastDay, birthtime now (mtime-preserving copy)
+  future: 'projB/future-session.jsonl',                              // birthtime now, mtime an hour later (a long session created after pastDay)
 }
 
 function write(relPath, mtime) {
@@ -35,6 +43,8 @@ beforeAll(() => {
   write(rel.active, inWindow)
   write(rel.nested, inWindow)
   write(rel.stale, stale)
+  write(rel.copied, inPastDay)
+  write(rel.future, future)
   // Backdate projA's own mtime AFTER its files exist — the old dir-mtime prune would
   // then skip the whole subtree even though active-session.jsonl is in the period.
   fs.utimesSync(path.join(root, 'projA'), stale, stale)
@@ -43,10 +53,10 @@ beforeAll(() => {
 afterAll(() => fs.rmSync(root, { recursive: true, force: true }))
 
 describe('SessionsScanner.scan', () => {
-  async function scannedPaths() {
+  async function scannedPaths(period = day) {
     const seen = []
     let batches = 0
-    await new SessionsScanner({ root }).scan(day, {
+    await new SessionsScanner({ root }).scan(period, {
       onFile: (fp, stat) => { seen.push({ rel: path.relative(root, fp).replace(/\\/g, '/'), stat }); return true },
       onBatchDone: () => { batches++ },
     })
@@ -66,6 +76,18 @@ describe('SessionsScanner.scan', () => {
   it('still prunes files whose own mtime is before the period', async () => {
     const { seen } = await scannedPaths()
     expect(seen.map(s => s.rel)).not.toContain(rel.stale)
+  })
+
+  it('prunes files created after the period ends', async () => {
+    if (fs.statSync(path.join(root, rel.future)).birthtimeMs === 0) return // fs without creation time — prune is disabled there
+    const { seen } = await scannedPaths(pastDay)
+    expect(seen.map(s => s.rel)).not.toContain(rel.future)
+  })
+
+  it('keeps files whose birthtime is not meaningfully older than mtime (copies and restores)', async () => {
+    const { seen } = await scannedPaths(pastDay)
+    expect(seen.map(s => s.rel)).toContain(rel.copied) // mtime-preserving copy: birthtime > mtime
+    expect(seen.map(s => s.rel)).toContain(rel.active) // instant-written file: birthtime ≈ mtime, stat says nothing about content age
   })
 
   it('passes a stat with each file and flushes a batch when files are found', async () => {
