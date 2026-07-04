@@ -125,9 +125,11 @@
   min-width: 56px;
   font-family: var(--font-mono), monospace;
 
+  /* Line heights mirror the main column (18px label + 2px gap + 14px line) so both second lines align */
   & .stat-primary {
     font-size: 11px;
     font-weight: 600;
+    line-height: 18px;
     color: var(--text-dim);
 
     &.muted { color: var(--text-dim); }
@@ -137,6 +139,7 @@
 
   & .stat-secondary {
     font-size: 10px;
+    line-height: 14px;
     color: var(--text-faint);
     &.warn { color: var(--warn); }
     &.danger { color: var(--danger); }
@@ -162,11 +165,12 @@
 
 .session-time { color: var(--text-faint); font-family: var(--font-mono), monospace; margin-left: auto; }
 .session-time-bottom {
-  margin-top: 4px;
+  margin-top: 2px;
   display: flex;
   gap: 0px;
   font-family: var(--font-mono), monospace;
   font-size: 10px;
+  line-height: 14px;
   color: var(--text-faint);
 }
 .session-model { color: var(--text-dim); }
@@ -175,7 +179,6 @@
 .session-name {
   font-weight: 600;
   color: var(--accent, #4ea1ff);
-  margin-right: 6px;
 }
 
 .subagent-tag,
@@ -183,7 +186,6 @@
   font-family: var(--font-mono), monospace;
   font-size: 11px;
   color: var(--accent, #4ea1ff);
-  margin-right: 6px;
 }
 
 .worktree-tag { color: #34d399; }
@@ -193,14 +195,25 @@
   font-weight: bold;
 }
 
+/* Single flex line, 18px tall to fit the circular badges without growing the line box */
 .session-label {
   font-size: 12px;
-  display: -webkit-box;
-  -webkit-line-clamp: 1;
-  -webkit-box-orient: vertical;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  height: 18px;
+  line-height: 18px;
   overflow: hidden;
 
-  & span { margin-right: 5px; }
+  & > * { flex-shrink: 0; }
+}
+
+.session-label-text {
+  flex-shrink: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .model-tag { font-family: var(--font-mono), monospace; color: var(--text-faint); margin-left: auto; }

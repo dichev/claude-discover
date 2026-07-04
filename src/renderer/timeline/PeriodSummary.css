@@ -71,11 +71,15 @@
     white-space: nowrap;
   }
 
+  /* Text badge — undo the circular icon-badge sizing from styles.css */
   & .warn-badge {
     font-size: inherit;
     font-weight: inherit;
     letter-spacing: 0;
     line-height: 1;
+    width: auto;
+    height: auto;
+    border-radius: 3px;
     padding: 0 5px;
     margin: 0 -5px;
     color: var(--warn);

@@ -1,4 +1,5 @@
 import React from 'react'
+import { DollarSign } from 'lucide-react'
 import { format } from 'date-fns'
 import { fmtDuration, fmtBytes, fmtNum, fmtUSD, fmtCompact, tone } from '../../utils/formatting.js'
 import { THRESHOLDS as T } from '../../utils/thresholds.js'
@@ -55,7 +56,7 @@ export default function SessionSummary({ meta, items, agent, onOpenAgent, granul
       <Section title="Summary">
         <Field label="Estimated cost" value={
           <>
-            {meta.priceUnknown && <span className="danger-badge" title={`No price entry for ${modelLabel} — cost is missing or understated`}> $</span>}
+            {meta.priceUnknown && <span className="danger-badge" title={`No price entry for ${modelLabel} — cost is missing or understated`}><DollarSign size={11} /></span>}
             <span className={tone(cost, T.cost)}>{fmtUSD(cost)}</span>
           </>
         } />

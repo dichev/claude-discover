@@ -128,7 +128,6 @@ export default function App() {
             sessions={dayItems.past}
             selectedId={selectedId}
             onSelect={selectSession}
-            granularity={granularity}
           />
         </Panel>
         <Separator className="resize-handle resize-handle-v" />

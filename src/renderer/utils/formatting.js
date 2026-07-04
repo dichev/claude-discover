@@ -9,6 +9,14 @@ export function fmtDuration(ms) {
   return `${hours}h ${minutes}m`
 }
 
+export function fmtAgo(date) {
+  const min = Math.floor((Date.now() - new Date(date)) / 60_000)
+  if (min < 1) return 'now'
+  if (min < 60) return `${min}m ago`
+  if (min < 24 * 60) return `${Math.floor(min / 60)}h ago`
+  return `${Math.floor(min / (24 * 60))}d ago`
+}
+
 export function fmtBytes(n) {
   if (n == null) return '—'
   if (n < 1024) return `${n} B`

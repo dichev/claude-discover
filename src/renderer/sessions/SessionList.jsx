@@ -1,22 +1,36 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react'
+import { Hourglass, Gauge, MessageSquare, Clock, Zap, DollarSign } from 'lucide-react'
 import { SOURCE_COLORS, SOURCE_LABELS } from '../utils/colors.js'
 import { format } from 'date-fns'
-import { fmtCompact, fmtNum, fmtUSD, fmtDuration, tone } from '../utils/formatting.js'
+import { fmtCompact, fmtNum, fmtUSD, fmtDuration, fmtAgo, tone } from '../utils/formatting.js'
 import { THRESHOLDS as T } from '../utils/thresholds.js'
 import { parseCommand } from '../utils/textBlock.js'
 import { subagentsByParent, isJournal } from '../utils/subagents.js'
 import { useLocalStorage } from '../utils/useLocalStorage.js'
 import './SessionList.css'
 
-export default function SessionList({ sessions, selectedId, onSelect, granularity = 'day' }) {
-  const timeFormat = granularity === 'day' ? 'HH:mm:ss' : 'MMM d, HH:mm:ss'
-  const selectedRef = useRef(null)
+const TIPS = {
+  cache1h: 'Billed 2× — prefer the default 5m cache',
+  context: `Consider keeping it below ${fmtCompact(T.context.warn)} tokens`,
+  messages: `Consider sessions below ${fmtCompact(T.messages.warn)} messages`,
+  time: `Consider sessions under ${T.workTime.warn / 60_000}m`,
+}
+
+export default function SessionList({ sessions, selectedId, onSelect }) {
+  const selectedRef         = useRef(null)
   const [sortBy, setSortBy] = useLocalStorage('sessionList.sortBy', 'time')
   const [filter, setFilter] = useState('')
+  const [, tick]            = useState(0)
 
   useEffect(() => {
     selectedRef.current?.scrollIntoView({ block: 'nearest' })
   }, [selectedId])
+
+  // keep the relative "Xm ago" times fresh
+  useEffect(() => {
+    const t = setInterval(() => tick(n => n + 1), 60_000)
+    return () => clearInterval(t)
+  }, [])
 
 
   const cmd = (text) => {
@@ -90,24 +104,24 @@ export default function SessionList({ sessions, selectedId, onSelect, granularit
             >
               <div className="session-row-main">
                 <div className="session-label">
-                  {s.tokens?.cacheCreation1h > 0 && <span className="warn-badge" title={`Used 1h extended cache (${fmtNum(s.tokens.cacheCreation1h)} tokens)`}>1h</span>}
-                  {s.lastContextTokens > T.context.danger && <span className="danger-badge" title={`Context size: ${fmtNum(s.lastContextTokens)} tokens`}>CTX</span>}
-                  {s.lastContextTokens > T.context.warn && s.lastContextTokens <= T.context.danger && <span className="warn-badge" title={`Context size: ${fmtNum(s.lastContextTokens)} tokens`}>CTX</span>}
-                  {s.messageCount > T.messages.danger && <span className="danger-badge" title={`${fmtNum(s.messageCount)} messages`}>MSG</span>}
-                  {s.messageCount > T.messages.warn && s.messageCount <= T.messages.danger && <span className="warn-badge" title={`${fmtNum(s.messageCount)} messages`}>MSG</span>}
-                  {s.activeMs > T.workTime.danger && <span className="danger-badge" title={`Working time: ${fmtDuration(s.activeMs)}`}>TIME</span>}
-                  {s.activeMs > T.workTime.warn && s.activeMs <= T.workTime.danger && <span className="warn-badge" title={`Working time: ${fmtDuration(s.activeMs)}`}>TIME</span>}
-                  {s.speed === 'fast' && <span className={`fast-badge ${s.fastPricingUnknown ? 'fast-badge-unknown' : ''}`} title={s.fastPricingUnknown ? 'Used fast mode — cost is INACCURATE: no fast-mode price multiplier known for this model' : 'Used fast mode (speed: fast)'}>↯</span>}
-                  {s.priceUnknown && <span className="danger-badge" title={`No price entry for ${s.models?.join(', ') || 'this model'} — cost is missing or understated`}>$</span>}
+                  {s.tokens?.cacheCreation1h > 0 && <span className="warn-badge" title={`Used 1h extended cache (${fmtNum(s.tokens.cacheCreation1h)} tokens)\n${TIPS.cache1h}`}><Hourglass size={11} /></span>}
+                  {s.lastContextTokens > T.context.danger && <span className="danger-badge" title={`Context size: ${fmtCompact(s.lastContextTokens)} tokens\n${TIPS.context}`}><Gauge size={11} /></span>}
+                  {s.lastContextTokens > T.context.warn && s.lastContextTokens <= T.context.danger && <span className="warn-badge" title={`Context size: ${fmtCompact(s.lastContextTokens)} tokens\n${TIPS.context}`}><Gauge size={11} /></span>}
+                  {s.messageCount > T.messages.danger && <span className="danger-badge" title={`${fmtNum(s.messageCount)} messages\n${TIPS.messages}`}><MessageSquare size={11} /></span>}
+                  {s.messageCount > T.messages.warn && s.messageCount <= T.messages.danger && <span className="warn-badge" title={`${fmtNum(s.messageCount)} messages\n${TIPS.messages}`}><MessageSquare size={11} /></span>}
+                  {s.activeMs > T.workTime.danger && <span className="danger-badge" title={`Working time: ${fmtDuration(s.activeMs)}\n${TIPS.time}`}><Clock size={11} /></span>}
+                  {s.activeMs > T.workTime.warn && s.activeMs <= T.workTime.danger && <span className="warn-badge" title={`Working time: ${fmtDuration(s.activeMs)}\n${TIPS.time}`}><Clock size={11} /></span>}
+                  {s.speed === 'fast' && <span className={`fast-badge ${s.fastPricingUnknown ? 'fast-badge-unknown' : ''}`} title={s.fastPricingUnknown ? 'Used fast mode — cost is INACCURATE: no fast-mode price multiplier known for this model' : 'Used fast mode (speed: fast)'}><Zap size={11} /></span>}
+                  {s.priceUnknown && <span className="danger-badge" title={`No price entry for ${s.models?.join(', ') || 'this model'} — cost is missing or understated`}><DollarSign size={11} /></span>}
                   {isSubagent && <span className="subagent-tag">[subagent]</span>}
                   {journal && <span className="subagent-tag">[journal: {s.workflowAgents} subagent{s.workflowAgents === 1 ? '' : 's'}]</span>}
                   {s.worktree && <span className="worktree-tag" title={`Worktree of ${s.projectShort}`}>[{s.worktree}]</span>}
                   {isFork && <span className="fork-tag" title={`Forked from session ${s.forkedFrom.sessionId}`}>↳</span>}
                   {sessionName && <span className="session-name">{sessionName}</span>}
-                  {sessionLabel(s)}
+                  <span className="session-label-text">{sessionLabel(s)}</span>
                 </div>
                 <div className="session-time-bottom">
-                  <span>{format(s.lastActivityAt, timeFormat)}</span>
+                  <span title={format(s.lastActivityAt, 'MMM d, HH:mm:ss')}>{fmtAgo(s.lastActivityAt)}</span>
                   {s.models?.length > 0 && <span className="session-model">, {s.models.map((m) => m.replace(/^claude-/, '')).join(', ')}</span>}
                 </div>
               </div>
