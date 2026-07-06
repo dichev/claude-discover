@@ -2,6 +2,7 @@ import React, { useContext, useEffect, useMemo, useState } from 'react'
 import ReactMarkdown from 'react-markdown'
 import rehypeHighlight from 'rehype-highlight'
 import { format } from 'date-fns'
+import { Terminal } from 'lucide-react'
 import { fmtCompact, fmtDuration } from '../../utils/formatting'
 import { THRESHOLDS as T } from '../../utils/thresholds.js'
 import { fenceBlocks, parseCommand } from '../../utils/textBlock.js'
@@ -110,6 +111,7 @@ export function flatten(items) {
       isMeta: !!it.isMeta,
       ts: it.timestamp ? Date.parse(it.timestamp) : null,
       model: msg.model || null,
+      msgId: msg.id || null,
       usage: msg.usage || null,
       tokenDelta: it._tokenDelta ?? null,
       tokenTotal: it._tokenTotal ?? null,
@@ -125,45 +127,75 @@ export function flatten(items) {
 }
 
 
+// One-line tool-call titles: an explicit `description` (Bash, Task) wins; standard
+// tools derive one from their key argument. Unknown/MCP tools fall back to the bare name.
+const clip = (s, n = 100) => { s = String(s).replace(/\s+/g, ' ').trim(); return s.length > n ? s.slice(0, n - 1) + '…' : s }
+const basename = p => p ? String(p).split(/[\\/]/).pop() : ''
+
+const TOOL_ARG_SUMMARY = {
+  Bash: i => i.command,
+  Read: i => basename(i.file_path),
+  Edit: i => basename(i.file_path),
+  MultiEdit: i => basename(i.file_path),
+  Write: i => basename(i.file_path),
+  NotebookEdit: i => basename(i.notebook_path),
+  Grep: i => [i.pattern, basename(i.path) || i.glob].filter(Boolean).join(' in '),
+  Glob: i => [i.pattern, basename(i.path)].filter(Boolean).join(' in '),
+  LS: i => basename(i.path),
+  WebFetch: i => i.url,
+  WebSearch: i => i.query,
+  Skill: i => [i.skill, i.args].filter(Boolean).join(' '),
+  SlashCommand: i => i.command,
+  TodoWrite: i => i.todos?.find(t => t.status === 'in_progress')?.content || `${i.todos?.length ?? 0} todos`,
+  AskUserQuestion: i => i.questions?.map(q => q.question).join(' · '),
+  KillShell: i => i.shell_id,
+  BashOutput: i => i.bash_id,
+}
+
+export function toolSummary(name, input) {
+  const i = input || {}
+  const summary = i.description || TOOL_ARG_SUMMARY[name]?.(i)
+  return summary ? `${name}: ${clip(summary)}` : name
+}
+
 function normalizeContent(content) {
   if (typeof content === 'string') return [{ type: 'text', text: content }]
   if (!Array.isArray(content)) return []
   return content.map((b) => (typeof b === 'string' ? { type: 'text', text: b } : b))
 }
 
-// Harness-injected context is a meta turn whose blocks are all attachments (the "context · N items" payload).
+// Harness-injected context is a meta turn whose blocks are all attachments (the "attachments · N items" payload).
 const isContextTurn = t => t.isMeta && t.blocks.every(b => b.type === 'attachment')
 
 function groupTurns(turns) {
   const groups = []
-  let cycle = null
+  let cycle = null  // open assistant card, closed by its next text message
+  let pending = []  // held context turns, claimed by the next group
   const flush = () => { if (cycle) { groups.push(cycle); cycle = null } }
   for (const t of turns) {
-    if (t.role === 'instruction') {
+    // Context between cycles belongs to a user message (shown as a summary in its header):
+    // fold it into the one just above, or hold it for the next one — IDE selections land
+    // in the transcript *before* the message they accompany.
+    if (isContextTurn(t) && !cycle) {
+      if (groups.at(-1)?.kind === 'user') groups.at(-1).turns.push(t)
+      else pending.push(t)
+    } else if (t.role === 'instruction') {
       flush()
       groups.push({ kind: 'instruction', turn: t })
-      continue
-    }
-    // User turns stand alone; tool calls/results, thinking and assistant-side meta
-    // accumulate into an assistant card that closes at the next assistant text message,
-    // so each message groups with the tool work that led to it.
-    if (t.role === 'user') {
-      // Context injected right after a user message folds into it (shown as a summary in its header)
-      // instead of becoming its own dateless row.
-      const prev = groups[groups.length - 1]
-      if (isContextTurn(t) && !cycle && prev?.kind === 'user') {
-        prev.turns.push(t)
-        continue
-      }
+    } else if (t.role === 'user') {
       flush()
-      groups.push({ kind: 'user', turns: [t] })
+      groups.push({ kind: 'user', turns: [...pending, t] })
+      pending = []
     } else {
-      if (!cycle) cycle = { kind: 'assistant', turns: [] }
+      // Tool calls/results, thinking and assistant-side meta accumulate into an assistant
+      // card that closes at its next text message, so each message groups with its tool work.
+      cycle ??= { kind: 'assistant', turns: pending.splice(0) }
       cycle.turns.push(t)
       if (t.blocks.some(b => b.type === 'text')) flush()
     }
   }
   flush()
+  if (pending.length) groups.push({ kind: 'user', turns: pending }) // unclaimed context renders plainly
   return groups
 }
 
@@ -180,7 +212,7 @@ export default function ConversationView({ items, expandAll = null }) {
           <div className={`conv-row conv-row-${g.kind}`} key={g.kind === 'instruction' ? g.turn.uuid : g.turns[0].uuid}>
             <LazyMount eager={i < 8} forceMount={findOpen} placeholderMinHeight={80}>
               {g.kind === 'user'      ? <UserRow turns={g.turns} point={points[i]} />
-               : g.kind === 'assistant' ? <AssistantCard turns={g.turns} point={points[i]} duration={durations[i]} />
+               : g.kind === 'assistant' ? <AssistantCard turns={g.turns} point={points[i]} duration={durations[i]} showAuthor={groups[i - 1]?.kind !== 'assistant'} />
                :                        <InstructionFile it={g.turn.blocks[0].it} showNote={groups[i - 1]?.kind !== 'instruction'} />}
             </LazyMount>
             {points[i] && <TokenPoint point={points[i]} />}
@@ -212,10 +244,26 @@ function tokenPoints(groups) {
   return groups.map(g => {
     const turns = g.turns ?? [g.turn]
     let total = null, ctx = null
+    // Split lines of one reply repeat its message id with cumulative usage snapshots,
+    // so dedupe by id (last snapshot wins) before summing the group's API calls.
+    const byMsg = new Map()
     for (const t of turns) {
       if (t.tokenTotal != null) total = t.tokenTotal
       const u = t.usage
-      if (u) ctx = (u.input_tokens || 0) + (u.cache_read_input_tokens || 0) + (u.cache_creation_input_tokens || 0)
+      if (u) {
+        ctx = (u.input_tokens || 0) + (u.cache_read_input_tokens || 0) + (u.cache_creation_input_tokens || 0)
+        byMsg.set(t.msgId ?? t.uuid, u)
+      }
+    }
+    let usage = null
+    for (const u of byMsg.values()) {
+      usage ??= { input: 0, output: 0, cacheRead: 0, cacheCreation: 0, cacheCreation5m: 0, cacheCreation1h: 0 }
+      usage.input += u.input_tokens || 0
+      usage.output += u.output_tokens || 0
+      usage.cacheRead += u.cache_read_input_tokens || 0
+      usage.cacheCreation += u.cache_creation_input_tokens || 0
+      usage.cacheCreation5m += u.cache_creation?.ephemeral_5m_input_tokens || 0
+      usage.cacheCreation1h += u.cache_creation?.ephemeral_1h_input_tokens || 0
     }
     if (total == null || total === prev) return null
     const delta = total - prev
@@ -227,7 +275,7 @@ function tokenPoints(groups) {
     // on the user turn's dot on the message's own timestamp.
     if (ctx == null && g.kind !== 'assistant') ctx = delta
     const ts = turns.find(t => t.ts != null)?.ts ?? null
-    return { delta, total, ts, ctx, role: g.kind === 'assistant' ? 'assistant' : turns[0].role }
+    return { delta, total, ts, ctx, usage, role: g.kind === 'assistant' ? 'assistant' : turns[0].role }
   })
 }
 
@@ -244,7 +292,7 @@ function TokenPoint({ point: p }) {
   )
 }
 
-function TurnRow({ turn }) {
+function TurnRow({ turn, hidden = false }) {
   const contextBlocks = [], otherBlocks = []
   const groupAttachments = turn.role === 'user'
   for (const b of turn.blocks) {
@@ -252,10 +300,10 @@ function TurnRow({ turn }) {
   }
   const hasError = turn.blocks.some(b => b.type === 'tool_use' && b.result?.is_error)
   return (
-    <div className={`turn turn-${turn.role} ${turn.isMeta ? 'turn-meta-note' : ''} ${hasError ? 'turn-error' : ''}`}>
+    <div className={`turn turn-${turn.role} ${turn.isMeta ? 'turn-meta-note' : ''} ${hasError ? 'turn-error' : ''} ${hidden ? 'turn-hidden' : ''}`}>
       <div className="turn-blocks">
         {contextBlocks.length > 0 && (
-          <Collapsible className="attachment" defaultOpen={false} title={`context · ${contextBlocks.length} item${contextBlocks.length === 1 ? '' : 's'}`}>
+          <Collapsible className="attachment" defaultOpen={false} title={`attachments · ${contextBlocks.length} item${contextBlocks.length === 1 ? '' : 's'}`}>
             {contextBlocks.map((b, i) => <Attachment key={i} att={b.attachment} />)}
           </Collapsible>
         )}
@@ -272,20 +320,34 @@ const ClaudeIcon = () => (
   </svg>
 )
 
-// Total-tokens figure + context fill bar, shared by user and assistant headers.
+// Total-tokens figure, shared by user and assistant headers. Its tooltip (tippy renders
+// title attributes as HTML, see main.jsx) carries the context bar, the turn's usage
+// breakdown (labels/formulas mirror SessionSummary's Tokens section) and the running total.
 function TokenStats({ point }) {
   if (!point) return null
+  const rows = []
+  if (point.ctx != null) {
+    const width = Math.min(point.ctx / CTX_LIMIT, 1) * 100
+    rows.push(`<div class="token-tooltip-ctx">Context <span class="token-point-ctx-bar"><span style="width:${width}%"></span></span> <span class="token-tooltip-ctx-val">${fmtCompact(point.ctx)}</span></div>`)
+  }
+  const u = point.usage
+  if (u) {
+    const cells = [
+      ['Input', fmtCompact(u.input)],
+      ['Output', fmtCompact(u.output)],
+      ['Cache write (5m)', fmtCompact(u.cacheCreation5m)],
+      ['Cache write (1h)', fmtCompact(u.cacheCreation1h)],
+      ['Cache read', fmtCompact(u.cacheRead)],
+    ]
+    // Turn total: unlabeled sum row, its top border draws the "adding-up" line over the values column.
+    const sum = `<span></span><span class="token-tooltip-sum">+${fmtCompact(u.input + u.output + u.cacheRead + u.cacheCreation)}</span>`
+    rows.push(`<div class="token-tooltip-grid">${cells.map(([l, v]) => `<span>${l}</span><span>${v}</span>`).join('')}${sum}</div>`)
+  }
+  rows.push(`<div class="token-tooltip-total"><span>Accumulated tokens</span><span>${fmtCompact(point.total)}</span></div>`)
   return (
-    <>
-      <span className="msg-tokens" title={`Total tokens: ${fmtCompact(point.total)} (${point.delta >= 0 ? '+' : ''}${fmtCompact(point.delta)} added)`}>
-        {fmtCompact(point.total)}
-      </span>
-      {point.ctx != null && (
-        <span className="token-point-ctx-bar" title={`Context: ${fmtCompact(point.ctx)}`}>
-          <span style={{ width: `${Math.min(point.ctx / CTX_LIMIT, 1) * 100}%` }} />
-        </span>
-      )}
-    </>
+    <span className="msg-tokens" title={`<div class="token-tooltip">${rows.join('')}</div>`}>
+      {fmtCompact(point.total)}
+    </span>
   )
 }
 
@@ -300,13 +362,15 @@ function UserRow({ turns, point }) {
   return (
     <div className="msg-user">
       <div className="msg-header">
+        <Terminal className="msg-icon" />
+        <span className="msg-author">You</span>
+        {ctxItems.length > 0 && (
+          <button className="msg-summary" onClick={() => setOpen(v => !v)}>
+            <span className="aux-chevron">{open ? '▾' : '▸'}</span>
+            <span>attachments · {ctxItems.length} item{ctxItems.length === 1 ? '' : 's'}</span>
+          </button>
+        )}
         <span className="msg-header-right">
-          {ctxItems.length > 0 && (
-            <button className="msg-summary" onClick={() => setOpen(v => !v)}>
-              <span className="aux-chevron">{open ? '▾' : '▸'}</span>
-              <span>context · {ctxItems.length} item{ctxItems.length === 1 ? '' : 's'}</span>
-            </button>
-          )}
           <TokenStats point={point} />
           {msg.ts != null && <span className="msg-time">{format(msg.ts, 'HH:mm:ss')}</span>}
         </span>
@@ -321,7 +385,7 @@ function UserRow({ turns, point }) {
   )
 }
 
-function AssistantCard({ turns, point, duration }) {
+function AssistantCard({ turns, point, duration, showAuthor = true }) {
   const [open, setOpen] = useCollapsed(false)
   const toolBlocks = turns.flatMap(t => t.blocks.filter(b => b.type === 'tool_use'))
   const errorCount = toolBlocks.filter(b => b.result?.is_error).length
@@ -330,7 +394,12 @@ function AssistantCard({ turns, point, duration }) {
   // any tool calls there is nothing worth hiding, so everything stays visible.
   const foldable   = toolBlocks.length > 0 && turns.some(isAux)
   const end        = turns.findLast(t => t.ts != null)?.ts ?? null
-  const visible    = turns.filter(t => open || !foldable || !isAux(t))
+  // Once opened, keep aux turns mounted while folded (hidden via CSS) so each tool's expanded state
+  // survives a fold/unfold. Never-opened cards stay unmounted so we don't eagerly render every tool.
+  const [everOpen, setEverOpen] = useState(false)
+  useEffect(() => { if (open) setEverOpen(true) }, [open])
+  const hidden     = t => !open && foldable && isAux(t)
+  const anyVisible = turns.some(t => !hidden(t))
   const parts = [
     toolBlocks.length > 0 && `${toolBlocks.length} tool call${toolBlocks.length === 1 ? '' : 's'}`,
     errorCount > 0 && <span key="err" className="msg-errors">{errorCount} error{errorCount === 1 ? '' : 's'}</span>,
@@ -339,8 +408,8 @@ function AssistantCard({ turns, point, duration }) {
   return (
     <div className="assistant-card">
       <div className="msg-header">
-        <ClaudeIcon />
-        <span className="msg-author">Claude</span>
+        {showAuthor && <ClaudeIcon />}
+        {showAuthor && <span className="msg-author">Claude</span>}
         {parts.length > 0 && (foldable
           ? <button className="msg-summary" onClick={() => setOpen(v => !v)}>
               <span className="aux-chevron">{open ? '▾' : '▸'}</span>
@@ -350,16 +419,15 @@ function AssistantCard({ turns, point, duration }) {
         <span className="msg-header-right">
           <TokenStats point={point} />
           {end != null && (
-            <span className="msg-time">
-              {duration > 0 && <span className="msg-duration">({fmtDuration(duration)}) </span>}
+            <span className="msg-time" title={duration > 0 ? `Response time: ${fmtDuration(duration)}` : null}>
               {format(end, 'HH:mm:ss')}
             </span>
           )}
         </span>
       </div>
-      {visible.length > 0 && (
-        <div className="assistant-card-body">
-          {visible.map(t => <TurnRow key={t.uuid} turn={t} />)}
+      {(anyVisible || everOpen) && (
+        <div className={`assistant-card-body${anyVisible ? '' : ' turn-hidden'}`}>
+          {turns.map(t => <TurnRow key={t.uuid} turn={t} hidden={hidden(t)} />)}
         </div>
       )}
     </div>
@@ -396,7 +464,7 @@ function Block({ block }) {
   }
   if (block.type === 'tool_use') {
     return (
-      <Collapsible title={block.input?.description ? `${block.name}: ${block.input.description}` : block.name}>
+      <Collapsible title={toolSummary(block.name, block.input)} defaultOpen={false}>
         <JsonBlock value={block.input} />
         {block.result && <Block block={block.result} />}
       </Collapsible>
@@ -431,12 +499,12 @@ const ATTACHMENT_RENDERERS = {
   selected_lines_in_ide: (a) => {
     const path = a.displayPath || a.filename || ''
     const range = a.lineStart === a.lineEnd ? `L${a.lineStart}` : `L${a.lineStart}-${a.lineEnd}`
-    return { title: `selection in ${a.ideName || 'IDE'} · ${path}:${range}`, body: a.content || '' }
+    return { title: `Selection in ${a.ideName || 'IDE'} · ${path}:${range}`, body: a.content || '' }
   },
-  opened_file_in_ide: (a) => ({ title: `opened in IDE · ${a.displayPath || a.filename || ''}`, body: null }),
+  opened_file_in_ide: (a) => ({ title: `Opened in IDE · ${a.displayPath || a.filename || ''}`, body: null }),
   file: (a) => {
     const f = a.content?.file
-    return { title: `file · ${a.displayPath || f?.filePath || a.filename || ''}`, body: f?.content ?? safeJson(a.content) }
+    return { title: `File · ${a.displayPath || f?.filePath || a.filename || ''}`, body: f?.content ?? safeJson(a.content) }
   },
   skill_listing: (a) => ({ title: `${a.skillCount} skills`, body: a.content || '', defaultOpen: false }),
   deferred_tools_delta: (a) => ({
@@ -448,7 +516,7 @@ const ATTACHMENT_RENDERERS = {
 
 function Attachment({ att }) {
   const render = ATTACHMENT_RENDERERS[att?.type]
-  const { title, body, defaultOpen = false } = render ? render(att) : { title: `attachment · ${att?.type || 'unknown'}`, body: safeJson(att) }
+  const { title, body, defaultOpen = false } = render ? render(att) : { title: `Attachment · ${att?.type || 'unknown'}`, body: safeJson(att) }
   if (body == null) return <Label title={title} className="attachment" />
   return (
     <Collapsible title={title} className="attachment" defaultOpen={defaultOpen}>

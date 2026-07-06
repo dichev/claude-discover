@@ -1,7 +1,7 @@
 import { format } from 'date-fns'
 import { fmtDuration, fmtBytes, fmtNum, fmtUSD, fmtCompact } from '../utils/formatting.js'
 import { THRESHOLDS as T } from '../utils/thresholds.js'
-import { flatten } from './view/ConversationView.jsx'
+import { flatten, toolSummary } from './view/ConversationView.jsx'
 
 const CONTEXT_WINDOW = T.context.danger
 let MAX_LINES = 10
@@ -32,7 +32,7 @@ function renderBlock(b) {
   if (b.type === 'thinking') return `thinking:\n${fence(b.thinking || '')}`
   if (b.type === 'tool_use') {
     const tail = b.result ? `\n${b.result.is_error ? 'error' : 'result'}:\n${fence(resultText(b.result))}` : ''
-    const title = b.input?.description ? `${b.name}: ${b.input.description}` : b.name
+    const title = toolSummary(b.name, b.input)
     return `[${title}]\n${fence(JSON.stringify(b.input, null, 2), 'json')}${tail}`
   }
   if (b.type === 'tool_result') return `${b.is_error ? 'error' : 'result'}:\n${fence(resultText(b))}`

@@ -5,13 +5,18 @@
   width: 100%;
   margin-left: auto;
   margin-right: auto;
+  font-family: var(--font-mono), monospace;
 }
 
-.conv-row + .conv-row { margin-top: 30px; }
-.conv-row-instruction + .conv-row-instruction { margin-top: 0; }
+.conv-row + .conv-row { margin-top: 15px; }
+.conv-row-instruction + .conv-row { margin-top: 20px; }
+.conv-row-assistant + .conv-row-user { margin-top: 60px; }
+.conv-row-instruction + .conv-row-instruction,
+.conv-row-assistant + .conv-row-assistant { margin-top: 0; }
+
 
 /* Token timeline: a right gutter with one dot per row, scrolling with the content.
-   Totals, delta and context size now live in the message headers (see TokenStats), not the dot. */
+   Totals live in the message headers (see TokenStats); delta and context size in their tooltip. */
 .conversation.has-token-timeline {
   position: relative;
   max-width: 848px;
@@ -32,7 +37,7 @@
 .token-point {
   position: absolute;
   right: -18px; /* dot centered on the line: gutter 28 − line offset 13 + dot radius 2.5 ≈ 18 */
-  top: 3px;
+  top: 10px;
   z-index: 1; /* paint the dots over the timeline line (.conversation::after comes later in tree order) */
 }
 
@@ -47,7 +52,7 @@
 .token-point-assistant .token-point-dot { background: #9aa3b2; }
 .token-point.negative  .token-point-dot { background: #63a76b; } /* compaction shrank the context — good news, so green */
 
-/* Context size fill bar, rendered in the message header (see TokenStats): fraction of CTX_LIMIT. */
+/* Context size fill bar, shown in the msg-tokens tooltip (see TokenStats): fraction of CTX_LIMIT. */
 .token-point-ctx-bar {
   display: inline-block;
   vertical-align: middle;
@@ -64,12 +69,43 @@
   }
 }
 
+/* msg-tokens tooltip: `Context [fill bar] N tokens`, the turn's usage breakdown grid
+   (labels left, numbers right), then the accumulated total under a divider. */
+.token-tooltip { display: flex; flex-direction: column; gap: 5px; }
+.token-tooltip-ctx { display: flex; align-items: center; gap: 5px; }
+.token-tooltip .token-point-ctx-bar { flex: 1; width: auto; background: rgba(255, 255, 255, 0.25); } /* grow to fill the row; lighter track for tippy's dark background */
+.token-tooltip-ctx-val { text-align: right; font-variant-numeric: tabular-nums; }
+.token-tooltip-grid {
+  display: grid;
+  grid-template-columns: auto auto;
+  column-gap: 16px;
+  row-gap: 2px;
+}
+.token-tooltip-ctx + .token-tooltip-grid {
+  border-top: 1px solid rgba(255, 255, 255, 0.25);
+  padding-top: 5px;
+}
+.token-tooltip-sum {
+  border-top: 1px solid rgba(255, 255, 255, 0.25);
+  padding-top: 2px;
+}
+.token-tooltip-total {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  border-top: 1px solid rgba(255, 255, 255, 0.25);
+  padding-top: 5px;
+}
+.token-tooltip-grid > span:nth-child(even),
+.token-tooltip-total > span:last-child {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
 .turn {
   position: relative;
   display: flex;
   flex-direction: column;
-  font-size: 13px;
-  line-height: 1.5;
 }
 
 .turn-blocks {
@@ -84,12 +120,12 @@
   align-items: center;
   flex-wrap: wrap;
   gap: 6px;
-  margin-bottom: 8px;
+  margin-top: 6px;
+  margin-bottom: 4px;
   font-size: 11px;
   color: var(--text-faint);
 }
 
-.msg-user .msg-header { justify-content: flex-end; }
 
 .msg-icon {
   width: 15px;
@@ -99,6 +135,7 @@
 }
 
 .msg-author { color: var(--text); font-weight: 600; font-size: 12px; }
+.msg-user .msg-author { color: rgb(113, 183, 214); }
 
 .msg-summary {
   background: transparent;
@@ -121,34 +158,21 @@ button.msg-summary:hover { color: var(--text); background: var(--bg-elev-2); bor
   gap: 10px;
 }
 
-/* Pipe dividers between header-right cells: `tokens | [ctx-bar] | time`. Anchored to the
-   text spans, never the ctx-bar (its overflow:hidden + 4px height would clip a pseudo). */
+/* Pipe divider between header-right cells: `tokens | time`. */
 .msg-header-right .msg-tokens:not(:last-child)::after {
   content: '|';
   margin-left: 10px;
   color: var(--border);
 }
-.msg-header-right .token-point-ctx-bar + .msg-time::before {
-  content: '|';
-  margin-right: 10px;
-  color: var(--border);
-}
-/* Divider after the `context · N items` chip: pipe sits outside the button (on the next cell). */
-.msg-header-right .msg-summary + .msg-tokens::before,
-.msg-header-right .msg-summary + .msg-time::before {
-  content: '|';
-  margin-right: 10px;
-  color: var(--border);
-}
 
-/* Context injected with a user message, disclosed from its header's `context · N items` summary. */
+/* Context injected with a user message, disclosed from its header's `attachments · N items` summary. */
 .msg-context {
   margin-bottom: 8px;
   display: flex;
   flex-direction: column;
 }
 
-.msg-time, .msg-duration, .msg-tokens, .msg-summary {
+.msg-time, .msg-tokens, .msg-summary {
   font-family: var(--font-mono), monospace;
   font-size: 10.5px;
   color: var(--text-faint);
@@ -156,7 +180,7 @@ button.msg-summary:hover { color: var(--text); background: var(--bg-elev-2); bor
 
 /* Assistant cycle card: header row above, bordered body with the response (tools fold into it). */
 .assistant-card-body {
-  border: 1px solid var(--border);
+  /*border: 1px solid var(--border);*/
   border-radius: 6px;
   padding: 5px 10px;
   background: var(--bg-elev);
@@ -170,17 +194,17 @@ button.msg-summary:hover { color: var(--text); background: var(--bg-elev-2); bor
   }
 }
 
+/* Aux turns kept mounted while the card is folded, so their expanded state survives (see AssistantCard). */
+.turn-hidden { display: none; }
+
 /* Mark just the turn that errored, not the whole card. */
 .turn-error { border-left: 2px solid var(--danger); padding-left: 8px; margin-left: -10px; }
 
 .turn-user {
-  & .turn-blocks { align-items: flex-end; }
-  & .turn-blocks > .aux { align-self: stretch; text-align: right; }
-  & .turn-blocks > .aux .aux-body { text-align: left; }
+  & .turn-blocks { align-items: flex-start; }
+  & .turn-blocks > .aux { align-self: stretch; }
   & .turn-blocks > .aux.attachment > .aux-body {
-    text-align: right;
-    border-left: none;
-    border-right: 2px solid #3b6a7f;
+    border-left: 2px solid #3b6a7f;
   }
   & .turn-blocks > .tool-result { align-self: stretch; }
 
@@ -195,7 +219,7 @@ button.msg-summary:hover { color: var(--text); background: var(--bg-elev-2); bor
     color: rgb(113, 183, 214);
     border-radius: 6px;
     padding: 5px 10px;
-    max-width: 80%;
+    align-self: stretch;
     text-align: left;
     margin: 0;
   }
@@ -256,6 +280,10 @@ button.msg-summary:hover { color: var(--text); background: var(--bg-elev-2); bor
 .block-text {
   white-space: pre-wrap;
   word-break: break-word;
+  font-family: var(--font-mono), monospace;
+  font-size: 11px;
+  font-weight: 200; /* extra-light cut loaded in main.jsx (jetbrains-mono/latin-200) */
+  line-height: 1.5;
 
   &.markdown { white-space: normal; }
 }
@@ -301,8 +329,6 @@ button.msg-summary:hover { color: var(--text); background: var(--bg-elev-2); bor
   &:hover { color: var(--text); background: var(--bg-elev-2); border-radius: 3px;  }
 }
 
-.turn-user .aux-toggle { flex-direction: row-reverse; }
-.turn-user .aux-chevron { display: inline-block; transform: scaleX(-1); }
 
 .aux-label {
   color: var(--text-faint);
@@ -312,7 +338,6 @@ button.msg-summary:hover { color: var(--text); background: var(--bg-elev-2); bor
   gap: 4px;
 }
 
-.turn-user .aux-label { flex-direction: row-reverse; }
 
 .aux-body {
   margin-top: 4px;
