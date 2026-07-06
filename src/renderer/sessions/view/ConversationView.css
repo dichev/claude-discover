@@ -7,12 +7,15 @@
   margin-right: auto;
 }
 
-/* Token timeline: a right gutter with one time + total point per row, scrolling with the content.
-   Delta and context size are hover-only detail, in the point's title tooltip. */
+.conv-row + .conv-row { margin-top: 30px; }
+.conv-row-instruction + .conv-row-instruction { margin-top: 0; }
+
+/* Token timeline: a right gutter with one dot per row, scrolling with the content.
+   Totals, delta and context size now live in the message headers (see TokenStats), not the dot. */
 .conversation.has-token-timeline {
   position: relative;
-  max-width: 930px;
-  padding-right: 110px;
+  max-width: 848px;
+  padding-right: 28px;
 }
 
 .conversation.has-token-timeline::after {
@@ -20,7 +23,7 @@
   position: absolute;
   top: 0;
   bottom: 0;
-  right: 95px; /* through the dot centers: gutter 110 − label gap 12 − dot radius 3 */
+  right: 13px;
   border-left: 1px solid var(--border);
 }
 
@@ -28,31 +31,13 @@
 
 .token-point {
   position: absolute;
-  left: calc(100% + 12px);
+  right: -18px; /* dot centered on the line: gutter 28 − line offset 13 + dot radius 2.5 ≈ 18 */
   top: 3px;
   z-index: 1; /* paint the dots over the timeline line (.conversation::after comes later in tree order) */
-  display: flex;
-  align-items: center;
-  gap: 5px;
-  padding: 2px 4px;
-  margin: -2px -4px; /* cancel the padding so the hover box doesn't shift the dot/text */
-  border-radius: 4px;
-  font-family: var(--font-mono), monospace;
-  font-size: 10px;
-  line-height: 1;
-  white-space: nowrap;
-  color: var(--text-dim);
-  transition: background-color .12s ease, color .12s ease;
-  cursor: default;
-}
-
-.token-point:hover {
-  background: var(--bg-elev-2);
-  color: var(--text);
 }
 
 .token-point-dot {
-  flex: none;
+  display: block;
   width: 5px;
   height: 5px;
   border-radius: 50%;
@@ -60,21 +45,14 @@
 
 .token-point-user      .token-point-dot { background: #5da9c9; }
 .token-point-assistant .token-point-dot { background: #9aa3b2; }
-.token-point-tool      .token-point-dot { background: #6b7484; }
 .token-point.negative  .token-point-dot { background: #63a76b; } /* compaction shrank the context — good news, so green */
 
-.token-point-time {
-  color: var(--text-faint);
-  opacity: 0.7;
-}
-
-/* Context size fill bar, rendered inside the tooltip (see TokenPoint's `title`): fraction of CTX_LIMIT. */
+/* Context size fill bar, rendered in the message header (see TokenStats): fraction of CTX_LIMIT. */
 .token-point-ctx-bar {
   display: inline-block;
   vertical-align: middle;
   width: 30px;
   height: 4px;
-  margin-left: 2px;
   border-radius: 2px;
   background: var(--bg-elev-2);
   overflow: hidden;
@@ -83,28 +61,6 @@
     display: block;
     height: 100%;
     background: var(--ok);
-  }
-}
-
-/* Narrow pane: collapse the gutter to just the dots and reveal a point's text on hover. */
-@container (max-width: 720px) {
-  .conversation.has-token-timeline { padding-right: 28px; }
-  .conversation.has-token-timeline::after { right: 13px; }
-
-  .token-point {
-    left: auto;
-    right: -18px; /* keeps the dot centered on the line: gutter 28 − line offset 13 + dot radius 2.5 ≈ 18 */
-  }
-
-  .token-point-dot { order: 1; } /* dot stays at the line; hovered text unfolds to its left */
-  .token-point > span:not(.token-point-dot) { display: none; }
-
-  .token-point:hover {
-    z-index: 2;
-    padding: 3px 6px; /* a bit roomier than the base hover box, now that text unfolds */
-    margin: -3px -6px;
-
-    & > span { display: inline; }
   }
 }
 
@@ -121,6 +77,101 @@
   flex-direction: column;
   min-width: 0;
 }
+
+/* Message headers: token stats + time above user bubbles (right-aligned); Claude icon · author · summary | token stats · time above assistant cards. */
+.msg-header {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-bottom: 8px;
+  font-size: 11px;
+  color: var(--text-faint);
+}
+
+.msg-user .msg-header { justify-content: flex-end; }
+
+.msg-icon {
+  width: 15px;
+  height: 15px;
+  flex: none;
+  color: var(--text-dim);
+}
+
+.msg-author { color: var(--text); font-weight: 600; font-size: 12px; }
+
+.msg-summary {
+  background: transparent;
+  border: none;
+  padding: 0;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
+
+button.msg-summary { cursor: pointer; }
+button.msg-summary:hover { color: var(--text); background: var(--bg-elev-2); border-radius: 3px; }
+
+.msg-errors { color: var(--danger); font-weight: 600; }
+
+.msg-header-right {
+  margin-left: auto;
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+}
+
+/* Pipe dividers between header-right cells: `tokens | [ctx-bar] | time`. Anchored to the
+   text spans, never the ctx-bar (its overflow:hidden + 4px height would clip a pseudo). */
+.msg-header-right .msg-tokens:not(:last-child)::after {
+  content: '|';
+  margin-left: 10px;
+  color: var(--border);
+}
+.msg-header-right .token-point-ctx-bar + .msg-time::before {
+  content: '|';
+  margin-right: 10px;
+  color: var(--border);
+}
+/* Divider after the `context · N items` chip: pipe sits outside the button (on the next cell). */
+.msg-header-right .msg-summary + .msg-tokens::before,
+.msg-header-right .msg-summary + .msg-time::before {
+  content: '|';
+  margin-right: 10px;
+  color: var(--border);
+}
+
+/* Context injected with a user message, disclosed from its header's `context · N items` summary. */
+.msg-context {
+  margin-bottom: 8px;
+  display: flex;
+  flex-direction: column;
+}
+
+.msg-time, .msg-duration, .msg-tokens, .msg-summary {
+  font-family: var(--font-mono), monospace;
+  font-size: 10.5px;
+  color: var(--text-faint);
+}
+
+/* Assistant cycle card: header row above, bordered body with the response (tools fold into it). */
+.assistant-card-body {
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 5px 10px;
+  background: var(--bg-elev);
+  display: flex;
+  flex-direction: column;
+}
+
+.aux {
+  & .block-text {
+    margin: 5px 0 10px 0;
+  }
+}
+
+/* Mark just the turn that errored, not the whole card. */
+.turn-error { border-left: 2px solid var(--danger); padding-left: 8px; margin-left: -10px; }
 
 .turn-user {
   & .turn-blocks { align-items: flex-end; }
@@ -139,12 +190,14 @@
   }
 
   & .block-text {
-    background: var(--bg-elev-2);
-    color: #71b7d6;
+    background: var(--bg-elev);
+    border: 1px solid rgb(47 78 91);
+    color: rgb(113, 183, 214);
     border-radius: 6px;
-    padding: 8px 12px;
+    padding: 5px 10px;
     max-width: 80%;
     text-align: left;
+    margin: 0;
   }
 }
 
@@ -203,7 +256,6 @@
 .block-text {
   white-space: pre-wrap;
   word-break: break-word;
-  margin: 5px 0 10px 0;
 
   &.markdown { white-space: normal; }
 }
@@ -279,34 +331,6 @@
   }
 }
 
-.tool-group {
-  font-size: 12px;
-
-  & .tool-group-toggle {
-    width: 100%;
-    text-align: left;
-
-    & > span:first-child {
-      min-width: 0;
-      overflow: hidden;
-      text-overflow: ellipsis;
-      white-space: nowrap;
-    }
-  }
-
-  & .tool-group-body {
-    margin-top: 6px;
-    padding-left: 10px;
-    border-left: 2px solid var(--border);
-    display: flex;
-    flex-direction: column;
-  }
-
-  & .tool-group-errors { color: var(--danger); font-weight: 600; }
-
-  &.error { border-left: 2px solid var(--danger); padding-left: 6px; margin-left: -8px; }
-}
-
 .initial-context-meta {
   font-size: 11px;
   color: var(--text-faint);
@@ -323,8 +347,8 @@
 .instructions-note {
   font-size: 11px;
   color: var(--text-faint);
-  margin-bottom: 8px;
-  padding-bottom: 6px;
+  margin-bottom: 4px;
+  padding-bottom: 4px;
   border-bottom: 1px dashed var(--border);
   line-height: 1.5;
 }
