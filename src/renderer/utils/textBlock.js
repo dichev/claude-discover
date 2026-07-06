@@ -61,7 +61,10 @@ const stripAnsi = s => s.replace(/\x1b\[[0-9;]*[a-zA-Z]/g, '')
 
 export function parseCommand(text) {
   if (typeof text !== 'string') return null
-  if (!text.includes('<command-name>') && !text.includes('<local-command-stdout>') && !text.includes('<local-command-caveat>')) return null
+  // Anchored to the start: real command records begin with one of these tags (see SessionParser).
+  // Prose that merely *mentions* a tag mid-text (e.g. an assistant reply discussing hooks) must
+  // not parse as a command — it would render as an empty command block.
+  if (!/^\s*<(command-name|command-message|local-command-stdout|local-command-caveat)>/.test(text)) return null
   const name    = text.match(/<command-name>([\s\S]*?)<\/command-name>/)
   const message = text.match(/<command-message>([\s\S]*?)<\/command-message>/)
   const args    = text.match(/<command-args>([\s\S]*?)<\/command-args>/)
