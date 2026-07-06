@@ -39,15 +39,19 @@ function useCollapsed(defaultOpen) {
   return [open, setOpen]
 }
 
+// Slash-command invocation (`<command-name>…`): meta for most purposes, but still a user action.
+const isCommandTurn = t => t.blocks.some(b => b.type === 'text' && parseCommand(b.text)?.name)
+
 export default function ConversationView({ items, expandAll = null }) {
   const turns     = useMemo(() => flatten(items), [items])
   const groups    = useMemo(() => groupTurns(turns), [turns])
   const points    = useMemo(() => tokenPoints(groups), [groups])
   const durations = useMemo(() => cycleDurations(groups), [groups])
   const findOpen  = useFindActive()
+  const hasTimeline = points.some(Boolean)
   return (
     <ExpandAllContext.Provider value={expandAll}>
-      <div className={`conversation${points.some(Boolean) ? ' has-token-timeline' : ''}`}>
+      <div className={`conversation${hasTimeline ? ' has-token-timeline' : ''}`}>
         {groups.map((g, i) => (
           <div className={`conv-row conv-row-${g.kind}`} key={g.kind === 'instruction' ? g.turn.uuid : g.turns[0].uuid}>
             <LazyMount eager={i < 8} forceMount={findOpen} placeholderMinHeight={80}>
@@ -55,7 +59,9 @@ export default function ConversationView({ items, expandAll = null }) {
                : g.kind === 'assistant' ? <AssistantCard turns={g.turns} point={points[i]} duration={durations[i]} showAuthor={groups[i - 1]?.kind !== 'assistant'} />
                :                        <InstructionFile it={g.turn.blocks[0].it} showNote={groups[i - 1]?.kind !== 'instruction'} />}
             </LazyMount>
-            {points[i] && <TokenPoint point={points[i]} />}
+            {points[i] ? <TokenPoint point={points[i]} />
+             // Commands consume no tokens so they never get a real point — mark them with a plain dot.
+             : hasTimeline && g.kind === 'user' && g.turns.some(isCommandTurn) && <TokenPoint point={{ role: 'command', delta: 0 }} />}
           </div>
         ))}
       </div>
@@ -119,8 +125,9 @@ function UserRow({ turns, point }) {
   const msg             = turns.find(t => !isContextTurn(t))
   const ctxItems        = turns.filter(isContextTurn).flatMap(t => t.blocks)
 
-  // Meta note or orphan context with no real message: render plainly, without a header (as before).
-  if (!msg || msg.isMeta) return <>{turns.map(t => <TurnRow key={t.uuid} turn={t} />)}</>
+  // Slash commands are meta (CLI-injected records) but keep the header; other meta notes or
+  // orphan context with no real message render plainly, without a header (as before).
+  if (!msg || (msg.isMeta && !isCommandTurn(msg))) return <>{turns.map(t => <TurnRow key={t.uuid} turn={t} />)}</>
 
   return (
     <div className="msg-user">

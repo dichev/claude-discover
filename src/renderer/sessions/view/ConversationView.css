@@ -50,6 +50,7 @@
 
 .token-point-user      .token-point-dot { background: #5da9c9; }
 .token-point-assistant .token-point-dot { background: #9aa3b2; }
+.token-point-command   .token-point-dot { background: var(--accent); } /* slash commands: no tokens, just a marker */
 .token-point.negative  .token-point-dot { background: #63a76b; } /* compaction shrank the context — good news, so green */
 
 /* Context size fill bar, shown in the msg-tokens tooltip (see TokenStats): fraction of CTX_LIMIT. */
@@ -203,15 +204,7 @@ button.msg-summary:hover { color: var(--text); background: var(--bg-elev-2); bor
 .turn-user {
   & .turn-blocks { align-items: flex-start; }
   & .turn-blocks > .aux { align-self: stretch; }
-  & .turn-blocks > .aux.attachment > .aux-body {
-    border-left: 2px solid #3b6a7f;
-  }
   & .turn-blocks > .tool-result { align-self: stretch; }
-
-  .aux .aux-toggle,
-  .aux .aux-label {
-    color: #3b6a7f;
-  }
 
   & .block-text {
     background: var(--bg-elev);
