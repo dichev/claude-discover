@@ -1,7 +1,7 @@
 import { format } from 'date-fns'
 import { fmtDuration, fmtBytes, fmtNum, fmtUSD, fmtCompact } from '../utils/formatting.js'
 import { THRESHOLDS as T } from '../utils/thresholds.js'
-import { flatten, toolSummary } from './view/ConversationView.jsx'
+import { flatten, toolSummary } from './view/transcript.js'
 
 const CONTEXT_WINDOW = T.context.danger
 let MAX_LINES = 10

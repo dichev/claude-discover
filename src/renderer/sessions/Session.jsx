@@ -2,12 +2,12 @@ import React, { useEffect, useRef, useState } from 'react'
 import ConversationView from './view/ConversationView.jsx'
 import JsonlView from './view/JsonlView.jsx'
 import AgentView from './view/AgentView.jsx'
-import SessionSummary from './view/SessionSummary.jsx'
+import SessionSummary from './SessionSummary.jsx'
 import Toggle from '../ui/Toggle.jsx'
 import { useAgent } from '../agent/Agent.js'
-import './SessionView.css'
+import './Session.css'
 
-export default function SessionView({ meta, date, granularity = 'day' }) {
+export default function Session({ meta, date, granularity = 'day' }) {
   const [items, setItems]         = useState(null)
   const [loading, setLoading]     = useState(false)
   const [mode, setMode]           = useState('conversation')

@@ -4,7 +4,7 @@ import GanttChart from './timeline/GanttChart.jsx'
 import Toolbar from './timeline/Toolbar.jsx'
 import PeriodSummary from './timeline/PeriodSummary.jsx'
 import SessionList from './sessions/SessionList.jsx'
-import SessionView from './sessions/SessionView.jsx'
+import Session from './sessions/Session.jsx'
 import StatusBar from './ui/StatusBar.jsx'
 import { closeFind } from './ui/useFindActive.js'
 import { format } from 'date-fns'
@@ -132,7 +132,7 @@ export default function App() {
         </Panel>
         <Separator className="resize-handle resize-handle-v" />
         <Panel id="detail" minSize={30} className="body-pane">
-          <SessionView meta={selected} date={format(anchor, 'yyyy-MM-dd')} granularity={granularity} />
+          <Session meta={selected} date={format(anchor, 'yyyy-MM-dd')} granularity={granularity} />
         </Panel>
         </Group>
       </Panel>

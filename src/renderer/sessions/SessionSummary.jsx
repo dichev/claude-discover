@@ -1,10 +1,10 @@
 import React from 'react'
 import { DollarSign } from 'lucide-react'
 import { format } from 'date-fns'
-import { fmtDuration, fmtBytes, fmtNum, fmtUSD, fmtCompact, tone } from '../../utils/formatting.js'
-import { THRESHOLDS as T } from '../../utils/thresholds.js'
-import AgentOutput from '../../agent/AgentOutput.jsx'
-import { markdownSession } from '../MarkdownSession.js'
+import { fmtDuration, fmtBytes, fmtNum, fmtUSD, fmtCompact, tone } from '../utils/formatting.js'
+import { THRESHOLDS as T } from '../utils/thresholds.js'
+import AgentOutput from '../agent/AgentOutput.jsx'
+import { markdownSession } from './MarkdownSession.js'
 import './SessionSummary.css'
 
 const CONTEXT_WINDOW = T.context.danger
