@@ -5,7 +5,9 @@ import React, { useEffect, useRef, useState } from 'react'
 // so callers can still query/scroll to it before the child has mounted.
 // forceMount mounts the child regardless of viewport (read live, not latched) — the transcript
 // views pass it while the find bar is open so findInPage can match off-screen content.
-export default function LazyMount({ children, eager = false, forceMount = false, placeholderMinHeight = 120, style, ...rest }) {
+// rootRef (a React ref to a scrollable ancestor) makes the preload margin apply at that
+// container's clip edge instead of the viewport's — for children inside an inner scroll box.
+export default function LazyMount({ children, eager = false, forceMount = false, placeholderMinHeight = 120, rootRef = null, style, ...rest }) {
   const ref = useRef(null)
   const [mounted, setMounted] = useState(eager)
 
@@ -15,7 +17,7 @@ export default function LazyMount({ children, eager = false, forceMount = false,
     if (mounted) return
     const io = new IntersectionObserver(([e]) => {
       if (e.isIntersecting) { setMounted(true); io.disconnect() }
-    }, { rootMargin: '600px 0px' })
+    }, { root: rootRef?.current ?? null, rootMargin: '600px 0px' })
     io.observe(ref.current)
     return () => io.disconnect()
   }, [mounted])

@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { fenceBlocks, fenceTags, parseCommand } from '../src/renderer/utils/textBlock.js'
+import { fenceBlocks, fenceTags, parseCommand, splitMarkdown } from '../src/renderer/utils/textBlock.js'
 
 describe('fenceBlocks', () => {
   it('wraps bare JSON objects in a json fence', () => {
@@ -80,6 +80,34 @@ describe('fenceTags', () => {
   it('ignores bare < that starts no tag, and non-strings', () => {
     expect(fenceTags('a < b and 1<2')).toBe('a < b and 1<2')
     expect(fenceTags(null)).toBe(null)
+  })
+})
+
+describe('splitMarkdown', () => {
+  it('returns short text and non-strings as a single chunk', () => {
+    expect(splitMarkdown('hello\n\nworld', 100)).toEqual(['hello\n\nworld'])
+    expect(splitMarkdown(null)).toEqual([null])
+  })
+
+  it('splits at blank lines once a chunk exceeds the size', () => {
+    expect(splitMarkdown('aaa\n\nbbb\n\nccc', 2)).toEqual(['aaa', 'bbb', 'ccc'])
+  })
+
+  it('does not split at blank lines inside a code fence', () => {
+    const text = '```\naaa\n\nbbb\n```\n\nccc'
+    expect(splitMarkdown(text, 2)).toEqual(['```\naaa\n\nbbb\n```', 'ccc'])
+  })
+
+  it('returns one unsplittable giant fence as a single chunk', () => {
+    const text = '```\n' + 'x\n'.repeat(50) + '```'
+    expect(splitMarkdown(text, 5)).toEqual([text])
+  })
+
+  it('preserves all content across chunks (only separator blank lines are dropped)', () => {
+    const text = Array.from({ length: 20 }, (_, i) => `paragraph ${i} with some text`).join('\n\n')
+    const chunks = splitMarkdown(text, 100)
+    expect(chunks.length).toBeGreaterThan(1)
+    expect(chunks.join('\n\n')).toBe(text)
   })
 })
 

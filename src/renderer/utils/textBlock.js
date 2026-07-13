@@ -82,6 +82,27 @@ export function fenceTags(text) {
 }
 
 
+// Split long markdown into standalone chunks at blank lines outside code fences, so a huge
+// block can render one ReactMarkdown per chunk (lazy-mounted) instead of parsing everything
+// at once. Text with no safe split point (e.g. one giant fence) comes back as a single chunk.
+export function splitMarkdown(text, size = 10_000) {
+  if (typeof text !== 'string' || text.length <= size) return [text]
+  const chunks = []
+  let buf = [], len = 0, inFence = false
+  for (const line of text.split('\n')) {
+    if (line.startsWith('```')) inFence = !inFence
+    if (len > size && !inFence && line.trim() === '') {
+      chunks.push(buf.join('\n'))
+      buf = []; len = 0
+      continue // the blank separator is dropped; chunks stay standalone paragraphs
+    }
+    buf.push(line)
+    len += line.length + 1
+  }
+  if (buf.length) chunks.push(buf.join('\n'))
+  return chunks
+}
+
 // CLI command output carries ANSI SGR/cursor codes (bold model names, the 256-color context-usage bar) — strip them for plain-text display.
 const stripAnsi = s => s.replace(/\x1b\[[0-9;]*[a-zA-Z]/g, '')
 

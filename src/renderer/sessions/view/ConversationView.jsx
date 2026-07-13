@@ -1,11 +1,11 @@
-import React, { useContext, useEffect, useMemo, useState } from 'react'
+import React, { useContext, useEffect, useMemo, useRef, useState } from 'react'
 import ReactMarkdown from 'react-markdown'
 import rehypeHighlight from 'rehype-highlight'
 import { format } from 'date-fns'
 import { Terminal } from 'lucide-react'
 import { fmtCompact, fmtDuration } from '../../utils/formatting'
 import { THRESHOLDS as T } from '../../utils/thresholds.js'
-import { fenceBlocks, fenceTags, parseCommand } from '../../utils/textBlock.js'
+import { fenceBlocks, fenceTags, parseCommand, splitMarkdown } from '../../utils/textBlock.js'
 import { flatten, groupTurns, cycleDurations, tokenPoints, isContextTurn, toolSummary } from './transcript.js'
 import LazyMount from '../../ui/LazyMount.jsx'
 import { useFindActive } from '../../ui/useFindActive.js'
@@ -225,6 +225,30 @@ function TurnRow({ turn, hidden = false }) {
   )
 }
 
+// Very long texts (dumps, pasted logs) render one ReactMarkdown per chunk, each lazy-mounted
+// against the block's own scroll box (.markdown is max-height'd, and clipped chunks don't
+// intersect), so only the scrolled-to part pays the markdown/highlight cost. Short texts —
+// the common case — keep the plain single-render path with no wrapper divs.
+function ChunkedMarkdown({ text, components }) {
+  const ref      = useRef(null)
+  const findOpen = useFindActive()
+  const chunks   = useMemo(() => splitMarkdown(text), [text])
+  if (chunks.length === 1) return (
+    <div className="block-text markdown">
+      <ReactMarkdown rehypePlugins={[rehypeHighlight]} components={components}>{chunks[0]}</ReactMarkdown>
+    </div>
+  )
+  return (
+    <div className="block-text markdown" ref={ref}>
+      {chunks.map((c, i) => (
+        <LazyMount key={i} eager={i === 0} forceMount={findOpen} rootRef={ref} placeholderMinHeight={500}>
+          <ReactMarkdown rehypePlugins={[rehypeHighlight]} components={components}>{c}</ReactMarkdown>
+        </LazyMount>
+      ))}
+    </div>
+  )
+}
+
 function Block({ block }) {
   if (block.type === 'text') {
     const cmd = parseCommand(block.text)
@@ -240,13 +264,7 @@ function Block({ block }) {
         </div>
       )
     }
-    return (
-      <div className="block-text markdown">
-        <ReactMarkdown rehypePlugins={[rehypeHighlight]} components={linkComponents}>
-          {fenceBlocks(fenceTags(block.text))}
-        </ReactMarkdown>
-      </div>
-    )
+    return <ChunkedMarkdown text={fenceBlocks(fenceTags(block.text))} components={linkComponents} />
   }
   if (block.type === 'thinking') {
     if (!block.thinking) return <Label title="Thinking" />
@@ -379,9 +397,7 @@ function InstructionFile({ it, showNote }) {
           )}
           {it.error
             ? <pre className="error">{it.error}</pre>
-            : <div className="block-text markdown">
-                <ReactMarkdown rehypePlugins={[rehypeHighlight]} components={components}>{it.content || ''}</ReactMarkdown>
-              </div>}
+            : <ChunkedMarkdown text={it.content || ''} components={components} />}
         </div>
       )}
     </div>
