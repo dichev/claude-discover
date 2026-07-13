@@ -29,32 +29,58 @@ const findMatchingClose = (text, start) => {
   return -1
 }
 
+// Odd number of ``` lines before an offset => it's inside an open fence; leave it alone (already highlighted).
+const insideFence = (text, i) => (text.slice(0, i).match(/^```/gm)?.length ?? 0) % 2
+
 export function fenceBlocks(text) {
   if (typeof text !== 'string') return text
   if (!text.includes('{') && !text.includes('[')) return text
 
-  // Odd number of ``` lines before an offset => it's inside an open fence; skip it (already highlighted).
-  const insideFence = i => (text.slice(0, i).match(/^```/gm)?.length ?? 0) % 2
-
-  const startRe = /^([^\n{[]*)([{[])/gm
+  const startRe = /^([^\n{[]*)[{[]/gm
   let out = '', cursor = 0, m
   while ((m = startRe.exec(text)) !== null) {
-    const [, prefix, open] = m
-    const bodyStart = m.index + prefix.length
-    if (!insideFence(bodyStart)) {
-        const end = findMatchingClose(text, bodyStart)
-        if (end < 0) continue
-        if (end !== text.length && text[end] !== '\n' && text[end] !== '\r') continue
-        const body = text.slice(bodyStart, end)
-        const lang = detectLang(body)
-        if (!lang) continue
-        const fence = '\n```' + lang + '\n' + body + '\n```\n'
-        out += text.slice(cursor, m.index) + prefix.trimEnd() + fence
-        cursor = startRe.lastIndex = end
-      }
+    const bodyStart = m.index + m[1].length
+    if (insideFence(text, bodyStart)) continue
+    const end = findMatchingClose(text, bodyStart)
+    if (end < 0) continue
+    if (end !== text.length && text[end] !== '\n' && text[end] !== '\r') continue
+    const body = text.slice(bodyStart, end)
+    const lang = detectLang(body)
+    if (!lang) continue
+    out += text.slice(cursor, m.index) + m[1].trimEnd() + '\n```' + lang + '\n' + body + '\n```\n'
+    cursor = startRe.lastIndex = end
   }
   return out + text.slice(cursor)
 }
+
+// Markdown treats a `<tag>` line as a raw HTML block that swallows everything up to the next blank line
+// unformatted, and ReactMarkdown shows raw HTML as literal text anyway. Fence whole <tag>…</tag> blocks
+// as ```xml (syntax-highlighted, like fenceBlocks does for JSON) and wrap stray tags in inline code spans,
+// so the text around them stays markdown-formatted. Autolinks (<https://…>, <a@b.c>) match neither pattern.
+export function fenceTags(text) {
+  if (typeof text !== 'string' || !text.includes('<')) return text
+
+  // <tag> opening a line … matching </tag> ending a line -> one ```xml fence around the whole block.
+  const startRe = /^<([A-Za-z][\w-]*)(?:\s[^<>`\n]*)?>/gm
+  let out = '', cursor = 0, m
+  while ((m = startRe.exec(text)) !== null) {
+    if (insideFence(text, m.index)) continue
+    const close = text.indexOf(`</${m[1]}>`, m.index)
+    if (close < 0) continue
+    const end = close + m[1].length + 3
+    if (end !== text.length && text[end] !== '\n' && text[end] !== '\r') continue
+    out += text.slice(cursor, m.index) + '```xml\n' + text.slice(m.index, end) + '\n```'
+    cursor = startRe.lastIndex = end
+  }
+  out += text.slice(cursor)
+
+  // Tags left outside a fenced pair render as monospace chips instead of triggering markdown's raw-HTML mode.
+  return out
+    .split(/(^```[^\n]*\n[\s\S]*?\n```|`[^`\n]+`)/m) // odd parts are fenced blocks / inline code spans — keep verbatim
+    .map((part, i) => i % 2 ? part : part.replace(/<\/?[A-Za-z][\w-]*(?:\s[^<>`\n]*)?\/?>/g, '`$&`'))
+    .join('')
+}
+
 
 // CLI command output carries ANSI SGR/cursor codes (bold model names, the 256-color context-usage bar) — strip them for plain-text display.
 const stripAnsi = s => s.replace(/\x1b\[[0-9;]*[a-zA-Z]/g, '')
@@ -65,16 +91,12 @@ export function parseCommand(text) {
   // Prose that merely *mentions* a tag mid-text (e.g. an assistant reply discussing hooks) must
   // not parse as a command — it would render as an empty command block.
   if (!/^\s*<(command-name|command-message|local-command-stdout|local-command-caveat)>/.test(text)) return null
-  const name    = text.match(/<command-name>([\s\S]*?)<\/command-name>/)
-  const message = text.match(/<command-message>([\s\S]*?)<\/command-message>/)
-  const args    = text.match(/<command-args>([\s\S]*?)<\/command-args>/)
-  const stdout  = text.match(/<local-command-stdout>([\s\S]*?)<\/local-command-stdout>/)
-  const caveat  = text.match(/<local-command-caveat>([\s\S]*?)<\/local-command-caveat>/)
+  const field = tag => stripAnsi(text.match(new RegExp(`<${tag}>([\\s\\S]*?)</${tag}>`))?.[1] ?? '')
   return {
-    name: name ? stripAnsi(name[1]) : '',
-    message: message ? stripAnsi(message[1]) : '',
-    args: args ? stripAnsi(args[1]) : '',
-    stdout: stdout ? stripAnsi(stdout[1]) : '',
-    caveat: caveat ? stripAnsi(caveat[1]) : '',
+    name:    field('command-name'),
+    message: field('command-message'),
+    args:    field('command-args'),
+    stdout:  field('local-command-stdout'),
+    caveat:  field('local-command-caveat'),
   }
 }

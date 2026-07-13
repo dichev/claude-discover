@@ -5,7 +5,7 @@ import { format } from 'date-fns'
 import { Terminal } from 'lucide-react'
 import { fmtCompact, fmtDuration } from '../../utils/formatting'
 import { THRESHOLDS as T } from '../../utils/thresholds.js'
-import { fenceBlocks, parseCommand } from '../../utils/textBlock.js'
+import { fenceBlocks, fenceTags, parseCommand } from '../../utils/textBlock.js'
 import { flatten, groupTurns, cycleDurations, tokenPoints, isContextTurn, toolSummary } from './transcript.js'
 import LazyMount from '../../ui/LazyMount.jsx'
 import { useFindActive } from '../../ui/useFindActive.js'
@@ -243,7 +243,7 @@ function Block({ block }) {
     return (
       <div className="block-text markdown">
         <ReactMarkdown rehypePlugins={[rehypeHighlight]} components={linkComponents}>
-          {fenceBlocks(block.text)}
+          {fenceBlocks(fenceTags(block.text))}
         </ReactMarkdown>
       </div>
     )

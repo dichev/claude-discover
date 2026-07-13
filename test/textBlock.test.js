@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { fenceBlocks, parseCommand } from '../src/renderer/utils/textBlock.js'
+import { fenceBlocks, fenceTags, parseCommand } from '../src/renderer/utils/textBlock.js'
 
 describe('fenceBlocks', () => {
   it('wraps bare JSON objects in a json fence', () => {
@@ -47,6 +47,39 @@ describe('fenceBlocks', () => {
   it('returns non-strings and brace-free text unchanged', () => {
     expect(fenceBlocks(null)).toBe(null)
     expect(fenceBlocks('plain text')).toBe('plain text')
+  })
+})
+
+describe('fenceTags', () => {
+  it('fences a <tag>…</tag> block as xml', () => {
+    expect(fenceTags('<conversation>\nhello\n</conversation>')).toBe('```xml\n<conversation>\nhello\n</conversation>\n```')
+    expect(fenceTags('<client_record> id: 1 </client_record>')).toBe('```xml\n<client_record> id: 1 </client_record>\n```')
+  })
+
+  it('fences each pair separately and keeps the prose between them', () => {
+    const out = fenceTags('intro\n<a_tag>\nx\n</a_tag>\n\nmiddle\n\n<b_tag> y </b_tag>')
+    expect(out).toBe('intro\n```xml\n<a_tag>\nx\n</a_tag>\n```\n\nmiddle\n\n```xml\n<b_tag> y </b_tag>\n```')
+  })
+
+  it('wraps stray tags in inline code spans', () => {
+    expect(fenceTags('a <br/> b')).toBe('a `<br/>` b')
+    expect(fenceTags('mid-sentence <b>bold</b> here')).toBe('mid-sentence `<b>`bold`</b>` here')
+  })
+
+  it('leaves autolinks and email autolinks alone', () => {
+    expect(fenceTags('see <https://example.com> or <mailto:a@b.c>')).toBe('see <https://example.com> or <mailto:a@b.c>')
+    expect(fenceTags('mail <a@b.c> please')).toBe('mail <a@b.c> please')
+  })
+
+  it('does not touch fenced blocks or inline code spans', () => {
+    const fenced = 'x\n```html\n<div>\n```\ny <tag>'
+    expect(fenceTags(fenced)).toBe('x\n```html\n<div>\n```\ny `<tag>`')
+    expect(fenceTags('the `<command-name>` tag')).toBe('the `<command-name>` tag')
+  })
+
+  it('ignores bare < that starts no tag, and non-strings', () => {
+    expect(fenceTags('a < b and 1<2')).toBe('a < b and 1<2')
+    expect(fenceTags(null)).toBe(null)
   })
 })
 
