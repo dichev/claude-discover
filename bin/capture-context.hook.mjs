@@ -24,8 +24,15 @@ Copy-paste into ~/.claude/settings.json (replace the path):
 
 
 import fs from 'node:fs'
+import os from 'node:os'
 import path from 'node:path'
 import { text } from 'node:stream/consumers'
+
+
+const DEBUG_LOG = false // Log every incoming hook event to <CLAUDE_DIR>/DEBUG_LOG_FILE
+const DEBUG_LOG_FILE = '.claude-discover.hook.debug.log'
+const ERROR_LOG = true // Log hook errors to <CLAUDE_DIR>/ERROR_LOG_FILE
+const ERROR_LOG_FILE = '.claude-discover.hook.error.log'
 
 const CLAUDE_HOOKS = {
   INSTRUCTIONS_LOADED: 'InstructionsLoaded',
@@ -33,13 +40,19 @@ const CLAUDE_HOOKS = {
   SESSION_END:         'SessionEnd',
 }
 const RECORD_TYPE = 'instructions-loaded'
-const ERROR_LOG = '.claude-discover.hook.error.log'
 const CLEAR_ORPHAN_LOGS_AFTER_MS = 24 * 60 * 60_000 // Sweep orphan ndjson logs older than this. default: 1 day, set to 0 / false to disable
+const CLAUDE_DIR = process.env.CLAUDE_CONFIG_DIR || path.join(os.homedir(), '.claude') // Where the debug/error logs go
+
 
 
 function appendRecord(logPath, record) {
   fs.mkdirSync(path.dirname(logPath), {recursive: true}) // The project dir may not exist yet the first time a session loads instructions.
   fs.appendFileSync(logPath, JSON.stringify(record) + '\n')
+}
+
+
+function log(filename, data) {
+  try { fs.appendFileSync(path.join(CLAUDE_DIR, filename), `${new Date().toISOString()} ${data}\n`) } catch {}
 }
 
 
@@ -55,6 +68,7 @@ function readContent(filePath) {
 
 async function main() {
   const raw = await text(process.stdin)
+  if (DEBUG_LOG) log(DEBUG_LOG_FILE, raw.trim())
   const event = JSON.parse(raw || '{}')
   if (!event.transcript_path) return
   const dir = path.dirname(event.transcript_path)
@@ -112,9 +126,7 @@ async function main() {
     }
   }
   catch (err) {
-    const claudeDir = path.resolve(event.transcript_path, '../../..') // transcript_path lives at <CLAUDE_DIR>/projects/<project>/<session>.jsonl
-    const errLogPath = path.join(claudeDir, ERROR_LOG)
-    try { fs.appendFileSync(errLogPath, `${new Date().toISOString()} ${err?.stack || err}\n`) } catch {}
+    if (ERROR_LOG) log(ERROR_LOG_FILE, err?.stack || err)
   }
 }
 
