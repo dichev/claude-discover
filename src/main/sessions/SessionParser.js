@@ -18,10 +18,20 @@ function extractText(content) {
     .join('\n')
 }
 
-function shortProject(dir) {
+function shortProject(dir, depth = 2) {
   if (!dir) return '(no project)'
   const parts = dir.replace(/\\/g, '/').split('/').filter(Boolean)
-  return parts.slice(-2).join('/') || dir
+  return parts.slice(-depth).join('/') || dir
+}
+
+// Suffix labels for a set of dirs: the last `depth` segments of each, one segment more where that
+// collides (tmp-1/app/run vs tmp-2/app/run, while /users/dev/app stays dev/app).
+export function suffixLabels(dirs, depth = 2) {
+  const labels = new Map([...new Set(dirs)].map(dir => [dir, shortProject(dir, depth)]))
+  const counts = new Map()
+  for (const label of labels.values()) counts.set(label, (counts.get(label) ?? 0) + 1)
+  for (const [dir, label] of labels) if (counts.get(label) > 1) labels.set(dir, shortProject(dir, depth + 1))
+  return labels
 }
 
 function classifySource(meta) {

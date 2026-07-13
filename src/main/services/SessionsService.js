@@ -1,7 +1,7 @@
 import { EventEmitter } from 'node:events'
 import { startOfDay, endOfDay, startOfWeek, endOfWeek, startOfMonth, endOfMonth, parseISO } from 'date-fns'
 import { SessionFile } from '../sessions/SessionFile.js'
-import { SessionParser } from '../sessions/SessionParser.js'
+import { SessionParser, suffixLabels } from '../sessions/SessionParser.js'
 import { SessionsScanner } from '../sessions/SessionsScanner.js'
 import { MetaCache } from '../sessions/MetaCache.js'
 import { Pricing } from './Pricing.js'
@@ -135,10 +135,14 @@ export class SessionsService extends EventEmitter {
       }
       if (overlap) rescans.set(m.sessionId, this._scanSession(new SessionFile(m.filePath), { range, excludeIds: overlap }))
     }
-    return Promise.all(metas.map(async m => {
+    const sessions = await Promise.all(metas.map(async m => {
       const rescanned = await rescans.get(m.sessionId)
       return stripInternal(rescanned ? { ...m, ...rescanned } : m)
     }))
+    // Different project dirs can share a "last two segments" label (pytest tmp dirs) — relabel per snapshot
+    const labels = suffixLabels(sessions.map(m => m.project))
+    for (const m of sessions) m.projectShort = labels.get(m.project)
+    return sessions
   }
 
   _dedupedDay(day) {
