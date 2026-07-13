@@ -29,6 +29,7 @@ import path from 'node:path'
 import { text } from 'node:stream/consumers'
 
 
+const CLAUDE_DIR = process.env.CLAUDE_CONFIG_DIR || path.join(os.homedir(), '.claude') // Where the logs go
 const DEBUG_LOG = false // Log every incoming hook event to <CLAUDE_DIR>/DEBUG_LOG_FILE
 const DEBUG_LOG_FILE = '.claude-discover.hook.debug.log'
 const ERROR_LOG = true // Log hook errors to <CLAUDE_DIR>/ERROR_LOG_FILE
@@ -41,7 +42,7 @@ const CLAUDE_HOOKS = {
 }
 const RECORD_TYPE = 'instructions-loaded'
 const CLEAR_ORPHAN_LOGS_AFTER_MS = 24 * 60 * 60_000 // Sweep orphan ndjson logs older than this. default: 1 day, set to 0 / false to disable
-const CLAUDE_DIR = process.env.CLAUDE_CONFIG_DIR || path.join(os.homedir(), '.claude') // Where the debug/error logs go
+const SESSION_START_OFFSET_MS = -500 // Backdate session_start/include loads so they sort above the first transcript events (which they fire just after)
 
 
 
@@ -73,7 +74,7 @@ async function main() {
   if (!event.transcript_path) return
   const dir = path.dirname(event.transcript_path)
   const logPath = event.transcript_path.replace('.jsonl', '.context.ndjson')
-  const offsetMs = event.load_reason === 'session_start' ? -500 : 0 // Backdate session_start loads by 500ms so they sort above the first transcript events (which they fire just after).
+  const offsetMs = ['session_start', 'include'].includes(event.load_reason) ? SESSION_START_OFFSET_MS : 0
 
   try {
     let record = null
