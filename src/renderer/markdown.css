@@ -1,4 +1,4 @@
-.markdown { white-space: normal; }
+.markdown { white-space: normal; max-height: 500px; overflow: auto; }
 .markdown > *:first-child { margin-top: 0; }
 .markdown > *:last-child { margin-bottom: 0; }
 .markdown p { margin-bottom: 1em; }
