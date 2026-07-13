@@ -10,7 +10,6 @@ import '@fontsource/jetbrains-mono/latin-400.css'
 import '@fontsource/jetbrains-mono/latin-700.css'
 import 'highlight.js/styles/github-dark.css'
 import 'tippy.js/dist/tippy.css'
-import './markdown.css'
 import './styles.css'
 
 clearOutdatedLocalStorage()

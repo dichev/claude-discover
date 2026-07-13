@@ -1,10 +1,9 @@
 import React, { useState } from 'react'
-import ReactMarkdown from 'react-markdown'
-import rehypeHighlight from 'rehype-highlight'
 import { useLocalStorage } from '../../utils/useLocalStorage.js'
 import { markdownSession } from '../MarkdownSession.js'
 import Toggle from '../../ui/Toggle.jsx'
-import EditableMarkdown from '../../ui/EditableMarkdown.jsx'
+import Markdown from '../../ui/Markdown.jsx'
+import PromptEditor from '../../agent/PromptEditor.jsx'
 import AgentOutput from '../../agent/AgentOutput.jsx'
 import './AgentView.css'
 
@@ -35,7 +34,7 @@ export default function AgentView({ meta, items, agent, onClose }) {
         <div className="agent-view-label">Session</div>
         <div className="agent-view-block">
           {pretty
-            ? <div className="markdown"><ReactMarkdown rehypePlugins={[rehypeHighlight]}>{body}</ReactMarkdown></div>
+            ? <Markdown text={body} />
             : <pre className="agent-view-raw">{body}</pre>}
         </div>
       </div>
@@ -43,7 +42,7 @@ export default function AgentView({ meta, items, agent, onClose }) {
         <div className="agent-prompt-wrap">
           <div className="agent-view-label">Prompt</div>
           <div className="agent-view-block">
-            <EditableMarkdown source={agent.defaultPrompt} edited={agent.editedPrompt} setEdited={agent.setEditedPrompt} styled={pretty} />
+            <PromptEditor source={agent.defaultPrompt} edited={agent.editedPrompt} setEdited={agent.setEditedPrompt} pretty={pretty} />
           </div>
           <div className="agent-prompt-actions">
             <button type="button" className="button-primary" onClick={onCopy}>

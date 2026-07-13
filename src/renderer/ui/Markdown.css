@@ -43,7 +43,8 @@
   padding: 0;
   font-size: 10px;
   line-height: 1.5;
-  white-space: pre;
+  white-space: pre-wrap;   /* wrap long lines instead of hljs's horizontal scroll */
+  overflow-wrap: anywhere; /* break unbreakable tokens (paths, urls) */
 }
 .markdown table {
   border-collapse: collapse; margin: 6px 0; font-size: 12px;
@@ -53,4 +54,3 @@
 }
 .markdown th { background: var(--bg-elev-2); }
 .markdown hr { border: none; border-top: 1px solid var(--border); margin: 10px 0; }
-.turn-user .block-text.markdown { display: inline-block; }

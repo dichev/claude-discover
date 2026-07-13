@@ -1,32 +1,13 @@
-import React, { useContext, useEffect, useMemo, useRef, useState } from 'react'
-import ReactMarkdown from 'react-markdown'
-import rehypeHighlight from 'rehype-highlight'
+import React, { useContext, useEffect, useMemo, useState } from 'react'
 import { format } from 'date-fns'
 import { Terminal } from 'lucide-react'
 import { fmtCompact, fmtDuration } from '../../utils/formatting'
 import { THRESHOLDS as T } from '../../utils/thresholds.js'
-import { fenceBlocks, fenceTags, parseCommand, splitMarkdown } from '../../utils/textBlock.js'
-import { flatten, groupTurns, cycleDurations, tokenPoints, isContextTurn, toolSummary } from './transcript.js'
+import { flatten, groupTurns, cycleDurations, tokenPoints, isContextTurn, toolSummary, parseCommand } from './transcript.js'
 import LazyMount from '../../ui/LazyMount.jsx'
+import Markdown from '../../ui/Markdown.jsx'
 import { useFindActive } from '../../ui/useFindActive.js'
 import './ConversationView.css'
-
-// Intercept link clicks (no navigation guard in the renderer) and let main open
-// them: external in the browser, relative paths against basePath. Local links
-// without a known basePath aren't resolvable, so render them as plain text.
-function buildLinkComponents(basePath = null) {
-  return {
-    a: ({ href, children, ...props }) => {
-      const isExternal = href => /^(https?:|mailto:)/i.test(href || '')
-      const clickable = href && (isExternal(href) || basePath)
-      if (!clickable) return <>{children}</>
-      return <a href={href} onClick={e => { e.preventDefault(); void window.api.openLink(href, basePath) }} {...props}>{children}</a>
-    },
-  }
-}
-
-// Cached no-base variant: text blocks have no containing file, so only external links are clickable.
-const linkComponents = buildLinkComponents()
 
 // Global expand/collapse signal: null = leave each collapsible on its own state,
 // true/false = force open/closed. Changing it re-applies to every collapsible.
@@ -225,30 +206,6 @@ function TurnRow({ turn, hidden = false }) {
   )
 }
 
-// Very long texts (dumps, pasted logs) render one ReactMarkdown per chunk, each lazy-mounted
-// against the block's own scroll box (.markdown is max-height'd, and clipped chunks don't
-// intersect), so only the scrolled-to part pays the markdown/highlight cost. Short texts —
-// the common case — keep the plain single-render path with no wrapper divs.
-function ChunkedMarkdown({ text, components }) {
-  const ref      = useRef(null)
-  const findOpen = useFindActive()
-  const chunks   = useMemo(() => splitMarkdown(text), [text])
-  if (chunks.length === 1) return (
-    <div className="block-text markdown">
-      <ReactMarkdown rehypePlugins={[rehypeHighlight]} components={components}>{chunks[0]}</ReactMarkdown>
-    </div>
-  )
-  return (
-    <div className="block-text markdown" ref={ref}>
-      {chunks.map((c, i) => (
-        <LazyMount key={i} eager={i === 0} forceMount={findOpen} rootRef={ref} placeholderMinHeight={500}>
-          <ReactMarkdown rehypePlugins={[rehypeHighlight]} components={components}>{c}</ReactMarkdown>
-        </LazyMount>
-      ))}
-    </div>
-  )
-}
-
 function Block({ block }) {
   if (block.type === 'text') {
     const cmd = parseCommand(block.text)
@@ -264,7 +221,7 @@ function Block({ block }) {
         </div>
       )
     }
-    return <ChunkedMarkdown text={fenceBlocks(fenceTags(block.text))} components={linkComponents} />
+    return <Markdown className="block-text" text={block.text} autoFence />
   }
   if (block.type === 'thinking') {
     if (!block.thinking) return <Label title="Thinking" />
@@ -361,20 +318,12 @@ function safeJson(x) {
 }
 
 function JsonBlock({ value }) {
-  const md = '```json\n' + safeJson(value) + '\n```'
-  return (
-    <div className="block-text markdown">
-      <ReactMarkdown rehypePlugins={[rehypeHighlight]}>
-        {md}
-      </ReactMarkdown>
-    </div>
-  )
+  return <Markdown className="block-text" text={'```json\n' + safeJson(value) + '\n```'} />
 }
 
 function InstructionFile({ it, showNote }) {
   const [open, setOpen] = useCollapsed(false)
   const title           = `${it.file_path} (${it.memory_type}, ${it.hook_event_name} hook)`
-  const components       = useMemo(() => buildLinkComponents(it.file_path), [it.file_path])
   return (
     <div className="aux custom-event">
       {showNote && (
@@ -397,7 +346,7 @@ function InstructionFile({ it, showNote }) {
           )}
           {it.error
             ? <pre className="error">{it.error}</pre>
-            : <ChunkedMarkdown text={it.content || ''} components={components} />}
+            : <Markdown className="block-text" text={it.content || ''} basePath={it.file_path} />}
         </div>
       )}
     </div>

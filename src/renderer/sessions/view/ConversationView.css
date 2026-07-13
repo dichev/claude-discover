@@ -281,6 +281,8 @@ button.msg-summary:hover { color: var(--text); background: var(--bg-elev-2); bor
   &.markdown { white-space: normal; }
 }
 
+.turn-user .block-text.markdown { display: inline-block; }
+
 .block-command {
   font-family: var(--font-mono), monospace;
   font-size: 11px;

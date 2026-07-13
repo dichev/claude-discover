@@ -1,7 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import ReactMarkdown from 'react-markdown'
-import remarkGfm from 'remark-gfm'
-import rehypeHighlight from 'rehype-highlight'
+import Markdown from '../ui/Markdown.jsx'
 import { createTypewriter } from '../utils/effects.js'
 import './AgentOutput.css'
 
@@ -32,7 +30,7 @@ export default function AgentOutput({ output, pretty, running, error }) {
   return (
     <div className="agent-prompt-output" ref={scrollRef}>
       {pretty
-        ? <div className="markdown"><ReactMarkdown remarkPlugins={[remarkGfm]} rehypePlugins={[rehypeHighlight]}>{displayed}</ReactMarkdown></div>
+        ? <Markdown text={displayed} />
         : <pre className="agent-view-raw">{displayed}</pre>}
       {running && (
         <div className="agent-prompt-typing" aria-label="Running">

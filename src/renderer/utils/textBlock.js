@@ -102,22 +102,3 @@ export function splitMarkdown(text, size = 10_000) {
   if (buf.length) chunks.push(buf.join('\n'))
   return chunks
 }
-
-// CLI command output carries ANSI SGR/cursor codes (bold model names, the 256-color context-usage bar) — strip them for plain-text display.
-const stripAnsi = s => s.replace(/\x1b\[[0-9;]*[a-zA-Z]/g, '')
-
-export function parseCommand(text) {
-  if (typeof text !== 'string') return null
-  // Anchored to the start: real command records begin with one of these tags (see SessionParser).
-  // Prose that merely *mentions* a tag mid-text (e.g. an assistant reply discussing hooks) must
-  // not parse as a command — it would render as an empty command block.
-  if (!/^\s*<(command-name|command-message|local-command-stdout|local-command-caveat)>/.test(text)) return null
-  const field = tag => stripAnsi(text.match(new RegExp(`<${tag}>([\\s\\S]*?)</${tag}>`))?.[1] ?? '')
-  return {
-    name:    field('command-name'),
-    message: field('command-message'),
-    args:    field('command-args'),
-    stdout:  field('local-command-stdout'),
-    caveat:  field('local-command-caveat'),
-  }
-}
