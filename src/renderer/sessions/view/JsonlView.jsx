@@ -1,8 +1,9 @@
 import React, { useRef, useState } from 'react'
 import JsonView from '@uiw/react-json-view'
-import { githubDarkTheme } from '@uiw/react-json-view/githubDark'
+import { vscodeTheme } from '@uiw/react-json-view/vscode'
 import LazyMount from '../../ui/LazyMount.jsx'
 import { useFindActive } from '../../ui/useFindActive.js'
+import { renderShortened } from '../../ui/ShortText.jsx'
 import './JsonlView.css'
 
 function highlight(text, q) {
@@ -73,19 +74,20 @@ export default function JsonlView({ items, expandAll = null }) {
         <div className="jsonl-viewer-body" ref={bodyRef}>
           {!items && <div className="jsonl-viewer-loading">Loading…</div>}
           {entries.map(({ value }, i) => (
-            <LazyMount key={`${q}-${expandAll}-${i}`} eager={i < 8} forceMount={findOpen} data-entry={i} className="jsonl-viewer-entry">
+            <LazyMount key={`${q}-${i}`} eager={i < 8} forceMount={findOpen} data-entry={i} className="jsonl-viewer-entry">
               <JsonView
                 value={value}
-                style={githubDarkTheme}
-                collapsed={q ? false : (expandAll ? false : 1)}
+                style={vscodeTheme}
+                collapsed={false} // fully expanded by default — lazy mount + string shortening keep it affordable
                 displayDataTypes={false}
                 displayObjectSize={false}
-                shortenTextAfterLength={0}
+                shortenTextAfterLength={0} // shortening is ours (see ui/ShortText.jsx); filtering and the toggle turn it off
+                highlightUpdates={false}
                 enableClipboard={false}
               >
-                <JsonView.String render={({ children, ...rest }, { type }) => q && type === 'value'
+                <JsonView.String render={({ children, ...rest }, ctx) => q && ctx.type === 'value'
                   ? <span {...rest}>"{highlight(children, q)}"</span>
-                  : undefined
+                  : renderShortened(!q && !expandAll)({ children, ...rest }, ctx)
                 } />
                 <JsonView.KeyName render={({ children, ...rest }) => q
                   ? <span {...rest}>{highlight(children, q)}</span>

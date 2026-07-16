@@ -33,6 +33,7 @@ app.whenReady().then(() => {
 
   ipcMain.handle('sessions:list', (_e, date, granularity) => sessionsService.list(date, granularity))
   ipcMain.handle('sessions:read', (_e, sessionId, offset, date, granularity) => sessionsService.readSession(sessionId, offset, date, granularity))
+  ipcMain.handle('sessions:read-requests', (_e, sessionId, date, granularity) => sessionsService.readRequests(sessionId, date, granularity))
 
   ipcMain.handle('work-hours:get', () => workHours.read())
   ipcMain.handle('work-hours:set', (_e, data) => workHours.write(data))
