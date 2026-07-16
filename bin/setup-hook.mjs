@@ -2,7 +2,7 @@
 // Installs the capture-context hook into <CLAUDE_DIR>/settings.json.
 // Idempotent: re-running is a no-op. Repairs stale paths in-place.
 import { basename } from 'node:path'
-import { CLAUDE_SETTINGS, HOOK_PATH, STATUSLINE_PATH } from '../src/main/paths.js'
+import { CLAUDE_SETTINGS, HOOK_PATH, STATUSLINE_PATH, PROXY_URL } from '../src/main/paths.js'
 import { ClaudeSettings } from '../src/main/services/ClaudeSettings.js'
 
 const HOOK_FILE   = basename(HOOK_PATH)
@@ -35,6 +35,22 @@ for (const event of HOOK_EVENTS) {
     existing.command = HOOK_CMD
     changed = true
   }
+}
+
+// API request capture: point every Claude Code client at the logging proxy (bin/capture-requests-proxy.mjs).
+// A foreign ANTHROPIC_BASE_URL (custom gateway) is never overwritten — capture just stays off.
+const baseUrl = settings.env?.ANTHROPIC_BASE_URL
+if (baseUrl && baseUrl !== PROXY_URL) {
+  console.warn(` ⚠ Request capture: leaving your existing env.ANTHROPIC_BASE_URL in place (${baseUrl}); not overwriting — API request capture disabled.`)
+} else {
+  if (!baseUrl) {
+    console.log(` ✚ Request capture: setting env.ANTHROPIC_BASE_URL → ${PROXY_URL}`)
+    settings.setEnv('ANTHROPIC_BASE_URL', PROXY_URL)
+    changed = true
+  } else {
+    console.log(` ✓ Request capture: env.ANTHROPIC_BASE_URL already points at the proxy`)
+  }
+  console.log(`   Keep \`npm run proxy\` running — Claude Code can't reach the API without it (remove env.ANTHROPIC_BASE_URL from settings.json to turn capture off).`)
 }
 
 const retention = settings.cleanupPeriodDays ?? 30 // Claude Code's default when unset

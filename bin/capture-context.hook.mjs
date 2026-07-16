@@ -42,6 +42,7 @@ const CLAUDE_HOOKS = {
 }
 const RECORD_TYPE = 'instructions-loaded'
 const CLEAR_ORPHAN_LOGS_AFTER_MS = 24 * 60 * 60_000 // Sweep orphan ndjson logs older than this. default: 1 day, set to 0 / false to disable
+const CLEAR_REQUEST_LOGS_AFTER_MS = 365 * 24 * 60 * 60_000 // Sweep request logs (from bin/capture-requests-proxy.mjs) untouched longer than this. default: 1y (matches setup-hook's RETAIN_DAYS), set to 0 / false to disable
 const SESSION_START_OFFSET_MS = -500 // Backdate session_start/include loads so they sort above the first transcript events (which they fire just after)
 
 
@@ -120,6 +121,19 @@ async function main() {
             const stat = fs.statSync(ndjsonPath, {throwIfNoEntry: false})
             if (stat && stat.mtimeMs < Date.now() - CLEAR_ORPHAN_LOGS_AFTER_MS) {
               fs.rmSync(ndjsonPath, {force: true})
+            }
+          }
+        }
+      }
+      // Sweep API request logs written by bin/capture-requests-proxy.mjs, once their session is long gone.
+      if (CLEAR_REQUEST_LOGS_AFTER_MS) {
+        const requestsDir = path.join(CLAUDE_DIR, 'requests')
+        if (fs.existsSync(requestsDir)) {
+          for (const name of fs.readdirSync(requestsDir)) if (name.endsWith('.requests.ndjson')) {
+            const requestLogPath = path.join(requestsDir, name)
+            const stat = fs.statSync(requestLogPath, {throwIfNoEntry: false})
+            if (stat && stat.mtimeMs < Date.now() - CLEAR_REQUEST_LOGS_AFTER_MS) {
+              fs.rmSync(requestLogPath, {force: true})
             }
           }
         }

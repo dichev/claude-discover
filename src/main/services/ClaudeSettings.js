@@ -44,6 +44,16 @@ export class ClaudeSettings {
     this.cfg.statusLine = value
   }
 
+  // Environment variables Claude Code applies to every session; undefined when unset.
+  get env() {
+    return this.cfg.env
+  }
+
+  setEnv(name, value) {
+    this.cfg.env ??= {}
+    this.cfg.env[name] = value
+  }
+
   addHook(eventName, command) {
     this.cfg.hooks ??= {}
     this.cfg.hooks[eventName] ??= []
