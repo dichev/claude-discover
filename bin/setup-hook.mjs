@@ -50,6 +50,17 @@ if (baseUrl && baseUrl !== PROXY_URL) {
   } else {
     console.log(` ✓ Request capture: env.ANTHROPIC_BASE_URL already points at the proxy`)
   }
+  // Claude Code disables Tool Search (deferred tool loading) by default under a custom base URL, since most
+  // proxies can't forward `tool_reference` blocks — so it eagerly ships every tool schema (~27k tokens/request).
+  // Ours forwards verbatim to the real api.anthropic.com, so the round-trip works; re-enable it to keep the
+  // savings. Only safe because upstream is genuinely Anthropic. https://code.claude.com/docs/en/env-vars
+  if (settings.env?.ENABLE_TOOL_SEARCH !== 'true') {
+    console.log(` ✚ Request capture: setting env.ENABLE_TOOL_SEARCH → true (restores deferred tool loading through the proxy)`)
+    settings.setEnv('ENABLE_TOOL_SEARCH', 'true')
+    changed = true
+  } else {
+    console.log(` ✓ Request capture: env.ENABLE_TOOL_SEARCH already true`)
+  }
   console.log(`   Keep \`npm run proxy\` running — Claude Code can't reach the API without it (remove env.ANTHROPIC_BASE_URL from settings.json to turn capture off).`)
 }
 
