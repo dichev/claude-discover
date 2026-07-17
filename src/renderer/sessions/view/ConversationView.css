@@ -363,6 +363,8 @@ button.msg-summary:hover { color: var(--text); background: var(--bg-elev-2); bor
   padding-left: 8px;
   margin-left: -10px;
 }
+/* Memory files extracted from the captured API requests (vs. the capture-context hook). */
+.custom-event.request-event { border-left-color: #a78bfa;}
 
 .instructions-note {
   font-size: 11px;

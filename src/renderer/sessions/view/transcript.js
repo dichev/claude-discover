@@ -34,7 +34,7 @@ export function flatten(items) {
     }
     if (it.type === 'instructions-loaded') {
       turns.push({
-        uuid: `instr-${it.file_path}-${it.timestamp}`,
+        uuid: `instr-${it.hash ?? it.file_path}-${it.timestamp}`, // system prompts share a file_path, their hash disambiguates
         role: 'instruction',
         isMeta: true,
         ts: it.timestamp ? Date.parse(it.timestamp) : null,

@@ -23,6 +23,10 @@ function useCollapsed(defaultOpen) {
 // Slash-command invocation (`<command-name>…`): meta for most purposes, but still a user action.
 const isCommandTurn = t => t.blocks.some(b => b.type === 'text' && parseCommand(b.text)?.name)
 
+// Instruction files come from two sources (capture hook vs request proxy); the explanatory
+// note shows once per run of same-source rows, so compare against the previous group's source.
+const instructionOrigin = g => g?.kind !== 'instruction' ? null : g.turn.blocks[0].it.origin ?? 'hook'
+
 export default function ConversationView({ items, expandAll = null }) {
   const turns     = useMemo(() => flatten(items), [items])
   const groups    = useMemo(() => groupTurns(turns), [turns])
@@ -38,7 +42,7 @@ export default function ConversationView({ items, expandAll = null }) {
             <LazyMount eager={i < 8} forceMount={findOpen} placeholderMinHeight={80}>
               {g.kind === 'user'      ? <UserRow turns={g.turns} point={points[i]} />
                : g.kind === 'assistant' ? <AssistantCard turns={g.turns} point={points[i]} duration={durations[i]} showAuthor={groups[i - 1]?.kind !== 'assistant'} />
-               :                        <InstructionFile it={g.turn.blocks[0].it} showNote={groups[i - 1]?.kind !== 'instruction'} />}
+               :                        <InstructionFile it={g.turn.blocks[0].it} showNote={instructionOrigin(groups[i - 1]) !== instructionOrigin(g)} />}
             </LazyMount>
             {points[i] ? <TokenPoint point={points[i]} />
              // Commands consume no tokens so they never get a real point — mark them with a plain dot.
@@ -323,12 +327,15 @@ function JsonBlock({ value }) {
 
 function InstructionFile({ it, showNote }) {
   const [open, setOpen] = useCollapsed(false)
-  const title           = `${it.file_path} (${it.memory_type}, ${it.hook_event_name} hook)`
+  const fromRequest     = it.origin === 'request'
+  const title           = `${it.file_path} (${it.memory_type}, ${fromRequest ? 'API request' : `${it.hook_event_name} hook`})`
   return (
-    <div className="aux custom-event">
+    <div className={`aux custom-event${fromRequest ? ' request-event' : ''}`}>
       {showNote && (
         <div className="instructions-note">
-          Snapshotted by the capture context hook (<code>InstructionsLoaded</code> + <code>SessionStart</code>).
+          {fromRequest
+            ? <>Extracted from the API requests captured by the proxy.</>
+            : <>Snapshotted by the capture context hook (<code>InstructionsLoaded</code> + <code>SessionStart</code>).</>}
         </div>
       )}
       <button className="aux-toggle" onClick={() => setOpen(v => !v)}>
