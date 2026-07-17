@@ -1,12 +1,12 @@
 // Install/uninstall this app's status line (bin/claude/statusline.mjs) as Claude Code's
 // statusLine command in settings.json. Backs the StatusBar's Activate/Deactivate button;
-// bin/setup-hook.mjs reuses it for the CLI install. Sole owner of that config.
+// sole owner of that config.
 import { basename } from 'node:path'
 import { ClaudeSettings } from './ClaudeSettings.js'
 import { STATUSLINE_PATH } from '../paths.js'
 
 const STATUS_FILE = basename(STATUSLINE_PATH)
-export const STATUS_CMD = `node "${STATUSLINE_PATH}"`
+const STATUS_CMD = `node "${STATUSLINE_PATH}"`
 
 export class StatuslineController {
 
@@ -22,12 +22,11 @@ export class StatuslineController {
       const command = settings.statusLine?.command
       if (command && !command.includes(STATUS_FILE))
         return this.#fail(`Leaving your existing status line in place (${command}) — remove it from settings.json to use ours.`)
-      const changed = command !== STATUS_CMD
-      if (changed) {
+      if (command !== STATUS_CMD) {
         settings.statusLine = { type: 'command', command: STATUS_CMD }
         settings.save()
       }
-      return { ...this.status(), changed }
+      return this.status()
     } catch (err) {
       return this.#fail(String(err?.message || err))
     }

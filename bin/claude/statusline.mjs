@@ -2,7 +2,8 @@
 //
 // Claude Code status line. Reads the hook JSON from stdin and prints one colored line
 // summarizing the model, context-window usage, token totals, and rate-limit windows.
-// Installed as the `statusLine` command by `npm run setup-hook` (see bin/setup-hook.mjs).
+// Installed as the `statusLine` command from the app: StatusBar → Status line → Activate
+// (see src/main/services/StatuslineController.js).
 //
 // Example output:
 //   [Opus 4.8] Context: ▓▓▓░░░░░░░ 32% used (45.2k, 87% cached)  |  Tokens: 1.2M total (+45.2k, 3 turns)  |  Usage limit: 42% used (resets in 2h 30m)  |  Weekly limit: 18% used (resets in 3d 4h)

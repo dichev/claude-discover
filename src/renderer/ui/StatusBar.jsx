@@ -3,14 +3,6 @@ import { createPortal } from 'react-dom'
 import tippy from 'tippy.js'
 import './StatusBar.css'
 
-const RETENTION_TOOLTIP = `
-  <div class="statusbar-tooltip">
-    <p>Claude Code deletes session transcripts older than <code>cleanupPeriodDays</code> (default 30), so this app can only show what hasn't been swept yet.</p>
-    <p>To keep more history browsable, set a larger value in <code>settings.json</code>, e.g. to keep them for 1y set:</p>
-    <ul><li><code>"cleanupPeriodDays": 365</code></li></ul>
-  </div>
-`
-
 // Activate/Deactivate button at the bottom of an interactive tooltip, wired to a useToggleService.
 function ToggleButton({ service, on }) {
   return (
@@ -20,8 +12,8 @@ function ToggleButton({ service, on }) {
   )
 }
 
-// Rendered as React (not a title string like the retention one) so the Activate/Deactivate
-// button at its bottom can be wired to live proxy state.
+// The tooltips are rendered as React (not title strings) so the Activate/Deactivate
+// button at their bottom can be wired to live service state.
 function ProxyTooltip({ proxy }) {
   return (
     <div className="statusbar-tooltip">
@@ -34,6 +26,16 @@ function ProxyTooltip({ proxy }) {
       <p><b>Deactivate</b> shuts it down and removes these settings. The proxy keeps running after this app closes.</p>
       <p>⚠ While <code>env.ANTHROPIC_BASE_URL</code> points at the proxy, Claude Code can't reach the API unless the proxy is running.</p>
       <ToggleButton service={proxy} on={proxy.status?.running} />
+    </div>
+  )
+}
+
+function RetentionTooltip({ retention }) {
+  return (
+    <div className="statusbar-tooltip">
+      <p>Claude Code deletes session transcripts older than <code>cleanupPeriodDays</code> (default 30), so this app can only show what hasn't been swept yet.</p>
+      <p><b>Activate</b> raises it to 365 in <code>settings.json</code> so a year of history stays browsable (an already-higher value is left as is); <b>Deactivate</b> removes the setting, back to Claude Code's default of 30.</p>
+      <ToggleButton service={retention} on={retention.status?.raised} />
     </div>
   )
 }
@@ -103,18 +105,23 @@ const useProxy = () => useToggleService({ get: window.api.getProxyStatus, on: wi
 // Status line: status is { installed } (see StatuslineController); toggle = install | remove in settings.json.
 const useStatusline = () => useToggleService({ get: window.api.getStatuslineStatus, on: window.api.activateStatusline, off: window.api.deactivateStatusline, isOn: s => s?.installed })
 
+// Retention: status is { days, raised } (see RetentionController); toggle = raise cleanupPeriodDays to 1y | remove it.
+const useRetention = () => useToggleService({ get: window.api.getRetentionStatus, on: window.api.activateRetention, off: window.api.deactivateRetention, isOn: s => s?.raised })
+
 export default function StatusBar({ progress, sessionCount = 0 }) {
   const { claudeDir } = window.api.claudeSettings
   const proxy         = useProxy()
   const statusline    = useStatusline()
+  const retention     = useRetention()
   const proxyRef      = useRef(null)
   const statuslineRef = useRef(null)
+  const retentionRef  = useRef(null)
   const proxyTip      = useInteractiveTooltip(proxyRef)
   const statuslineTip = useInteractiveTooltip(statuslineRef)
+  const retentionTip  = useInteractiveTooltip(retentionRef)
   const proxyRunning = proxy.status?.running
   const proxyDown = proxy.status?.configured && proxyRunning === false // Claude Code is pointed at a dead proxy — it can't reach the API
-  const retentionDays = window.api.claudeSettings.cleanupPeriodDays ?? 30 // Claude Code's default when unset
-  const shortRetention = retentionDays < ONE_YEAR_DAYS
+  const retentionRaised = retention.status?.raised
   const scanning = progress?.scanning && progress.total > 0
   const finished = progress && !progress.scanning // keep "Loaded N" visible after the scan completes
   const pct = scanning ? (progress.done / progress.total) * 100 : 0
@@ -133,13 +140,11 @@ export default function StatusBar({ progress, sessionCount = 0 }) {
           )}
         </span>
       )}
-      <span className="statusbar-claude-dir" title="Use the File menu (press Alt) to change directory.">
-        Claude dir: <code>{claudeDir}</code>
-      </span>
-      <span className="statusbar-group" title={RETENTION_TOOLTIP}>
-        <span className={`statusbar-msg ${shortRetention ? 'statusbar-off' : ''}`}>
-          {shortRetention && '⚠ '}Session logs retained: {humanizeDays(retentionDays)}
+      <span className={`statusbar-group statusbar-seg ${retentionRaised ? 'statusbar-seg-on' : ''}`} ref={retentionRef}>
+        <span className={`statusbar-msg ${retentionRaised ? 'statusbar-active' : 'statusbar-off'}`}>
+          {retention.status && !retentionRaised && '⚠ '}Session logs retained: {retention.status ? humanizeDays(retention.status.days) : '…'}
         </span>
+        {createPortal(<RetentionTooltip retention={retention} />, retentionTip)}
       </span>
       <span className={`statusbar-group statusbar-seg statusbar-proxy ${proxyRunning ? 'statusbar-seg-on' : ''}`} ref={proxyRef}>
         <span className={`statusbar-msg ${proxyRunning ? 'statusbar-active' : 'statusbar-off'}`}>
@@ -152,6 +157,9 @@ export default function StatusBar({ progress, sessionCount = 0 }) {
           Status line : {statusline.status?.installed ? 'ON' : 'off'}
         </span>
         {createPortal(<StatuslineTooltip statusline={statusline} />, statuslineTip)}
+      </span>
+      <span className="statusbar-claude-dir" title="Use the File menu (press Alt) to change directory.">
+        Claude dir: <code>{claudeDir}</code>
       </span>
     </div>
   )

@@ -13,10 +13,9 @@
 .statusbar-group { display: inline-flex; align-items: center; gap: 8px; cursor: default; }
 .statusbar > * + * { padding-left: 8px; border-left: 1px solid var(--border); }
 
-/* Pinned to the right, just left of the hook status; the auto margin pushes it there. */
+/* Last in the bar, at the right edge. */
 .statusbar-claude-dir {
   cursor: default;
-  margin-left: auto;
   min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -44,7 +43,6 @@
   margin-right: -8px; /* eat the flex gap so the background reaches the next separator */
   padding-right: 8px;
 }
-.statusbar-seg:last-child { margin-right: -10px; padding-right: 10px; } /* reach the bar's right edge */
 .statusbar-seg-on { background: rgba(52, 211, 153, 0.08); }
 .statusbar-proxy .statusbar-msg {
   min-width: 140px; /* fits the widest state (⚠ DOWN) so ON/off/DOWN don't shift the bar */
@@ -81,13 +79,14 @@
 .statusbar-active { color: #34d399; }
 
 /* Session-loading indicator (compact progress bar, mirrors SessionSummary's .progress-bar) */
-/* Pinned to the left; the claude-dir's margin-left:auto pushes everything else right.
+/* Pinned to the left; the auto margin pushes everything else right.
    Fixed width + tabular-nums keep the layout from shifting as the count changes. */
 .statusbar-loading {
   display: inline-flex;
   align-items: center;
   gap: 8px;
   width: 220px;
+  margin-right: auto;
 }
 .statusbar-loading-text { white-space: nowrap; }
 .statusbar-loading-num {

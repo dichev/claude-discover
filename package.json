@@ -9,7 +9,6 @@
     "dev": "electron-vite dev",
     "build": "electron-vite build",
     "start": "electron-vite preview",
-    "setup-hook": "node bin/setup-hook.mjs",
     "proxy": "node bin/capture-requests-proxy.mjs --restart",
     "test": "vitest run --reporter=tree"
   },

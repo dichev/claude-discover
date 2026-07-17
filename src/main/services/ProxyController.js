@@ -1,6 +1,6 @@
 // Start/stop the request-capture proxy (bin/capture-requests-proxy.mjs) and the settings.json
 // env keys pointing Claude Code at it. Backs the StatusBar's status + Start/Stop button; sole
-// owner of that config — bin/setup-hook.mjs deliberately doesn't touch it.
+// owner of that config.
 import { spawn } from 'node:child_process'
 import { ClaudeSettings } from './ClaudeSettings.js'
 import { PROXY_PATH, PROXY_URL, CLAUDE_HOOKS_PATH } from '../paths.js'

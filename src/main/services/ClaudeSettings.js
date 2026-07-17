@@ -46,7 +46,8 @@ export class ClaudeSettings {
   }
 
   set cleanupPeriodDays(days) {
-    this.cfg.cleanupPeriodDays = days
+    if (days === undefined) delete this.cfg.cleanupPeriodDays
+    else this.cfg.cleanupPeriodDays = days
   }
 
   // Claude Code's status line config: { type: 'command', command }; undefined when unset.

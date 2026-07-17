@@ -5,9 +5,9 @@ import { WorkHours } from './services/WorkHours.js'
 import { AgentRunner } from './services/AgentRunner.js'
 import { MainWindow } from './windows/MainWindow.js'
 import { CLAUDE_DIR } from './paths.js'
-import { ClaudeSettings } from './services/ClaudeSettings.js'
 import { ProxyController } from './services/ProxyController.js'
 import { StatuslineController } from './services/StatuslineController.js'
+import { RetentionController } from './services/RetentionController.js'
 
 if (import.meta.env.DEV) await import('./debug.js')
 
@@ -17,7 +17,6 @@ app.whenReady().then(() => {
   const agentRunner     = new AgentRunner()
   const workHours       = new WorkHours()
   const sessionsService = new SessionsService()
-  const settings        = new ClaudeSettings()
 
   sessionsService.on('update', sessions => win.send('sessions:update', sessions))
   sessionsService.on('progress', p => win.send('sessions:scan-progress', p))
@@ -48,10 +47,7 @@ app.whenReady().then(() => {
   ipcMain.on('find:stop',  () => win.findBar?.stop())
   ipcMain.on('find:close', () => win.findBar?.hide())
 
-  ipcMain.on('claude-settings:get', e => e.returnValue = {
-    claudeDir: CLAUDE_DIR,
-    cleanupPeriodDays: settings.cleanupPeriodDays ?? null,
-  })
+  ipcMain.on('claude-settings:get', e => e.returnValue = { claudeDir: CLAUDE_DIR })
 
   const proxy = new ProxyController()
   ipcMain.handle('proxy:status', () => proxy.status())
@@ -62,6 +58,11 @@ app.whenReady().then(() => {
   ipcMain.handle('statusline:status',     () => statusline.status())
   ipcMain.handle('statusline:activate',   () => statusline.activate())
   ipcMain.handle('statusline:deactivate', () => statusline.deactivate())
+
+  const retention = new RetentionController()
+  ipcMain.handle('retention:status',     () => retention.status())
+  ipcMain.handle('retention:activate',   () => retention.activate())
+  ipcMain.handle('retention:deactivate', () => retention.deactivate())
 })
 
 app.on('window-all-closed', () => {
