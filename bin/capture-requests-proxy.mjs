@@ -21,8 +21,10 @@ const PORT = 41414 // also hardcoded as PROXY_URL in src/main/paths.js
 const UPSTREAM = 'https://api.anthropic.com'
 const CLAUDE_DIR = process.env.CLAUDE_CONFIG_DIR || path.join(os.homedir(), '.claude')
 const REQUESTS_DIR = path.join(CLAUDE_DIR, 'requests') // old request logs are swept by bin/capture-context.hook.mjs on SessionEnd
-const ERROR_LOG_FILE = '.claude-discover.proxy.error.log'
-const EXIT_ROUTE = '/claude-discover/exit' // POST here makes the proxy exit — how --restart replaces a running instance (the port is loopback-only and assumed ours)
+export const ERROR_LOG_PATH = path.join(CLAUDE_DIR, '.claude-discover.proxy.error.log')
+export const EXIT_ROUTE = '/claude-discover/exit' // POST here makes the proxy exit — how --restart replaces a running instance (the port is loopback-only and assumed ours)
+export const PING_ROUTE = '/claude-discover/ping' // answered directly (never forwarded) — polled by the app's ProxyController to show/settle the running state
+export const PING_RESPONSE = 'claude-discover-proxy' // the ping body — proves it's this proxy on the port, not some other process
 
 
 // ── 1. Generic tee proxy — knows nothing about Claude ────────────────────────
@@ -35,6 +37,7 @@ function createProxy({ upstream, onExchange, onError, errorBody }) {
 
   return http.createServer(async (req, res) => {
     if (req.method === 'POST' && req.url === EXIT_ROUTE) return res.end('bye', () => process.exit(0))
+    if (req.url === PING_ROUTE) return res.end(PING_RESPONSE)
     const started = Date.now()
     let requestBody
     try { requestBody = Buffer.concat(await req.toArray()) } catch { return res.destroy() }
@@ -187,7 +190,7 @@ function logError(err, context) {
   try { // AggregateError (e.g. all of a host's addresses failed to connect) hides the detail in err.errors
     const causes = (err?.errors ?? []).map(e => `\n  cause: ${e?.message || e}`).join('')
     const message = `${new Date().toISOString()} ${context ? `[${context}] ` : ''}${err?.stack || err}${causes}\n`
-    fs.appendFileSync(path.join(CLAUDE_DIR, ERROR_LOG_FILE), message)
+    fs.appendFileSync(ERROR_LOG_PATH, message)
   } catch {}
 }
 
@@ -202,6 +205,16 @@ if (isMain) {
   })
   const port = Number(args.values.port || PORT)
   const upstream = new URL(args.values.upstream || UPSTREAM)
+  // Fail fast when the upstream is unreachable — a clear exit beats a proxy that 502s every request.
+  // Runs before --restart so a working instance is never replaced by a broken one. Exit code 2 is
+  // recognized by the app's ProxyController ("cannot reach upstream").
+  try {
+    await fetch(new URL('/v1/models', upstream), { signal: AbortSignal.timeout(5000) })
+  } catch (err) {
+    console.error(`Cannot reach ${upstream.origin} (${err?.cause?.code || err?.cause?.message || err?.name || err})`)
+    logError(err, `startup check → ${upstream.origin}`)
+    process.exit(2)
+  }
   const server = createProxy({
     upstream: upstream,
     onExchange: logRequest,

@@ -3,6 +3,9 @@ import { subscribe } from './subscribe.js'
 
 contextBridge.exposeInMainWorld('api', {
   claudeSettings:  ipcRenderer.sendSync('claude-settings:get'),
+  getProxyStatus: () => ipcRenderer.invoke('proxy:status'),
+  startProxy: () => ipcRenderer.invoke('proxy:start'),
+  stopProxy: () => ipcRenderer.invoke('proxy:stop'),
   listSessions: (date, granularity = 'day') => ipcRenderer.invoke('sessions:list', date, granularity),
   readSession: (id, offset = 0, date = null, granularity = 'day') => ipcRenderer.invoke('sessions:read', id, offset, date, granularity),
   readRequests: (id, date = null, granularity = 'day') => ipcRenderer.invoke('sessions:read-requests', id, date, granularity),

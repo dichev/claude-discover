@@ -2,7 +2,7 @@
 // Installs the capture-context hook into <CLAUDE_DIR>/settings.json.
 // Idempotent: re-running is a no-op. Repairs stale paths in-place.
 import { basename } from 'node:path'
-import { CLAUDE_SETTINGS, HOOK_PATH, STATUSLINE_PATH, PROXY_URL } from '../src/main/paths.js'
+import { CLAUDE_SETTINGS, HOOK_PATH, STATUSLINE_PATH } from '../src/main/paths.js'
 import { ClaudeSettings } from '../src/main/services/ClaudeSettings.js'
 
 const HOOK_FILE   = basename(HOOK_PATH)
@@ -37,32 +37,8 @@ for (const event of HOOK_EVENTS) {
   }
 }
 
-// API request capture: point every Claude Code client at the logging proxy (bin/capture-requests-proxy.mjs).
-// A foreign ANTHROPIC_BASE_URL (custom gateway) is never overwritten — capture just stays off.
-const baseUrl = settings.env?.ANTHROPIC_BASE_URL
-if (baseUrl && baseUrl !== PROXY_URL) {
-  console.warn(` ⚠ Request capture: leaving your existing env.ANTHROPIC_BASE_URL in place (${baseUrl}); not overwriting — API request capture disabled.`)
-} else {
-  if (!baseUrl) {
-    console.log(` ✚ Request capture: setting env.ANTHROPIC_BASE_URL → ${PROXY_URL}`)
-    settings.setEnv('ANTHROPIC_BASE_URL', PROXY_URL)
-    changed = true
-  } else {
-    console.log(` ✓ Request capture: env.ANTHROPIC_BASE_URL already points at the proxy`)
-  }
-  // Claude Code disables Tool Search (deferred tool loading) by default under a custom base URL, since most
-  // proxies can't forward `tool_reference` blocks — so it eagerly ships every tool schema (~27k tokens/request).
-  // Ours forwards verbatim to the real api.anthropic.com, so the round-trip works; re-enable it to keep the
-  // savings. Only safe because upstream is genuinely Anthropic. https://code.claude.com/docs/en/env-vars
-  if (settings.env?.ENABLE_TOOL_SEARCH !== 'true') {
-    console.log(` ✚ Request capture: setting env.ENABLE_TOOL_SEARCH → true (restores deferred tool loading through the proxy)`)
-    settings.setEnv('ENABLE_TOOL_SEARCH', 'true')
-    changed = true
-  } else {
-    console.log(` ✓ Request capture: env.ENABLE_TOOL_SEARCH already true`)
-  }
-  console.log(`   Keep \`npm run proxy\` running — Claude Code can't reach the API without it (remove env.ANTHROPIC_BASE_URL from settings.json to turn capture off).`)
-}
+// API request capture (env.ANTHROPIC_BASE_URL → the logging proxy) is not handled here —
+// the app's StatusBar Start/Stop button installs/removes it (see src/main/services/ProxyController.js).
 
 const retention = settings.cleanupPeriodDays ?? 30 // Claude Code's default when unset
 if (retention < RETAIN_DAYS) {

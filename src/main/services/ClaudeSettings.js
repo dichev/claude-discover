@@ -54,6 +54,10 @@ export class ClaudeSettings {
     this.cfg.env[name] = value
   }
 
+  deleteEnv(name) {
+    delete this.cfg.env?.[name]
+  }
+
   addHook(eventName, command) {
     this.cfg.hooks ??= {}
     this.cfg.hooks[eventName] ??= []

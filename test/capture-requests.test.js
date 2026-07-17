@@ -135,6 +135,7 @@ describe('proxy end-to-end', () => {
       env: { ...process.env, CLAUDE_CONFIG_DIR: claudeDir },
     })
     await waitForPort(proxyPort)
+    received.length = 0 // drop the proxy's own startup upstream check (GET /v1/models)
   }
 
   beforeAll(async () => {
@@ -250,6 +251,14 @@ describe('proxy end-to-end', () => {
     expect(await res.text()).toBe('claude-discover-proxy')
     expect(received.length).toBe(before)
   })
+
+  it('exits with code 2 at startup when the upstream is unreachable', async () => {
+    const dead = spawn(process.execPath, [PROXY_PATH, '--port', String(await freePort()), '--upstream', `http://${HOST}:${await freePort()}`], {
+      stdio: 'ignore',
+      env: { ...process.env, CLAUDE_CONFIG_DIR: claudeDir },
+    })
+    expect(await new Promise(r => dead.once('exit', r))).toBe(2)
+  }, 15000)
 
   it('ignores requests without a session id', async () => {
     const res = await fetch(`http://${HOST}:${proxyPort}/v1/messages`, {
