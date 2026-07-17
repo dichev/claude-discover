@@ -127,7 +127,7 @@ const waitForPort = async port => {
 describe('proxy end-to-end', () => {
   let claudeDir, upstream, upstreamPort, proxyPort, proxy
   const received = []
-  const readRequestLog = () => fs.readFileSync(path.join(claudeDir, 'requests', 'sess-e2e.requests.ndjson'), 'utf8').trim().split('\n').map(JSON.parse)
+  const readRequestLog = () => fs.readFileSync(path.join(claudeDir, '.claude-discover', 'requests', 'sess-e2e.requests.jsonl'), 'utf8').trim().split('\n').map(JSON.parse)
 
   const startProxy = async (...extraArgs) => {
     proxy = spawn(process.execPath, [PROXY_PATH, '--port', String(proxyPort), '--upstream', `http://${HOST}:${upstreamPort}`, ...extraArgs], {
@@ -267,6 +267,6 @@ describe('proxy end-to-end', () => {
       body: JSON.stringify(body),
     })
     expect(res.status).toBe(200)
-    expect(fs.readdirSync(path.join(claudeDir, 'requests'))).toEqual(['sess-e2e.requests.ndjson'])
+    expect(fs.readdirSync(path.join(claudeDir, '.claude-discover', 'requests'))).toEqual(['sess-e2e.requests.jsonl'])
   })
 })

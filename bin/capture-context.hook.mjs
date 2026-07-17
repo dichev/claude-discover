@@ -127,9 +127,10 @@ async function main() {
       }
       // Sweep API request logs written by bin/capture-requests-proxy.mjs, once their session is long gone.
       if (CLEAR_REQUEST_LOGS_AFTER_MS) {
-        const requestsDir = path.join(CLAUDE_DIR, 'requests')
+        const logDir = path.join(CLAUDE_DIR, '.claude-discover')
+        const requestsDir = path.join(logDir, 'requests')
         if (fs.existsSync(requestsDir)) {
-          for (const name of fs.readdirSync(requestsDir)) if (name.endsWith('.requests.ndjson')) {
+          for (const name of fs.readdirSync(requestsDir)) if (name.endsWith('.requests.jsonl')) {
             const requestLogPath = path.join(requestsDir, name)
             const stat = fs.statSync(requestLogPath, {throwIfNoEntry: false})
             if (stat && stat.mtimeMs < Date.now() - CLEAR_REQUEST_LOGS_AFTER_MS) {

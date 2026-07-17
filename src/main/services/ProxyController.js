@@ -7,9 +7,12 @@ import { PROXY_PATH, PROXY_URL } from '../paths.js'
 import { PING_ROUTE, PING_RESPONSE, EXIT_ROUTE, ERROR_LOG_PATH } from '../../../bin/capture-requests-proxy.mjs'
 
 export class ProxyController {
-  // { running, configured } — configured means env.ANTHROPIC_BASE_URL points at our proxy
+
   async status() {
-    return { running: await this.#running(), configured: new ClaudeSettings().env?.ANTHROPIC_BASE_URL === PROXY_URL }
+    return {
+      running: await this.#running(),
+      configured: new ClaudeSettings().env?.ANTHROPIC_BASE_URL === PROXY_URL
+    }
   }
 
   // Spawn the proxy detached (it outlives the app) and point Claude Code at it only once it's

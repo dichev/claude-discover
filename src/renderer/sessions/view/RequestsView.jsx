@@ -160,7 +160,7 @@ export default function RequestsView({ sessionId, date, granularity = 'day', exp
   if (!records.length) {
     return (
       <div className="requests-view">
-        <div className="requests-empty">No captured requests for this session. Requests are recorded only while the capture proxy is running (npm run proxy).</div>
+        <div className="requests-empty">No captured requests for this session. Requests are recorded only while the capture proxy is running.</div>
       </div>
     )
   }

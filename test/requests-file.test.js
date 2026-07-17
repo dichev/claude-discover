@@ -23,7 +23,7 @@ const records = [
 let dir
 beforeAll(() => {
   dir = fs.mkdtempSync(path.join(os.tmpdir(), 'cd-requests-'))
-  fs.writeFileSync(path.join(dir, 'sess-1.requests.ndjson'),
+  fs.writeFileSync(path.join(dir, 'sess-1.requests.jsonl'),
     records.map(r => JSON.stringify(r)).join('\n') + '\nnot json\n')
 })
 afterAll(() => fs.rmSync(dir, { recursive: true, force: true }))

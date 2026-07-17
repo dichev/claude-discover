@@ -9,7 +9,7 @@ const jsonBytes = x => x == null ? 0 : Buffer.byteLength(JSON.stringify(x))
 // sight, then as { $ref } — so callers see every request exactly as it was sent to the API.
 export class RequestsFile {
   constructor(sessionId, dir = CLAUDE_REQUESTS_DIR) {
-    this.filePath = join(dir, `${sessionId}.requests.ndjson`)
+    this.filePath = join(dir, `${sessionId}.requests.jsonl`)
   }
 
   // `range` is { start, end } epoch ms. Refs are resolved over the whole file before the

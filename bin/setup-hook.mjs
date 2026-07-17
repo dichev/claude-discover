@@ -37,9 +37,6 @@ for (const event of HOOK_EVENTS) {
   }
 }
 
-// API request capture (env.ANTHROPIC_BASE_URL → the logging proxy) is not handled here —
-// the app's StatusBar Start/Stop button installs/removes it (see src/main/services/ProxyController.js).
-
 const retention = settings.cleanupPeriodDays ?? 30 // Claude Code's default when unset
 if (retention < RETAIN_DAYS) {
   console.log(` ✚ Retention: raising cleanupPeriodDays ${retention} → ${RETAIN_DAYS} so transcripts aren't swept`)

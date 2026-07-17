@@ -2,7 +2,7 @@
 // (system prompt, tool definitions, injected reminders, request params) plus the raw responses.
 // Claude Code is pointed at it via env.ANTHROPIC_BASE_URL (installed by `npm run setup-hook`);
 // started manually with `npm run proxy`. Capture must never fail or delay a request — errors go
-// to <CLAUDE_DIR>/.claude-discover.proxy.error.log instead of the client.
+// to <CLAUDE_DIR>/.claude-discover/proxy.error.log instead of the client.
 //
 // Usage: node bin/capture-requests-proxy.mjs [--restart] [--port 41414] [--upstream https://api.anthropic.com]
 
@@ -20,8 +20,9 @@ const HOST = '127.0.0.1' // loopback only, on purpose — the proxy sees auth he
 const PORT = 41414 // also hardcoded as PROXY_URL in src/main/paths.js
 const UPSTREAM = 'https://api.anthropic.com'
 const CLAUDE_DIR = process.env.CLAUDE_CONFIG_DIR || path.join(os.homedir(), '.claude')
-const REQUESTS_DIR = path.join(CLAUDE_DIR, 'requests') // old request logs are swept by bin/capture-context.hook.mjs on SessionEnd
-export const ERROR_LOG_PATH = path.join(CLAUDE_DIR, '.claude-discover.proxy.error.log')
+const LOG_DIR = path.join(CLAUDE_DIR, '.claude-discover') // this app's data under the Claude dir
+const REQUESTS_DIR = path.join(LOG_DIR, 'requests') // old request logs are swept by bin/capture-context.hook.mjs on SessionEnd
+export const ERROR_LOG_PATH = path.join(LOG_DIR, 'proxy.error.log')
 export const EXIT_ROUTE = '/claude-discover/exit' // POST here makes the proxy exit — how --restart replaces a running instance (the port is loopback-only and assumed ours)
 export const PING_ROUTE = '/claude-discover/ping' // answered directly (never forwarded) — polled by the app's ProxyController to show/settle the running state
 export const PING_RESPONSE = 'claude-discover-proxy' // the ping body — proves it's this proxy on the port, not some other process
@@ -75,13 +76,13 @@ function createProxy({ upstream, onExchange, onError, errorBody }) {
 }
 
 // ── 2. Claude Code capture ───────────────────────────────────────────────────
-// One NDJSON record per exchange in <CLAUDE_DIR>/requests/<sessionId>.requests.ndjson
+// One NDJSON record per exchange in <CLAUDE_DIR>/.claude-discover/requests/<sessionId>.requests.jsonl
 // (session id from the X-Claude-Code-Session-Id header).
 
 function logRequest({ req, requestBody, status, responseHeaders, responseBody, timestamp, durationMs }) {
   const sessionId = req.headers['x-claude-code-session-id']
   if (!sessionId || !/^[\w-]+$/.test(sessionId)) return // header value becomes a filename — accept only safe ids
-  const logPath = path.join(REQUESTS_DIR, `${sessionId}.requests.ndjson`)
+  const logPath = path.join(REQUESTS_DIR, `${sessionId}.requests.jsonl`)
   const record = { type: 'api-request', timestamp, url: `${req.method} ${req.url}`, status, durationMs }
   let body
   try { body = JSON.parse(requestBody.toString('utf8')) } catch {}
@@ -190,6 +191,7 @@ function logError(err, context) {
   try { // AggregateError (e.g. all of a host's addresses failed to connect) hides the detail in err.errors
     const causes = (err?.errors ?? []).map(e => `\n  cause: ${e?.message || e}`).join('')
     const message = `${new Date().toISOString()} ${context ? `[${context}] ` : ''}${err?.stack || err}${causes}\n`
+    fs.mkdirSync(path.dirname(ERROR_LOG_PATH), { recursive: true }) // the error may fire before any request write creates the dir
     fs.appendFileSync(ERROR_LOG_PATH, message)
   } catch {}
 }
