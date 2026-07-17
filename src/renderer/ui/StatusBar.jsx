@@ -3,13 +3,6 @@ import { createPortal } from 'react-dom'
 import tippy from 'tippy.js'
 import './StatusBar.css'
 
-const STATUSLINE_TOOLTIP = `
-  <div class="statusbar-tooltip">
-    <p>This app ships a status line for Claude Code (<code>bin/claude/statusline.mjs</code>) showing context/token usage and rate limits.</p>
-    <p>Run <code>npm run setup-hook</code> to install it. If you already use a different status line, it's left untouched.</p>
-  </div>
-`
-
 const RETENTION_TOOLTIP = `
   <div class="statusbar-tooltip">
     <p>Claude Code deletes session transcripts older than <code>cleanupPeriodDays</code> (default 30), so this app can only show what hasn't been swept yet.</p>
@@ -18,10 +11,18 @@ const RETENTION_TOOLTIP = `
   </div>
 `
 
-// Rendered as React (not a title string like the others) so the Activate/Deactivate
+// Activate/Deactivate button at the bottom of an interactive tooltip, wired to a useToggleService.
+function ToggleButton({ service, on }) {
+  return (
+    <button className={`button-primary statusbar-tooltip-btn ${on ? 'statusbar-tooltip-btn-red' : 'statusbar-tooltip-btn-green'}`} disabled={service.busy || !service.status} onClick={service.toggle}>
+      {service.busy ? '…' : on ? 'Deactivate' : 'Activate'}
+    </button>
+  )
+}
+
+// Rendered as React (not a title string like the retention one) so the Activate/Deactivate
 // button at its bottom can be wired to live proxy state.
 function ProxyTooltip({ proxy }) {
-  const running = proxy.status?.running
   return (
     <div className="statusbar-tooltip">
       <p>A local logging proxy can capture Claude Code's raw API traffic — system prompt, tool definitions, injected reminders and responses — shown in the session's Requests tab.</p>
@@ -32,9 +33,17 @@ function ProxyTooltip({ proxy }) {
 }`}</pre>
       <p><b>Deactivate</b> shuts it down and removes these settings. The proxy keeps running after this app closes.</p>
       <p>⚠ While <code>env.ANTHROPIC_BASE_URL</code> points at the proxy, Claude Code can't reach the API unless the proxy is running.</p>
-      <button className={`button-primary statusbar-tooltip-btn ${running ? 'statusbar-tooltip-btn-red' : 'statusbar-tooltip-btn-green'}`} disabled={proxy.busy || !proxy.status} onClick={proxy.toggle}>
-        {proxy.busy ? '…' : running ? 'Deactivate' : 'Activate'}
-      </button>
+      <ToggleButton service={proxy} on={proxy.status?.running} />
+    </div>
+  )
+}
+
+function StatuslineTooltip({ statusline }) {
+  return (
+    <div className="statusbar-tooltip">
+      <p>This app ships a status line for Claude Code (<code>bin/claude/statusline.mjs</code>) showing context/token usage and rate limits.</p>
+      <p><b>Activate</b> installs it as the <code>statusLine</code> command in <code>settings.json</code>; <b>Deactivate</b> removes it. If you already use a different status line, it's left untouched.</p>
+      <ToggleButton service={statusline} on={statusline.status?.installed} />
     </div>
   )
 }
@@ -65,21 +74,22 @@ function humanizeDays(days) {
   return `${Number.isInteger(years) ? years : years.toFixed(1)}y`
 }
 
-// Poll the capture proxy's ping route (via main) so the bar tracks starts/stops live,
-// and expose the Start/Stop toggle (install & launch | exit & uninstall, see ProxyController).
-function useProxy() {
-  const [status, setStatus] = useState(null) // { running, configured }; null until the first probe answers
+// Poll a main-process on/off service so the bar tracks external changes live (proxy starts/stops,
+// settings.json edits), and expose its Activate/Deactivate toggle; `isOn` reads the on-flag from
+// the service's status shape. Errors from a toggle come back as `status.error` and are alerted.
+function useToggleService({ get, on, off, isOn }) {
+  const [status, setStatus] = useState(null) // null until the first probe answers
   const [busy, setBusy]     = useState(false)
   useEffect(() => {
     let alive = true
-    const check = () => window.api.getProxyStatus().then(s => alive && setStatus(s))
+    const check = () => get().then(s => alive && setStatus(s))
     check()
     const timer = setInterval(check, 5000)
     return () => { alive = false; clearInterval(timer) }
   }, [])
   const toggle = async () => {
     setBusy(true)
-    const next = await (status?.running ? window.api.stopProxy() : window.api.startProxy())
+    const next = await (isOn(status) ? off() : on())
     setStatus(next)
     setBusy(false)
     if (next.error) alert(next.error)
@@ -87,11 +97,20 @@ function useProxy() {
   return { status, busy, toggle }
 }
 
+// Capture proxy: status is { running, configured } (see ProxyController); toggle = install & launch | exit & uninstall.
+const useProxy = () => useToggleService({ get: window.api.getProxyStatus, on: window.api.startProxy, off: window.api.stopProxy, isOn: s => s?.running })
+
+// Status line: status is { installed } (see StatuslineController); toggle = install | remove in settings.json.
+const useStatusline = () => useToggleService({ get: window.api.getStatuslineStatus, on: window.api.activateStatusline, off: window.api.deactivateStatusline, isOn: s => s?.installed })
+
 export default function StatusBar({ progress, sessionCount = 0 }) {
-  const { claudeDir, statuslineInstalled } = window.api.claudeSettings
-  const proxy    = useProxy()
-  const proxyRef = useRef(null)
-  const proxyTip = useInteractiveTooltip(proxyRef)
+  const { claudeDir } = window.api.claudeSettings
+  const proxy         = useProxy()
+  const statusline    = useStatusline()
+  const proxyRef      = useRef(null)
+  const statuslineRef = useRef(null)
+  const proxyTip      = useInteractiveTooltip(proxyRef)
+  const statuslineTip = useInteractiveTooltip(statuslineRef)
   const proxyRunning = proxy.status?.running
   const proxyDown = proxy.status?.configured && proxyRunning === false // Claude Code is pointed at a dead proxy — it can't reach the API
   const retentionDays = window.api.claudeSettings.cleanupPeriodDays ?? 30 // Claude Code's default when unset
@@ -122,16 +141,17 @@ export default function StatusBar({ progress, sessionCount = 0 }) {
           {shortRetention && '⚠ '}Session logs retained: {humanizeDays(retentionDays)}
         </span>
       </span>
-      <span className={`statusbar-group statusbar-proxy ${proxyRunning ? 'statusbar-proxy-on' : ''}`} ref={proxyRef}>
+      <span className={`statusbar-group statusbar-seg statusbar-proxy ${proxyRunning ? 'statusbar-seg-on' : ''}`} ref={proxyRef}>
         <span className={`statusbar-msg ${proxyRunning ? 'statusbar-active' : 'statusbar-off'}`}>
           {proxyDown && '⚠ '}Capture proxy : {proxyRunning ? 'ON' : proxyDown ? 'DOWN' : 'off'}
         </span>
         {createPortal(<ProxyTooltip proxy={proxy} />, proxyTip)}
       </span>
-      <span className="statusbar-group" title={STATUSLINE_TOOLTIP}>
-        <span className={`statusbar-msg ${statuslineInstalled ? 'statusbar-on' : 'statusbar-off'}`}>
-          Status line : {statuslineInstalled ? 'ON' : 'off'}
+      <span className={`statusbar-group statusbar-seg ${statusline.status?.installed ? 'statusbar-seg-on' : ''}`} ref={statuslineRef}>
+        <span className={`statusbar-msg ${statusline.status?.installed ? 'statusbar-active' : 'statusbar-off'}`}>
+          Status line : {statusline.status?.installed ? 'ON' : 'off'}
         </span>
+        {createPortal(<StatuslineTooltip statusline={statusline} />, statuslineTip)}
       </span>
     </div>
   )

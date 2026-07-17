@@ -1,0 +1,53 @@
+// Install/uninstall this app's status line (bin/claude/statusline.mjs) as Claude Code's
+// statusLine command in settings.json. Backs the StatusBar's Activate/Deactivate button;
+// bin/setup-hook.mjs reuses it for the CLI install. Sole owner of that config.
+import { basename } from 'node:path'
+import { ClaudeSettings } from './ClaudeSettings.js'
+import { STATUSLINE_PATH } from '../paths.js'
+
+const STATUS_FILE = basename(STATUSLINE_PATH)
+export const STATUS_CMD = `node "${STATUSLINE_PATH}"`
+
+export class StatuslineController {
+
+  status() {
+    return { installed: new ClaudeSettings().statusLine?.command?.includes(STATUS_FILE) ?? false }
+  }
+
+  // Install our status line, repairing a stale absolute path in place (matched by basename).
+  // A different already-configured status line is never overwritten — that fails instead.
+  activate() {
+    try {
+      const settings = new ClaudeSettings() // fresh — settings.json may have changed since app launch
+      const command = settings.statusLine?.command
+      if (command && !command.includes(STATUS_FILE))
+        return this.#fail(`Leaving your existing status line in place (${command}) — remove it from settings.json to use ours.`)
+      const changed = command !== STATUS_CMD
+      if (changed) {
+        settings.statusLine = { type: 'command', command: STATUS_CMD }
+        settings.save()
+      }
+      return { ...this.status(), changed }
+    } catch (err) {
+      return this.#fail(String(err?.message || err))
+    }
+  }
+
+  // Remove the statusLine entry — only when it's ours, so a foreign status line is never touched.
+  deactivate() {
+    try {
+      const settings = new ClaudeSettings()
+      if (settings.statusLine?.command?.includes(STATUS_FILE)) {
+        settings.statusLine = undefined
+        settings.save()
+      }
+      return this.status()
+    } catch (err) {
+      return this.#fail(String(err?.message || err))
+    }
+  }
+
+  #fail(error) {
+    return { ...this.status(), error }
+  }
+}

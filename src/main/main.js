@@ -1,12 +1,13 @@
 import { app, BrowserWindow, ipcMain, powerMonitor, shell } from 'electron'
-import path, { basename } from 'node:path'
+import path from 'node:path'
 import { SessionsService } from './services/SessionsService.js'
 import { WorkHours } from './services/WorkHours.js'
 import { AgentRunner } from './services/AgentRunner.js'
 import { MainWindow } from './windows/MainWindow.js'
-import { CLAUDE_DIR, STATUSLINE_PATH } from './paths.js'
+import { CLAUDE_DIR } from './paths.js'
 import { ClaudeSettings } from './services/ClaudeSettings.js'
 import { ProxyController } from './services/ProxyController.js'
+import { StatuslineController } from './services/StatuslineController.js'
 
 if (import.meta.env.DEV) await import('./debug.js')
 
@@ -49,7 +50,6 @@ app.whenReady().then(() => {
 
   ipcMain.on('claude-settings:get', e => e.returnValue = {
     claudeDir: CLAUDE_DIR,
-    statuslineInstalled: settings.statusLine?.command?.includes(basename(STATUSLINE_PATH)) ?? false,
     cleanupPeriodDays: settings.cleanupPeriodDays ?? null,
   })
 
@@ -57,6 +57,11 @@ app.whenReady().then(() => {
   ipcMain.handle('proxy:status', () => proxy.status())
   ipcMain.handle('proxy:start',  () => proxy.start())
   ipcMain.handle('proxy:stop',   () => proxy.stop())
+
+  const statusline = new StatuslineController()
+  ipcMain.handle('statusline:status',     () => statusline.status())
+  ipcMain.handle('statusline:activate',   () => statusline.activate())
+  ipcMain.handle('statusline:deactivate', () => statusline.deactivate())
 })
 
 app.on('window-all-closed', () => {

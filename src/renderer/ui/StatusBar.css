@@ -37,20 +37,21 @@
 .statusbar-tooltip li { margin: 2px 0; }
 .statusbar-tooltip > :last-child { margin-bottom: 0; }
 .statusbar-off { color: var(--warn); }
-.statusbar-on  { color: var(--ok); }
 
-.statusbar-proxy {
+/* Segment whose background tints green while its feature is ON (capture proxy, status line) */
+.statusbar-seg {
   align-self: stretch;
   margin-right: -8px; /* eat the flex gap so the background reaches the next separator */
   padding-right: 8px;
 }
+.statusbar-seg:last-child { margin-right: -10px; padding-right: 10px; } /* reach the bar's right edge */
+.statusbar-seg-on { background: rgba(52, 211, 153, 0.08); }
 .statusbar-proxy .statusbar-msg {
   min-width: 140px; /* fits the widest state (⚠ DOWN) so ON/off/DOWN don't shift the bar */
   text-align: center;
 }
-.statusbar-proxy-on { background: rgba(52, 211, 153, 0.08); }
 
-/* Activate/Deactivate button at the bottom of the proxy tooltip */
+/* Activate/Deactivate button at the bottom of the interactive tooltips */
 .statusbar-tooltip .statusbar-tooltip-btn {
   display: block;
   min-width: 120px;
@@ -76,8 +77,7 @@
   border-color: #fca5a5;
 }
 
-/* Highlighted ON text — used for the capture proxy, which must be clearly seen as active
-   since all Claude Code API traffic flows through it (segment background: .statusbar-proxy-on). */
+/* Highlighted ON text for the green segments (segment background: .statusbar-seg-on) */
 .statusbar-active { color: #34d399; }
 
 /* Session-loading indicator (compact progress bar, mirrors SessionSummary's .progress-bar) */

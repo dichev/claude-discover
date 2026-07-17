@@ -55,7 +55,8 @@ export class ClaudeSettings {
   }
 
   set statusLine(value) {
-    this.cfg.statusLine = value
+    if (value === undefined) delete this.cfg.statusLine
+    else this.cfg.statusLine = value
   }
 
   // Environment variables Claude Code applies to every session; undefined when unset.

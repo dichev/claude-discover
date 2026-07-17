@@ -7,7 +7,9 @@ const SCRIPT = fileURLToPath(new URL('../bin/claude/statusline.mjs', import.meta
 const fixture = name => fileURLToPath(new URL(`fixtures/statusline/${name}`, import.meta.url))
 // Most assertions only care about text, so run with NO_COLOR; the color test opts back in.
 const run = (input, env = { NO_COLOR: '1' }) => {
-  const { stdout, status, stderr } = spawnSync('node', [SCRIPT], { input: JSON.stringify(input), encoding: 'utf-8', env: { ...process.env, ...env } })
+  const full = { ...process.env, ...env }
+  if (!env.NO_COLOR) delete full.NO_COLOR // "colors on" must win over an inherited NO_COLOR (e.g. Claude Code's shell)
+  const { stdout, status, stderr } = spawnSync('node', [SCRIPT], { input: JSON.stringify(input), encoding: 'utf-8', env: full })
   if (status !== 0) throw new Error(`statusline exited ${status}: ${stderr}`)
   return stdout
 }
@@ -46,7 +48,7 @@ describe('statusline.mjs', () => {
     const out = run({
       model: { display_name: 'Claude Opus 4.8' },
       rate_limits: {
-        five_hour: { used_percentage: 42, resets_at: now + 9000 },   // 2h 30m, under threshold so uncolored
+        five_hour: { used_percentage: 42, resets_at: now + 9030 },   // 2h 30m (30s slack — the exact boundary floors to 2h 29m by spawn time), under threshold so uncolored
         seven_day: { used_percentage: 95, resets_at: now + 400_000 }, // 4d 15h, over threshold so red
       },
     }, {}) // colors on
