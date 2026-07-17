@@ -40,6 +40,6 @@ Claude Code doesn't save your system prompt, CLAUDE.md and memory instructions i
 
 ## Optional: status line
 
-`npm run setup-hook` installs `bin/statusline.mjs` as your Claude Code status line (showing context/token usage and rate limits) into `<CLAUDE_DIR>/settings.json`, and raises `cleanupPeriodDays` so transcripts stay browsable.
+`npm run setup-hook` installs `bin/claude/statusline.mjs` as your Claude Code status line (showing context/token usage and rate limits) into `<CLAUDE_DIR>/settings.json`, and raises `cleanupPeriodDays` so transcripts stay browsable.
 
 Older versions of this app installed a capture-context hook, retired in favor of the proxy — `node bin/remove-context-logs-and-hooks.mjs` removes its settings.json entries and leftover `<session>.context.ndjson` sidecars (dry-run; `--force` to remove).

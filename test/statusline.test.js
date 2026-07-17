@@ -2,8 +2,8 @@ import { describe, it, expect } from 'vitest'
 import { spawnSync } from 'node:child_process'
 import { fileURLToPath } from 'node:url'
 
-// Run bin/statusline.mjs as Claude Code does: spawn node, pipe the status JSON to stdin, read the line back.
-const SCRIPT = fileURLToPath(new URL('../bin/statusline.mjs', import.meta.url))
+// Run bin/claude/statusline.mjs as Claude Code does: spawn node, pipe the status JSON to stdin, read the line back.
+const SCRIPT = fileURLToPath(new URL('../bin/claude/statusline.mjs', import.meta.url))
 const fixture = name => fileURLToPath(new URL(`fixtures/statusline/${name}`, import.meta.url))
 // Most assertions only care about text, so run with NO_COLOR; the color test opts back in.
 const run = (input, env = { NO_COLOR: '1' }) => {

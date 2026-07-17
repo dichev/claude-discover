@@ -5,7 +5,7 @@ import './StatusBar.css'
 
 const STATUSLINE_TOOLTIP = `
   <div class="statusbar-tooltip">
-    <p>This app ships a status line for Claude Code (<code>bin/statusline.mjs</code>) showing context/token usage and rate limits.</p>
+    <p>This app ships a status line for Claude Code (<code>bin/claude/statusline.mjs</code>) showing context/token usage and rate limits.</p>
     <p>Run <code>npm run setup-hook</code> to install it. If you already use a different status line, it's left untouched.</p>
   </div>
 `
