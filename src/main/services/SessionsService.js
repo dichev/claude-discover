@@ -1,6 +1,7 @@
 import { EventEmitter } from 'node:events'
 import { startOfDay, endOfDay, startOfWeek, endOfWeek, startOfMonth, endOfMonth, parseISO } from 'date-fns'
 import { SessionFile } from '../sessions/SessionFile.js'
+import { RequestsFile } from '../sessions/RequestsFile.js'
 import { SessionParser, suffixLabels } from '../sessions/SessionParser.js'
 import { SessionsScanner } from '../sessions/SessionsScanner.js'
 import { MetaCache } from '../sessions/MetaCache.js'
@@ -56,6 +57,13 @@ export class SessionsService extends EventEmitter {
     items.sort((a, b) => a._ts - b._ts) // .jsonl lines aren't always in timestamp order
     for (const o of items) delete o._ts
     return { meta: stripInternal(meta), items, nextOffset }
+  }
+
+  // Captured API requests for a session (see bin/capture-requests-proxy.mjs), period-filtered like readSession.
+  async readRequests(sessionId, date = null, granularity = 'day') {
+    if (!/^[\w-]+$/.test(sessionId)) return [] // the id becomes a filename — same guard as the proxy
+    const range = date ? periodBounds(date, granularity) : null
+    return new RequestsFile(sessionId).read(range)
   }
 
   // Scan `period` ({ start, end } epoch ms, optional `key`/`date`; see periodBounds). watch:true (UI) streams 'update' events per dir batch and returns the current cache immediately; watch:false (CLIs/tests) awaits completion and returns the deduped sessions with no emits.

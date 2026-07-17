@@ -1,0 +1,208 @@
+.requests-view {
+  flex: 1;
+  display: flex;
+  min-height: 0;
+  /* clears the absolutely-positioned view-mode toggles (see .view-tab-pane-content) */
+  padding-top: 34px;
+  background: var(--bg);
+  font-size: 12px;
+}
+
+.requests-list {
+  flex: 0 0 450px;
+  overflow: auto;
+  border-right: 1px solid var(--border);
+  margin: 0;
+  padding: 6px 0;
+  list-style: none;
+}
+
+.requests-list li { margin: 0; }
+
+/* separator above the request that starts a new user turn */
+.requests-list li.new-turn {
+  border-top: 1px solid var(--border);
+  margin-top: 6px;
+  padding-top: 6px;
+}
+
+.requests-list button {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  background: transparent;
+  border: 0;
+  color: var(--text);
+  text-align: left;
+  padding: 4px 10px;
+  font: inherit;
+  cursor: pointer;
+
+  &:hover { background: var(--hover, rgba(255, 255, 255, 0.06)); }
+  &.active { background: var(--hover, rgba(255, 255, 255, 0.1)); }
+}
+
+.requests-url {
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Postman-style method colors — muted, kept local so they don't track the app palette */
+.requests-method {
+  flex: 0 0 34px;
+  font-weight: 600;
+
+  &.get { color: #6ea882; }
+  &.post { color: #6b93c4; }
+  &.put { color: #c2835f; }
+  &.delete { color: #c47b7b; }
+}
+
+.requests-status {
+  font-variant-numeric: tabular-nums;
+
+  &.ok { color: var(--text-faint); }
+  &.error { color: var(--danger); font-weight: bold; }
+}
+
+.requests-meta {
+  color: var(--text-faint);
+  font-variant-numeric: tabular-nums;
+}
+
+.requests-tokens {
+  min-width: 42px;
+  text-align: right;
+}
+
+.requests-size {
+  min-width: 40px;
+  text-align: right;
+}
+
+.requests-duration {
+  min-width: 44px;
+  text-align: right;
+}
+
+.requests-detail {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.requests-tabs {
+  display: flex;
+  gap: 14px;
+  padding: 5px 12px;
+  border-bottom: 1px solid var(--border);
+
+  & button {
+    background: transparent;
+    border: 0;
+    padding: 2px 0;
+    color: var(--text-faint);
+    text-transform: uppercase;
+    font: inherit;
+    font-size: 11px;
+    letter-spacing: 0.5px;
+    cursor: pointer;
+
+    &:hover { color: var(--text); }
+    &.active { color: var(--text); }
+  }
+}
+
+.requests-pane {
+  flex: 1;
+  min-width: 0;
+  overflow: auto;
+  padding: 8px 12px 12px;
+
+  & .w-json-view-container {
+    --w-rjv-background-color: rgb(6 6 6) !important;
+    font-size: 12px !important;
+    line-height: 1.2 !important;
+  }
+}
+
+/* the hand-made braces / `"messages": [ … ]` lines stitching the body tree and the per-message
+   trees into one document, styled to blend in with JsonView (theme vars come from the wrapper's
+   inline style; indents mirror its KeyValues: 6px margin + 15px padding + guide line) */
+.requests-doc {
+  font-family: var(--w-rjv-font-family, monospace);
+  font-size: 12px;
+  line-height: 1.2;
+
+  & .key { color: var(--w-rjv-key-string); }
+  & .colon { color: var(--w-rjv-colon-color); }
+  & .bracket { color: var(--w-rjv-brackets-color); }
+
+  /* the root braces are ours, so hide the body tree's own open row (arrow + brace) and closing
+     brace; the tree is the wrapper's direct child, unlike the nested per-message trees.
+     !important beats the open row's inline display:inline-flex */
+  & > .w-json-view-container > :is(span:first-child, div:not(.w-rjv-wrap)) { display: none !important; }
+
+  & .requests-msgs,
+  & .requests-msgs .items {
+    margin-left: 6px;
+    padding-left: 15px;
+    border-left: 1px solid var(--w-rjv-line-color);
+  }
+
+  & .w-rjv-value {
+    color: var(--w-rjv-type-string-color)
+  }
+}
+
+/* summary shown inside a collapsed node in place of the '...' ellipsis */
+.requests-hint {
+  cursor: pointer;
+  user-select: none;
+  font-style: italic;
+  color: var(--text-faint);
+  padding: 0 3px;
+  white-space: pre; /* keeps the role's alignment padding */
+}
+
+/* parts already sent in an earlier request ($refs in the log) fade so what's new stands out */
+.requests-seen,
+.requests-pane :is(.w-rjv-inner, .w-rjv-line):has(> span .requests-seen-key) {
+  opacity: 0.6;
+}
+
+.requests-headers {
+  padding-bottom: 8px;
+  margin-bottom: 8px;
+  border-bottom: 1px solid var(--border);
+}
+
+.requests-label {
+  display: flex;
+  justify-content: space-between;
+  color: var(--text-faint);
+  text-transform: uppercase;
+  font-size: 11px;
+  letter-spacing: 0.5px;
+  padding: 2px 0 6px;
+}
+
+/* explains the seen-part fading to first-time viewers */
+.requests-label-hint {
+  text-transform: none;
+  letter-spacing: normal;
+  font-style: italic;
+}
+
+.requests-pane-empty,
+.requests-empty {
+  color: var(--text-faint);
+}
+
+.requests-empty {
+  padding: 10px 20px;
+}

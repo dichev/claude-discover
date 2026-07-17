@@ -1,6 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react'
 import ConversationView from './view/ConversationView.jsx'
 import JsonlView from './view/JsonlView.jsx'
+import RequestsView from './view/RequestsView.jsx'
 import AgentView from './view/AgentView.jsx'
 import SessionSummary from './SessionSummary.jsx'
 import Toggle from '../ui/Toggle.jsx'
@@ -55,12 +56,17 @@ export default function Session({ meta, date, granularity = 'day' }) {
                     <Toggle
                       checked={!!expandAll}
                       onChange={(v) => setExpandAll(v)}
-                      label="Expand all"
+                      label={mode === 'conversation' ? 'Expand all' : 'Full text'}
                     />
                     <Toggle
                       checked={mode === 'jsonl'}
                       onChange={(v) => setMode(v ? 'jsonl' : 'conversation')}
                       label="JSONL"
+                    />
+                    <Toggle
+                      checked={mode === 'requests'}
+                      onChange={(v) => setMode(v ? 'requests' : 'conversation')}
+                      label="API Calls"
                     />
                   </div>
                   {mode === 'conversation' ? (
@@ -68,8 +74,10 @@ export default function Session({ meta, date, granularity = 'day' }) {
                       {loading && <div className="empty">Loading conversation…</div>}
                       {items && <ConversationView items={items} expandAll={expandAll} />}
                     </div>
-                  ) : (
+                  ) : mode === 'jsonl' ? (
                     <JsonlView items={items} expandAll={expandAll} />
+                  ) : (
+                    <RequestsView sessionId={sessionId} date={date} granularity={granularity} expandAll={expandAll} />
                   )}
                 </div>
                 <SessionSummary meta={meta} items={items} agent={agent} onOpenAgent={() => setAgentOpen(true)} granularity={granularity} />

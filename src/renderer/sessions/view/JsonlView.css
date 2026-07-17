@@ -38,6 +38,15 @@
   gap: 4px;
   background: var(--bg);
   font-size: 12px;
+
+  & .w-json-view-container {
+    --w-rjv-background-color: rgb(6 6 6) !important;
+    font-size: 12px !important;
+    line-height: 1.2 !important;
+  }
+  & .w-rjv-value {
+    color: var(--w-rjv-type-string-color)
+  }
 }
 
 .jsonl-viewer-toc {
