@@ -15,5 +15,6 @@ export const CLAUDE_REQUESTS_DIR  = join(CLAUDE_DIR, '.claude-discover', 'reques
 export const CLAUDE_SETTINGS      = join(CLAUDE_DIR, 'settings.json')
 export const STATUSLINE_PATH      = join(import.meta.dirname, '../../bin/statusline.mjs')
 export const PROXY_PATH           = join(import.meta.dirname, '../../bin/capture-requests-proxy.mjs')
+export const CLAUDE_HOOKS_PATH    = join(import.meta.dirname, '../../bin/claude/hooks.mjs') // hook dispatcher, installed by ProxyController
 export const PROXY_URL            = 'http://127.0.0.1:41414' // capture-requests proxy; 41414 is an arbitrary uncommon port (unregistered, unlikely to collide) — also hardcoded in bin/capture-requests-proxy.mjs
 

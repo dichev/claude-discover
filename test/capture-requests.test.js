@@ -7,7 +7,7 @@ import http from 'node:http'
 import { spawn } from 'node:child_process'
 import { describe, it, expect, beforeAll, afterAll } from 'vitest'
 import { dedupeRequest, assembleSSE } from '../bin/capture-requests-proxy.mjs'
-import { PROXY_PATH } from '../src/main/paths.js'
+import { PROXY_PATH, CLAUDE_HOOKS_PATH } from '../src/main/paths.js'
 
 const body = {
   model: 'claude-sonnet-5',
@@ -269,4 +269,46 @@ describe('proxy end-to-end', () => {
     expect(res.status).toBe(200)
     expect(fs.readdirSync(path.join(claudeDir, '.claude-discover', 'requests'))).toEqual(['sess-e2e.requests.jsonl'])
   })
+})
+
+describe('claude-hooks SessionStart (ensure proxy)', () => {
+  let claudeDir, upstream, upstreamPort, port
+
+  beforeAll(async () => {
+    claudeDir = fs.mkdtempSync(path.join(os.tmpdir(), 'cd-hook-'))
+    upstream = http.createServer((_, res) => res.end('{}'))
+    upstreamPort = await freePort()
+    await new Promise(r => upstream.listen(upstreamPort, HOST, r))
+    port = await freePort()
+  })
+
+  afterAll(async () => {
+    try { await fetch(`http://${HOST}:${port}/claude-discover/exit`, { method: 'POST' }) } catch {} // kill the proxy the hook spawned
+    upstream?.close()
+    fs.rmSync(claudeDir, { recursive: true, force: true })
+  })
+
+  const runHook = (hookPort, hookUpstream, event = { hook_event_name: 'SessionStart' }) => new Promise(resolve => {
+    const child = spawn(process.execPath, [CLAUDE_HOOKS_PATH, '--port', String(hookPort), '--upstream', hookUpstream], {
+      stdio: ['pipe', 'ignore', 'ignore'],
+      env: { ...process.env, CLAUDE_CONFIG_DIR: claudeDir },
+    })
+    child.stdin.end(JSON.stringify(event))
+    child.once('exit', resolve)
+  })
+
+  it('starts the proxy when down, then no-ops while it stays up', async () => {
+    expect(await runHook(port, `http://${HOST}:${upstreamPort}`)).toBe(0)
+    const res = await fetch(`http://${HOST}:${port}/claude-discover/ping`)
+    expect(await res.text()).toBe('claude-discover-proxy')
+    expect(await runHook(port, `http://${HOST}:${upstreamPort}`)).toBe(0)
+  }, 15000)
+
+  it('exits 1 when the proxy cannot come up (upstream unreachable)', async () => {
+    expect(await runHook(await freePort(), `http://${HOST}:${await freePort()}`)).toBe(1)
+  }, 15000)
+
+  it('ignores events it has no handler for', async () => {
+    expect(await runHook(await freePort(), `http://${HOST}:${await freePort()}`, { hook_event_name: 'SessionEnd' })).toBe(0)
+  }, 15000)
 })

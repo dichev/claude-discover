@@ -3,8 +3,11 @@
 // owner of that config — bin/setup-hook.mjs deliberately doesn't touch it.
 import { spawn } from 'node:child_process'
 import { ClaudeSettings } from './ClaudeSettings.js'
-import { PROXY_PATH, PROXY_URL } from '../paths.js'
+import { PROXY_PATH, PROXY_URL, CLAUDE_HOOKS_PATH } from '../paths.js'
 import { PING_ROUTE, PING_RESPONSE, EXIT_ROUTE, ERROR_LOG_PATH } from '../../../bin/capture-requests-proxy.mjs'
+
+const HOOK_BASENAME = 'hooks.mjs' // also matches the retired claude-hooks.mjs name, repairing it in place
+const HOOK_COMMAND = `node "${CLAUDE_HOOKS_PATH}"`
 
 export class ProxyController {
 
@@ -37,12 +40,19 @@ export class ProxyController {
         return this.#fail(outcome === 2
           ? 'Cannot reach api.anthropic.com — not enabling capture. Check your network and try again.'
           : `Proxy did not start — see ${ERROR_LOG_PATH}`)
-      if (!baseUrl || settings.env?.ENABLE_TOOL_SEARCH !== 'true') {
+      const hook = settings.findHook('SessionStart', HOOK_BASENAME)
+      if (!baseUrl || settings.env?.ENABLE_TOOL_SEARCH !== 'true' || hook?.command !== HOOK_COMMAND) {
         settings.setEnv('ANTHROPIC_BASE_URL', PROXY_URL)
         // Claude Code disables Tool Search under a custom base URL (most proxies can't forward
         // `tool_reference` blocks); ours forwards verbatim to real Anthropic, so re-enable it
         // to keep the ~27k tokens/request savings. https://code.claude.com/docs/en/env-vars
         settings.setEnv('ENABLE_TOOL_SEARCH', 'true')
+        if (hook?.command !== HOOK_COMMAND) {
+          // SessionStart hook revives the proxy after a PC restart/crash — the env keys survive
+          // but the process doesn't, which would otherwise leave Claude Code pointed at a dead port.
+          settings.removeHook('SessionStart', HOOK_BASENAME) // repair a stale absolute path in place
+          settings.addHook('SessionStart', HOOK_COMMAND)
+        }
         settings.save()
       }
       return this.status()
@@ -51,17 +61,19 @@ export class ProxyController {
     }
   }
 
-  // Exit the proxy via its control route and remove the env keys — only when the base URL is
-  // ours, so a foreign gateway config is never touched.
+  // Exit the proxy via its control route and remove the env keys + revive hook — env keys only
+  // when the base URL is ours, so a foreign gateway config is never touched.
   async stop() {
     try {
       try { await fetch(`${PROXY_URL}${EXIT_ROUTE}`, { method: 'POST', signal: AbortSignal.timeout(1000) }) } catch {} // already stopped is fine
       const settings = new ClaudeSettings()
-      if (settings.env?.ANTHROPIC_BASE_URL === PROXY_URL) {
+      const ours = settings.env?.ANTHROPIC_BASE_URL === PROXY_URL
+      const removedHook = settings.removeHook('SessionStart', HOOK_BASENAME).length > 0
+      if (ours) {
         settings.deleteEnv('ANTHROPIC_BASE_URL')
         settings.deleteEnv('ENABLE_TOOL_SEARCH')
-        settings.save()
       }
+      if (ours || removedHook) settings.save()
       await this.#settle(false)
       return this.status()
     } catch (err) {

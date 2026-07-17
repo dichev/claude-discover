@@ -17,7 +17,7 @@ import { parseArgs } from 'node:util'
 
 
 const HOST = '127.0.0.1' // loopback only, on purpose — the proxy sees auth headers and must never listen on external interfaces
-const PORT = 41414 // also hardcoded as PROXY_URL in src/main/paths.js
+export const PORT = 41414 // also hardcoded as PROXY_URL in src/main/paths.js; imported by bin/claude/hooks.mjs
 const UPSTREAM = 'https://api.anthropic.com'
 const CLAUDE_DIR = process.env.CLAUDE_CONFIG_DIR || path.join(os.homedir(), '.claude')
 const LOG_DIR = path.join(CLAUDE_DIR, '.claude-discover') // this app's data under the Claude dir
