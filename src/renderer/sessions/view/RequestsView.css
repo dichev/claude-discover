@@ -2,8 +2,6 @@
   flex: 1;
   display: flex;
   min-height: 0;
-  /* clears the absolutely-positioned view-mode toggles (see .view-tab-pane-content) */
-  padding-top: 34px;
   background: var(--bg);
   font-size: 12px;
 }

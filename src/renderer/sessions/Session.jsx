@@ -6,12 +6,19 @@ import AgentView from './view/AgentView.jsx'
 import SessionSummary from './SessionSummary.jsx'
 import Toggle from '../ui/Toggle.jsx'
 import { useAgent } from '../agent/Agent.js'
+import { useLocalStorage } from '../utils/useLocalStorage.js'
 import './Session.css'
+
+const TABS = [
+  { key: 'conversation', label: 'Conversation' },
+  { key: 'jsonl', label: 'Raw Logs' },
+  { key: 'requests', label: 'API Requests' },
+]
 
 export default function Session({ meta, date, granularity = 'day' }) {
   const [items, setItems]         = useState(null)
   const [loading, setLoading]     = useState(false)
-  const [mode, setMode]           = useState('conversation')
+  const [mode, setMode]           = useLocalStorage('session.view-mode', 'conversation')
   const [agentOpen, setAgentOpen] = useState(false)
   const [expandAll, setExpandAll] = useState(null)
   const offsetRef = useRef(0)
@@ -52,21 +59,21 @@ export default function Session({ meta, date, granularity = 'day' }) {
             <div className="view-tab-pane">
               <div className="view-tab-pane-row">
                 <div className="view-tab-pane-main">
-                  <div className="view-mode-toggle">
+                  <div className="view-tabs-bar">
+                    <div className="view-tabs">
+                      {TABS.map(({ key, label }) => (
+                        <button
+                          key={key}
+                          type="button"
+                          className={`view-tab${mode === key ? ' active' : ''}`}
+                          onClick={() => setMode(key)}
+                        >{label}</button>
+                      ))}
+                    </div>
                     <Toggle
                       checked={!!expandAll}
                       onChange={(v) => setExpandAll(v)}
                       label={mode === 'conversation' ? 'Expand all' : 'Full text'}
-                    />
-                    <Toggle
-                      checked={mode === 'jsonl'}
-                      onChange={(v) => setMode(v ? 'jsonl' : 'conversation')}
-                      label="JSONL"
-                    />
-                    <Toggle
-                      checked={mode === 'requests'}
-                      onChange={(v) => setMode(v ? 'requests' : 'conversation')}
-                      label="API Calls"
                     />
                   </div>
                   {mode === 'conversation' ? (
