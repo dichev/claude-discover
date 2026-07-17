@@ -3,19 +3,6 @@ import { createPortal } from 'react-dom'
 import tippy from 'tippy.js'
 import './StatusBar.css'
 
-const HOOK_TOOLTIP = `
-  <div class="statusbar-tooltip">
-    <p>Claude Code doesn't save your CLAUDE.md instructions in its session logs, so this app can't show them as a context.</p>
-    <p>You can install a claude hook that logs that context alongside each session in a separate file:</p>
-    <ul>
-      <li><code>&lt;session&gt;.jsonl</code> — the transcript</li>
-      <li><code>&lt;session&gt;.context.ndjson</code> — the context snapshot</li>
-    </ul>
-    <p>Then your CLAUDE.md content shows up in the Conversation and JSONL tabs.</p>
-    <p>Run <code>npm run setup-hook</code> to install.</p>
-  </div>
-`
-
 const STATUSLINE_TOOLTIP = `
   <div class="statusbar-tooltip">
     <p>This app ships a status line for Claude Code (<code>bin/statusline.mjs</code>) showing context/token usage and rate limits.</p>
@@ -101,7 +88,7 @@ function useProxy() {
 }
 
 export default function StatusBar({ progress, sessionCount = 0 }) {
-  const { claudeDir, hookInstalled: installed, statuslineInstalled } = window.api.claudeSettings
+  const { claudeDir, statuslineInstalled } = window.api.claudeSettings
   const proxy    = useProxy()
   const proxyRef = useRef(null)
   const proxyTip = useInteractiveTooltip(proxyRef)
@@ -133,11 +120,6 @@ export default function StatusBar({ progress, sessionCount = 0 }) {
       <span className="statusbar-group" title={RETENTION_TOOLTIP}>
         <span className={`statusbar-msg ${shortRetention ? 'statusbar-off' : ''}`}>
           {shortRetention && '⚠ '}Session logs retained: {humanizeDays(retentionDays)}
-        </span>
-      </span>
-      <span className="statusbar-group" title={HOOK_TOOLTIP}>
-        <span className={`statusbar-msg ${installed ? 'statusbar-on' : 'statusbar-off'}`}>
-          Capture context hook : {installed ? 'ON' : 'off'}
         </span>
       </span>
       <span className={`statusbar-group statusbar-proxy ${proxyRunning ? 'statusbar-proxy-on' : ''}`} ref={proxyRef}>

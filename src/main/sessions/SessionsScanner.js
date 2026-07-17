@@ -64,6 +64,13 @@ export class SessionsScanner {
     progress() // terminal emit: covers total===0 and guarantees the bar clears
   }
 
+  // Session ids (jsonl basenames) of every transcript on disk; null until a full walk has
+  // completed with the watcher live — never judge what exists from a partial walk.
+  sessionIds() {
+    if (!this.statCache.complete) return null
+    return new Set([...this.statCache.stats.keys()].map(p => path.basename(p, '.jsonl')))
+  }
+
   watch({ onChange, onUnlink } = {}) {
     const isUNC = this.root.startsWith('\\\\') || this.root.startsWith('//') // native fs.watch fails on UNC (e.g. \\wsl.localhost\...)
     this.watcher = chokidar.watch(this.root, {

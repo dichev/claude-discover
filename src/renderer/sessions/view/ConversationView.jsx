@@ -23,9 +23,6 @@ function useCollapsed(defaultOpen) {
 // Slash-command invocation (`<command-name>…`): meta for most purposes, but still a user action.
 const isCommandTurn = t => t.blocks.some(b => b.type === 'text' && parseCommand(b.text)?.name)
 
-// Instruction files come from two sources (capture hook vs request proxy); the explanatory
-// note shows once per run of same-source rows, so compare against the previous group's source.
-const instructionOrigin = g => g?.kind !== 'instruction' ? null : g.turn.blocks[0].it.origin ?? 'hook'
 
 export default function ConversationView({ items, expandAll = null }) {
   const turns     = useMemo(() => flatten(items), [items])
@@ -42,7 +39,7 @@ export default function ConversationView({ items, expandAll = null }) {
             <LazyMount eager={i < 8} forceMount={findOpen} placeholderMinHeight={80}>
               {g.kind === 'user'      ? <UserRow turns={g.turns} point={points[i]} />
                : g.kind === 'assistant' ? <AssistantCard turns={g.turns} point={points[i]} duration={durations[i]} showAuthor={groups[i - 1]?.kind !== 'assistant'} />
-               :                        <InstructionFile it={g.turn.blocks[0].it} showNote={instructionOrigin(groups[i - 1]) !== instructionOrigin(g)} />}
+               :                        <InstructionFile it={g.turn.blocks[0].it} showNote={groups[i - 1]?.kind !== 'instruction'} />}
             </LazyMount>
             {points[i] ? <TokenPoint point={points[i]} />
              // Commands consume no tokens so they never get a real point — mark them with a plain dot.
@@ -327,33 +324,18 @@ function JsonBlock({ value }) {
 
 function InstructionFile({ it, showNote }) {
   const [open, setOpen] = useCollapsed(false)
-  const fromRequest     = it.origin === 'request'
-  const title           = `${it.file_path} (${it.memory_type}, ${fromRequest ? 'API request' : `${it.hook_event_name} hook`})`
   return (
-    <div className={`aux custom-event${fromRequest ? ' request-event' : ''}`}>
+    <div className="aux custom-event">
       {showNote && (
-        <div className="instructions-note">
-          {fromRequest
-            ? <>Extracted from the API requests captured by the proxy.</>
-            : <>Snapshotted by the capture context hook (<code>InstructionsLoaded</code> + <code>SessionStart</code>).</>}
-        </div>
+        <div className="instructions-note">Extracted from the API requests captured by the proxy.</div>
       )}
       <button className="aux-toggle" onClick={() => setOpen(v => !v)}>
         <span className="aux-chevron">{open ? '▾' : '▸'}</span>
-        <span>{title}</span>
+        <span>{`${it.file_path} (${it.memory_type}, API request)`}</span>
       </button>
       {open && (
         <div className="aux-body">
-          {(it.parent_file_path || it.trigger_file_path || it.globs) && (
-            <div className="initial-context-meta">
-              {it.parent_file_path  && <div>included by: {it.parent_file_path}</div>}
-              {it.trigger_file_path && <div>triggered by: {it.trigger_file_path}</div>}
-              {it.globs?.length     && <div>matched globs: {it.globs.join(', ')}</div>}
-            </div>
-          )}
-          {it.error
-            ? <pre className="error">{it.error}</pre>
-            : <Markdown className="block-text" text={it.content || ''} basePath={it.file_path} />}
+          <Markdown className="block-text" text={it.content || ''} basePath={it.file_path} />
         </div>
       )}
     </div>

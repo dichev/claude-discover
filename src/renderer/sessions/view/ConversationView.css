@@ -351,20 +351,12 @@ button.msg-summary:hover { color: var(--text); background: var(--bg-elev-2); bor
   }
 }
 
-.initial-context-meta {
-  font-size: 11px;
-  color: var(--text-faint);
-  font-family: var(--font-mono), monospace;
-  margin-bottom: 6px;
-}
 /* Events synthesized by this app (e.g. instructions-loaded), not produced by Claude Code. */
 .custom-event {
-  border-left: 2px solid var(--accent);
+  border-left: 2px solid #a78bfa;
   padding-left: 8px;
   margin-left: -10px;
 }
-/* Memory files extracted from the captured API requests (vs. the capture-context hook). */
-.custom-event.request-event { border-left-color: #a78bfa;}
 
 .instructions-note {
   font-size: 11px;
@@ -373,7 +365,4 @@ button.msg-summary:hover { color: var(--text); background: var(--bg-elev-2); bor
   padding-bottom: 4px;
   border-bottom: 1px dashed var(--border);
   line-height: 1.5;
-}
-.instructions-note code {
-  font-size: 10px;
 }

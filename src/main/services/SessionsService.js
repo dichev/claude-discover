@@ -36,6 +36,7 @@ export class SessionsService extends EventEmitter {
     this.throttleMs = throttleMs
     this.metaCache = new MetaCache()
     this.activeDay = null
+    this.sweptLogs = false
     this.scanAbort = null
     this.updateTimer = null
     this.lastUpdateAt = 0
@@ -49,13 +50,9 @@ export class SessionsService extends EventEmitter {
     const parser = new SessionParser({ sessionId: reader.sessionId, parentSessionId: reader.parentSessionId, filePath: reader.filePath, mtime: meta.mtime, range })
     const items = []
     const nextOffset = await reader.streamFrom(offset, obj => { if (parser.feed(obj)) items.push(obj) })
-    // Context records only on the first read (mid-session instruction loads show up on the next
-    // re-open), stamped with _ts so they sort alongside the transcript items.
+    // System prompts and memory files captured by the request proxy, only on the first read,
+    // backdated so they sort above the user message whose request carried them.
     if (offset === 0) {
-      for (const x of await reader.readContext()) {
-        items.push(Object.assign(x, { _ts: Date.parse(x.timestamp) }))
-      }
-      // System prompts and memory files captured by the request proxy, backdated so they sort above the user message whose request carried them.
       for (const x of await new RequestFile(reader.sessionId).readInstructions()) {
         items.push(Object.assign(x, { _ts: Date.parse(x.timestamp) - 500 }))
       }
@@ -87,7 +84,8 @@ export class SessionsService extends EventEmitter {
         onBatchDone: () => { if (fresh()) this._scheduleUpdate() },
         onProgress: p => { if (fresh()) this.emit('progress', p) },
       })
-    })
+    }).then(() => this._sweepRequestLogs())
+
     if (watch) scan.catch(console.error) // fire-and-forget; the scanner streams an update per dir batch + a final flush
     else await scan // block until the full scan completes
     return this._dedupedDay(day)
@@ -179,6 +177,16 @@ export class SessionsService extends EventEmitter {
     if (!isChanged) return
     const meta = await this._processFile(filePath, day, stat)
     if (meta && intersectsDay(meta, day)) this._scheduleUpdate()
+  }
+
+  // Once the first full walk mirrors the disk, drop request logs whose transcript is gone —
+  // Claude Code swept it per cleanupPeriodDays and the sessions can no longer be shown anyway.
+  async _sweepRequestLogs() {
+    if (this.sweptLogs) return
+    const ids = this.scanner.sessionIds()
+    if (!ids) return // partial or CLI (watch:false) scan — never judge orphans from an incomplete walk
+    this.sweptLogs = true
+    await RequestFile.sweepOrphans(ids)
   }
 
   _evict(filePath) {

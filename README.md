@@ -34,16 +34,12 @@ node bin/usage.mjs monthly --timezone UTC
 npx ccusage monthly
 ```
 
-## Optional: capture initial context
+## Optional: capture API requests
 
-Claude Code doesn't save your CLAUDE.md and memory instructions in its session logs, so this app can't show them as a context. You can install a Claude hook that snapshots that context alongside each session in a separate file:
+Claude Code doesn't save your system prompt, CLAUDE.md and memory instructions in its session logs, so this app can't show them as a context. Use the **Capture proxy → Activate** button in the app's status bar to launch a local logging proxy that records Claude Code's raw API traffic — the captured system prompts and memory files then show up in the Conversation tab, and the full requests/responses in the Requests tab.
 
-- `<session>.jsonl` — the transcript
-- `<session>.context.ndjson` — the context snapshot
+## Optional: status line
 
-Then your CLAUDE.md and memory content show up in the Conversation and JSONL tabs. 
-```
-npm run setup-hook   # auto-installs the hook into <CLAUDE_DIR>/settings.json
-```
+`npm run setup-hook` installs `bin/statusline.mjs` as your Claude Code status line (showing context/token usage and rate limits) into `<CLAUDE_DIR>/settings.json`, and raises `cleanupPeriodDays` so transcripts stay browsable.
 
-`npm run setup-hook` also installs `bin/statusline.mjs` as your Claude Code status line (showing context/token usage and rate limits)
+Older versions of this app installed a capture-context hook, retired in favor of the proxy — `node bin/remove-context-logs-and-hooks.mjs` removes its settings.json entries and leftover `<session>.context.ndjson` sidecars (dry-run; `--force` to remove).

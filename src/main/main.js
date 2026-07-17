@@ -4,7 +4,7 @@ import { SessionsService } from './services/SessionsService.js'
 import { WorkHours } from './services/WorkHours.js'
 import { AgentRunner } from './services/AgentRunner.js'
 import { MainWindow } from './windows/MainWindow.js'
-import { CLAUDE_DIR, HOOK_PATH, STATUSLINE_PATH } from './paths.js'
+import { CLAUDE_DIR, STATUSLINE_PATH } from './paths.js'
 import { ClaudeSettings } from './services/ClaudeSettings.js'
 import { ProxyController } from './services/ProxyController.js'
 
@@ -49,7 +49,6 @@ app.whenReady().then(() => {
 
   ipcMain.on('claude-settings:get', e => e.returnValue = {
     claudeDir: CLAUDE_DIR,
-    hookInstalled: !!settings.findHook('InstructionsLoaded', basename(HOOK_PATH)),
     statuslineInstalled: settings.statusLine?.command?.includes(basename(STATUSLINE_PATH)) ?? false,
     cleanupPeriodDays: settings.cleanupPeriodDays ?? null,
   })

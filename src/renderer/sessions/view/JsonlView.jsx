@@ -24,7 +24,7 @@ function prune(value, q) {
   return Object.keys(out).length ? out : undefined
 }
 
-// Event types we synthesize ourselves (via the InstructionsLoaded hook etc.), not produced by Claude Code.
+// Event types we synthesize ourselves (extracted from the captured API requests), not produced by Claude Code.
 const CUSTOM_EVENT_TYPES = new Set(['instructions-loaded'])
 
 function labelFor(entry) {

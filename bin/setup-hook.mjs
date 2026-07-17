@@ -1,16 +1,14 @@
 #!/usr/bin/env node
-// Installs the capture-context hook into <CLAUDE_DIR>/settings.json.
+// Sets up <CLAUDE_DIR>/settings.json for this app: installs the status line, raises transcript
+// retention — and installs whatever hook entries the app needs (currently none).
 // Idempotent: re-running is a no-op. Repairs stale paths in-place.
 import { basename } from 'node:path'
-import { CLAUDE_SETTINGS, HOOK_PATH, STATUSLINE_PATH } from '../src/main/paths.js'
+import { CLAUDE_SETTINGS, STATUSLINE_PATH } from '../src/main/paths.js'
 import { ClaudeSettings } from '../src/main/services/ClaudeSettings.js'
 
-const HOOK_FILE   = basename(HOOK_PATH)
-const HOOK_CMD    = `node "${HOOK_PATH}"`
-const HOOK_EVENTS = ['InstructionsLoaded', 'SessionStart', 'SessionEnd']
 const STATUS_FILE = basename(STATUSLINE_PATH)
 const STATUS_CMD  = `node "${STATUSLINE_PATH}"`
-const RETAIN_DAYS = 365 // 1y; capturing context is pointless if Claude Code sweeps the transcripts first
+const RETAIN_DAYS = 365 // 1y; this app can only browse what Claude Code hasn't swept yet
 
 
 console.log(`Installing into ${CLAUDE_SETTINGS}...`)
@@ -22,21 +20,6 @@ if (settings.loadFailed) {
 }
 
 let changed = false
-for (const event of HOOK_EVENTS) {
-  const existing = settings.findHook(event, HOOK_FILE)
-  if (!existing) {
-    console.log(` ✚ Installing capture-context hook on ${event} → ${HOOK_CMD}`)
-    settings.addHook(event, HOOK_CMD)
-    changed = true
-  } else if (existing.command === HOOK_CMD) {
-    console.log(` ✓ ${event} hook: already installed`)
-  } else {
-    console.log(` ↻ ${event} hook: repairing stale entry: ${existing.command} → ${HOOK_CMD}`)
-    existing.command = HOOK_CMD
-    changed = true
-  }
-}
-
 const retention = settings.cleanupPeriodDays ?? 30 // Claude Code's default when unset
 if (retention < RETAIN_DAYS) {
   console.log(` ✚ Retention: raising cleanupPeriodDays ${retention} → ${RETAIN_DAYS} so transcripts aren't swept`)
@@ -70,4 +53,4 @@ if (!changed) {
 }
 
 settings.save()
-console.log(`Wrote ${CLAUDE_SETTINGS}. Restart your Claude Code sessions to start capturing.`)
+console.log(`Wrote ${CLAUDE_SETTINGS}. Restart your Claude Code sessions to pick it up.`)

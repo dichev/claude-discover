@@ -60,6 +60,28 @@ describe('RequestFile', () => {
   })
 })
 
+describe('RequestFile.sweepOrphans', () => {
+  it('deletes only stale logs with no live transcript', async () => {
+    const sweepDir = fs.mkdtempSync(path.join(os.tmpdir(), 'cd-sweep-'))
+    const dayOld = new Date(Date.now() - 2 * 24 * 60 * 60_000)
+    for (const name of ['live.requests.jsonl', 'orphan.requests.jsonl', 'fresh.requests.jsonl', 'other.txt']) {
+      fs.writeFileSync(path.join(sweepDir, name), '{}\n')
+      if (name !== 'fresh.requests.jsonl') fs.utimesSync(path.join(sweepDir, name), dayOld, dayOld)
+    }
+    await RequestFile.sweepOrphans(new Set(['live']), sweepDir)
+    expect(fs.readdirSync(sweepDir).sort()).toEqual([
+      'fresh.requests.jsonl', // orphan but too fresh — its transcript may not be on disk yet
+      'live.requests.jsonl',  // transcript still exists
+      'other.txt',            // not a request log
+    ])
+    fs.rmSync(sweepDir, { recursive: true, force: true })
+  })
+
+  it('resolves quietly when the requests dir does not exist', async () => {
+    await expect(RequestFile.sweepOrphans(new Set(), path.join(dir, 'nope'))).resolves.toBeUndefined()
+  })
+})
+
 const reminder = `<system-reminder>
 As you answer the user's questions, you can use the following context:
 # claudeMd
@@ -121,13 +143,13 @@ describe('RequestFile.readInstructions', () => {
       'System prompt', 'C:\\Users\\me\\.claude\\CLAUDE.md', 'D:\\proj\\CLAUDE.md', 'C:\\Users\\me\\.claude\\projects\\p\\memory\\MEMORY.md',
     ])
     expect(files[0]).toMatchObject({ memory_type: 'claude-sonnet-5', content: 'Be terse', hash: 'sys1' })
-    expect(files.every(f => f.type === 'instructions-loaded' && f.origin === 'request')).toBe(true)
+    expect(files.every(f => f.type === 'instructions-loaded')).toBe(true)
     expect(files.every(f => f.timestamp === '2026-07-14T10:00:00.000Z')).toBe(true) // first sight wins
   })
 
   it('joins block-array system prompts into one text', async () => {
     const files = await new RequestFile('sess-1', dir).readInstructions()
-    expect(files).toEqual([{ type: 'instructions-loaded', origin: 'request', timestamp: '2026-07-14T10:00:00.000Z',
+    expect(files).toEqual([{ type: 'instructions-loaded', timestamp: '2026-07-14T10:00:00.000Z',
       file_path: 'System prompt', memory_type: 'claude-sonnet-5', content: 'You are Claude Code', hash: 'aaa' }])
   })
 

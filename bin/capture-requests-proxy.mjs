@@ -1,7 +1,7 @@
 // Local logging proxy for Claude Code's API traffic — captures what transcripts never record
 // (system prompt, tool definitions, injected reminders, request params) plus the raw responses.
-// Claude Code is pointed at it via env.ANTHROPIC_BASE_URL (installed by `npm run setup-hook`);
-// started manually with `npm run proxy`. Capture must never fail or delay a request — errors go
+// Claude Code is pointed at it via env.ANTHROPIC_BASE_URL (installed by the app's StatusBar
+// Activate button); started manually with `npm run proxy`. Capture must never fail or delay a request — errors go
 // to <CLAUDE_DIR>/.claude-discover/proxy.error.log instead of the client.
 //
 // Usage: node bin/capture-requests-proxy.mjs [--restart] [--port 41414] [--upstream https://api.anthropic.com]
@@ -21,7 +21,7 @@ const PORT = 41414 // also hardcoded as PROXY_URL in src/main/paths.js
 const UPSTREAM = 'https://api.anthropic.com'
 const CLAUDE_DIR = process.env.CLAUDE_CONFIG_DIR || path.join(os.homedir(), '.claude')
 const LOG_DIR = path.join(CLAUDE_DIR, '.claude-discover') // this app's data under the Claude dir
-const REQUESTS_DIR = path.join(LOG_DIR, 'requests') // old request logs are swept by bin/capture-context.hook.mjs on SessionEnd
+const REQUESTS_DIR = path.join(LOG_DIR, 'requests') // orphaned logs are swept by the app (RequestFile.sweepOrphans), not here
 export const ERROR_LOG_PATH = path.join(LOG_DIR, 'proxy.error.log')
 export const EXIT_ROUTE = '/claude-discover/exit' // POST here makes the proxy exit — how --restart replaces a running instance (the port is loopback-only and assumed ours)
 export const PING_ROUTE = '/claude-discover/ping' // answered directly (never forwarded) — polled by the app's ProxyController to show/settle the running state

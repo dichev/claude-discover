@@ -1,5 +1,5 @@
 import fsp from 'node:fs/promises'
-import { join } from 'node:path'
+import { join, basename } from 'node:path'
 import { CLAUDE_REQUESTS_DIR } from '../paths.js'
 import { RequestParser } from './RequestParser.js'
 
@@ -8,6 +8,21 @@ import { RequestParser } from './RequestParser.js'
 export class RequestFile {
   constructor(sessionId, dir = CLAUDE_REQUESTS_DIR) {
     this.filePath = join(dir, `${sessionId}.requests.jsonl`)
+  }
+
+  // Deletes request logs whose transcript is gone — a log is useless once Claude Code sweeps its
+  // transcript (per cleanupPeriodDays), and following the transcript's fate needs no retention
+  // math and can't race a session captured with the proxy off. `liveIds` must come from a
+  // complete scan of projects/; logs touched within the last day are kept regardless, since a
+  // brand-new session's transcript may not be on disk yet.
+  static async sweepOrphans(liveIds, dir = CLAUDE_REQUESTS_DIR) {
+    const cutoff = Date.now() - 24 * 60 * 60_000
+    for (const name of await fsp.readdir(dir).catch(() => [])) {
+      if (!name.endsWith('.requests.jsonl') || liveIds.has(basename(name, '.requests.jsonl'))) continue
+      const filePath = join(dir, name)
+      const stat = await fsp.stat(filePath).catch(() => null)
+      if (stat && stat.mtimeMs < cutoff) await fsp.rm(filePath, { force: true }).catch(() => {})
+    }
   }
 
   async lines() {
@@ -34,10 +49,9 @@ export class RequestFile {
   }
 
   // System prompts (request.system) and memory files (CLAUDE.md / MEMORY.md / … inside a user
-  // message's `# claudeMd` system-reminder) — the request log is the only place they're all
-  // recorded (the InstructionsLoaded hook misses some, and never sees the system prompt at all).
-  // Returns one record per unique system prompt / file_path, shaped like the capture-context
-  // hook's records (plus origin:'request') so the renderer treats both sources alike.
+  // message's `# claudeMd` system-reminder) — none of which Claude Code records in the session
+  // transcript, so the request log is the only source. Returns one `instructions-loaded` record
+  // per unique system prompt / file_path, merged into the transcript stream by readSession.
   async readInstructions() {
     const parser = new RequestParser()
     const files = new Map() // dedup key → record, first sight wins
@@ -47,7 +61,7 @@ export class RequestFile {
       if (!hasSystem && !line.includes('# claudeMd')) continue
       let rec
       try { rec = JSON.parse(line) } catch { continue }
-      const record = f => ({ type: 'instructions-loaded', origin: 'request', timestamp: rec.timestamp, ...f })
+      const record = f => ({ type: 'instructions-loaded', timestamp: rec.timestamp, ...f })
       const sys = hasSystem && parser.systemPrompt(rec)
       if (sys && !files.has(sys.hash)) files.set(sys.hash, record(sys))
       for (const f of parser.memoryFiles(rec)) {

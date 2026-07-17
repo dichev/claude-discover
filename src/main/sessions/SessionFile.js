@@ -42,19 +42,4 @@ export class SessionFile {
     return offset + consumed
   }
 
-  // Append-only NDJSON log written by bin/capture-context.hook.mjs via the InstructionsLoaded and SessionStart hooks
-  async readContext() {
-    const logPath = this.filePath.replace('.jsonl', '.context.ndjson')
-    const raw = await fsp.readFile(logPath, 'utf8').catch(() => '')
-    const records = []
-    for (const line of raw.split('\n')) {
-      if (!line) continue
-      try {
-        const rec = JSON.parse(line)
-        if (rec.file_path) records.push(rec)
-      } catch { /* skip malformed line */ }
-    }
-    return records
-  }
-
 }

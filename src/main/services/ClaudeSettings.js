@@ -1,5 +1,5 @@
 // Generic wrapper around <CLAUDE_DIR>/settings.json.
-// Keep app-specific logic (capture-context hook names, etc.) in callers.
+// Keep app-specific logic (hook/statusline names, etc.) in callers.
 import fs from 'node:fs'
 import { CLAUDE_SETTINGS } from '../paths.js'
 
@@ -24,6 +24,20 @@ export class ClaudeSettings {
   // The hook entry on this event whose command mentions `needle` (basename, so stale absolute paths still match), or undefined.
   findHook(eventName, needle) {
     return this.hooks(eventName).find(h => h.command?.includes(needle))
+  }
+
+
+  // Removes every hook on this event whose command mentions `needle` (basename, so stale
+  // absolute paths still match); groups left empty are dropped. Returns the removed commands.
+  removeHook(eventName, needle) {
+    const matches = h => h.command?.includes(needle)
+    const groups = this.cfg.hooks?.[eventName] ?? []
+    const removed = groups.flatMap(g => (g.hooks ?? []).filter(matches).map(h => h.command))
+    if (removed.length) {
+      for (const g of groups) g.hooks = (g.hooks ?? []).filter(h => !matches(h))
+      this.cfg.hooks[eventName] = groups.filter(g => g.hooks.length)
+    }
+    return removed
   }
 
   // Days Claude Code keeps transcripts before auto-deleting them; undefined when unset (its default is 30).
