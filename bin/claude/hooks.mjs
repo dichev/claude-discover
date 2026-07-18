@@ -2,7 +2,7 @@
 /*
 Single entry point for every Claude Code hook this app installs — reads the hook event JSON from stdin
 and dispatches on hook_event_name; add new hooks as new branches in main(). Standalone (no imports from
-src/), wired into <CLAUDE_DIR>/settings.json by the app's ProxyController (StatusBar Start/Stop button).
+src/), wired into <CLAUDE_DIR>/settings.json by the app's ProxySwitch (StatusBar Activate/Deactivate button).
 
 Currently handled:
 - SessionStart → ensureProxy(): revive the request-capture proxy (bin/capture-requests-proxy.mjs) if it's

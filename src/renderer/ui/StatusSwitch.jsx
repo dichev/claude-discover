@@ -1,0 +1,56 @@
+import React, { useEffect, useRef, useState } from 'react'
+import { createPortal } from 'react-dom'
+import tippy from 'tippy.js'
+
+// On/off feature switch in the StatusBar: tinted while `on`, optional ⚠ prefix, and a tooltip
+// with the passed prose plus an Activate/Deactivate button. Styles live in StatusBar.css.
+
+// Poll a main-process switch by name (5s, so external changes show up live) and expose its
+// toggle. `isOn` reads the on-flag from the status shape; toggle errors come back as
+// `status.error`, alerted.
+export function useSwitch({ name, isOn }) {
+  const [status, setStatus] = useState(null) // null until the first probe answers
+  const [busy, setBusy]     = useState(false)
+  useEffect(() => {
+    let alive = true
+    const check = () => window.api.getSwitchStatus(name).then(s => alive && setStatus(s))
+    check()
+    const timer = setInterval(check, 5000)
+    return () => { alive = false; clearInterval(timer) }
+  }, [])
+  const toggle = async () => {
+    setBusy(true)
+    const next = await (isOn(status) ? window.api.deactivateSwitch(name) : window.api.activateSwitch(name))
+    setStatus(next)
+    setBusy(false)
+    if (next.error) alert(next.error)
+  }
+  return { status, busy, toggle }
+}
+
+export default function StatusSwitch({ service, on, warn, className = '', tooltip, children }) {
+  const ref = useRef(null)
+  // Interactive tippy (stays open under the cursor) with a live React body, portalled into its
+  // container. main.jsx's global tippy delegate only targets [title] elements, so it skips this.
+  const [tip] = useState(() => document.createElement('div'))
+  useEffect(() => {
+    const t = tippy(ref.current, { content: tip, interactive: true, delay: [0, 0], appendTo: () => document.body })
+    return () => t.destroy()
+  }, [])
+  return (
+    <span className={`statusbar-group statusbar-seg ${className} ${on ? 'statusbar-seg-on' : ''}`} ref={ref}>
+      <span className={`statusbar-msg ${on ? 'statusbar-active' : 'statusbar-off'}`}>
+        {warn && '⚠ '}{children}
+      </span>
+      {createPortal(
+        <div className="statusbar-tooltip">
+          {tooltip}
+          <button className={`button-primary statusbar-tooltip-btn ${on ? 'statusbar-tooltip-btn-red' : 'statusbar-tooltip-btn-green'}`} disabled={service.busy || !service.status} onClick={service.toggle}>
+            {service.busy ? '…' : on ? 'Deactivate' : 'Activate'}
+          </button>
+        </div>,
+        tip
+      )}
+    </span>
+  )
+}

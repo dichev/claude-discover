@@ -24,7 +24,7 @@ const LOG_DIR = path.join(CLAUDE_DIR, '.claude-discover') // this app's data und
 const REQUESTS_DIR = path.join(LOG_DIR, 'requests') // orphaned logs are swept by the app (RequestFile.sweepOrphans), not here
 export const ERROR_LOG_PATH = path.join(LOG_DIR, 'proxy.error.log')
 export const EXIT_ROUTE = '/claude-discover/exit' // POST here makes the proxy exit — how --restart replaces a running instance (the port is loopback-only and assumed ours)
-export const PING_ROUTE = '/claude-discover/ping' // answered directly (never forwarded) — polled by the app's ProxyController to show/settle the running state
+export const PING_ROUTE = '/claude-discover/ping' // answered directly (never forwarded) — polled by the app's ProxySwitch to show/settle the running state
 export const PING_RESPONSE = 'claude-discover-proxy' // the ping body — proves it's this proxy on the port, not some other process
 
 
@@ -209,7 +209,7 @@ if (isMain) {
   const upstream = new URL(args.values.upstream || UPSTREAM)
   // Fail fast when the upstream is unreachable — a clear exit beats a proxy that 502s every request.
   // Runs before --restart so a working instance is never replaced by a broken one. Exit code 2 is
-  // recognized by the app's ProxyController ("cannot reach upstream").
+  // recognized by the app's ProxySwitch ("cannot reach upstream").
   try {
     await fetch(new URL('/v1/models', upstream), { signal: AbortSignal.timeout(5000) })
   } catch (err) {

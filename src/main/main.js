@@ -5,9 +5,7 @@ import { WorkHours } from './services/WorkHours.js'
 import { AgentRunner } from './services/AgentRunner.js'
 import { MainWindow } from './windows/MainWindow.js'
 import { CLAUDE_DIR } from './paths.js'
-import { ProxyController } from './services/ProxyController.js'
-import { StatuslineController } from './services/StatuslineController.js'
-import { RetentionController } from './services/RetentionController.js'
+import { Switchers } from './services/switchers/Switchers.js'
 
 if (import.meta.env.DEV) await import('./debug.js')
 
@@ -49,20 +47,10 @@ app.whenReady().then(() => {
 
   ipcMain.on('claude-settings:get', e => e.returnValue = { claudeDir: CLAUDE_DIR })
 
-  const proxy = new ProxyController()
-  ipcMain.handle('proxy:status', () => proxy.status())
-  ipcMain.handle('proxy:start',  () => proxy.start())
-  ipcMain.handle('proxy:stop',   () => proxy.stop())
-
-  const statusline = new StatuslineController()
-  ipcMain.handle('statusline:status',     () => statusline.status())
-  ipcMain.handle('statusline:activate',   () => statusline.activate())
-  ipcMain.handle('statusline:deactivate', () => statusline.deactivate())
-
-  const retention = new RetentionController()
-  ipcMain.handle('retention:status',     () => retention.status())
-  ipcMain.handle('retention:activate',   () => retention.activate())
-  ipcMain.handle('retention:deactivate', () => retention.deactivate())
+  const switchers = new Switchers() // the on/off features behind the StatusBar switches
+  ipcMain.handle('switch:status',     (_e, name) => switchers.status(name))
+  ipcMain.handle('switch:activate',   (_e, name) => switchers.activate(name))
+  ipcMain.handle('switch:deactivate', (_e, name) => switchers.deactivate(name))
 })
 
 app.on('window-all-closed', () => {
