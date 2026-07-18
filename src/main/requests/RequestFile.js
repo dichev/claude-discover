@@ -50,8 +50,8 @@ export class RequestFile {
 
   // System prompts (request.system) and memory files (CLAUDE.md / MEMORY.md / … inside a user
   // message's `# claudeMd` system-reminder) — none of which Claude Code records in the session
-  // transcript, so the request log is the only source. Returns one `instructions-loaded` record
-  // per unique system prompt / file_path, merged into the transcript stream by readSession.
+  // transcript, so the request log is the only source. Returns one record per unique system
+  // prompt / file_path; readSession ships them alongside the transcript items.
   async readInstructions() {
     const parser = new RequestParser()
     const files = new Map() // dedup key → record, first sight wins
@@ -61,7 +61,7 @@ export class RequestFile {
       if (!hasSystem && !line.includes('# claudeMd')) continue
       let rec
       try { rec = JSON.parse(line) } catch { continue }
-      const record = f => ({ type: 'instructions-loaded', timestamp: rec.timestamp, ...f })
+      const record = f => ({ timestamp: rec.timestamp, ...f })
       const sys = hasSystem && parser.systemPrompt(rec)
       if (sys && !files.has(sys.hash)) files.set(sys.hash, record(sys))
       for (const f of parser.memoryFiles(rec)) {

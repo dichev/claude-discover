@@ -7,11 +7,11 @@ import PromptEditor from '../../agent/PromptEditor.jsx'
 import AgentOutput from '../../agent/AgentOutput.jsx'
 import './AgentView.css'
 
-export default function AgentView({ meta, items, agent, onClose }) {
+export default function AgentView({ meta, items, instructions, agent, onClose }) {
   const [pretty, setPretty] = useLocalStorage('agent.pretty', true)
   const [copied, setCopied] = useState(false)
 
-  const { body } = markdownSession(meta, items, agent.truncated)
+  const { body } = markdownSession(meta, items, agent.truncated, instructions)
   const combinedText = `${agent.prompt}\n\n---\n${body}`
 
   const onCopy = async () => {

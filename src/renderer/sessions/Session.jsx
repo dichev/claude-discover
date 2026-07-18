@@ -16,11 +16,12 @@ const TABS = [
 ]
 
 export default function Session({ meta, date, granularity = 'day' }) {
-  const [items, setItems]         = useState(null)
-  const [loading, setLoading]     = useState(false)
-  const [mode, setMode]           = useLocalStorage('session.view-mode', 'conversation')
-  const [agentOpen, setAgentOpen] = useState(false)
-  const [expandAll, setExpandAll] = useState(null)
+  const [items, setItems]               = useState(null)
+  const [instructions, setInstructions] = useState([])
+  const [loading, setLoading]           = useState(false)
+  const [mode, setMode]                 = useLocalStorage('session.view-mode', 'conversation')
+  const [agentOpen, setAgentOpen]       = useState(false)
+  const [expandAll, setExpandAll]       = useState(null)
   const offsetRef = useRef(0)
   const sessionId = meta?.sessionId
   const fileSize = meta?.fileSize
@@ -29,6 +30,7 @@ export default function Session({ meta, date, granularity = 'day' }) {
   useEffect(() => {
     offsetRef.current = 0
     setItems(null)
+    setInstructions([])
     setLoading(!!sessionId)
   }, [sessionId, date, granularity])
 
@@ -40,6 +42,7 @@ export default function Session({ meta, date, granularity = 'day' }) {
       if (cancelled || !res) return
       offsetRef.current = res.nextOffset
       setItems((prev) => from === 0 ? res.items : (prev || []).concat(res.items))
+      if (from === 0) setInstructions(res.instructions || [])
       setLoading(false)
     })
     return () => { cancelled = true }
@@ -54,7 +57,7 @@ export default function Session({ meta, date, granularity = 'day' }) {
       <div className="view-body">
         <div className="view-conversation">
           {agentOpen ? (
-            <AgentView meta={meta} items={items} agent={agent} onClose={() => setAgentOpen(false)} />
+            <AgentView meta={meta} items={items} instructions={instructions} agent={agent} onClose={() => setAgentOpen(false)} />
           ) : (
             <div className="view-tab-pane">
               <div className="view-tab-pane-row">
@@ -79,7 +82,7 @@ export default function Session({ meta, date, granularity = 'day' }) {
                   {mode === 'conversation' ? (
                     <div className="view-tab-pane-content">
                       {loading && <div className="empty">Loading conversation…</div>}
-                      {items && <ConversationView items={items} expandAll={expandAll} />}
+                      {items && <ConversationView items={items} instructions={instructions} expandAll={expandAll} />}
                     </div>
                   ) : mode === 'jsonl' ? (
                     <JsonlView items={items} expandAll={expandAll} />
@@ -87,7 +90,7 @@ export default function Session({ meta, date, granularity = 'day' }) {
                     <RequestsView sessionId={sessionId} date={date} granularity={granularity} expandAll={expandAll} />
                   )}
                 </div>
-                <SessionSummary meta={meta} items={items} agent={agent} onOpenAgent={() => setAgentOpen(true)} granularity={granularity} />
+                <SessionSummary meta={meta} items={items} instructions={instructions} agent={agent} onOpenAgent={() => setAgentOpen(true)} granularity={granularity} />
               </div>
             </div>
           )}

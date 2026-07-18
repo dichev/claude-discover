@@ -351,8 +351,8 @@ button.msg-summary:hover { color: var(--text); background: var(--bg-elev-2); bor
   }
 }
 
-/* Events synthesized by this app (e.g. instructions-loaded), not produced by Claude Code. */
-.custom-event {
+/* Instruction files (system prompt / CLAUDE.md / memory) extracted from the captured API requests. */
+.instruction-file {
   border-left: 2px solid #a78bfa;
   padding-left: 8px;
   margin-left: -10px;

@@ -56,7 +56,7 @@ function renderTurn(t) {
 export const TRUNCATE_LINES = 10
 export const TRUNCATE_LINE_CHARS = 200
 
-export function markdownSession(meta, items, truncated) {
+export function markdownSession(meta, items, truncated, instructions = []) {
   MAX_LINES = truncated ? TRUNCATE_LINES : Infinity
   MAX_LINE_CHARS = truncated ? TRUNCATE_LINE_CHARS : Infinity
   const t = meta.tokens
@@ -65,7 +65,7 @@ export function markdownSession(meta, items, truncated) {
   const contextPct = Math.round((meta.lastContextTokens / CONTEXT_WINDOW) * 100)
   const cacheHitPct = (meta.cacheHitRatio * 100).toFixed(0)
   const transcript = items
-    ? flatten(items).map(renderTurn).join('\n\n---\n\n')
+    ? flatten(items, instructions).map(renderTurn).join('\n\n---\n\n')
     : '_Loading…_'
   const conversation = `\n# Conversation\n\n${transcript}`
 

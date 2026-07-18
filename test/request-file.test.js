@@ -143,13 +143,12 @@ describe('RequestFile.readInstructions', () => {
       'System prompt', 'C:\\Users\\me\\.claude\\CLAUDE.md', 'D:\\proj\\CLAUDE.md', 'C:\\Users\\me\\.claude\\projects\\p\\memory\\MEMORY.md',
     ])
     expect(files[0]).toMatchObject({ memory_type: 'claude-sonnet-5', content: 'Be terse', hash: 'sys1' })
-    expect(files.every(f => f.type === 'instructions-loaded')).toBe(true)
     expect(files.every(f => f.timestamp === '2026-07-14T10:00:00.000Z')).toBe(true) // first sight wins
   })
 
   it('joins block-array system prompts into one text', async () => {
     const files = await new RequestFile('sess-1', dir).readInstructions()
-    expect(files).toEqual([{ type: 'instructions-loaded', timestamp: '2026-07-14T10:00:00.000Z',
+    expect(files).toEqual([{ timestamp: '2026-07-14T10:00:00.000Z',
       file_path: 'System prompt', memory_type: 'claude-sonnet-5', content: 'You are Claude Code', hash: 'aaa' }])
   })
 

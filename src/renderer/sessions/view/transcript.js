@@ -1,7 +1,9 @@
 // Pure transcript model, shared by ConversationView (rendering) and MarkdownSession (agent
 // payload): raw session items → turns (flatten) → row groups (groupTurns) → per-group stats.
 
-export function flatten(items) {
+// `instructions` are the system prompts / memory files captured by the request proxy
+// (readSession's separate `instructions` list) — not transcript items, merged in by timestamp.
+export function flatten(items, instructions = []) {
   const turns = []
   const results = {}
   for (const it of items) {
@@ -30,17 +32,6 @@ export function flatten(items) {
           blocks: [block]
         })
       }
-      continue
-    }
-    if (it.type === 'instructions-loaded') {
-      turns.push({
-        uuid: `instr-${it.hash ?? it.file_path}-${it.timestamp}`, // system prompts share a file_path, their hash disambiguates
-        role: 'instruction',
-        isMeta: true,
-        ts: it.timestamp ? Date.parse(it.timestamp) : null,
-        model: null, usage: null, tokenDelta: null, tokenTotal: null,
-        blocks: [{ type: 'instruction', it }]
-      })
       continue
     }
     // Workflow journal records (subagents/workflows/<wf>/journal.jsonl): each `result` carries an
@@ -86,7 +77,21 @@ export function flatten(items) {
       .map((b) => (b.type === 'tool_use' ? { ...b, result: results[b.id] } : b))
       .filter((b) => !(b.type === 'tool_result' && results[b.tool_use_id]))
   }
-  return turns.filter((t) => t.blocks.length > 0)
+  const out = turns.filter((t) => t.blocks.length > 0)
+  // Slot each instruction in backdated 500ms, above the user message whose request carried it.
+  for (const it of instructions) {
+    const turn = {
+      uuid: `instr-${it.hash ?? it.file_path}-${it.timestamp}`, // system prompts share a file_path, their hash disambiguates
+      role: 'instruction',
+      isMeta: true,
+      ts: it.timestamp ? Date.parse(it.timestamp) - 500 : null,
+      model: null, usage: null, tokenDelta: null, tokenTotal: null,
+      blocks: [{ type: 'instruction', it }]
+    }
+    const i = out.findIndex(t => t.ts != null && t.ts > turn.ts)
+    i === -1 ? out.push(turn) : out.splice(i, 0, turn)
+  }
+  return out
 }
 
 function normalizeContent(content) {

@@ -24,14 +24,11 @@ function prune(value, q) {
   return Object.keys(out).length ? out : undefined
 }
 
-// Event types we synthesize ourselves (extracted from the captured API requests), not produced by Claude Code.
-const CUSTOM_EVENT_TYPES = new Set(['instructions-loaded'])
-
 function labelFor(entry) {
   if (!entry || typeof entry !== 'object') return 'entry'
   const type = entry.type || entry.message?.role
   if (!type) return 'entry'
-  const sub = entry.memory_type ?? (entry.message?.role !== type ? entry.message?.role : null)
+  const sub = entry.message?.role !== type ? entry.message?.role : null
   return sub ? `${type}:${sub}` : type
 }
 
@@ -49,7 +46,7 @@ export default function JsonlView({ items, expandAll = null }) {
   const entries = (items ?? [])
     .map((parsed) => {
       const value = q ? prune(parsed, q) : parsed
-      return value === undefined ? undefined : { value, label: labelFor(parsed), isCustom: CUSTOM_EVENT_TYPES.has(parsed?.type) }
+      return value === undefined ? undefined : { value, label: labelFor(parsed) }
     })
     .filter((e) => e !== undefined)
 
@@ -61,9 +58,9 @@ export default function JsonlView({ items, expandAll = null }) {
       <div className="jsonl-viewer-content">
         {entries.length > 0 && (
           <ul className="jsonl-viewer-toc">
-            {entries.map(({ label, isCustom }, i) => (
+            {entries.map(({ label }, i) => (
               <li key={i}>
-                <button type="button" onClick={() => scrollTo(i)} title={isCustom ? `${label} (custom event)` : label} className={isCustom ? 'jsonl-viewer-toc-custom' : ''}>
+                <button type="button" onClick={() => scrollTo(i)} title={label}>
                   <span className="jsonl-viewer-toc-index">{i + 1}</span>
                   <span className="jsonl-viewer-toc-label">{label}</span>
                 </button>

@@ -50,16 +50,12 @@ export class SessionsService extends EventEmitter {
     const parser = new SessionParser({ sessionId: reader.sessionId, parentSessionId: reader.parentSessionId, filePath: reader.filePath, mtime: meta.mtime, range })
     const items = []
     const nextOffset = await reader.streamFrom(offset, obj => { if (parser.feed(obj)) items.push(obj) })
-    // System prompts and memory files captured by the request proxy, only on the first read,
-    // backdated so they sort above the user message whose request carried them.
-    if (offset === 0) {
-      for (const x of await new RequestFile(reader.sessionId).readInstructions()) {
-        items.push(Object.assign(x, { _ts: Date.parse(x.timestamp) - 500 }))
-      }
-    }
     items.sort((a, b) => a._ts - b._ts) // .jsonl lines aren't always in timestamp order
     for (const o of items) delete o._ts
-    return { meta: stripInternal(meta), items, nextOffset }
+    // System prompts and memory files captured by the request proxy, shipped separately from the
+    // transcript items (only on the first read); the renderer slots them into the view by timestamp.
+    const instructions = offset === 0 ? await new RequestFile(reader.sessionId).readInstructions() : []
+    return { meta: stripInternal(meta), items, instructions, nextOffset }
   }
 
   // Captured API requests for a session (see bin/capture-requests-proxy.mjs), period-filtered like readSession.

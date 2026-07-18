@@ -9,10 +9,10 @@ import './SessionSummary.css'
 
 const CONTEXT_WINDOW = T.context.danger
 
-export default function SessionSummary({ meta, items, agent, onOpenAgent, granularity = 'day' }) {
+export default function SessionSummary({ meta, items, instructions, agent, onOpenAgent, granularity = 'day' }) {
   const timeFormat = granularity === 'day' ? 'pp' : 'MMM d, pp'
   const onAnalyze = () => {
-    const { body } = markdownSession(meta, items, agent.truncated)
+    const { body } = markdownSession(meta, items, agent.truncated, instructions)
     agent.send(`${agent.prompt}\n\n---\n${body}`)
   }
   const t = meta.tokens

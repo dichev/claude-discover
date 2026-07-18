@@ -24,8 +24,8 @@ function useCollapsed(defaultOpen) {
 const isCommandTurn = t => t.blocks.some(b => b.type === 'text' && parseCommand(b.text)?.name)
 
 
-export default function ConversationView({ items, expandAll = null }) {
-  const turns     = useMemo(() => flatten(items), [items])
+export default function ConversationView({ items, instructions = [], expandAll = null }) {
+  const turns     = useMemo(() => flatten(items, instructions), [items, instructions])
   const groups    = useMemo(() => groupTurns(turns), [turns])
   const points    = useMemo(() => tokenPoints(groups), [groups])
   const durations = useMemo(() => cycleDurations(groups), [groups])
@@ -325,7 +325,7 @@ function JsonBlock({ value }) {
 function InstructionFile({ it, showNote }) {
   const [open, setOpen] = useCollapsed(false)
   return (
-    <div className="aux custom-event">
+    <div className="aux instruction-file">
       {showNote && (
         <div className="instructions-note">Extracted from the API requests captured by the proxy.</div>
       )}
