@@ -3,12 +3,14 @@ import { createPortal } from 'react-dom'
 import tippy from 'tippy.js'
 
 // On/off feature switch in the StatusBar: tinted while `on`, optional ⚠ prefix, and a tooltip
-// with the passed prose plus an Activate/Deactivate button. Styles live in StatusBar.css.
+// with the passed prose plus an Activate/Deactivate button — or, with a custom `button` label,
+// an action button that always activates. Styles live in StatusBar.css.
 
 // Poll a main-process switch by name (5s, so external changes show up live) and expose its
-// toggle. `isOn` reads the on-flag from the status shape; toggle errors come back as
+// toggle. `isOn` reads the on-flag from the status shape (defaults to never-on, for
+// action-style switches whose toggle always activates); toggle errors come back as
 // `status.error`, alerted.
-export function useSwitch({ name, isOn }) {
+export function useSwitch({ name, isOn = () => false }) {
   const [status, setStatus] = useState(null) // null until the first probe answers
   const [busy, setBusy]     = useState(false)
   useEffect(() => {
@@ -28,7 +30,7 @@ export function useSwitch({ name, isOn }) {
   return { status, busy, toggle }
 }
 
-export default function StatusSwitch({ service, on, warn, className = '', tooltip, children }) {
+export default function StatusSwitch({ service, on, warn, button, className = '', tooltip, children }) {
   const ref = useRef(null)
   // Interactive tippy (stays open under the cursor) with a live React body, portalled into its
   // container. main.jsx's global tippy delegate only targets [title] elements, so it skips this.
@@ -39,14 +41,14 @@ export default function StatusSwitch({ service, on, warn, className = '', toolti
   }, [])
   return (
     <span className={`statusbar-group statusbar-seg ${className} ${on ? 'statusbar-seg-on' : ''}`} ref={ref}>
-      <span className={`statusbar-msg ${on ? 'statusbar-active' : 'statusbar-off'}`}>
+      <span className={`statusbar-msg ${button ? '' : on ? 'statusbar-active' : 'statusbar-off'}`}>
         {warn && '⚠ '}{children}
       </span>
       {createPortal(
         <div className="statusbar-tooltip">
           {tooltip}
-          <button className={`button-primary statusbar-tooltip-btn ${on ? 'statusbar-tooltip-btn-red' : 'statusbar-tooltip-btn-green'}`} disabled={service.busy || !service.status} onClick={service.toggle}>
-            {service.busy ? '…' : on ? 'Deactivate' : 'Activate'}
+          <button className={`button-primary statusbar-tooltip-btn ${button ? 'statusbar-tooltip-btn-blue' : on ? 'statusbar-tooltip-btn-red' : 'statusbar-tooltip-btn-green'}`} disabled={service.busy || !service.status} onClick={service.toggle}>
+            {service.busy ? '…' : button || (on ? 'Deactivate' : 'Activate')}
           </button>
         </div>,
         tip

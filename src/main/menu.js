@@ -1,8 +1,6 @@
-import { app, BrowserWindow, Menu, dialog } from 'electron'
-import { CLAUDE_DIR, RECENT_CLAUDE_DIRS, setConfig } from './paths.js'
-
-const IS_DEV = !!process.env.ELECTRON_RENDERER_URL
-
+import { Menu } from 'electron'
+import { CLAUDE_DIR, RECENT_CLAUDE_DIRS } from './paths.js'
+import { browseForClaudeDir, switchToClaudeDir } from './services/switchers/ClaudeDirSwitch.js'
 
 
 export function buildAppMenu({ onFind, onEscape } = {}) {
@@ -11,10 +9,10 @@ export function buildAppMenu({ onFind, onEscape } = {}) {
     {
       label: 'File',
       submenu: [
-        { label: 'Change directory…', click: (_i, win) => browse(win) },
+        { label: 'Change directory…', click: (_i, win) => browseForClaudeDir(win) },
         { type: 'separator' },
         ...RECENT_CLAUDE_DIRS.map(p => ({
-          label: p, type: 'checkbox', checked: p === CLAUDE_DIR, click: () => switchTo(p),
+          label: p, type: 'checkbox', checked: p === CLAUDE_DIR, click: () => switchToClaudeDir(p),
         })),
         { type: 'separator' },
         { role: 'quit' },
@@ -39,30 +37,4 @@ export function buildAppMenu({ onFind, onEscape } = {}) {
       ],
     },
   ])
-}
-
-
-function switchTo(claudeDir) {
-  if (!claudeDir || claudeDir === CLAUDE_DIR) return
-  setConfig({ claudeDir, recents: [...new Set([...RECENT_CLAUDE_DIRS, claudeDir])] })
-
-  if (IS_DEV) { // electron-vite dev tears down its Vite server when Electron exits, so app.relaunch() leaves the respawned window with no renderer to load.
-    dialog.showMessageBoxSync({ type: 'info',  message: 'Restart required',  detail: 'Stop and re-run `npm run dev` to apply the new directory.'})
-    app.quit()
-  } else {
-    app.relaunch()
-    BrowserWindow.getAllWindows().forEach(w => w.close())
-    app.exit(0)
-  }
-}
-
-async function browse(win) {
-  const r = await dialog.showOpenDialog(win, {
-    title: 'Select Claude directory',
-    defaultPath: CLAUDE_DIR,
-    properties: ['openDirectory'],
-  })
-  if (!r.canceled) {
-    switchTo(r.filePaths[0])
-  }
 }

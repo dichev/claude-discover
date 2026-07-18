@@ -4,12 +4,14 @@
 import { ProxySwitch } from './ProxySwitch.js'
 import { StatuslineSwitch } from './StatuslineSwitch.js'
 import { RetentionSwitch } from './RetentionSwitch.js'
+import { ClaudeDirSwitch } from './ClaudeDirSwitch.js'
 
 export class Switchers {
   #switches = {
     proxy:      new ProxySwitch(),
     statusline: new StatuslineSwitch(),
     retention:  new RetentionSwitch(),
+    claudedir:  new ClaudeDirSwitch(),
   }
 
   status(name)     { return this.#get(name).status() }

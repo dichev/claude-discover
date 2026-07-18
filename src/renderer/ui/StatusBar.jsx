@@ -24,6 +24,11 @@ const statuslineTooltip = <>
   <p><b>Activate</b> installs it as the <code>statusLine</code> command in <code>settings.json</code>; <b>Deactivate</b> removes it. If you already use a different status line, it's left untouched.</p>
 </>
 
+const claudeDirTooltip = <>
+  <p>The Claude data directory this app reads its sessions from — transcripts live in its <code>projects/</code> subfolder, settings in <code>settings.json</code>.</p>
+  <p><b>Change directory</b> opens a folder picker and restarts the app on the chosen directory. Previously used directories are listed in the File menu (press Alt).</p>
+</>
+
 const ONE_YEAR_DAYS = 365
 
 // Humanize a day count for the status bar: years once past a year, otherwise raw days.
@@ -36,10 +41,11 @@ function humanizeDays(days) {
 export default function StatusBar({ progress, sessionCount = 0 }) {
   const { claudeDir } = window.api.claudeSettings
   // Status shapes come from the matching *Switch in src/main/services/switchers/:
-  // proxy { running, configured } · statusline { installed } · retention { days, raised }
+  // proxy { running, configured } · statusline { installed } · retention { days, raised } · claudedir { dir }
   const proxy      = useSwitch({ name: 'proxy',      isOn: s => s?.running })
   const statusline = useSwitch({ name: 'statusline', isOn: s => s?.installed })
   const retention  = useSwitch({ name: 'retention',  isOn: s => s?.raised })
+  const claudedir  = useSwitch({ name: 'claudedir' }) // action-style: its button always activates (opens the folder picker)
   const proxyRunning = proxy.status?.running
   const proxyDown = proxy.status?.configured && proxyRunning === false // Claude Code is pointed at a dead proxy — it can't reach the API
   const retentionRaised = retention.status?.raised
@@ -70,9 +76,9 @@ export default function StatusBar({ progress, sessionCount = 0 }) {
       <StatusSwitch service={statusline} on={statusline.status?.installed} tooltip={statuslineTooltip}>
         Status line : {statusline.status?.installed ? 'ON' : 'off'}
       </StatusSwitch>
-      <span className="statusbar-claude-dir" title="Use the File menu (press Alt) to change directory.">
+      <StatusSwitch service={claudedir} button="Change directory" className="statusbar-claude-dir" tooltip={claudeDirTooltip}>
         Claude dir: <code>{claudeDir}</code>
-      </span>
+      </StatusSwitch>
     </div>
   )
 }
