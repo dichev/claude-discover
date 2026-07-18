@@ -6,9 +6,9 @@
     node bin/usage.mjs [daily|weekly|monthly] [--since yyyy-MM-dd] [--until yyyy-MM-dd] [--timezone Area/City]
     (granularity defaults to monthly)
 
-  To compare against ccusage use UTC timezone:
+  To compare against ccusage use UTC and its claude-only subcommand (weekly also needs --start-of-week monday):
     node bin/usage.mjs monthly --timezone UTC
-    npx ccusage monthly
+    npx ccusage claude monthly -z UTC
 */
 
 import { addDays, addWeeks, addMonths, parseISO, isValid, format } from 'date-fns'

@@ -35,13 +35,14 @@ async function ourTotals(claudeDir, range) {
 }
 
 function ccusageTotals(subcommand, claudeDir) {
-  const res = spawnSync(`npx ccusage@latest ${subcommand} --json -m calculate -z UTC`, {
+  const week = subcommand === 'weekly' ? ' --start-of-week monday' : ''
+  const res = spawnSync(`npx ccusage@latest claude ${subcommand} --json -m calculate -z UTC${week}`, {
     encoding: 'utf8', shell: true, maxBuffer: 64 * 1024 * 1024,
     env: { ...process.env, CLAUDE_CONFIG_DIR: claudeDir },
   })
   if (res.status !== 0 || !res.stdout) throw new Error(`ccusage ${subcommand} failed: ${res.stderr || '(no output)'}`)
   return JSON.parse(res.stdout)[subcommand].map(d => ({
-    period: d.period,
+    period: d.date ?? d.week ?? d.month,
     totals: {
       input: d.inputTokens,
       output: d.outputTokens,
