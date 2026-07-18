@@ -37,11 +37,12 @@
   flex-direction: column;
   gap: 4px;
   background: var(--bg);
-  font-size: 12px;
+  /* Shift/Ctrl+wheel zoom (useMouseFontScale): font sizes below multiply this scale. */
+  font-size: calc(12px * var(--font-scale, 1));
 
   & .w-json-view-container {
     --w-rjv-background-color: rgb(6 6 6) !important;
-    font-size: 12px !important;
+    font-size: calc(12px * var(--font-scale, 1)) !important;
     line-height: 1.2 !important;
   }
   & .w-rjv-value {

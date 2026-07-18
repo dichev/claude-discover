@@ -1,6 +1,7 @@
-import React, { useEffect, useMemo, useRef, useState, useCallback } from 'react'
+import React, { useEffect, useMemo, useRef, useState } from 'react'
 import { SOURCE_COLORS, SOURCE_LABELS } from '../utils/colors.js'
 import { useLocalStorage } from '../utils/useLocalStorage.js'
+import { useMouse } from '../utils/useMouse.js'
 import { subagentClusters, isJournal } from '../utils/subagents.js'
 import HeatStrip from './HeatStrip.jsx'
 import TimeAxis, { computeTicks } from './TimeAxis.jsx'
@@ -120,54 +121,27 @@ export default function GanttChart({
     [view.start, view.end, chartWidth, span],
   )
 
-  const onWheel = useCallback((e) => {
-    if (!(e.shiftKey || e.ctrlKey) && e.deltaX === 0) return
-    e.preventDefault()
-    const rect = containerRef.current.getBoundingClientRect()
-    const xInCanvas = e.clientX - rect.left
-    const ratio = Math.min(1, Math.max(0, (xInCanvas - PROJECTS_WIDTH) / chartWidth))
-    if (e.shiftKey || e.ctrlKey) {
+  useMouse(containerRef, {
+    onZoom: (e) => { // cursor-anchored: the timestamp under the pointer stays put
+      const rect = containerRef.current.getBoundingClientRect()
+      const xInCanvas = e.clientX - rect.left
+      const ratio = Math.min(1, Math.max(0, (xInCanvas - PROJECTS_WIDTH) / chartWidth))
       const newSpan = Math.max(60_000, Math.min(dayRange.end - dayRange.start, span * Math.exp(e.deltaY * 0.0015)))
       const center = view.start + ratio * span
       const start = Math.max(dayRange.start, center - ratio * newSpan)
       const end = Math.min(dayRange.end, center + (1 - ratio) * newSpan)
       setView((v) => ({ ...v, start, end }))
-    } else {
-      const dt = (e.deltaX / chartWidth) * span
+    },
+    onReset: () => setView((v) => ({ ...v, start: dayRange.start, end: dayRange.end })),
+    onPan: (dx) => {
+      const dt = (dx / chartWidth) * span
       setView((v) => {
         const newStart = Math.max(dayRange.start, v.start + dt)
         const newEnd = Math.min(dayRange.end, v.end + dt)
         return newEnd - newStart < span ? v : { ...v, start: newStart, end: newEnd }
       })
-    }
-  }, [span, view.start, chartWidth, dayRange])
-
-  useEffect(() => {
-    const el = containerRef.current
-    if (!el) return
-    el.addEventListener('wheel', onWheel, { passive: false })
-    return () => el.removeEventListener('wheel', onWheel)
-  }, [onWheel])
-
-  const handleMouseDown = useCallback((e) => {
-    let startX = e.clientX
-    const handleMove = (moveEvent) => {
-      const deltaX = moveEvent.clientX - startX
-      const dt = (deltaX / chartWidth) * span
-      setView((v) => {
-        const newStart = Math.max(dayRange.start, v.start - dt)
-        const newEnd = Math.min(dayRange.end, v.end - dt)
-        return newEnd - newStart < span ? v : { ...v, start: newStart, end: newEnd }
-      })
-      startX = moveEvent.clientX
-    }
-    const handleUp = () => {
-      document.removeEventListener('mousemove', handleMove)
-      document.removeEventListener('mouseup', handleUp)
-    }
-    document.addEventListener('mousemove', handleMove)
-    document.addEventListener('mouseup', handleUp)
-  }, [chartWidth, span, dayRange])
+    },
+  })
 
   return (
     <div className="gantt-wrap">
@@ -178,7 +152,7 @@ export default function GanttChart({
         width={width}
         gutter={PROJECTS_WIDTH}
       />
-      <div className="gantt-canvas" ref={containerRef} onMouseDown={handleMouseDown}>
+      <div className="gantt-canvas" ref={containerRef}>
         <svg width={width} height={totalHeight}>
           <defs>
             <pattern id="gantt-subagent-hatch" patternUnits="userSpaceOnUse" width={5} height={5} patternTransform="rotate(45)">

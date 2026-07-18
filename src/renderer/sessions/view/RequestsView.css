@@ -121,9 +121,10 @@
   overflow: auto;
   padding: 8px 12px 12px;
 
+  /* Shift/Ctrl+wheel zoom (useMouseFontScale): font sizes below multiply this scale. */
   & .w-json-view-container {
     --w-rjv-background-color: rgb(6 6 6) !important;
-    font-size: 12px !important;
+    font-size: calc(12px * var(--font-scale, 1)) !important;
     line-height: 1.2 !important;
   }
 }
@@ -133,7 +134,7 @@
    inline style; indents mirror its KeyValues: 6px margin + 15px padding + guide line) */
 .requests-doc {
   font-family: var(--w-rjv-font-family, monospace);
-  font-size: 12px;
+  font-size: calc(12px * var(--font-scale, 1));
   line-height: 1.2;
 
   & .key { color: var(--w-rjv-key-string); }
@@ -184,7 +185,7 @@
   justify-content: space-between;
   color: var(--text-faint);
   text-transform: uppercase;
-  font-size: 11px;
+  font-size: calc(11px * var(--font-scale, 1));
   letter-spacing: 0.5px;
   padding: 2px 0 6px;
 }

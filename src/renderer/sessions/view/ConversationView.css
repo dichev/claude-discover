@@ -1,11 +1,13 @@
 .conversation {
   display: flex;
   flex-direction: column;
-  max-width: 820px;
+  max-width: calc(820px * var(--font-scale, 1));
   width: 100%;
   margin-left: auto;
   margin-right: auto;
   font-family: var(--font-mono), monospace;
+  /* Shift/Ctrl+wheel zoom (useMouseFontScale): every font size below multiplies this scale. */
+  font-size: calc(11px * var(--font-scale, 1));
 }
 
 .conv-row + .conv-row { margin-top: 15px; }
@@ -19,7 +21,7 @@
    Totals live in the message headers (see TokenStats); delta and context size in their tooltip. */
 .conversation.has-token-timeline {
   position: relative;
-  max-width: 848px;
+  max-width: calc(848px * var(--font-scale, 1));
   padding-right: 28px;
 }
 
@@ -123,19 +125,19 @@
   gap: 6px;
   margin-top: 6px;
   margin-bottom: 4px;
-  font-size: 11px;
+  font-size: calc(11px * var(--font-scale, 1));
   color: var(--text-faint);
 }
 
 
 .msg-icon {
-  width: 15px;
-  height: 15px;
+  width: calc(15px * var(--font-scale, 1));
+  height: calc(15px * var(--font-scale, 1));
   flex: none;
   color: var(--text-dim);
 }
 
-.msg-author { color: var(--text); font-weight: 600; font-size: 12px; }
+.msg-author { color: var(--text); font-weight: 600; font-size: calc(12px * var(--font-scale, 1)); }
 .msg-user .msg-author { color: rgb(113, 183, 214); }
 
 .msg-summary {
@@ -175,7 +177,7 @@ button.msg-summary:hover { color: var(--text); background: var(--bg-elev-2); bor
 
 .msg-time, .msg-tokens, .msg-summary {
   font-family: var(--font-mono), monospace;
-  font-size: 10.5px;
+  font-size: calc(10.5px * var(--font-scale, 1));
   color: var(--text-faint);
 }
 
@@ -227,18 +229,18 @@ button.msg-summary:hover { color: var(--text); background: var(--bg-elev-2); bor
     border-radius: 4px;
     padding: 6px 10px;
     color: var(--text-faint);
-    font-size: 12px;
+    font-size: calc(12px * var(--font-scale, 1));
     max-width: 100%;
   }
 }
 .turn-assistant.turn-meta-note .turn-blocks > .aux { align-self: flex-start; }
 
 .tool-result {
-  font-size: 12px;
+  font-size: calc(12px * var(--font-scale, 1));
 
   & .tool-result-label {
     color: var(--text-faint);
-    font-size: 11px;
+    font-size: calc(11px * var(--font-scale, 1));
     font-family: var(--font-mono), monospace;
     margin-bottom: 2px;
   }
@@ -246,7 +248,7 @@ button.msg-summary:hover { color: var(--text); background: var(--bg-elev-2); bor
   & pre {
     margin: 0;
     font-family: var(--font-mono), monospace;
-    font-size: 11.5px;
+    font-size: calc(11.5px * var(--font-scale, 1));
     white-space: pre-wrap;
     word-break: break-word;
     color: var(--text-dim);
@@ -274,7 +276,7 @@ button.msg-summary:hover { color: var(--text); background: var(--bg-elev-2); bor
   white-space: pre-wrap;
   word-break: break-word;
   font-family: var(--font-mono), monospace;
-  font-size: 11px;
+  font-size: calc(11px * var(--font-scale, 1));
   font-weight: 200; /* extra-light cut loaded in main.jsx (jetbrains-mono/latin-200) */
   line-height: 1.5;
 
@@ -285,7 +287,7 @@ button.msg-summary:hover { color: var(--text); background: var(--bg-elev-2); bor
 
 .block-command {
   font-family: var(--font-mono), monospace;
-  font-size: 11px;
+  font-size: calc(11px * var(--font-scale, 1));
   background: transparent;
   border: 1px dashed var(--border);
   border-radius: 4px;
@@ -305,7 +307,7 @@ button.msg-summary:hover { color: var(--text); background: var(--bg-elev-2); bor
 }
 
 .aux {
-  font-size: 12px;
+  font-size: calc(12px * var(--font-scale, 1));
 
   &.error .aux-toggle { color: var(--danger); }
 }
@@ -315,7 +317,7 @@ button.msg-summary:hover { color: var(--text); background: var(--bg-elev-2); bor
   border: none;
   padding: 0;
   color: var(--text-faint);
-  font-size: 11px;
+  font-size: calc(11px * var(--font-scale, 1));
   cursor: pointer;
   font-family: var(--font-mono), monospace;
   display: inline-flex;
@@ -327,7 +329,7 @@ button.msg-summary:hover { color: var(--text); background: var(--bg-elev-2); bor
 
 .aux-label {
   color: var(--text-faint);
-  font-size: 11px;
+  font-size: calc(11px * var(--font-scale, 1));
   font-family: var(--font-mono), monospace;
   display: inline-flex;
   gap: 4px;
@@ -342,7 +344,7 @@ button.msg-summary:hover { color: var(--text); background: var(--bg-elev-2); bor
   & pre {
     margin: 0;
     font-family: var(--font-mono), monospace;
-    font-size: 11.5px;
+    font-size: calc(11.5px * var(--font-scale, 1));
     white-space: pre-wrap;
     word-break: break-word;
     color: var(--text-dim);
@@ -359,7 +361,7 @@ button.msg-summary:hover { color: var(--text); background: var(--bg-elev-2); bor
 }
 
 .instructions-note {
-  font-size: 11px;
+  font-size: calc(11px * var(--font-scale, 1));
   color: var(--text-faint);
   margin-bottom: 4px;
   padding-bottom: 4px;

@@ -7,6 +7,7 @@ import { flatten, groupTurns, cycleDurations, tokenPoints, isContextTurn, toolSu
 import LazyMount from '../../ui/LazyMount.jsx'
 import Markdown from '../../ui/Markdown.jsx'
 import { useFindActive } from '../../ui/useFindActive.js'
+import { useMouseFontScale } from '../../utils/useMouse.js'
 import './ConversationView.css'
 
 // Global expand/collapse signal: null = leave each collapsible on its own state,
@@ -25,15 +26,16 @@ const isCommandTurn = t => t.blocks.some(b => b.type === 'text' && parseCommand(
 
 
 export default function ConversationView({ items, instructions = [], expandAll = null }) {
-  const turns     = useMemo(() => flatten(items, instructions), [items, instructions])
-  const groups    = useMemo(() => groupTurns(turns), [turns])
-  const points    = useMemo(() => tokenPoints(groups), [groups])
-  const durations = useMemo(() => cycleDurations(groups), [groups])
-  const findOpen  = useFindActive()
+  const turns            = useMemo(() => flatten(items, instructions), [items, instructions])
+  const groups           = useMemo(() => groupTurns(turns), [turns])
+  const points           = useMemo(() => tokenPoints(groups), [groups])
+  const durations        = useMemo(() => cycleDurations(groups), [groups])
+  const findOpen         = useFindActive()
+  const [scale, zoomRef] = useMouseFontScale('font-scale.conversation')
   const hasTimeline = points.some(Boolean)
   return (
     <ExpandAllContext.Provider value={expandAll}>
-      <div className={`conversation${hasTimeline ? ' has-token-timeline' : ''}`}>
+      <div ref={zoomRef} className={`conversation${hasTimeline ? ' has-token-timeline' : ''}`} style={{ '--font-scale': scale }}>
         {groups.map((g, i) => (
           <div className={`conv-row conv-row-${g.kind}`} key={g.kind === 'instruction' ? g.turn.uuid : g.turns[0].uuid}>
             <LazyMount eager={i < 8} forceMount={findOpen} placeholderMinHeight={80}>

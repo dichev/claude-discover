@@ -4,6 +4,7 @@ import { vscodeTheme } from '@uiw/react-json-view/vscode'
 import LazyMount from '../../ui/LazyMount.jsx'
 import { useFindActive } from '../../ui/useFindActive.js'
 import { renderShortened } from '../../ui/ShortText.jsx'
+import { useMouseFontScale } from '../../utils/useMouse.js'
 import './RequestsView.css'
 
 const time = ts => ts ? new Date(ts).toLocaleTimeString([], { hour12: false }) : ''
@@ -84,14 +85,14 @@ function Tree({ value, expandAll, collapsed = false, seenKeys = null }) {
 // `messages` dominate a request body and grow with the session, so each one is its own
 // lazy-mounted tree (like JsonlView's entries) — render cost scales with what's in view.
 const Pane = React.memo(function Pane({ value, headers, seen, expandAll }) {
-  const paneRef  = useRef(null)
-  const findOpen = useFindActive()
+  const [scale, paneRef] = useMouseFontScale('font-scale.requests')
+  const findOpen         = useFindActive()
   const messages = !Array.isArray(value) ? value?.messages : null
   const seenKeys = seen ? ['system', 'tools'].filter(k => seen[k]) : null
   const { messages: _, ...bodyNoMsgs } = value || {}
   const [open, close] = Array.isArray(value) ? '[]' : '{}'
   return (
-    <div className="requests-pane" ref={paneRef}>
+    <div className="requests-pane" ref={paneRef} style={{ '--font-scale': scale }}>
       {headers && (
         <div className="requests-headers">
           <div className="requests-label">Headers</div>
