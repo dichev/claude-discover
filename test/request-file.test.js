@@ -58,6 +58,46 @@ describe('RequestFile', () => {
   it('returns [] when no log exists for the session', async () => {
     expect(await new RequestFile('no-such-session', dir).read()).toEqual([])
   })
+
+  it('resolves block-level $hash/$ref inside messages, storing messages fully resolved', async () => {
+    const blk = { type: 'text', text: 'a large system-reminder block' }
+    const base = { type: 'api-request', url: 'POST /v1/messages', status: 200 }
+    fs.writeFileSync(path.join(dir, 'sess-b.requests.jsonl'), [
+      { ...base, timestamp: '2026-07-14T10:00:00.000Z', request: { model: 'claude-sonnet-5',
+        messages: [{ $hash: 'm1', value: { role: 'user', content: [{ $hash: 'b1', value: blk }] } }] } },
+      { ...base, timestamp: '2026-07-14T10:01:00.000Z', request: { model: 'claude-sonnet-5',
+        messages: [{ $ref: 'm1' }, { $hash: 'm2', value: { role: 'user', content: [{ $ref: 'b1' }, { type: 'text', text: 'ok' }] } }] } },
+    ].map(r => JSON.stringify(r)).join('\n') + '\n')
+    const out = await new RequestFile('sess-b', dir).read()
+    expect(out[0].request.messages).toEqual([{ role: 'user', content: [blk] }])
+    expect(out[1].request.messages).toEqual([
+      { role: 'user', content: [blk] }, // message $ref resolves to fully resolved content
+      { role: 'user', content: [blk, { type: 'text', text: 'ok' }] },
+    ])
+  })
+
+  it('resolves wrappers at any depth — inside tools and nested tool_result content', async () => {
+    const inner = { type: 'text', text: 'big tool output' }
+    const tool = { name: 'Read', description: 'reads', input_schema: {} }
+    const base = { type: 'api-request', url: 'POST /v1/messages', status: 200 }
+    fs.writeFileSync(path.join(dir, 'sess-d.requests.jsonl'), [
+      { ...base, timestamp: '2026-07-14T10:00:00.000Z', request: { model: 'claude-sonnet-5',
+        tools: { $hash: 't1', value: [{ $hash: 'ta', value: tool }] },
+        messages: [{ $hash: 'm1', value: { role: 'user', content: [
+          { $hash: 'b1', value: { type: 'tool_result', tool_use_id: 'x', content: [{ $hash: 'i1', value: inner }] } },
+        ] } }] } },
+      { ...base, timestamp: '2026-07-14T10:01:00.000Z', request: { model: 'claude-sonnet-5',
+        tools: { $hash: 't2', value: [{ $ref: 'ta' }] },
+        messages: [{ $ref: 'm1' }] } },
+    ].map(r => JSON.stringify(r)).join('\n') + '\n')
+    const out = await new RequestFile('sess-d', dir).read()
+    const resolved = [{ role: 'user', content: [{ type: 'tool_result', tool_use_id: 'x', content: [inner] }] }]
+    expect(out[0].request.tools).toEqual([tool])
+    expect(out[0].request.messages).toEqual(resolved)
+    expect(out[1].request.tools).toEqual([tool])
+    expect(out[1].request.messages).toEqual(resolved)
+  })
+
 })
 
 describe('RequestFile.sweepOrphans', () => {
@@ -133,7 +173,7 @@ describe('parseClaudeMd', () => {
 describe('RequestFile.readInstructions', () => {
   it('collects the system prompt and unique memory files across all requests', async () => {
     const withReminder = (ts, system) => ({ type: 'api-request', timestamp: ts, url: 'POST /v1/messages', status: 200,
-      request: { model: 'claude-sonnet-5', ...(system && { system }), messages: [{ $hash: `h-${ts}`, value: { role: 'user', content: [{ type: 'text', text: reminder }] } }] } })
+      request: { model: 'claude-sonnet-5', ...(system && { system }), messages: [{ $hash: `h-${ts}`, value: { role: 'user', content: [{ $hash: `b-${ts}`, value: { type: 'text', text: reminder } }] } }] } })
     fs.writeFileSync(path.join(dir, 'sess-2.requests.jsonl'), [
       JSON.stringify(withReminder('2026-07-14T10:00:00.000Z', { $hash: 'sys1', value: 'Be terse' })),
       JSON.stringify(withReminder('2026-07-15T10:00:00.000Z', { $ref: 'sys1' })), // e.g. a subagent request repeating the same files
@@ -144,6 +184,22 @@ describe('RequestFile.readInstructions', () => {
     ])
     expect(files[0]).toMatchObject({ memory_type: 'claude-sonnet-5', content: 'Be terse', hash: 'sys1' })
     expect(files.every(f => f.timestamp === '2026-07-14T10:00:00.000Z')).toBe(true) // first sight wins
+  })
+
+  it('resolves dedup-wrapped system blocks across records — a $ref\'d block keeps its text', async () => {
+    const prompt = { type: 'text', text: 'You are Claude Code' }
+    const base = { type: 'api-request', url: 'POST /v1/messages', status: 200 }
+    fs.writeFileSync(path.join(dir, 'sess-s.requests.jsonl'), [
+      { ...base, timestamp: '2026-07-14T10:00:00.000Z', request: { model: 'claude-sonnet-5',
+        system: { $hash: 's1', value: [{ type: 'text', text: 'billing' }, { $hash: 'p1', value: prompt }] }, messages: [] } },
+      { ...base, timestamp: '2026-07-14T10:01:00.000Z', request: { model: 'claude-opus-4-8',
+        system: { $hash: 's2', value: [{ type: 'text', text: 'other billing' }, { $ref: 'p1' }] }, messages: [] } },
+    ].map(r => JSON.stringify(r)).join('\n') + '\n')
+    const files = await new RequestFile('sess-s', dir).readInstructions()
+    expect(files.map(f => f.content)).toEqual([
+      'billing\n\nYou are Claude Code',
+      'other billing\n\nYou are Claude Code', // block resolved from the earlier record
+    ])
   })
 
   it('joins block-array system prompts into one text', async () => {

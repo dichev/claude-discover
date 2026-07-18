@@ -35,20 +35,26 @@ export class RequestParser {
     this.hashes = new Map() // $hash → value
   }
 
+  // Resolves $hash/$ref dedup wrappers at any depth — children first, so stored and returned
+  // values are always fully resolved. Feed records in file order.
+  resolve(v) {
+    if (v?.$hash) { const r = this.resolve(v.value); this.hashes.set(v.$hash, r); return r }
+    if (v?.$ref) return this.hashes.get(v.$ref) ?? v // unknown ref (truncated log) stays a visible marker
+    if (Array.isArray(v)) return v.map(x => this.resolve(x))
+    if (v && typeof v === 'object') return Object.fromEntries(Object.entries(v).map(([k, x]) => [k, this.resolve(x)]))
+    return v
+  }
+
   // Resolves the request's $hash/$ref parts back to full values in place, and annotates the
   // record with $seen — which parts repeated earlier content — so the UI can fade them.
   resolveRefs(rec) {
-    const resolve = x =>
-      x?.$hash ? (this.hashes.set(x.$hash, x.value), x.value)
-      : x?.$ref ? this.hashes.get(x.$ref) ?? x // unknown ref (truncated log) stays a visible marker
-      : x
     const wasSeen = x => !!x?.$ref && this.hashes.has(x.$ref)
     const req = rec.request
     if (!req) return rec
     const $seen = { messages: (req.messages || []).map(wasSeen) }
-    if (req.system != null) { $seen.system = wasSeen(req.system); req.system = resolve(req.system) }
-    if (req.tools != null) { $seen.tools = wasSeen(req.tools); req.tools = resolve(req.tools) }
-    if (req.messages) req.messages = req.messages.map(resolve)
+    if (req.system != null) { $seen.system = wasSeen(req.system); req.system = this.resolve(req.system) }
+    if (req.tools != null) { $seen.tools = wasSeen(req.tools); req.tools = this.resolve(req.tools) }
+    if (req.messages) req.messages = req.messages.map(m => this.resolve(m))
     rec.$seen = $seen
     rec.reqSize = jsonBytes(req)
     rec.resSize = jsonBytes(rec.response)
@@ -60,7 +66,8 @@ export class RequestParser {
   systemPrompt(rec) {
     const sys = rec.request?.system
     if (!sys?.$hash) return null
-    const content = typeof sys.value === 'string' ? sys.value : sys.value.map(b => b?.text ?? '').join('\n\n')
+    const value = this.resolve(sys.value) // blocks may be dedup-wrapped — a $ref'd block was stored by an earlier $hash record
+    const content = typeof value === 'string' ? value : value.map(b => b?.text ?? '').join('\n\n')
     return { file_path: 'System prompt', memory_type: rec.request.model, content, hash: sys.$hash }
   }
 
@@ -71,8 +78,9 @@ export class RequestParser {
     for (const m of rec.request?.messages || []) {
       const content = (m?.value ?? m)?.content
       for (const part of Array.isArray(content) ? content : [{ text: content }]) {
-        if (typeof part?.text !== 'string' || !part.text.includes('<system-reminder>')) continue
-        files.push(...parseClaudeMd(part.text))
+        const text = (part?.value ?? part)?.text // blocks may be dedup-wrapped too; $refs repeat earlier content and resolve to undefined here
+        if (typeof text !== 'string' || !text.includes('<system-reminder>')) continue
+        files.push(...parseClaudeMd(text))
       }
     }
     return files

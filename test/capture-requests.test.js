@@ -47,6 +47,38 @@ describe('dedupeRequest', () => {
     expect(next.messages[2].value).toEqual({ role: 'assistant', content: 'hello' })
   })
 
+  it('dedupes large content blocks individually inside otherwise-changed messages', () => {
+    const seen = new Set()
+    const reminder = { type: 'text', text: '<system-reminder> '.repeat(20) } // large enough to be worth a wrapper
+    const first = { role: 'user', content: [{ type: 'text', text: 'hi' }, reminder] }
+    const changed = { role: 'user', content: [{ type: 'text', text: 'hi again' }, reminder] }
+    const out1 = dedupeRequest({ ...body, messages: [first] }, seen)
+    const block = out1.messages[0].value.content[1]
+    expect(block).toEqual({ $hash: expect.any(String), value: reminder })
+    expect(out1.messages[0].value.content[0]).toEqual(first.content[0]) // small block stays raw
+    const out2 = dedupeRequest({ ...body, messages: [first, changed] }, seen)
+    expect(out2.messages[0]).toEqual({ $ref: expect.any(String) })
+    expect(out2.messages[1].value.content[1]).toEqual({ $ref: block.$hash }) // only the changed block logs anew
+  })
+
+  it('dedupes large elements of any bulk array — a grown tools list re-logs only the new tool', () => {
+    const seen = new Set()
+    const tool = name => ({ name, description: 'long tool description '.repeat(20), input_schema: {} })
+    const out1 = dedupeRequest({ ...body, tools: [tool('Read')] }, seen)
+    expect(out1.tools.value[0]).toEqual({ $hash: expect.any(String), value: tool('Read') })
+    const out2 = dedupeRequest({ ...body, tools: [tool('Read'), tool('Bash')] }, seen)
+    expect(out2.tools.value[0]).toEqual({ $ref: out1.tools.value[0].$hash })
+    expect(out2.tools.value[1].value).toEqual(tool('Bash'))
+  })
+
+  it('recurses into nested arrays — a tool_result inner block dedupes too', () => {
+    const inner = { type: 'text', text: 'file contents '.repeat(30) }
+    const msg = { role: 'user', content: [{ type: 'tool_result', tool_use_id: 't1', content: [inner] }] }
+    const out = dedupeRequest({ ...body, messages: [msg] }, new Set())
+    const block = out.messages[0].value.content[0] // the tool_result block itself is large → wrapped
+    expect(block.value.content[0]).toEqual({ $hash: expect.any(String), value: inner })
+  })
+
   it('hashes ignore cache_control — moving breakpoints do not re-log content', () => {
     const seen = new Set()
     dedupeRequest(body, seen)
@@ -204,6 +236,7 @@ describe('proxy end-to-end', () => {
     expect(second.request.system.$ref).toBe(first.request.system.$hash)
     expect(second.request.tools.$ref).toBe(first.request.tools.$hash)
     expect(second.request.messages.map(m => m.$ref)).toEqual(first.request.messages.map(m => m.$hash))
+    expect(second.requestHeaders).toMatchObject(headers) // headers are logged in full on every record
   })
 
   it('warms the seen-set from the request log after a restart — no re-logging', async () => {

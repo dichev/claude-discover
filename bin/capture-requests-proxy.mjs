@@ -147,14 +147,22 @@ export function assembleSSE(text) {
 
 // The logged request body: params verbatim, bulk fields (system, tools, each message) deduped.
 export function dedupeRequest(body, seen = new Set()) {
-  const dedupe = value => {
+  const dedupe = (value, minSize = 0) => {
     // hash with cache_control stripped — breakpoints move between requests, unchanged content must still match
     const json = JSON.stringify(value, (k, v) => k === 'cache_control' ? undefined : v)
+    if (json.length < minSize) return value // tiny values aren't worth a wrapper
     const hash = crypto.createHash('sha256').update(json).digest('hex').slice(0, 16)
     if (seen.has(hash)) return { $ref: hash }
     seen.add(hash)
-    return { $hash: hash, value }
+    return { $hash: hash, value: deep(value) }
   }
+  // Inside a newly-seen value, array elements (content blocks, tool schemas, …) are deduped
+  // individually too, at any depth — one injected/updated element (e.g. a system-reminder)
+  // must not re-log its siblings.
+  const deep = v =>
+    Array.isArray(v) ? v.map(el => dedupe(el, 256))
+    : v && typeof v === 'object' ? Object.fromEntries(Object.entries(v).map(([k, x]) => [k, deep(x)]))
+    : v
   const out = { ...body }
   if (out.system != null) out.system = dedupe(out.system)
   if (out.tools != null) out.tools = dedupe(out.tools)
@@ -172,13 +180,15 @@ function seenFor(sessionId, logPath) {
 
 function warmFromLog(logPath) {
   const seen = new Set()
+  const walk = v => { // collect every $hash at any depth
+    if (!v || typeof v !== 'object') return
+    if (v.$hash) seen.add(v.$hash)
+    for (const x of Object.values(v)) walk(x)
+  }
   let lines = []
   try { lines = fs.readFileSync(logPath, 'utf8').split('\n') } catch {}
   for (const line of lines) {
-    try {
-      const { request } = JSON.parse(line)
-      for (const x of [request?.system, request?.tools, ...(request?.messages ?? [])]) if (x?.$hash) seen.add(x.$hash)
-    } catch {}
+    try { walk(JSON.parse(line).request) } catch {}
   }
   return seen
 }
