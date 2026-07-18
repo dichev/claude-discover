@@ -11,7 +11,7 @@
   overflow: auto;
   border-right: 1px solid var(--border);
   margin: 0;
-  padding: 6px 0;
+  padding: 20px 10px;
   list-style: none;
 }
 
