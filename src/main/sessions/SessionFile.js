@@ -17,17 +17,17 @@ export class SessionFile {
     try { return await fsp.stat(this.filePath) } catch { return null }
   }
 
-  async streamFrom(offset, onLine) {
-    let consumed = 0
+  // Streams every complete line as parsed JSON; a partially-written trailing line
+  // (no newline yet) is skipped, so reading a live session never sees a half record.
+  async stream(onLine) {
     let leftover = ''
     await new Promise((resolve) => {
-      const stream = fs.createReadStream(this.filePath, { encoding: 'utf8', start: offset })
+      const stream = fs.createReadStream(this.filePath, { encoding: 'utf8' })
       stream.on('data', (chunk) => {
         leftover += chunk
         let idx
         while ((idx = leftover.indexOf('\n')) !== -1) {
           const raw = leftover.slice(0, idx)
-          consumed += Buffer.byteLength(raw, 'utf8') + 1
           leftover = leftover.slice(idx + 1)
           const line = raw.endsWith('\r') ? raw.slice(0, -1) : raw
           if (!line) continue
@@ -39,7 +39,6 @@ export class SessionFile {
       stream.on('close', resolve)
       stream.on('error', resolve)
     })
-    return offset + consumed
   }
 
 }

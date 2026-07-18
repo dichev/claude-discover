@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from 'react'
+import React, { useEffect, useState } from 'react'
 import ConversationView from './view/ConversationView.jsx'
 import JsonlView from './view/JsonlView.jsx'
 import RequestsView from './view/RequestsView.jsx'
@@ -18,32 +18,29 @@ const TABS = [
 export default function Session({ meta, date, granularity = 'day' }) {
   const [items, setItems]               = useState(null)
   const [instructions, setInstructions] = useState([])
-  const [loading, setLoading]           = useState(false)
   const [mode, setMode]                 = useLocalStorage('session.view-mode', 'conversation')
   const [agentOpen, setAgentOpen]       = useState(false)
   const [expandAll, setExpandAll]       = useState(null)
-  const offsetRef = useRef(0)
   const sessionId = meta?.sessionId
   const fileSize = meta?.fileSize
   const agent = useAgent(`${sessionId}|${date}`)
 
+  // Clear only when the session identity changes — live growth (fileSize) swaps
+  // the content in place below, without flashing the loading state.
   useEffect(() => {
-    offsetRef.current = 0
     setItems(null)
     setInstructions([])
-    setLoading(!!sessionId)
   }, [sessionId, date, granularity])
 
+  // Re-read the whole session whenever it grows: rows are keyed by turn uuid, so
+  // replacing `items` wholesale keeps the expanded/collapsed state of existing rows.
   useEffect(() => {
-    if (!sessionId || fileSize <= offsetRef.current) return
+    if (!sessionId) return
     let cancelled = false
-    const from = offsetRef.current
-    window.api.readSession(sessionId, from, date || null, granularity).then((res) => {
+    window.api.readSession(sessionId, date || null, granularity).then((res) => {
       if (cancelled || !res) return
-      offsetRef.current = res.nextOffset
-      setItems((prev) => from === 0 ? res.items : (prev || []).concat(res.items))
-      if (from === 0) setInstructions(res.instructions || [])
-      setLoading(false)
+      setItems(res.items)
+      setInstructions(res.instructions || [])
     })
     return () => { cancelled = true }
   }, [sessionId, date, granularity, fileSize])
@@ -81,13 +78,13 @@ export default function Session({ meta, date, granularity = 'day' }) {
                   </div>
                   {mode === 'conversation' ? (
                     <div className="view-tab-pane-content">
-                      {loading && <div className="empty">Loading conversation…</div>}
-                      {items && <ConversationView items={items} instructions={instructions} expandAll={expandAll} />}
+                      {items ? <ConversationView items={items} instructions={instructions} expandAll={expandAll} />
+                             : <div className="empty">Loading conversation…</div>}
                     </div>
                   ) : mode === 'jsonl' ? (
                     <JsonlView items={items} expandAll={expandAll} />
                   ) : (
-                    <RequestsView sessionId={sessionId} date={date} granularity={granularity} expandAll={expandAll} />
+                    <RequestsView sessionId={sessionId} date={date} granularity={granularity} fileSize={fileSize} expandAll={expandAll} />
                   )}
                 </div>
                 <SessionSummary meta={meta} items={items} instructions={instructions} agent={agent} onOpenAgent={() => setAgentOpen(true)} granularity={granularity} />

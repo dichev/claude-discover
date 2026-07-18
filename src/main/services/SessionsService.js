@@ -42,20 +42,22 @@ export class SessionsService extends EventEmitter {
     this.lastUpdateAt = 0
   }
 
-  async readSession(sessionId, offset = 0, date = null, granularity = 'day') {
+  // Always parses the whole file from 0: the parser's running token totals only stamp
+  // correctly from a fresh start, so live updates re-read rather than resume at an offset.
+  async readSession(sessionId, date = null, granularity = 'day') {
     const meta = this.metaCache.byId(sessionId)
     if (!meta) return null
     const range = date ? periodBounds(date, granularity) : null
     const reader = new SessionFile(meta.filePath)
     const parser = new SessionParser({ sessionId: reader.sessionId, parentSessionId: reader.parentSessionId, filePath: reader.filePath, mtime: meta.mtime, range })
     const items = []
-    const nextOffset = await reader.streamFrom(offset, obj => { if (parser.feed(obj)) items.push(obj) })
+    await reader.stream(obj => { if (parser.feed(obj)) items.push(obj) })
     items.sort((a, b) => a._ts - b._ts) // .jsonl lines aren't always in timestamp order
     for (const o of items) delete o._ts
     // System prompts and memory files captured by the request proxy, shipped separately from the
-    // transcript items (only on the first read); the renderer slots them into the view by timestamp.
-    const instructions = offset === 0 ? await new RequestFile(reader.sessionId).readInstructions() : []
-    return { meta: stripInternal(meta), items, instructions, nextOffset }
+    // transcript items; the renderer slots them into the view by timestamp.
+    const instructions = await new RequestFile(reader.sessionId).readInstructions()
+    return { items, instructions }
   }
 
   // Captured API requests for a session (see bin/capture-requests-proxy.mjs), period-filtered like readSession.
@@ -124,7 +126,7 @@ export class SessionsService extends EventEmitter {
       range, excludeIds,
       pricing: this.pricing,
     })
-    await reader.streamFrom(0, obj => parser.feed(obj))
+    await reader.stream(obj => parser.feed(obj))
     return parser.finalize(stat.mtimeMs)
   }
 

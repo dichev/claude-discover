@@ -7,7 +7,7 @@ contextBridge.exposeInMainWorld('api', {
   activateSwitch: name => ipcRenderer.invoke('switch:activate', name),
   deactivateSwitch: name => ipcRenderer.invoke('switch:deactivate', name),
   listSessions: (date, granularity = 'day') => ipcRenderer.invoke('sessions:list', date, granularity),
-  readSession: (id, offset = 0, date = null, granularity = 'day') => ipcRenderer.invoke('sessions:read', id, offset, date, granularity),
+  readSession: (id, date = null, granularity = 'day') => ipcRenderer.invoke('sessions:read', id, date, granularity),
   readRequests: (id, date = null, granularity = 'day') => ipcRenderer.invoke('sessions:read-requests', id, date, granularity),
   onSessionsUpdate: subscribe('sessions:update'),
   onScanProgress: subscribe('sessions:scan-progress'),

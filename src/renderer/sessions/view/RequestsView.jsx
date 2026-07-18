@@ -136,7 +136,7 @@ const Pane = React.memo(function Pane({ value, headers, seen, expandAll }) {
 
 // Postman-like inspector for the API request logs captured by bin/capture-requests-proxy.mjs:
 // a list of the session's requests on the left, the selected request/response JSON on the right.
-export default function RequestsView({ sessionId, date, granularity = 'day', expandAll = null }) {
+export default function RequestsView({ sessionId, date, granularity = 'day', fileSize = 0, expandAll = null }) {
   const [records, setRecords]   = useState(null)
   const [selected, setSelected] = useState(0)
   const [tab, setTab]           = useState('request')
@@ -146,15 +146,22 @@ export default function RequestsView({ sessionId, date, granularity = 'day', exp
   const headers = useDeferredValue(tab === 'request' ? rec?.requestHeaders : rec?.responseHeaders)
   const seen    = useDeferredValue(tab === 'request' ? rec?.$seen : null)
 
+  // Clear only when the session identity changes; live refetches (fileSize) swap the
+  // list in place — records only append, so the selected index stays valid.
   useEffect(() => {
-    let cancelled = false
     setRecords(null)
     setSelected(0)
+  }, [sessionId, date, granularity])
+
+  // fileSize is the transcript's size — a growth signal for the request log too, since
+  // the proxy appends its record around the time the transcript gets the reply.
+  useEffect(() => {
+    let cancelled = false
     window.api.readRequests(sessionId, date || null, granularity).then(res => {
       if (!cancelled) setRecords(res)
     })
     return () => { cancelled = true }
-  }, [sessionId, date, granularity])
+  }, [sessionId, date, granularity, fileSize])
 
   if (!records) return <div className="requests-view"><div className="requests-empty">Loading…</div></div>
   if (!records.length) {
