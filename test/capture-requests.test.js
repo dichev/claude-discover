@@ -4,6 +4,7 @@ import os from 'node:os'
 import net from 'node:net'
 import path from 'node:path'
 import http from 'node:http'
+import zlib from 'node:zlib'
 import { spawn } from 'node:child_process'
 import { describe, it, expect, beforeAll, afterAll } from 'vitest'
 import { dedupeRequest, assembleSSE } from '../bin/capture-requests-proxy.mjs'
@@ -178,8 +179,9 @@ describe('proxy end-to-end', () => {
       req.on('end', () => {
         received.push({ url: req.url, headers: req.headers, body: Buffer.concat(chunks).toString() })
         if (req.url.startsWith('/v1/messages') && !req.url.includes('count_tokens')) {
-          res.writeHead(200, { 'content-type': 'text/event-stream' })
-          res.end(sse(streamEvents))
+          const gzip = 'x-test-gzip' in req.headers // opt-in per test — exercises the proxy's tee-side decompression
+          res.writeHead(200, { 'content-type': 'text/event-stream', ...(gzip && { 'content-encoding': 'gzip' }) })
+          res.end(gzip ? zlib.gzipSync(sse(streamEvents)) : sse(streamEvents))
         } else {
           res.writeHead(200, { 'content-type': 'application/json' })
           res.end(JSON.stringify({ ok: true }))
@@ -198,19 +200,18 @@ describe('proxy end-to-end', () => {
     fs.rmSync(claudeDir, { recursive: true, force: true })
   })
 
-  const post = () => fetch(`http://${HOST}:${proxyPort}/v1/messages?beta=true`, {
+  const post = (extraHeaders = {}) => fetch(`http://${HOST}:${proxyPort}/v1/messages?beta=true`, {
     method: 'POST',
-    headers: { 'content-type': 'application/json', 'x-api-key': 'k', 'x-claude-code-session-id': 'sess-e2e', ...headers },
+    headers: { 'content-type': 'application/json', 'x-api-key': 'k', 'x-claude-code-session-id': 'sess-e2e', ...headers, ...extraHeaders },
     body: JSON.stringify(body),
   })
 
-  it('forwards verbatim (minus accept-encoding) and streams the SSE response back untouched', async () => {
+  it('forwards verbatim and streams the SSE response back untouched', async () => {
     const res = await post()
     expect(res.status).toBe(200)
     expect(await res.text()).toBe(sse(streamEvents))
     expect(received[0].url).toBe('/v1/messages?beta=true')
     expect(received[0].headers['x-api-key']).toBe('k')
-    expect(received[0].headers['accept-encoding']).toBeUndefined()
     expect(JSON.parse(received[0].body)).toEqual(body)
   })
 
@@ -237,6 +238,16 @@ describe('proxy end-to-end', () => {
     expect(second.request.tools.$ref).toBe(first.request.tools.$hash)
     expect(second.request.messages.map(m => m.$ref)).toEqual(first.request.messages.map(m => m.$hash))
     expect(second.requestHeaders).toMatchObject(headers) // headers are logged in full on every record
+  })
+
+  it('narrows accept-encoding to gzip and gunzips the tee\'d copy before logging', async () => {
+    const res = await post({ 'x-test-gzip': '1' })
+    expect(res.status).toBe(200)
+    expect(await res.text()).toBe(sse(streamEvents)) // compressed on the wire, fetch gunzips transparently
+    expect(received[0].headers['accept-encoding']).toBe('gzip') // fetch offered gzip+br+zstd, the proxy narrowed it
+    const last = readRequestLog().at(-1)
+    expect(last.responseHeaders['content-encoding']).toBe('gzip') // wire was compressed…
+    expect(last.response).toMatchObject({ id: 'msg_1', stop_reason: 'tool_use' }) // …yet the logged response is assembled
   })
 
   it('warms the seen-set from the request log after a restart — no re-logging', async () => {

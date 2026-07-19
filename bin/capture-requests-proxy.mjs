@@ -11,6 +11,7 @@ import os from 'node:os'
 import path from 'node:path'
 import http from 'node:http'
 import https from 'node:https'
+import zlib from 'node:zlib'
 import crypto from 'node:crypto'
 import { pathToFileURL } from 'node:url'
 import { parseArgs } from 'node:util'
@@ -53,7 +54,14 @@ function createProxy({ upstream, onExchange, onError, errorBody }) {
 
     const headers = { ...req.headers, host: upstream.host }
     delete headers.connection
-    delete headers['accept-encoding'] // ask for an identity response so the tee'd body needs no decompression
+
+    // Claude code offers "gzip, deflate, br, zstd", but we accept gzip only to keep it simple
+    if (/\bgzip\b/.test(headers['accept-encoding'] ?? '')) {
+      headers['accept-encoding'] = 'gzip'
+    } else {
+      delete headers['accept-encoding']
+    }
+
     const up = mod.request(new URL(req.url, upstream), { method: req.method, headers }, upRes => {
       const resHeaders = { ...upRes.headers }
       delete resHeaders['transfer-encoding'] // node re-frames the piped body itself
@@ -63,7 +71,7 @@ function createProxy({ upstream, onExchange, onError, errorBody }) {
       upRes.on('data', c => chunks.push(c))
       upRes.pipe(res)
       // 'close' fires after 'end' and also on an aborted stream — a truncated body is still captured
-      upRes.on('close', () => finish(upRes.statusCode, upRes.headers, Buffer.concat(chunks).toString('utf8')))
+      upRes.on('close', () => finish(upRes.statusCode, upRes.headers, decode(upRes.headers['content-encoding'], Buffer.concat(chunks))))
     })
     up.on('error', err => {
       onError(err, `${req.method} ${req.url} → ${upstream.host}`)
@@ -73,6 +81,13 @@ function createProxy({ upstream, onExchange, onError, errorBody }) {
     })
     up.end(requestBody)
   })
+}
+
+// gzip is the only encoding ever advertised upstream, so it's the only decoder needed.
+// Z_SYNC_FLUSH tolerates a truncated stream (aborted response) and yields what did decompress.
+function decode(encoding, buf) {
+  if (encoding !== 'gzip') return buf.toString('utf8')
+  try { return zlib.gunzipSync(buf, { finishFlush: zlib.constants.Z_SYNC_FLUSH }).toString('utf8') } catch { return buf.toString('utf8') }
 }
 
 // ── 2. Claude Code capture ───────────────────────────────────────────────────
