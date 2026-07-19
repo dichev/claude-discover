@@ -28,21 +28,22 @@ const collapsedHint = (value, keyName) => {
     // role padded past 'assistant:' so the block summaries align across stacked collapsed messages
     return `${value.role}:`.padEnd(11) + [...counts].map(([t, n]) => n > 1 ? `${n} ${t}` : t).join(', ')
   }
+  if (typeof keyName === 'number') return value?.name ?? value?.type ?? null // array element: tool def / content block
   if (Array.isArray(value)) return `${value.length} ${keyName === 'tools' ? 'tools' : keyName === 'system' ? 'blocks' : 'items'}`
   return null
 }
 
-function Tree({ value, expandAll, collapsed = false, seenKeys = null }) {
+function Tree({ value, expandAll, collapsed = false, seen = null }) {
   // JsonView copies callbacks/overrides into internal stores one effect-tick late, so closures
   // over props render one record behind when the tree is reused for another record. The ref keeps
   // whatever closure the store holds reading the current props instead.
   const live = useRef({})
-  live.current = { collapsed, seenKeys }
+  live.current = { collapsed, seen }
   // Initial collapse is per-node, everything else starts expanded: `collapsed` folds just the
-  // root, `seenKeys` fold just those top-level keys — so unfolding a node reveals its whole content.
+  // root, `seen` (a Set of dot-paths) folds just those nodes — so unfolding one reveals its content.
   const expandInitially = (_, { keys }) => {
-    const { collapsed, seenKeys } = live.current
-    return collapsed ? keys.length > 0 : !(keys.length === 1 && seenKeys?.includes(keys[0]))
+    const { collapsed, seen } = live.current
+    return collapsed ? keys.length > 0 : !seen?.has(keys.join('.'))
   }
   return (
     <JsonView
@@ -61,10 +62,10 @@ function Tree({ value, expandAll, collapsed = false, seenKeys = null }) {
         const hint = isCollapsed ? collapsedHint(v, keyName) : null
         return hint ? <span {...props} className="requests-hint">{hint}</span> : undefined
       }} />
-      {/* mark top-level keys whose content repeats an earlier request — CSS fades their subtree.
+      {/* mark nodes whose content repeats an earlier request — CSS fades their subtree.
           Always mounted (conditional mounting would register in the store a pass too late) */}
-      <JsonView.KeyName render={(props, { keyName, keys }) =>
-        keys.length === 1 && live.current.seenKeys?.includes(keyName)
+      <JsonView.KeyName render={(props, { keys }) =>
+        live.current.seen?.has(keys.join('.'))
           ? <span {...props} className="requests-seen-key" />
           : undefined
       } />
@@ -78,7 +79,11 @@ const Pane = React.memo(function Pane({ value, headers, seen, expandAll }) {
   const [scale, paneRef] = useMouseFontScale('font-scale.requests')
   const findOpen         = useFindActive()
   const messages = !Array.isArray(value) ? value?.messages : null
-  const seenKeys = seen ? ['system', 'tools'].filter(k => seen[k]) : null
+  // $seen.paths split per tree: the body tree keeps system/tools paths, each message its own
+  // subset with the `messages.<i>.` prefix stripped (message trees are rooted at the message)
+  const paths    = seen?.paths ?? []
+  const bodySeen = new Set(paths.filter(p => !p.startsWith('messages')))
+  const msgSeen  = i => new Set(paths.filter(p => p.startsWith(`messages.${i}.`)).map(p => p.slice(`messages.${i}.`.length)))
   const { messages: _, ...bodyNoMsgs } = value || {}
   const [open, close] = Array.isArray(value) ? '[]' : '{}'
   return (
@@ -91,7 +96,7 @@ const Pane = React.memo(function Pane({ value, headers, seen, expandAll }) {
       )}
       <div className="requests-label">
         Body
-        {(seenKeys?.length > 0 || seen?.messages?.some(Boolean)) && (
+        {(paths.length > 0 || seen?.messages?.some(Boolean)) && (
           <span className="requests-label-hint">Content repeated from earlier requests is faded and collapsed</span>
         )}
       </div>
@@ -103,7 +108,7 @@ const Pane = React.memo(function Pane({ value, headers, seen, expandAll }) {
       ) : (
         <div className="requests-doc" style={vscodeTheme}>
           <span className="bracket">{open}</span>
-          <Tree value={messages ? bodyNoMsgs : value} expandAll={expandAll} seenKeys={seenKeys} />
+          <Tree value={messages ? bodyNoMsgs : value} expandAll={expandAll} seen={bodySeen} />
           {messages && (
             <div className="requests-msgs">
               <div><span className="key">"messages"</span><span className="colon">: </span><span className="bracket">[</span></div>
@@ -111,7 +116,7 @@ const Pane = React.memo(function Pane({ value, headers, seen, expandAll }) {
                 {messages.map((m, i) => (
                   <LazyMount key={i} eager={i < 10} forceMount={findOpen} rootRef={paneRef} placeholderMinHeight={22}
                              className={seen?.messages?.[i] ? 'requests-seen' : undefined}>
-                    <Tree value={m} expandAll={expandAll} collapsed={!!seen?.messages?.[i]} />
+                    <Tree value={m} expandAll={expandAll} collapsed={!!seen?.messages?.[i]} seen={msgSeen(i)} />
                   </LazyMount>
                 ))}
               </div>

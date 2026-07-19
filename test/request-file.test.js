@@ -58,8 +58,8 @@ describe('RequestFile', () => {
 
   it('marks previously-seen parts ($refs) in $seen', async () => {
     const out = await new RequestFile('sess-1', dir).read()
-    expect(out[0].$seen).toEqual({ system: false, messages: [false] })
-    expect(out[1].$seen).toEqual({ system: true, messages: [true, false, false] }) // unknown ref counts as unseen
+    expect(out[0].$seen).toEqual({ messages: [false], paths: [] })
+    expect(out[1].$seen).toEqual({ messages: [true, false, false], paths: ['system', 'messages.0'] }) // unknown ref counts as unseen
     expect(out[2].$seen).toBeUndefined() // bare record has no request
   })
 
@@ -89,6 +89,7 @@ describe('RequestFile', () => {
       { role: 'user', content: [blk] }, // message $ref resolves to fully resolved content
       { role: 'user', content: [blk, { type: 'text', text: 'ok' }] },
     ])
+    expect(out[1].$seen.paths).toEqual(['messages.0', 'messages.1.content.0']) // repeated block inside a fresh message
   })
 
   it('resolves wrappers at any depth — inside tools and nested tool_result content', async () => {
@@ -111,6 +112,7 @@ describe('RequestFile', () => {
     expect(out[0].request.messages).toEqual(resolved)
     expect(out[1].request.tools).toEqual([tool])
     expect(out[1].request.messages).toEqual(resolved)
+    expect(out[1].$seen.paths).toEqual(['tools.0', 'messages.0']) // repeated tool inside a grown tools array
   })
 
 })

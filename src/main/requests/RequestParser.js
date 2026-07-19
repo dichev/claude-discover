@@ -53,7 +53,7 @@ export const classifyRequest = req => {
   // agentic-loop continuations feed back the previous turn's tool results, so the last
   // user-role message says what this request is: tool results, or a new human message
   const continues = !last || blocks?.some(b => b?.type === 'tool_result')
-  return continues ? ['tools', 'Tool results'] : ['main', 'User message']
+  return continues ? ['tools', 'Tool turn'] : ['main', 'User message']
 }
 
 // The kind of an instruction strip: side-channel requests (security monitor, title gen, …) keep
@@ -74,25 +74,32 @@ export class RequestParser {
   }
 
   // Resolves $hash/$ref dedup wrappers at any depth — children first, so stored and returned
-  // values are always fully resolved. Feed records in file order.
-  resolve(v) {
-    if (v?.$hash) { const r = this.resolve(v.value); this.hashes.set(v.$hash, r); return r }
-    if (v?.$ref) return this.hashes.get(v.$ref) ?? v // unknown ref (truncated log) stays a visible marker
-    if (Array.isArray(v)) return v.map(x => this.resolve(x))
-    if (v && typeof v === 'object') return Object.fromEntries(Object.entries(v).map(([k, x]) => [k, this.resolve(x)]))
+  // values are always fully resolved. Feed records in file order. When `seen` is given, the
+  // dot-path of every resolved (known) $ref is pushed into it — 'system', 'messages.3.content.2', …
+  resolve(v, path = '', seen = null) {
+    if (v?.$hash) { const r = this.resolve(v.value, path, seen); this.hashes.set(v.$hash, r); return r }
+    if (v?.$ref) {
+      if (!this.hashes.has(v.$ref)) return v // unknown ref (truncated log) stays a visible marker
+      seen?.push(path)
+      return this.hashes.get(v.$ref)
+    }
+    if (Array.isArray(v)) return v.map((x, i) => this.resolve(x, `${path}.${i}`, seen))
+    if (v && typeof v === 'object') return Object.fromEntries(Object.entries(v).map(([k, x]) => [k, this.resolve(x, `${path}.${k}`, seen)]))
     return v
   }
 
   // Resolves the request's $hash/$ref parts back to full values in place, and annotates the
-  // record with $seen — which parts repeated earlier content — so the UI can fade them.
+  // record with $seen — which parts repeated earlier content — so the UI can fade them:
+  // `messages` flags whole-message repeats, `paths` every repeated node at any depth.
   resolveRefs(rec) {
     const wasSeen = x => !!x?.$ref && this.hashes.has(x.$ref)
     const req = rec.request
     if (!req) return rec
-    const $seen = { messages: (req.messages || []).map(wasSeen) }
-    if (req.system != null) { $seen.system = wasSeen(req.system); req.system = this.resolve(req.system) }
-    if (req.tools != null) { $seen.tools = wasSeen(req.tools); req.tools = this.resolve(req.tools) }
-    if (req.messages) req.messages = req.messages.map(m => this.resolve(m))
+    const paths = []
+    const $seen = { messages: (req.messages || []).map(wasSeen), paths }
+    if (req.system != null) req.system = this.resolve(req.system, 'system', paths)
+    if (req.tools != null) req.tools = this.resolve(req.tools, 'tools', paths)
+    if (req.messages) req.messages = req.messages.map((m, i) => this.resolve(m, `messages.${i}`, paths))
     rec.$seen = $seen
     rec.kind = classifyRequest(req)
     rec.reqSize = jsonBytes(req)
