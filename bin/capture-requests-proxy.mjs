@@ -162,20 +162,20 @@ export function assembleSSE(text) {
 
 // The logged request body: params verbatim, bulk fields (system, tools, each message) deduped.
 export function dedupeRequest(body, seen = new Set()) {
-  const dedupe = (value, minSize = 0) => {
+  const dedupe = value => {
     // hash with cache_control stripped — breakpoints move between requests, unchanged content must still match
     const json = JSON.stringify(value, (k, v) => k === 'cache_control' ? undefined : v)
-    if (json.length < minSize) return value // tiny values aren't worth a wrapper
-    const hash = crypto.createHash('sha256').update(json).digest('hex').slice(0, 16)
+    // 8 base64url chars = 48 bits — plenty against collisions within one session's seen-set
+    const hash = crypto.createHash('sha256').update(json).digest('base64url').slice(0, 8)
     if (seen.has(hash)) return { $ref: hash }
     seen.add(hash)
     return { $hash: hash, value: deep(value) }
   }
   // Inside a newly-seen value, array elements (content blocks, tool schemas, …) are deduped
   // individually too, at any depth — one injected/updated element (e.g. a system-reminder)
-  // must not re-log its siblings.
+  // must not re-log its siblings. Primitive elements stay inline: a $ref would outweigh them.
   const deep = v =>
-    Array.isArray(v) ? v.map(el => dedupe(el, 256))
+    Array.isArray(v) ? v.map(el => el && typeof el === 'object' ? dedupe(el) : el)
     : v && typeof v === 'object' ? Object.fromEntries(Object.entries(v).map(([k, x]) => [k, deep(x)]))
     : v
   const out = { ...body }

@@ -28,14 +28,21 @@ const body = {
 const headers = { 'anthropic-beta': 'claude-code-20250219, effort-2025-11-24', 'user-agent': 'claude-cli/2.1.207' }
 const HOST = '127.0.0.1'
 
+// test-side mirror of RequestParser.resolve — strips { $hash, value } wrappers back to plain values
+const unwrap = x =>
+  x?.$hash != null ? unwrap(x.value)
+  : Array.isArray(x) ? x.map(unwrap)
+  : x && typeof x === 'object' ? Object.fromEntries(Object.entries(x).map(([k, v]) => [k, unwrap(v)]))
+  : x
+
 describe('dedupeRequest', () => {
   it('keeps params verbatim, wraps bulk fields as { $hash, value } on first sight', () => {
     const out = dedupeRequest(body)
     expect(out).toMatchObject({ model: 'claude-sonnet-5', max_tokens: 64000, stream: true, thinking: { type: 'adaptive' } })
-    expect(out.system.value).toEqual(body.system)
-    expect(out.tools.value).toEqual(body.tools)
-    expect(out.messages.map(m => m.value)).toEqual(body.messages)
-    for (const x of [out.system, out.tools, ...out.messages]) expect(x.$hash).toMatch(/^[0-9a-f]{16}$/)
+    expect(unwrap(out.system.value)).toEqual(body.system)
+    expect(unwrap(out.tools.value)).toEqual(body.tools)
+    expect(out.messages.map(m => unwrap(m.value))).toEqual(body.messages)
+    for (const x of [out.system, out.tools, ...out.messages]) expect(x.$hash).toMatch(/^[A-Za-z0-9_-]{8}$/)
   })
 
   it('replaces seen values with { $ref } — only the new conversation tail stays full', () => {
@@ -48,21 +55,21 @@ describe('dedupeRequest', () => {
     expect(next.messages[2].value).toEqual({ role: 'assistant', content: 'hello' })
   })
 
-  it('dedupes large content blocks individually inside otherwise-changed messages', () => {
+  it('dedupes content blocks individually inside otherwise-changed messages', () => {
     const seen = new Set()
-    const reminder = { type: 'text', text: '<system-reminder> '.repeat(20) } // large enough to be worth a wrapper
+    const reminder = { type: 'text', text: '<system-reminder>be careful</system-reminder>' }
     const first = { role: 'user', content: [{ type: 'text', text: 'hi' }, reminder] }
     const changed = { role: 'user', content: [{ type: 'text', text: 'hi again' }, reminder] }
     const out1 = dedupeRequest({ ...body, messages: [first] }, seen)
     const block = out1.messages[0].value.content[1]
     expect(block).toEqual({ $hash: expect.any(String), value: reminder })
-    expect(out1.messages[0].value.content[0]).toEqual(first.content[0]) // small block stays raw
+    expect(out1.messages[0].value.content[0]).toEqual({ $hash: expect.any(String), value: first.content[0] }) // no size floor — small blocks dedup too
     const out2 = dedupeRequest({ ...body, messages: [first, changed] }, seen)
     expect(out2.messages[0]).toEqual({ $ref: expect.any(String) })
     expect(out2.messages[1].value.content[1]).toEqual({ $ref: block.$hash }) // only the changed block logs anew
   })
 
-  it('dedupes large elements of any bulk array — a grown tools list re-logs only the new tool', () => {
+  it('dedupes elements of any bulk array — a grown tools list re-logs only the new tool', () => {
     const seen = new Set()
     const tool = name => ({ name, description: 'long tool description '.repeat(20), input_schema: {} })
     const out1 = dedupeRequest({ ...body, tools: [tool('Read')] }, seen)
@@ -229,8 +236,8 @@ describe('proxy end-to-end', () => {
     expect(first.requestHeaders['x-api-key']).toBe('<redacted>') // key kept, credential never logged
     expect(first.responseHeaders['content-type']).toBe('text/event-stream')
     expect(first.durationMs).toBeGreaterThanOrEqual(0)
-    expect(first.request.system.value).toEqual(body.system)
-    expect(first.request.messages.map(m => m.value)).toEqual(body.messages)
+    expect(unwrap(first.request.system.value)).toEqual(body.system)
+    expect(first.request.messages.map(m => unwrap(m.value))).toEqual(body.messages)
     expect(first.response).toMatchObject({ id: 'msg_1', stop_reason: 'tool_use' })
     expect(first.response.content[1]).toEqual({ type: 'text', text: 'Hello' })
     // identical context re-sent → everything bulky becomes a $ref
