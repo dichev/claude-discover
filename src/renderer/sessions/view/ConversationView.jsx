@@ -41,7 +41,7 @@ export default function ConversationView({ items, instructions = [], expandAll =
             <LazyMount eager={i < 8} forceMount={findOpen} placeholderMinHeight={80}>
               {g.kind === 'user'      ? <UserRow turns={g.turns} point={points[i]} />
                : g.kind === 'assistant' ? <AssistantCard turns={g.turns} point={points[i]} duration={durations[i]} showAuthor={groups[i - 1]?.kind !== 'assistant'} />
-               :                        <InstructionFile it={g.turn.blocks[0].it} showNote={groups[i - 1]?.kind !== 'instruction'} />}
+               :                        <InstructionFile it={g.turn.blocks[0].it} />}
             </LazyMount>
             {points[i] ? <TokenPoint point={points[i]} />
              // Commands consume no tokens so they never get a real point — mark them with a plain dot.
@@ -227,7 +227,7 @@ function Block({ block }) {
     return <Markdown className="block-text" text={block.text} autoFence />
   }
   if (block.type === 'thinking') {
-    if (!block.thinking) return <Label title="Thinking" />
+    if (!block.thinking) return null // we won't display "• Thinking" anymore
     return <Collapsible title="thinking" defaultOpen={false}><pre>{block.thinking}</pre></Collapsible>
   }
   if (block.type === 'tool_use') {
@@ -267,12 +267,12 @@ const ATTACHMENT_RENDERERS = {
   selected_lines_in_ide: (a) => {
     const path = a.displayPath || a.filename || ''
     const range = a.lineStart === a.lineEnd ? `L${a.lineStart}` : `L${a.lineStart}-${a.lineEnd}`
-    return { title: `Selection in ${a.ideName || 'IDE'} · ${path}:${range}`, body: a.content || '' }
+    return { title: `Selection in ${a.ideName || 'IDE'}: ${path}:${range}`, body: a.content || '' }
   },
-  opened_file_in_ide: (a) => ({ title: `Opened in IDE · ${a.displayPath || a.filename || ''}`, body: null }),
+  opened_file_in_ide: (a) => ({ title: `Opened in IDE: ${a.displayPath || a.filename || ''}`, body: null }),
   file: (a) => {
     const f = a.content?.file
-    return { title: `File · ${a.displayPath || f?.filePath || a.filename || ''}`, body: f?.content ?? safeJson(a.content) }
+    return { title: `File: ${a.displayPath || f?.filePath || a.filename || ''}`, body: f?.content ?? safeJson(a.content) }
   },
   skill_listing: (a) => ({ title: `${a.skillCount} skills`, body: a.content || '', defaultOpen: false }),
   deferred_tools_delta: (a) => ({
@@ -284,7 +284,7 @@ const ATTACHMENT_RENDERERS = {
 
 function Attachment({ att }) {
   const render = ATTACHMENT_RENDERERS[att?.type]
-  const { title, body, defaultOpen = false } = render ? render(att) : { title: `Attachment · ${att?.type || 'unknown'}`, body: safeJson(att) }
+  const { title, body, defaultOpen = false } = render ? render(att) : { title: `Attachment: ${att?.type || 'unknown'}`, body: safeJson(att) }
   if (body == null) return <Label title={title} className="attachment" />
   return (
     <Collapsible title={title} className="attachment" defaultOpen={defaultOpen}>
@@ -324,13 +324,10 @@ function JsonBlock({ value }) {
   return <Markdown className="block-text" text={'```json\n' + safeJson(value) + '\n```'} />
 }
 
-function InstructionFile({ it, showNote }) {
+function InstructionFile({ it }) {
   const [open, setOpen] = useCollapsed(false)
   return (
     <div className="aux instruction-file">
-      {showNote && (
-        <div className="instructions-note">Extracted from the API requests captured by the proxy.</div>
-      )}
       <button className="aux-toggle" onClick={() => setOpen(v => !v)}>
         <span className="aux-chevron">{open ? '▾' : '▸'}</span>
         <span>{`${it.file_path} (${it.memory_type}, API request)`}</span>

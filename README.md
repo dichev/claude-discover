@@ -25,11 +25,11 @@ npm start
 ## Verifying token/cost calculations
 
 `bin/usage.mjs` prints the app's per-period token usage and cost as a terminal table. 
-Compare it against [ccusage](https://github.com/ryoppippi/ccusage) (which is in UTC) to verify the numbers — the two should match:
+Compare it against [ccusage](https://github.com/ryoppippi/ccusage) in UTC to verify the numbers — the two should match:
 
 ```
 node bin/usage.mjs monthly --timezone UTC
-npx ccusage monthly
+npx ccusage claude monthly -z UTC
 ```
 
 ## Optional: capture API requests

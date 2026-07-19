@@ -226,11 +226,6 @@ button.msg-summary:hover { color: var(--text); background: var(--bg-elev-2); bor
   & .block-text {
     background: transparent;
     border: 1px dashed var(--border);
-    border-radius: 4px;
-    padding: 6px 10px;
-    color: var(--text-faint);
-    font-size: calc(12px * var(--font-scale, 1));
-    max-width: 100%;
   }
 }
 .turn-assistant.turn-meta-note .turn-blocks > .aux { align-self: flex-start; }
