@@ -202,6 +202,28 @@ describe('RequestFile.readInstructions', () => {
     ])
   })
 
+  it('collects system tools once, then only newly added tools', async () => {
+    const base = { type: 'api-request', url: 'POST /v1/messages', status: 200 }
+    const read = { name: 'Read', description: 'Reads a file' }
+    const bash = { name: 'Bash', description: 'Runs a command' }
+    const web = { name: 'WebFetch', description: 'Fetches a URL' }
+    fs.writeFileSync(path.join(dir, 'sess-t.requests.jsonl'), [
+      { ...base, timestamp: '2026-07-14T10:00:00.000Z', request: { model: 'claude-sonnet-5',
+        tools: { $hash: 't1', value: [{ $hash: 'ta', value: read }, bash] }, messages: [] } },
+      { ...base, timestamp: '2026-07-14T10:01:00.000Z', request: { model: 'claude-sonnet-5',
+        tools: { $ref: 't1' }, messages: [] } }, // repeat — nothing new
+      { ...base, timestamp: '2026-07-14T10:02:00.000Z', request: { model: 'claude-opus-4-8',
+        tools: { $hash: 't2', value: [{ $ref: 'ta' }, bash, web] }, messages: [] } }, // grown by one deferred tool
+    ].map(r => JSON.stringify(r)).join('\n') + '\n')
+    const files = await new RequestFile('sess-t', dir).readInstructions()
+    expect(files).toEqual([
+      { timestamp: '2026-07-14T10:00:00.000Z', file_path: 'System tools', memory_type: 'claude-sonnet-5, 2 tools',
+        content: '## Read\n\nReads a file\n\n## Bash\n\nRuns a command', hash: 't1' },
+      { timestamp: '2026-07-14T10:02:00.000Z', file_path: 'System tools', memory_type: 'claude-opus-4-8, 1 tool',
+        content: '## WebFetch\n\nFetches a URL', hash: 't2' }, // Read/Bash already seen — only the addition
+    ])
+  })
+
   it('joins block-array system prompts into one text', async () => {
     const files = await new RequestFile('sess-1', dir).readInstructions()
     expect(files).toEqual([{ timestamp: '2026-07-14T10:00:00.000Z',

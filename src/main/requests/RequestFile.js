@@ -48,22 +48,26 @@ export class RequestFile {
     })
   }
 
-  // System prompts (request.system) and memory files (CLAUDE.md / MEMORY.md / … inside a user
-  // message's `# claudeMd` system-reminder) — none of which Claude Code records in the session
-  // transcript, so the request log is the only source. Returns one record per unique system
-  // prompt / file_path; readSession ships them alongside the transcript items.
+  // System prompts (request.system), tool definitions (request.tools) and memory files
+  // (CLAUDE.md / MEMORY.md / … inside a user message's `# claudeMd` system-reminder) — none of
+  // which Claude Code records in the session transcript, so the request log is the only source.
+  // Returns one record per unique system prompt / tool batch / file_path; readSession ships them
+  // alongside the transcript items.
   async readInstructions() {
     const parser = new RequestParser()
     const files = new Map() // dedup key → record, first sight wins
     for (const line of await this.lines()) {
       // cheap pre-filters; repeats are $refs, the full text appears once per unique value
       const hasSystem = line.includes('"system":{"$hash"')
-      if (!hasSystem && !line.includes('# claudeMd')) continue
+      const hasTools = line.includes('"tools":{"$hash"')
+      if (!hasSystem && !hasTools && !line.includes('# claudeMd')) continue
       let rec
       try { rec = JSON.parse(line) } catch { continue }
       const record = f => ({ timestamp: rec.timestamp, ...f })
       const sys = hasSystem && parser.systemPrompt(rec)
       if (sys && !files.has(sys.hash)) files.set(sys.hash, record(sys))
+      const tools = hasTools && parser.systemTools(rec) // per-tool dedup — only not-yet-seen tools
+      if (tools) files.set(tools.hash, record(tools))
       for (const f of parser.memoryFiles(rec)) {
         if (!files.has(f.file_path)) files.set(f.file_path, record(f))
       }

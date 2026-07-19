@@ -33,6 +33,7 @@ export function parseClaudeMd(text) {
 export class RequestParser {
   constructor() {
     this.hashes = new Map() // $hash → value
+    this.seenTools = new Set() // tool names already returned by systemTools
   }
 
   // Resolves $hash/$ref dedup wrappers at any depth — children first, so stored and returned
@@ -68,7 +69,21 @@ export class RequestParser {
     if (!sys?.$hash) return null
     const value = this.resolve(sys.value) // blocks may be dedup-wrapped — a $ref'd block was stored by an earlier $hash record
     const content = typeof value === 'string' ? value : value.map(b => b?.text ?? '').join('\n\n')
-    return { file_path: 'System prompt', memory_type: rec.request.model, content, hash: sys.$hash }
+    return { file_path: 'System Prompt', memory_type: rec.request.model, content, hash: sys.$hash }
+  }
+
+  // The request's tool definitions, only when this record logs the array in full (repeats are
+  // $refs). The array grows as deferred tools load mid-session, so only tools this parser hasn't
+  // seen yet are returned — the first request yields the full set, later arrays just the additions.
+  systemTools(rec) {
+    const tools = rec.request?.tools
+    if (!tools?.$hash) return null
+    const fresh = this.resolve(tools.value).filter(t => t?.name && !this.seenTools.has(t.name))
+    if (!fresh.length) return null
+    for (const t of fresh) this.seenTools.add(t.name)
+    const content = fresh.map(t => `## ${t.name}\n\n${t.description || ''}`.trim()).join('\n\n')
+    const label = `${rec.request.model}, ${fresh.length} tool${fresh.length === 1 ? '' : 's'}`
+    return { file_path: 'System Tools', memory_type: label, content, hash: tools.$hash }
   }
 
   // Memory files (CLAUDE.md / MEMORY.md / …) carried by the record's messages inside `# claudeMd`
