@@ -99,19 +99,16 @@ function logRequest({ req, requestBody, status, responseHeaders, responseBody, t
   if (!sessionId || !/^[\w-]+$/.test(sessionId)) return // header value becomes a filename — accept only safe ids
   const logPath = path.join(REQUESTS_DIR, `${sessionId}.requests.jsonl`)
   const record = { type: 'api-request', timestamp, url: `${req.method} ${req.url}`, status, durationMs }
+  record.requestHeaders = { ...req.headers }
+  for (const h of ['authorization', 'x-api-key', 'cookie']) if (h in record.requestHeaders) record.requestHeaders[h] = '<redacted>' // keep the key, never the credential
+  record.responseHeaders = responseHeaders
   let body
   try { body = JSON.parse(requestBody.toString('utf8')) } catch {}
-  if (body && req.method === 'POST' && req.url.split('?')[0] === '/v1/messages') {
-    record.requestHeaders = { ...req.headers }
-    for (const h of ['authorization', 'x-api-key', 'cookie']) if (h in record.requestHeaders) record.requestHeaders[h] = '<redacted>' // keep the key, never the credential
-    record.responseHeaders = responseHeaders
-    record.request = dedupeRequest(body, seenFor(sessionId, logPath))
-    record.response = parseResponse(responseHeaders?.['content-type'], responseBody)
-  } else {
-    // Any other endpoint or an unparsable body: url/status/size only.
-    record.model = body?.model
-    record.size = requestBody.length
-  }
+  // Every endpoint is captured in full — count_tokens probes re-send the conversation, so the
+  // shared per-session seen-set collapses their payloads to $refs. An unparsable body: size only.
+  if (body) record.request = dedupeRequest(body, seenFor(sessionId, logPath))
+  else if (requestBody.length) record.size = requestBody.length
+  record.response = parseResponse(responseHeaders?.['content-type'], responseBody)
   fs.mkdirSync(REQUESTS_DIR, { recursive: true })
   fs.appendFileSync(logPath, JSON.stringify(record) + '\n')
 }

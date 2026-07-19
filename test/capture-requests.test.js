@@ -267,18 +267,21 @@ describe('proxy end-to-end', () => {
     expect(last.request.messages.every(m => m.$ref)).toBe(true)
   }, 15000)
 
-  it('logs other endpoints as bare url+status+size lines', async () => {
+  it('captures other endpoints (count_tokens & co) in full, sharing the session seen-set', async () => {
     const res = await fetch(`http://${HOST}:${proxyPort}/v1/messages/count_tokens`, {
       method: 'POST',
-      headers: { 'content-type': 'application/json', 'x-claude-code-session-id': 'sess-e2e' },
-      body: JSON.stringify({ model: 'claude-sonnet-5', messages: [] }),
+      headers: { 'content-type': 'application/json', 'x-api-key': 'k', 'x-claude-code-session-id': 'sess-e2e' },
+      body: JSON.stringify({ model: 'claude-sonnet-5', system: body.system, messages: body.messages }),
     })
     expect(res.status).toBe(200)
     const last = readRequestLog().at(-1)
-    expect(last).toMatchObject({ type: 'api-request', url: 'POST /v1/messages/count_tokens', model: 'claude-sonnet-5', status: 200 })
-    expect(last.request).toBeUndefined()
-    expect(last.response).toBeUndefined()
-    expect(last.size).toBeGreaterThan(0)
+    expect(last).toMatchObject({ type: 'api-request', url: 'POST /v1/messages/count_tokens', status: 200 })
+    expect(last.request.model).toBe('claude-sonnet-5')
+    expect(last.request.system.$ref).toBeDefined() // probe re-sends the conversation → $refs, not copies
+    expect(last.request.messages.every(m => m.$ref)).toBe(true)
+    expect(last.requestHeaders['x-api-key']).toBe('<redacted>')
+    expect(last.response).toEqual({ ok: true })
+    expect(last.size).toBeUndefined()
   })
 
   it('--restart replaces the running instance and takes over the port', async () => {

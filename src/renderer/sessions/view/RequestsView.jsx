@@ -136,7 +136,7 @@ export default function RequestsView({ sessionId, date, granularity = 'day', fil
   const [records, setRecords]   = useState(null)
   const [selected, setSelected] = useState(0)
   const [tab, setTab]           = useState('request')
-  // Non-/v1/messages records carry no body — show the bare record (url/status/model/size) instead.
+  // Records without a captured body (old logs, unparsable payloads) — show the raw record instead.
   const rec     = records?.[selected]
   const body    = useDeferredValue(tab === 'request' ? (rec?.request ?? rec) : rec?.response)
   const headers = useDeferredValue(tab === 'request' ? rec?.requestHeaders : rec?.responseHeaders)
@@ -173,7 +173,7 @@ export default function RequestsView({ sessionId, date, granularity = 'day', fil
       <ul className="requests-list">
         {records.map((r, i) => {
           const [method, path] = splitUrl(r.url)
-          // r.kind is [cssKind, label] from classifyRequest (RequestParser) — null for bare records
+          // r.kind is [cssKind, label] from classifyRequest (RequestParser) — null when unclassifiable
           return (
           <li key={i} className={i > 0 && r.kind?.[0] === 'main' ? 'new-turn' : ''}>
             <button type="button" className={i === selected ? 'active' : ''} onClick={() => setSelected(i)}>

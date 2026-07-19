@@ -44,7 +44,7 @@ describe('RequestFile', () => {
   it('classifies each request into a kind for the list labels', async () => {
     const out = await new RequestFile('sess-1', dir).read()
     expect(out[0].kind).toEqual(['main', 'User message'])
-    expect(out[2].kind).toBeUndefined() // bare record has no body to classify
+    expect(out[2].kind).toEqual(['count', 'Token count']) // by url — works even for old body-less records
   })
 
   it('leaves requests with an unrecognized system prompt unclassified', async () => {

@@ -148,4 +148,4 @@ button:hover { background: var(--border); }
 .kind-suggest { color: #6ea882; }
 .kind-web { color: #5fa8ad; }
 .kind-security { color: #c4937b; }
-.kind-quota, .kind-status { color: var(--text-faint); }
+.kind-quota, .kind-status, .kind-count { color: var(--text-faint); }

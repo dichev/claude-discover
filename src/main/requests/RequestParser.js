@@ -27,11 +27,13 @@ export function parseClaudeMd(text) {
   }))
 }
 
-// Classifies a request by its system prompt / trailing user message — the endpoint is always
-// POST /v1/messages, so the body is the only thing that says what a request is for. Returns
-// [cssKind, label] (shown in RequestsView's list), or null for records without a body. Tolerates
-// the log's dedup wrappers ({ $hash, value } / { $ref }), so it works on raw and resolved records.
-export const classifyRequest = req => {
+// Classifies a request by its url (count_tokens probes) or, on /v1/messages, by its system
+// prompt / trailing user message — the body is the only thing that says what such a request is
+// for. Returns [cssKind, label] (shown in RequestsView's list), or null when there's nothing to
+// classify. Tolerates the log's dedup wrappers ({ $hash, value } / { $ref }), so it works on raw
+// and resolved records.
+export const classifyRequest = (req, url) => {
+  if (url?.includes('/count_tokens')) return ['count', 'Token count']
   if (!req) return null
   const un = x => x?.value ?? x
   const sys = un(req.system)
@@ -40,6 +42,8 @@ export const classifyRequest = req => {
   const content = un(last?.content)
   const blocks = Array.isArray(content) ? content.map(un) : null
   const user = (typeof content === 'string' ? content : blocks?.find(b => b?.type === 'text')?.text ?? '').trimStart().slice(0, 300)
+  // /compact appends its instructions as an extra text block after the user's message, so look at the last text block
+  const tail = (blocks?.findLast(b => b?.type === 'text')?.text ?? user).slice(0, 600)
   if (req.max_tokens === 1 || user.trim() === 'quota') return ['quota', 'Quota probe']
   if (sysText.includes('You are a security monitor') || user.startsWith('<transcript>')) return ['security', 'Security check']
   if (sysText.includes('Generate a concise, sentence-case title')) return ['title', 'Session title']
@@ -47,7 +51,7 @@ export const classifyRequest = req => {
   if (user.startsWith('[SUGGESTION MODE')) return ['suggest', 'Suggestions']
   if (user.startsWith('Web page content')) return ['web', 'Web fetch']
   if (user.startsWith('Describe your most recent action')) return ['status', 'Status blurb']
-  if (user.includes('detailed summary of the conversation')) return ['compact', 'Compact']
+  if (tail.includes('detailed summary of the conversation')) return ['compact', 'Compact']
   if (sysText.includes("built on Anthropic's Claude Agent SDK")) return ['agent', 'Subagent']
   if (!sysText.includes('You are Claude Code')) return null // unrecognized request — leave unclassified
   // agentic-loop continuations feed back the previous turn's tool results, so the last
@@ -94,14 +98,14 @@ export class RequestParser {
   resolveRefs(rec) {
     const wasSeen = x => !!x?.$ref && this.hashes.has(x.$ref)
     const req = rec.request
-    if (!req) return rec
-    const paths = []
-    const $seen = { messages: (req.messages || []).map(wasSeen), paths }
-    if (req.system != null) req.system = this.resolve(req.system, 'system', paths)
-    if (req.tools != null) req.tools = this.resolve(req.tools, 'tools', paths)
-    if (req.messages) req.messages = req.messages.map((m, i) => this.resolve(m, `messages.${i}`, paths))
-    rec.$seen = $seen
-    rec.kind = classifyRequest(req)
+    if (req) {
+      const paths = []
+      rec.$seen = { messages: (req.messages || []).map(wasSeen), paths }
+      if (req.system != null) req.system = this.resolve(req.system, 'system', paths)
+      if (req.tools != null) req.tools = this.resolve(req.tools, 'tools', paths)
+      if (req.messages) req.messages = req.messages.map((m, i) => this.resolve(m, `messages.${i}`, paths))
+    }
+    rec.kind = classifyRequest(req, rec.url)
     rec.reqSize = jsonBytes(req)
     rec.resSize = jsonBytes(rec.response)
     return rec
