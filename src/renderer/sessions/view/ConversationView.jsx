@@ -330,7 +330,7 @@ function InstructionFile({ it }) {
     <div className="aux instruction-file">
       <button className="aux-toggle" onClick={() => setOpen(v => !v)}>
         <span className="aux-chevron">{open ? '▾' : '▸'}</span>
-        <span>{`${it.file_path} (${it.memory_type}, API request)`}</span>
+        <span className={it.kind && `kind-${it.kind}`}>{`${it.file_path} (${it.memory_type}, API request)`}</span>
       </button>
       {open && (
         <div className="aux-body">

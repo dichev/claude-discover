@@ -41,6 +41,21 @@ describe('RequestFile', () => {
     expect(out[2].request).toBeUndefined() // bare non-/v1/messages record passes through untouched
   })
 
+  it('classifies each request into a kind for the list labels', async () => {
+    const out = await new RequestFile('sess-1', dir).read()
+    expect(out[0].kind).toEqual(['main', 'User message'])
+    expect(out[2].kind).toBeUndefined() // bare record has no body to classify
+  })
+
+  it('leaves requests with an unrecognized system prompt unclassified', async () => {
+    fs.writeFileSync(path.join(dir, 'sess-u.requests.jsonl'), JSON.stringify({
+      type: 'api-request', timestamp: '2026-07-14T10:00:00.000Z', url: 'POST /v1/messages', status: 200,
+      request: { model: 'claude-sonnet-5', system: 'You are some other agent', messages: [userMsg] },
+    }) + '\n')
+    const out = await new RequestFile('sess-u', dir).read()
+    expect(out[0].kind).toBeNull()
+  })
+
   it('marks previously-seen parts ($refs) in $seen', async () => {
     const out = await new RequestFile('sess-1', dir).read()
     expect(out[0].$seen).toEqual({ system: false, messages: [false] })
@@ -180,7 +195,7 @@ describe('RequestFile.readInstructions', () => {
     ].join('\n') + '\n')
     const files = await new RequestFile('sess-2', dir).readInstructions()
     expect(files.map(f => f.file_path)).toEqual([
-      'System prompt', 'C:\\Users\\me\\.claude\\CLAUDE.md', 'D:\\proj\\CLAUDE.md', 'C:\\Users\\me\\.claude\\projects\\p\\memory\\MEMORY.md',
+      'System Prompt', 'C:\\Users\\me\\.claude\\CLAUDE.md', 'D:\\proj\\CLAUDE.md', 'C:\\Users\\me\\.claude\\projects\\p\\memory\\MEMORY.md',
     ])
     expect(files[0]).toMatchObject({ memory_type: 'claude-sonnet-5', content: 'Be terse', hash: 'sys1' })
     expect(files.every(f => f.timestamp === '2026-07-14T10:00:00.000Z')).toBe(true) // first sight wins
@@ -217,17 +232,28 @@ describe('RequestFile.readInstructions', () => {
     ].map(r => JSON.stringify(r)).join('\n') + '\n')
     const files = await new RequestFile('sess-t', dir).readInstructions()
     expect(files).toEqual([
-      { timestamp: '2026-07-14T10:00:00.000Z', file_path: 'System tools', memory_type: 'claude-sonnet-5, 2 tools',
-        content: '## Read\n\nReads a file\n\n## Bash\n\nRuns a command', hash: 't1' },
-      { timestamp: '2026-07-14T10:02:00.000Z', file_path: 'System tools', memory_type: 'claude-opus-4-8, 1 tool',
-        content: '## WebFetch\n\nFetches a URL', hash: 't2' }, // Read/Bash already seen — only the addition
+      { timestamp: '2026-07-14T10:00:00.000Z', file_path: 'System Tools', memory_type: 'claude-sonnet-5, 2 tools',
+        content: '## Read\n\nReads a file\n\n## Bash\n\nRuns a command', hash: 't1', kind: 'main' },
+      { timestamp: '2026-07-14T10:02:00.000Z', file_path: 'System Tools', memory_type: 'claude-opus-4-8, 1 tool',
+        content: '## WebFetch\n\nFetches a URL', hash: 't2', kind: 'main' }, // Read/Bash already seen — only the addition
     ])
   })
 
   it('joins block-array system prompts into one text', async () => {
     const files = await new RequestFile('sess-1', dir).readInstructions()
     expect(files).toEqual([{ timestamp: '2026-07-14T10:00:00.000Z',
-      file_path: 'System prompt', memory_type: 'claude-sonnet-5', content: 'You are Claude Code', hash: 'aaa' }])
+      file_path: 'System Prompt', memory_type: 'claude-sonnet-5', content: 'You are Claude Code', hash: 'aaa', kind: 'main' }])
+  })
+
+  it('labels side-channel system prompts with the request kind', async () => {
+    const base = { type: 'api-request', url: 'POST /v1/messages', status: 200 }
+    fs.writeFileSync(path.join(dir, 'sess-k.requests.jsonl'), [
+      { ...base, timestamp: '2026-07-14T10:00:00.000Z', request: { model: 'claude-haiku-4-5',
+        system: { $hash: 'k1', value: 'You are a security monitor reviewing tool calls' },
+        messages: [{ $hash: 'km', value: { role: 'user', content: '<transcript>…</transcript>' } }] } },
+    ].map(r => JSON.stringify(r)).join('\n') + '\n')
+    const files = await new RequestFile('sess-k', dir).readInstructions()
+    expect(files[0]).toMatchObject({ memory_type: 'Security check, claude-haiku-4-5', kind: 'security' })
   })
 
   it('returns [] when no log exists', async () => {

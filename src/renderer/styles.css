@@ -137,3 +137,15 @@ button:hover { background: var(--border); }
 }
 :hover::-webkit-scrollbar-thumb { background-color: rgba(255,255,255,0.25); }
 ::-webkit-scrollbar-thumb:hover { background-color: rgba(255,255,255,0.4); }
+
+/* Request-kind palette (classifyRequest in RequestParser) — shared by RequestsView's
+   list labels and ConversationView's instruction strips */
+.kind-main { color: #6b93c4; }
+.kind-tools { color: #6ea882; }
+.kind-agent { color: #9b87c9; }
+.kind-compact { color: #c2835f; }
+.kind-title { color: #7b53a0; }
+.kind-suggest { color: #6ea882; }
+.kind-web { color: #5fa8ad; }
+.kind-security { color: #c4937b; }
+.kind-quota, .kind-status { color: var(--text-faint); }

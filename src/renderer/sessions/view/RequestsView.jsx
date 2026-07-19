@@ -9,7 +9,6 @@ import './RequestsView.css'
 
 const time = ts => ts ? new Date(ts).toLocaleTimeString([], { hour12: false }) : ''
 const duration = ms => ms == null ? '' : ms < 1000 ? `${ms}ms` : `${(ms / 1000).toFixed(1)}s`
-const size = bytes => bytes == null ? '' : bytes < 1024 ? `${bytes}B` : bytes < 1024 * 1024 ? `${(bytes / 1024).toFixed(0)}KB` : `${(bytes / (1024 * 1024)).toFixed(1)}MB`
 const splitUrl = url => { const [method, ...path] = (url || '').split(' '); return [method, path.join(' ')] }
 const tokens = n => n == null ? '' : n < 1000 ? `${n}` : `${(n / 1000).toFixed(1)}k`
 
@@ -18,15 +17,6 @@ const totalTokens = rec => {
   const u = rec?.response?.usage
   if (!u) return null
   return (u.input_tokens || 0) + (u.output_tokens || 0) + (u.cache_creation_input_tokens || 0) + (u.cache_read_input_tokens || 0)
-}
-
-// A request whose trailing user message carries no tool_result starts a new user turn
-// (agentic-loop continuations always end with the previous turn's tool results).
-const startsUserTurn = rec => {
-  const msgs = rec?.request?.messages
-  const last = msgs?.[msgs.length - 1]
-  if (last?.role !== 'user') return false
-  return typeof last.content === 'string' || (Array.isArray(last.content) && !last.content.some(b => b.type === 'tool_result'))
 }
 
 // What a collapsed node shows instead of the bare '...': role + content block types for
@@ -178,16 +168,17 @@ export default function RequestsView({ sessionId, date, granularity = 'day', fil
       <ul className="requests-list">
         {records.map((r, i) => {
           const [method, path] = splitUrl(r.url)
+          // r.kind is [cssKind, label] from classifyRequest (RequestParser) — null for bare records
           return (
-          <li key={i} className={i > 0 && startsUserTurn(r) ? 'new-turn' : ''}>
+          <li key={i} className={i > 0 && r.kind?.[0] === 'main' ? 'new-turn' : ''}>
             <button type="button" className={i === selected ? 'active' : ''} onClick={() => setSelected(i)}>
               <span className={`requests-method ${method.toLowerCase()}`}>{method}</span>
-              <span className="requests-url" title={r.url}>{path}</span>
+              <span className="requests-url">{path}</span>
               <span className={`requests-status ${!r.status || r.status >= 400 ? 'error' : 'ok'}`}>{r.status ?? '—'}</span>
-              <span className="requests-meta requests-tokens" title="total tokens (input + output + cache)">{tokens(totalTokens(r))}</span>
-              <span className="requests-meta requests-size" title="request + response size">{size(r.reqSize == null && r.resSize == null ? r.size : (r.reqSize || 0) + (r.resSize || 0))}</span>
               <span className="requests-meta">{time(r.timestamp)}</span>
               <span className="requests-meta requests-duration">{duration(r.durationMs)}</span>
+              <span className={`requests-kind ${r.kind ? `kind-${r.kind[0]}` : ''}`}>{r.kind?.[1]}</span>
+              <span className="requests-meta requests-tokens" title="total tokens (input + output + cache)">{tokens(totalTokens(r))}</span>
             </button>
           </li>
           )

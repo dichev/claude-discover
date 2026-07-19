@@ -4,7 +4,7 @@ import { CLAUDE_REQUESTS_DIR } from '../paths.js'
 import { RequestParser } from './RequestParser.js'
 
 // Reads a session's NDJSON request log written by bin/capture-requests-proxy.mjs;
-// RequestParser handles the per-record work (ref resolution, memory-file extraction).
+// RequestParser handles the per-record work (ref resolution, classification, memory-file extraction).
 export class RequestFile {
   constructor(sessionId, dir = CLAUDE_REQUESTS_DIR) {
     this.filePath = join(dir, `${sessionId}.requests.jsonl`)

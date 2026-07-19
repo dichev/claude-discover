@@ -27,6 +27,43 @@ export function parseClaudeMd(text) {
   }))
 }
 
+// Classifies a request by its system prompt / trailing user message — the endpoint is always
+// POST /v1/messages, so the body is the only thing that says what a request is for. Returns
+// [cssKind, label] (shown in RequestsView's list), or null for records without a body. Tolerates
+// the log's dedup wrappers ({ $hash, value } / { $ref }), so it works on raw and resolved records.
+export const classifyRequest = req => {
+  if (!req) return null
+  const un = x => x?.value ?? x
+  const sys = un(req.system)
+  const sysText = (typeof sys === 'string' ? sys : Array.isArray(sys) ? sys.map(b => un(b)?.text ?? '').join('\n') : '').slice(0, 600)
+  const last = (req.messages || []).map(un).findLast(m => m?.role === 'user')
+  const content = un(last?.content)
+  const blocks = Array.isArray(content) ? content.map(un) : null
+  const user = (typeof content === 'string' ? content : blocks?.find(b => b?.type === 'text')?.text ?? '').trimStart().slice(0, 300)
+  if (req.max_tokens === 1 || user.trim() === 'quota') return ['quota', 'Quota probe']
+  if (sysText.includes('You are a security monitor') || user.startsWith('<transcript>')) return ['security', 'Security check']
+  if (sysText.includes('Generate a concise, sentence-case title')) return ['title', 'Session title']
+  if (sysText.includes('performing a web search')) return ['web', 'Web search']
+  if (user.startsWith('[SUGGESTION MODE')) return ['suggest', 'Suggestions']
+  if (user.startsWith('Web page content')) return ['web', 'Web fetch']
+  if (user.startsWith('Describe your most recent action')) return ['status', 'Status blurb']
+  if (user.includes('detailed summary of the conversation')) return ['compact', 'Compact']
+  if (sysText.includes("built on Anthropic's Claude Agent SDK")) return ['agent', 'Subagent']
+  if (!sysText.includes('You are Claude Code')) return null // unrecognized request — leave unclassified
+  // agentic-loop continuations feed back the previous turn's tool results, so the last
+  // user-role message says what this request is: tool results, or a new human message
+  const continues = !last || blocks?.some(b => b?.type === 'tool_result')
+  return continues ? ['tools', 'Tool results'] : ['main', 'User message']
+}
+
+// The kind of an instruction strip: side-channel requests (security monitor, title gen, …) keep
+// their [kind, label]; main-loop requests (user message and tool-result continuations alike)
+// collapse to a label-less 'main' — they ARE the conversation being read.
+const stripKind = req => {
+  const kind = classifyRequest(req)
+  return !kind || kind[0] === 'main' || kind[0] === 'tools' ? ['main', null] : kind
+}
+
 // Record-level parsing of the NDJSON request log written by bin/capture-requests-proxy.mjs.
 // Stateful: the log's dedup scheme stores system/tools/each message in full ({ $hash, value })
 // only on first sight, then as { $ref } — so feed records in file order.
@@ -57,6 +94,7 @@ export class RequestParser {
     if (req.tools != null) { $seen.tools = wasSeen(req.tools); req.tools = this.resolve(req.tools) }
     if (req.messages) req.messages = req.messages.map(m => this.resolve(m))
     rec.$seen = $seen
+    rec.kind = classifyRequest(req)
     rec.reqSize = jsonBytes(req)
     rec.resSize = jsonBytes(rec.response)
     return rec
@@ -69,7 +107,9 @@ export class RequestParser {
     if (!sys?.$hash) return null
     const value = this.resolve(sys.value) // blocks may be dedup-wrapped — a $ref'd block was stored by an earlier $hash record
     const content = typeof value === 'string' ? value : value.map(b => b?.text ?? '').join('\n\n')
-    return { file_path: 'System Prompt', memory_type: rec.request.model, content, hash: sys.$hash }
+    const [kind, kindLabel] = stripKind(rec.request)
+    const label = [kindLabel, rec.request.model].filter(Boolean).join(', ')
+    return { file_path: 'System Prompt', memory_type: label, content, hash: sys.$hash, kind }
   }
 
   // The request's tool definitions, only when this record logs the array in full (repeats are
@@ -82,8 +122,9 @@ export class RequestParser {
     if (!fresh.length) return null
     for (const t of fresh) this.seenTools.add(t.name)
     const content = fresh.map(t => `## ${t.name}\n\n${t.description || ''}`.trim()).join('\n\n')
-    const label = `${rec.request.model}, ${fresh.length} tool${fresh.length === 1 ? '' : 's'}`
-    return { file_path: 'System Tools', memory_type: label, content, hash: tools.$hash }
+    const [kind, kindLabel] = stripKind(rec.request)
+    const label = [kindLabel, rec.request.model, `${fresh.length} tool${fresh.length === 1 ? '' : 's'}`].filter(Boolean).join(', ')
+    return { file_path: 'System Tools', memory_type: label, content, hash: tools.$hash, kind }
   }
 
   // Memory files (CLAUDE.md / MEMORY.md / …) carried by the record's messages inside `# claudeMd`

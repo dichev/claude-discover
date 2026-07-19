@@ -7,7 +7,7 @@
 }
 
 .requests-list {
-  flex: 0 0 450px;
+  flex: 0 0 550px;
   overflow: auto;
   border-right: 1px solid var(--border);
   margin: 0;
@@ -43,8 +43,23 @@
 
 .requests-url {
   flex: 1;
+  color: var(--text-faint);
   overflow: hidden;
   text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* category label, last column — fixed width so the labels line up left-aligned,
+   set off from the metrics by a full-height vertical rule; colors come from the
+   shared .kind-* palette in styles.css */
+.requests-kind {
+  flex: 0 0 106px;
+  align-self: stretch;
+  display: flex;
+  align-items: center;
+  padding: 0 8px;
+  border-left: 1px solid var(--border);
+  overflow: hidden;
   white-space: nowrap;
 }
 
@@ -73,11 +88,6 @@
 
 .requests-tokens {
   min-width: 42px;
-  text-align: right;
-}
-
-.requests-size {
-  min-width: 40px;
   text-align: right;
 }
 
