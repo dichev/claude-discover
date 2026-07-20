@@ -14,25 +14,27 @@ if [ -d .git ]; then # Auto updater
     DIRTY=$(git status --porcelain)
     UNPUSHED=$(git log origin/main..main --oneline 2>/dev/null || true)
 
+    REPLY=
     if [ -n "$DIRTY" ] || [ "$BRANCH" != "main" ] || [ -n "$UNPUSHED" ]; then
       echo "Warning: the update will discard your local changes."
       read -r -p "Continue? [Y/n] " REPLY
-      if [ "$REPLY" = "n" ] || [ "$REPLY" = "N" ]; then
-        echo "Aborted update. Starting app with current code..."
-        npm start
-        exit 0
-      fi
     fi
 
-    git reset --hard HEAD
-    git checkout -B main origin/main
-    npm install
-    npm run build
+    if [ "$REPLY" = "n" ] || [ "$REPLY" = "N" ]; then
+      echo "Aborted update. Starting app with current code..."
+    else
+      git reset --hard HEAD
+      git checkout -B main origin/main
+      npm install
+      npm run build
+    fi
   fi
 fi
 
 if [ ! -d node_modules ]; then
   npm install
+fi
+if [ ! -d out ]; then
   npm run build
 fi
 

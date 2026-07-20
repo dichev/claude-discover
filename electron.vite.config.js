@@ -29,8 +29,7 @@ export default defineConfig({
         }
       }
     },
-    server:  { port: 5555, strictPort: true  }, // npm run dev
-    preview: { port: 5555, strictPort: false }, // npm start (serves built output)
+    server: { port: 5555, strictPort: true }, // npm run dev
     plugins: [react()],
     define: {
       __APP_VERSION__: JSON.stringify(pkg.version)

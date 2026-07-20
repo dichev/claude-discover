@@ -13,7 +13,7 @@ Windows is the default OS, but we must support also **macOS**. When adding a mac
 ## Commands
 
 - `npm run dev` — Vite dev server + Electron.
-- `npm run build` / `npm start` — build / preview.
+- `npm run build` / `npm start` — build / run the built app.
 - `npm test` — run Vitest suite (`vitest run`); single file: `npx vitest run test/pricing.test.js`. Tests live in `test/` at the repo root.
 - `npm run proxy` — run the API request-capture proxy in the foreground (see Request capture below); passes `--restart`, so an already-running instance is killed and replaced. While `env.ANTHROPIC_BASE_URL` is set, Claude Code can't reach the API without it.
 - `node bin/usage.mjs [daily|weekly|monthly] [--since …] [--until …] [--timezone …]` — print per-period token usage/cost from local transcripts as a terminal table (granularity defaults to `monthly`). Used to verify our cost math against `npx ccusage claude` (run both in UTC; weekly needs `--start-of-week monday`); the `ccusage-diff.test.js` suite asserts they match.
