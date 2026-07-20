@@ -3,14 +3,21 @@
   "private": true,
   "version": "1.7.0",
   "type": "module",
-  "description": "Claude Discover — read-only browser for local Claude Code sessions",
+  "description": "Claude Discover — a desktop tool to browse your local Claude Code sessions: conversations, token costs, and captured API traffic",
+  "license": "MIT",
+  "author": "dichev <dichev.lab@gmail.com>",
+  "repository": "github:dichev/claude-discover",
+  "engines": {
+    "node": ">=22"
+  },
   "main": "out/main/main.js",
   "scripts": {
     "dev": "electron-vite dev",
     "build": "electron-vite build",
     "start": "electron .",
     "test": "vitest run --reporter=tree",
-    "proxy": "node bin/capture-requests-proxy.mjs --restart"
+    "proxy": "node bin/capture-requests-proxy.mjs --restart",
+    "readme": "gh markdown-preview"
   },
   "dependencies": {
     "@anthropic-ai/claude-agent-sdk": "^0.3.214",

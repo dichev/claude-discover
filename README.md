@@ -1,43 +1,71 @@
-# Claude Discover
+> Session browser + Token costs + API traffic
+# <img src="src/renderer/assets/claude-icon.svg" width="20"> Claude Discover
 
+Ever wondered what Claude Code is **actually** doing all day?
 
-Reads from `~/.claude/projects/**/*.jsonl`.
+**Claude Discover** is a desktop tool that shows you what **Claude Code** is actually doing. It collects all your sessions (from the CLI, Desktop, or SDK) and puts them on one timeline, where you can read every conversation, peek at the system prompts, memories, and tools, inspect the raw API traffic behind it all, and see exactly where your tokens - and your money - went. (Spoiler: mostly on re-sending tool definitions.)
 
-## Dev
+No configuration, no API keys, and **everything stays on your machine**.
 
+## Getting started
+
+The tool works on Windows, macOS, and Linux. There are no pre-built binaries yet, but if you have Node.js 22+ the tool runs in a few commands:
 ```
-npm install
-npm run dev
-```
-
-## Production
-
-**macOS:**
-- double-click `start.command` (auto-updates and starts the app)
-
-**Windows:**
-```
+# Install
+git clone https://github.com/dichev/claude-discover.git && cd claude-discover
 npm install
 npm run build
+
+# Run
 npm start
+```
+
+## Features
+
+- **Timeline**\
+  Your Claude sessions laid out on a daily, weekly, or monthly timeline. One glance tells you where your tokens went; the second finds the session that quietly spawned 100+ agents.
+
+- **Sessions list**\
+  Filter and sort every session in the selected period. Warning badges flag the expensive habits: oversized context, extended 1h cache, fast mode, marathon sessions - and more to come.
+
+- **Session preview**
+  - **Conversation view**\
+    The full transcript rendered like a chat: your prompts, Claude's replies, and every tool call expanded. Everything the terminal scrolled past, now readable at human pace.
+
+  - **Raw logs**\
+    The same session exactly as Claude Code stores it on disk, one JSON line at a time. For when you don't want the story, you want the evidence.
+
+  - **API request inspector**\
+    A Postman-like view of every API request and response, captured by an optional local proxy (one click on, one click off). This is where the secrets live: the system prompt, your CLAUDE.md and memory files, tool definitions, injected reminders - all the stuff session logs politely never record.
+
+- **Session summary**\
+  Token usage and cost for every session, and totals for the whole period. Computed from your local transcripts with current model rates - accurate to the cent.
+
+- **AI session analysis**\
+  Ask Claude to review a session and tell you where the tokens leaked - with concrete hints on how to spend fewer next time. Yes, that's Claude critiquing Claude's own spending habits, and yes it runs on your own subscription and local credentials.
+
+
+## Bonus - a status line
+Install the bundled Claude Code status line to see context usage, token counts, and rate limits right in your terminal - so the surprise comes *before* the limit, not after:
+```text
+[Opus 4.8] Context: ▓▓▓░░░░░░░ 32% used (45.2k, 87% cached)  |  Tokens: 1.2M total (+45.2k, 3 turns) ...
 ```
 
 ## Verifying token/cost calculations
 
-`bin/usage.mjs` prints the app's per-period token usage and cost as a terminal table. 
-Compare it against [ccusage](https://github.com/ryoppippi/ccusage) in UTC to verify the numbers — the two should match:
+Trust, but verify. You can print the tool's per-period token usage and cost as a terminal table, and then compare it against **ccusage** - the numbers should match to the cent:
 
 ```
 node bin/usage.mjs monthly --timezone UTC
 npx ccusage claude monthly -z UTC
 ```
 
-## Optional: capture API requests
+## Contributing
 
-Claude Code doesn't save your system prompt, CLAUDE.md and memory instructions in its session logs, so this app can't show them as a context. Use the **Capture proxy → Activate** button in the app's status bar to launch a local logging proxy that records Claude Code's raw API traffic — the captured system prompts and memory files then show up in the Conversation tab, and the full requests/responses in the Requests tab.
-
-## Optional: status line and retention
-
-The app's status bar can also configure Claude Code itself — each footer item has an **Activate/Deactivate** button in its tooltip: **Status line** installs `bin/claude/statusline.mjs` as your Claude Code status line (showing context/token usage and rate limits), and **Session logs retained** raises `cleanupPeriodDays` so transcripts stay browsable for a year.
-
-Older versions of this app installed a capture-context hook, retired in favor of the proxy — `node bin/remove-context-logs-and-hooks.mjs` removes its settings.json entries and leftover `<session>.context.ndjson` sidecars (dry-run; `--force` to remove).
+PRs are welcome.
+```
+npm run dev   # start the tool with vite's hot reload
+npm test      # run the test suite
+```
+---
+**[MIT license](LICENSE)**. Not affiliated with Anthropic.
