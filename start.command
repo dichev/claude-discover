@@ -38,10 +38,4 @@ if [ ! -d out ]; then
   npm run build
 fi
 
-# One-time cleanup of the retired capture-context hook + sidecars (marker survives updates)
-if [ ! -f .remove-context-logs.ignore.done ]; then
-  node bin/remove-context-logs-and-hooks.mjs --force || true
-  touch .remove-context-logs.ignore.done
-fi
-
 npm start
