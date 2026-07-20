@@ -220,11 +220,12 @@ export class SessionParser {
         meta.serverToolUse.webFetch += u.server_tool_use.web_fetch_requests || 0
       }
     }
-    this.appliedById.set(msgId, usage)
-
     const growth = emptyBucket()
     let changed = false
-    for (const k of TOKEN_FIELDS) { growth[k] = usage[k] - (applied?.[k] ?? 0); if (growth[k] !== 0) changed = true }
+    // Never go negative: a rewind can repeat a line with its usage zeroed, but those tokens were still billed.
+    for (const k of TOKEN_FIELDS) { growth[k] = Math.max(0, usage[k] - (applied?.[k] ?? 0)); if (growth[k] !== 0) changed = true }
+    if (applied) addUsage(applied, growth)
+    else this.appliedById.set(msgId, usage)
     if (!changed) return // a repeat line that added nothing
     // Fast and standard tokens price differently, so keep separate per-model buckets.
     const byModel = fast ? meta.tokensByModelFast : meta.tokensByModel

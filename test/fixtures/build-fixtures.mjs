@@ -10,7 +10,8 @@
 // with no split object; fast mode; a streamed reply (multi-line msgId growth); a
 // multi-day session (per-line, not per-file, day attribution); a UTC-midnight boundary
 // pair; a sidechain replay of a parent turn AND a non-sidechain resume replay across
-// files (both deduped); a synthetic no-usage notice (skipped); deep subagents/workflows/
+// files (both deduped); a rewound reply re-appended with zeroed usage (must not subtract);
+// a synthetic no-usage notice (skipped); deep subagents/workflows/
 // nesting; and two separate projects.
 import fs from 'node:fs'
 import path from 'node:path'
@@ -78,6 +79,10 @@ writeFile('proj-alpha/main-session.jsonl', [
   asst({ ts: '2025-03-13T14:01:00Z', model: '<synthetic>', rid: 'rF', mid: 'M6', sessionId: 'S1', text: 'Prompt is too long' }),
   // e10: cache-creation total with no 5m/1h split object (older transcript format)
   asst({ ts: '2025-03-13T14:02:00Z', model: 'claude-opus-4-7', rid: 'rK', mid: 'M9', sessionId: 'S1', u: usage({ input: 10, output: 20, cacheRead: 100, cc5m: 400, noSplit: true }) }),
+  // e13: rewound reply — its lines get re-appended with zeroed top-level usage (the 5m split
+  // survives, as in real transcripts); the dupe must not subtract the already-billed tokens
+  asst({ ts: '2025-03-13T14:03:00Z', model: 'claude-opus-4-7', rid: 'rN', mid: 'M13', sessionId: 'S1', u: usage({ input: 40, output: 60, cacheRead: 150, cc5m: 25 }) }),
+  asst({ ts: '2025-03-13T14:03:00Z', model: 'claude-opus-4-7', rid: 'rN', mid: 'M13', sessionId: 'S1', u: { ...usage({}), cache_creation: { ephemeral_5m_input_tokens: 25, ephemeral_1h_input_tokens: 0 } } }),
   // e11/e12: a pair straddling UTC midnight — must land in 03-12 and 03-13 respectively
   asst({ ts: '2025-03-12T23:59:30Z', model: 'claude-opus-4-7', rid: 'rL', mid: 'M10', sessionId: 'S1', u: usage({ input: 5, output: 15, cacheRead: 50 }) }),
   asst({ ts: '2025-03-13T00:00:30Z', model: 'claude-opus-4-7', rid: 'rM', mid: 'M11', sessionId: 'S1', u: usage({ input: 5, output: 15, cacheRead: 50 }) }),
