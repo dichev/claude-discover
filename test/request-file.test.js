@@ -1,5 +1,5 @@
 // $hash/$ref resolution, period filtering and system-prompt/memory-file extraction of src/main/requests/
-// RequestFile.js + RequestParser.js (reads the NDJSON logs written by bin/capture-requests-proxy.mjs).
+// RequestFile.js + RequestParser.js (reads the NDJSON logs written by bin/proxy.mjs).
 import fs from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'

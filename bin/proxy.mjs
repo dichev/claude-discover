@@ -4,10 +4,9 @@
 // Activate button); started manually with `npm run proxy`. Capture must never fail or delay a request — errors go
 // to ~/.claude-discover/proxy.error.log instead of the client.
 //
-// Usage: node bin/capture-requests-proxy.mjs [--restart] [--port 41414] [--upstream https://api.anthropic.com]
+// Usage: node bin/proxy.mjs [--restart] — port/upstream/dir come from proxy.config.js ($CLAUDE_DISCOVER_* env overrides used only by tests)
 
 import fs from 'node:fs'
-import os from 'node:os'
 import path from 'node:path'
 import http from 'node:http'
 import https from 'node:https'
@@ -16,18 +15,7 @@ import crypto from 'node:crypto'
 import { pathToFileURL } from 'node:url'
 import { parseArgs } from 'node:util'
 
-
-const HOST = '127.0.0.1' // loopback only, on purpose — the proxy sees auth headers and must never listen on external interfaces
-export const PORT = 41414 // also hardcoded as PROXY_URL in src/main/paths.js; imported by bin/claude/hooks.mjs
-const UPSTREAM = 'https://api.anthropic.com'
-
-const LOG_DIR = process.env.CLAUDE_DISCOVER_DIR || path.join(os.homedir(), '.claude-discover') // global on purpose — session ids are unique, so one flat dir serves every Claude dir; mirrored in src/main/paths.js (env override used only by tests)
-const REQUESTS_DIR = path.join(LOG_DIR, 'requests') // logs are kept forever — nothing deletes them
-export const ERROR_LOG_PATH = path.join(LOG_DIR, 'proxy.error.log')
-
-export const EXIT_ROUTE = '/claude-discover/exit' // POST here makes the proxy exit — how --restart replaces a running instance (the port is loopback-only and assumed ours)
-export const PING_ROUTE = '/claude-discover/ping' // answered directly (never forwarded) — polled by the app's ProxySwitch to show/settle the running state
-export const PING_RESPONSE = 'claude-discover-proxy' // the ping body — proves it's this proxy on the port, not some other process
+import { HOST, PORT, PROXY_URL, UPSTREAM, EXIT_ROUTE, PING_ROUTE, PING_RESPONSE, REQUESTS_DIR, ERROR_LOG_PATH } from './proxy.config.js'
 
 
 // ── 1. Generic tee proxy — knows nothing about Claude ────────────────────────
@@ -233,12 +221,9 @@ if (isMain) {
   const args = parseArgs({
     options: {
       restart: { type: 'boolean' }, // replace an already-running instance instead of exiting
-      port: { type: 'string' },     // overridden only by tests
-      upstream: { type: 'string' }  // overridden only by tests
     }
   })
-  const port = Number(args.values.port || PORT)
-  const upstream = new URL(args.values.upstream || UPSTREAM)
+  const upstream = new URL(UPSTREAM)
   // Fail fast when the upstream is unreachable — a clear exit beats a proxy that 502s every request.
   // Runs before --restart so a working instance is never replaced by a broken one. Exit code 2 is
   // recognized by the app's ProxySwitch ("cannot reach upstream").
@@ -257,17 +242,17 @@ if (isMain) {
   })
   if (args.values.restart) {
     // Ask a previous instance (the port is loopback-only and assumed ours) to exit before listening.
-    const replaced = await new Promise(resolve => http.request(`http://${HOST}:${port}${EXIT_ROUTE}`, { method: 'POST' }, () => resolve(true)).on('error', () => resolve(false)).end())
+    const replaced = await new Promise(resolve => http.request(`${PROXY_URL}${EXIT_ROUTE}`, { method: 'POST' }, () => resolve(true)).on('error', () => resolve(false)).end())
     if (replaced) {
-      console.log(`Replacing running proxy on ${HOST}:${port}...`)
+      console.log(`Replacing running proxy on ${PROXY_URL}...`)
       await new Promise(resolve => setTimeout(resolve, 500)) // give it a moment to release the port
     }
   }
   server.on('error', err => {
-    if (err.code === 'EADDRINUSE' && args.values.restart) { console.error(`Failed to restart: ${HOST}:${port} is still busy`); process.exit(1) }
-    if (err.code === 'EADDRINUSE') { console.log(`Capture proxy already running on ${HOST}:${port}`); process.exit(0) }
+    if (err.code === 'EADDRINUSE' && args.values.restart) { console.error(`Failed to restart: ${HOST}:${PORT} is still busy`); process.exit(1) }
+    if (err.code === 'EADDRINUSE') { console.log(`Capture proxy already running on ${HOST}:${PORT}`); process.exit(0) }
     logError(err)
     process.exit(1)
   })
-  server.listen(port, HOST, () => console.log(`Capture proxy listening on http://${HOST}:${port} → ${upstream.origin}\nLogging requests to ${REQUESTS_DIR}`))
+  server.listen(PORT, HOST, () => console.log(`Capture proxy listening on ${PROXY_URL} → ${upstream.origin}\nLogging requests to ${REQUESTS_DIR}`))
 }

@@ -59,7 +59,7 @@ export class SessionsService extends EventEmitter {
     return { items, instructions }
   }
 
-  // Captured API requests for a session (see bin/capture-requests-proxy.mjs), period-filtered like readSession.
+  // Captured API requests for a session (see bin/proxy.mjs), period-filtered like readSession.
   async readRequests(sessionId, date = null, granularity = 'day') {
     if (!/^[\w-]+$/.test(sessionId)) return [] // the id becomes a filename — same guard as the proxy
     const range = date ? periodBounds(date, granularity) : null

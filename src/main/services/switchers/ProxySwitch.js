@@ -1,10 +1,10 @@
-// Start/stop the request-capture proxy (bin/capture-requests-proxy.mjs) and the settings.json
+// Start/stop the request-capture proxy (bin/proxy.mjs) and the settings.json
 // env keys pointing Claude Code at it. Backs the StatusBar's status + Activate/Deactivate
 // button; sole owner of that config.
 import { spawn } from 'node:child_process'
 import { ClaudeSettings } from '../ClaudeSettings.js'
-import { PROXY_PATH, PROXY_URL, CLAUDE_HOOKS_PATH } from '../../paths.js'
-import { PING_ROUTE, PING_RESPONSE, EXIT_ROUTE, ERROR_LOG_PATH } from '../../../../bin/capture-requests-proxy.mjs'
+import { PROXY_PATH, CLAUDE_HOOKS_PATH } from '../../paths.js'
+import { PROXY_URL, PING_ROUTE, PING_RESPONSE, EXIT_ROUTE, ERROR_LOG_PATH } from '../../../../bin/proxy.config.js'
 
 const HOOK_BASENAME = 'hooks.mjs' // also matches the retired claude-hooks.mjs name, repairing it in place
 const HOOK_COMMAND = `node "${CLAUDE_HOOKS_PATH}"`

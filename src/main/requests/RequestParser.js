@@ -68,7 +68,7 @@ const stripKind = req => {
   return !kind || kind[0] === 'main' || kind[0] === 'tools' ? ['main', null] : kind
 }
 
-// Record-level parsing of the NDJSON request log written by bin/capture-requests-proxy.mjs.
+// Record-level parsing of the NDJSON request log written by bin/proxy.mjs.
 // Stateful: the log's dedup scheme stores system/tools/each message in full ({ $hash, value })
 // only on first sight, then as { $ref } — so feed records in file order.
 export class RequestParser {

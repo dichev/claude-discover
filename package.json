@@ -16,7 +16,7 @@
     "build": "electron-vite build",
     "start": "electron .",
     "test": "vitest run --reporter=tree",
-    "proxy": "node bin/capture-requests-proxy.mjs --restart",
+    "proxy": "node bin/proxy.mjs --restart",
     "readme": "gh markdown-preview"
   },
   "dependencies": {

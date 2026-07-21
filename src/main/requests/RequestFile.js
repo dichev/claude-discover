@@ -1,9 +1,9 @@
 import fsp from 'node:fs/promises'
 import { join } from 'node:path'
-import { REQUESTS_DIR } from '../paths.js'
+import { REQUESTS_DIR } from '../../../bin/proxy.config.js'
 import { RequestParser } from './RequestParser.js'
 
-// Reads a session's NDJSON request log written by bin/capture-requests-proxy.mjs;
+// Reads a session's NDJSON request log written by bin/proxy.mjs;
 // RequestParser handles the per-record work (ref resolution, classification, memory-file extraction).
 export class RequestFile {
   constructor(sessionId, dir = REQUESTS_DIR) {

@@ -1,4 +1,4 @@
-// Dedup + SSE reassembly + end-to-end forwarding/request logging of bin/capture-requests-proxy.mjs.
+// Dedup + SSE reassembly + end-to-end forwarding/request logging of bin/proxy.mjs.
 import fs from 'node:fs'
 import os from 'node:os'
 import net from 'node:net'
@@ -7,7 +7,8 @@ import http from 'node:http'
 import zlib from 'node:zlib'
 import { spawn } from 'node:child_process'
 import { describe, it, expect, beforeAll, afterAll } from 'vitest'
-import { dedupeRequest, assembleSSE } from '../bin/capture-requests-proxy.mjs'
+import { dedupeRequest, assembleSSE } from '../bin/proxy.mjs'
+import { HOST } from '../bin/proxy.config.js'
 import { PROXY_PATH, CLAUDE_HOOKS_PATH } from '../src/main/paths.js'
 
 const body = {
@@ -26,7 +27,6 @@ const body = {
   ],
 }
 const headers = { 'anthropic-beta': 'claude-code-20250219, effort-2025-11-24', 'user-agent': 'claude-cli/2.1.207' }
-const HOST = '127.0.0.1'
 
 // test-side mirror of RequestParser.resolve — strips { $hash, value } wrappers back to plain values
 const unwrap = x =>
@@ -170,9 +170,9 @@ describe('proxy end-to-end', () => {
   const readRequestLog = () => fs.readFileSync(path.join(discoverDir, 'requests', 'sess-e2e.requests.jsonl'), 'utf8').trim().split('\n').map(JSON.parse)
 
   const startProxy = async (...extraArgs) => {
-    proxy = spawn(process.execPath, [PROXY_PATH, '--port', String(proxyPort), '--upstream', `http://${HOST}:${upstreamPort}`, ...extraArgs], {
+    proxy = spawn(process.execPath, [PROXY_PATH, ...extraArgs], {
       stdio: 'ignore',
-      env: { ...process.env, CLAUDE_DISCOVER_DIR: discoverDir },
+      env: { ...process.env, CLAUDE_DISCOVER_DIR: discoverDir, CLAUDE_DISCOVER_PORT: String(proxyPort), CLAUDE_DISCOVER_UPSTREAM: `http://${HOST}:${upstreamPort}` },
     })
     await waitForPort(proxyPort)
     received.length = 0 // drop the proxy's own startup upstream check (GET /v1/models)
@@ -307,9 +307,9 @@ describe('proxy end-to-end', () => {
   })
 
   it('exits with code 2 at startup when the upstream is unreachable', async () => {
-    const dead = spawn(process.execPath, [PROXY_PATH, '--port', String(await freePort()), '--upstream', `http://${HOST}:${await freePort()}`], {
+    const dead = spawn(process.execPath, [PROXY_PATH], {
       stdio: 'ignore',
-      env: { ...process.env, CLAUDE_DISCOVER_DIR: discoverDir },
+      env: { ...process.env, CLAUDE_DISCOVER_DIR: discoverDir, CLAUDE_DISCOVER_PORT: String(await freePort()), CLAUDE_DISCOVER_UPSTREAM: `http://${HOST}:${await freePort()}` },
     })
     expect(await new Promise(r => dead.once('exit', r))).toBe(2)
   }, 15000)
@@ -343,9 +343,9 @@ describe('claude-hooks SessionStart (ensure proxy)', () => {
   })
 
   const runHook = (hookPort, hookUpstream, event = { hook_event_name: 'SessionStart' }) => new Promise(resolve => {
-    const child = spawn(process.execPath, [CLAUDE_HOOKS_PATH, '--port', String(hookPort), '--upstream', hookUpstream], {
+    const child = spawn(process.execPath, [CLAUDE_HOOKS_PATH], {
       stdio: ['pipe', 'ignore', 'ignore'],
-      env: { ...process.env, CLAUDE_DISCOVER_DIR: discoverDir },
+      env: { ...process.env, CLAUDE_DISCOVER_DIR: discoverDir, CLAUDE_DISCOVER_PORT: String(hookPort), CLAUDE_DISCOVER_UPSTREAM: hookUpstream },
     })
     child.stdin.end(JSON.stringify(event))
     child.once('exit', resolve)

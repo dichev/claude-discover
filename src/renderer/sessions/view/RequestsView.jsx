@@ -130,7 +130,7 @@ const Pane = React.memo(function Pane({ value, headers, seen, expandAll }) {
   )
 })
 
-// Postman-like inspector for the API request logs captured by bin/capture-requests-proxy.mjs:
+// Postman-like inspector for the API request logs captured by bin/proxy.mjs:
 // a list of the session's requests on the left, the selected request/response JSON on the right.
 export default function RequestsView({ sessionId, date, granularity = 'day', fileSize = 0, expandAll = null }) {
   const [records, setRecords]   = useState(null)
