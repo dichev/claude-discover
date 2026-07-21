@@ -31,10 +31,10 @@ export class MainWindow {
       autoHideMenuBar: true,
       title: `Claude Discover v${app.getVersion()}`,
       webPreferences: {
-        preload: path.join(__dirname, '../preload/preload.mjs'),
+        preload: path.join(__dirname, '../preload/preload.cjs'),
         contextIsolation: true,
         nodeIntegration: false,
-        sandbox: false
+        sandbox: true
       }
     })
 

@@ -16,10 +16,10 @@ export class FindBar {
     this.win = win
     this.view = new WebContentsView({
       webPreferences: {
-        preload: path.join(__dirname, '../preload/findPreload.mjs'),
+        preload: path.join(__dirname, '../preload/findPreload.cjs'),
         contextIsolation: true,
         nodeIntegration: false,
-        sandbox: false
+        sandbox: true
       }
     })
     this.view.setBackgroundColor('#00000000') // transparent; the bar draws its own rounded box

@@ -36,10 +36,16 @@ export default defineConfig({
   },
   preload: {
     build: {
-      lib: {
-        entry: {
+      // Sandboxed renderers require CommonJS, single-file preloads (no ESM, no shared chunks to require).
+      rollupOptions: {
+        input: {
           preload:     resolve('src/preload/preload.js'),
           findPreload: resolve('src/preload/findPreload.js')
+        },
+        output: {
+          format: 'cjs',
+          entryFileNames: '[name].cjs',
+          chunkFileNames: '[name].cjs'
         }
       }
     }
