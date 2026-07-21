@@ -117,28 +117,6 @@ describe('RequestFile', () => {
 
 })
 
-describe('RequestFile.sweepOrphans', () => {
-  it('deletes only stale logs with no live transcript', async () => {
-    const sweepDir = fs.mkdtempSync(path.join(os.tmpdir(), 'cd-sweep-'))
-    const dayOld = new Date(Date.now() - 2 * 24 * 60 * 60_000)
-    for (const name of ['live.requests.jsonl', 'orphan.requests.jsonl', 'fresh.requests.jsonl', 'other.txt']) {
-      fs.writeFileSync(path.join(sweepDir, name), '{}\n')
-      if (name !== 'fresh.requests.jsonl') fs.utimesSync(path.join(sweepDir, name), dayOld, dayOld)
-    }
-    await RequestFile.sweepOrphans(new Set(['live']), sweepDir)
-    expect(fs.readdirSync(sweepDir).sort()).toEqual([
-      'fresh.requests.jsonl', // orphan but too fresh — its transcript may not be on disk yet
-      'live.requests.jsonl',  // transcript still exists
-      'other.txt',            // not a request log
-    ])
-    fs.rmSync(sweepDir, { recursive: true, force: true })
-  })
-
-  it('resolves quietly when the requests dir does not exist', async () => {
-    await expect(RequestFile.sweepOrphans(new Set(), path.join(dir, 'nope'))).resolves.toBeUndefined()
-  })
-})
-
 const reminder = `<system-reminder>
 As you answer the user's questions, you can use the following context:
 # claudeMd

@@ -30,11 +30,11 @@ import { text } from 'node:stream/consumers'
 import { PORT, PING_ROUTE, PING_RESPONSE, ERROR_LOG_PATH } from '../capture-requests-proxy.mjs'
 
 
-const CLAUDE_DIR = process.env.CLAUDE_CONFIG_DIR || path.join(os.homedir(), '.claude') // Where the logs go
-const DEBUG_LOG = false // Log every incoming hook event to <CLAUDE_DIR>/DEBUG_LOG_FILE
-const DEBUG_LOG_FILE = '.claude-discover/hooks.debug.log'
-const ERROR_LOG = true // Log hook errors to <CLAUDE_DIR>/ERROR_LOG_FILE
-const ERROR_LOG_FILE = '.claude-discover/hooks.error.log'
+const DISCOVER_DIR = process.env.CLAUDE_DISCOVER_DIR || path.join(os.homedir(), '.claude-discover') // Where the logs go (env override used only by tests)
+const DEBUG_LOG = false // Log every incoming hook event to DEBUG_LOG_FILE
+const DEBUG_LOG_FILE = path.join(DISCOVER_DIR, 'hooks.debug.log')
+const ERROR_LOG = true // Log hook errors to ERROR_LOG_FILE
+const ERROR_LOG_FILE = path.join(DISCOVER_DIR, 'hooks.error.log')
 
 const CLAUDE_HOOKS = {
   SESSION_START: 'SessionStart',
@@ -45,9 +45,8 @@ const args = parseArgs({ options: { port: { type: 'string' }, upstream: { type: 
 const port = Number(args.values.port || PORT)
 
 
-function log(filename, data) {
+function log(file, data) {
   try {
-    const file = path.join(CLAUDE_DIR, filename)
     fs.mkdirSync(path.dirname(file), { recursive: true })
     fs.appendFileSync(file, `${new Date().toISOString()} ${data}\n`)
   } catch {}

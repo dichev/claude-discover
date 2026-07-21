@@ -36,7 +36,6 @@ export class SessionsService extends EventEmitter {
     this.throttleMs = throttleMs
     this.metaCache = new MetaCache()
     this.activeDay = null
-    this.sweptLogs = false
     this.scanAbort = null
     this.updateTimer = null
     this.lastUpdateAt = 0
@@ -82,7 +81,7 @@ export class SessionsService extends EventEmitter {
         onBatchDone: () => { if (fresh()) this._scheduleUpdate() },
         onProgress: p => { if (fresh()) this.emit('progress', p) },
       })
-    }).then(() => this._sweepRequestLogs())
+    })
 
     if (watch) scan.catch(console.error) // fire-and-forget; the scanner streams an update per dir batch + a final flush
     else await scan // block until the full scan completes
@@ -175,16 +174,6 @@ export class SessionsService extends EventEmitter {
     if (!isChanged) return
     const meta = await this._processFile(filePath, day, stat)
     if (meta && intersectsDay(meta, day)) this._scheduleUpdate()
-  }
-
-  // Once the first full walk mirrors the disk, drop request logs whose transcript is gone —
-  // Claude Code swept it per cleanupPeriodDays and the sessions can no longer be shown anyway.
-  async _sweepRequestLogs() {
-    if (this.sweptLogs) return
-    const ids = this.scanner.sessionIds()
-    if (!ids) return // partial or CLI (watch:false) scan — never judge orphans from an incomplete walk
-    this.sweptLogs = true
-    await RequestFile.sweepOrphans(ids)
   }
 
   _evict(filePath) {

@@ -2,7 +2,7 @@
 // (system prompt, tool definitions, injected reminders, request params) plus the raw responses.
 // Claude Code is pointed at it via env.ANTHROPIC_BASE_URL (installed by the app's StatusBar
 // Activate button); started manually with `npm run proxy`. Capture must never fail or delay a request — errors go
-// to <CLAUDE_DIR>/.claude-discover/proxy.error.log instead of the client.
+// to ~/.claude-discover/proxy.error.log instead of the client.
 //
 // Usage: node bin/capture-requests-proxy.mjs [--restart] [--port 41414] [--upstream https://api.anthropic.com]
 
@@ -20,10 +20,11 @@ import { parseArgs } from 'node:util'
 const HOST = '127.0.0.1' // loopback only, on purpose — the proxy sees auth headers and must never listen on external interfaces
 export const PORT = 41414 // also hardcoded as PROXY_URL in src/main/paths.js; imported by bin/claude/hooks.mjs
 const UPSTREAM = 'https://api.anthropic.com'
-const CLAUDE_DIR = process.env.CLAUDE_CONFIG_DIR || path.join(os.homedir(), '.claude')
-const LOG_DIR = path.join(CLAUDE_DIR, '.claude-discover') // this app's data under the Claude dir
-const REQUESTS_DIR = path.join(LOG_DIR, 'requests') // orphaned logs are swept by the app (RequestFile.sweepOrphans), not here
+
+const LOG_DIR = process.env.CLAUDE_DISCOVER_DIR || path.join(os.homedir(), '.claude-discover') // global on purpose — session ids are unique, so one flat dir serves every Claude dir; mirrored in src/main/paths.js (env override used only by tests)
+const REQUESTS_DIR = path.join(LOG_DIR, 'requests') // logs are kept forever — nothing deletes them
 export const ERROR_LOG_PATH = path.join(LOG_DIR, 'proxy.error.log')
+
 export const EXIT_ROUTE = '/claude-discover/exit' // POST here makes the proxy exit — how --restart replaces a running instance (the port is loopback-only and assumed ours)
 export const PING_ROUTE = '/claude-discover/ping' // answered directly (never forwarded) — polled by the app's ProxySwitch to show/settle the running state
 export const PING_RESPONSE = 'claude-discover-proxy' // the ping body — proves it's this proxy on the port, not some other process
@@ -95,7 +96,7 @@ function decode(encoding, buf) {
 }
 
 // ── 2. Claude Code capture ───────────────────────────────────────────────────
-// One JSON record per exchange in <CLAUDE_DIR>/.claude-discover/requests/<sessionId>.requests.jsonl
+// One JSON record per exchange in ~/.claude-discover/requests/<sessionId>.requests.jsonl
 // (session id from the X-Claude-Code-Session-Id header).
 
 // Keep the header name (useful signal) but never the credential.

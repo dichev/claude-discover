@@ -165,21 +165,21 @@ const waitForPort = async port => {
 }
 
 describe('proxy end-to-end', () => {
-  let claudeDir, upstream, upstreamPort, proxyPort, proxy
+  let discoverDir, upstream, upstreamPort, proxyPort, proxy
   const received = []
-  const readRequestLog = () => fs.readFileSync(path.join(claudeDir, '.claude-discover', 'requests', 'sess-e2e.requests.jsonl'), 'utf8').trim().split('\n').map(JSON.parse)
+  const readRequestLog = () => fs.readFileSync(path.join(discoverDir, 'requests', 'sess-e2e.requests.jsonl'), 'utf8').trim().split('\n').map(JSON.parse)
 
   const startProxy = async (...extraArgs) => {
     proxy = spawn(process.execPath, [PROXY_PATH, '--port', String(proxyPort), '--upstream', `http://${HOST}:${upstreamPort}`, ...extraArgs], {
       stdio: 'ignore',
-      env: { ...process.env, CLAUDE_CONFIG_DIR: claudeDir },
+      env: { ...process.env, CLAUDE_DISCOVER_DIR: discoverDir },
     })
     await waitForPort(proxyPort)
     received.length = 0 // drop the proxy's own startup upstream check (GET /v1/models)
   }
 
   beforeAll(async () => {
-    claudeDir = fs.mkdtempSync(path.join(os.tmpdir(), 'cd-proxy-'))
+    discoverDir = fs.mkdtempSync(path.join(os.tmpdir(), 'cd-proxy-'))
     upstream = http.createServer((req, res) => {
       const chunks = []
       req.on('data', c => chunks.push(c))
@@ -204,7 +204,7 @@ describe('proxy end-to-end', () => {
   afterAll(() => {
     proxy?.kill()
     upstream?.close()
-    fs.rmSync(claudeDir, { recursive: true, force: true })
+    fs.rmSync(discoverDir, { recursive: true, force: true })
   })
 
   const post = (extraHeaders = {}) => fetch(`http://${HOST}:${proxyPort}/v1/messages?beta=true`, {
@@ -309,7 +309,7 @@ describe('proxy end-to-end', () => {
   it('exits with code 2 at startup when the upstream is unreachable', async () => {
     const dead = spawn(process.execPath, [PROXY_PATH, '--port', String(await freePort()), '--upstream', `http://${HOST}:${await freePort()}`], {
       stdio: 'ignore',
-      env: { ...process.env, CLAUDE_CONFIG_DIR: claudeDir },
+      env: { ...process.env, CLAUDE_DISCOVER_DIR: discoverDir },
     })
     expect(await new Promise(r => dead.once('exit', r))).toBe(2)
   }, 15000)
@@ -321,15 +321,15 @@ describe('proxy end-to-end', () => {
       body: JSON.stringify(body),
     })
     expect(res.status).toBe(200)
-    expect(fs.readdirSync(path.join(claudeDir, '.claude-discover', 'requests'))).toEqual(['sess-e2e.requests.jsonl'])
+    expect(fs.readdirSync(path.join(discoverDir, 'requests'))).toEqual(['sess-e2e.requests.jsonl'])
   })
 })
 
 describe('claude-hooks SessionStart (ensure proxy)', () => {
-  let claudeDir, upstream, upstreamPort, port
+  let discoverDir, upstream, upstreamPort, port
 
   beforeAll(async () => {
-    claudeDir = fs.mkdtempSync(path.join(os.tmpdir(), 'cd-hook-'))
+    discoverDir = fs.mkdtempSync(path.join(os.tmpdir(), 'cd-hook-'))
     upstream = http.createServer((_, res) => res.end('{}'))
     upstreamPort = await freePort()
     await new Promise(r => upstream.listen(upstreamPort, HOST, r))
@@ -339,13 +339,13 @@ describe('claude-hooks SessionStart (ensure proxy)', () => {
   afterAll(async () => {
     try { await fetch(`http://${HOST}:${port}/claude-discover/exit`, { method: 'POST' }) } catch {} // kill the proxy the hook spawned
     upstream?.close()
-    fs.rmSync(claudeDir, { recursive: true, force: true })
+    fs.rmSync(discoverDir, { recursive: true, force: true })
   })
 
   const runHook = (hookPort, hookUpstream, event = { hook_event_name: 'SessionStart' }) => new Promise(resolve => {
     const child = spawn(process.execPath, [CLAUDE_HOOKS_PATH, '--port', String(hookPort), '--upstream', hookUpstream], {
       stdio: ['pipe', 'ignore', 'ignore'],
-      env: { ...process.env, CLAUDE_CONFIG_DIR: claudeDir },
+      env: { ...process.env, CLAUDE_DISCOVER_DIR: discoverDir },
     })
     child.stdin.end(JSON.stringify(event))
     child.once('exit', resolve)

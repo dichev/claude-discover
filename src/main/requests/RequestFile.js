@@ -1,28 +1,13 @@
 import fsp from 'node:fs/promises'
-import { join, basename } from 'node:path'
-import { CLAUDE_REQUESTS_DIR } from '../paths.js'
+import { join } from 'node:path'
+import { REQUESTS_DIR } from '../paths.js'
 import { RequestParser } from './RequestParser.js'
 
 // Reads a session's NDJSON request log written by bin/capture-requests-proxy.mjs;
 // RequestParser handles the per-record work (ref resolution, classification, memory-file extraction).
 export class RequestFile {
-  constructor(sessionId, dir = CLAUDE_REQUESTS_DIR) {
+  constructor(sessionId, dir = REQUESTS_DIR) {
     this.filePath = join(dir, `${sessionId}.requests.jsonl`)
-  }
-
-  // Deletes request logs whose transcript is gone — a log is useless once Claude Code sweeps its
-  // transcript (per cleanupPeriodDays), and following the transcript's fate needs no retention
-  // math and can't race a session captured with the proxy off. `liveIds` must come from a
-  // complete scan of projects/; logs touched within the last day are kept regardless, since a
-  // brand-new session's transcript may not be on disk yet.
-  static async sweepOrphans(liveIds, dir = CLAUDE_REQUESTS_DIR) {
-    const cutoff = Date.now() - 24 * 60 * 60_000
-    for (const name of await fsp.readdir(dir).catch(() => [])) {
-      if (!name.endsWith('.requests.jsonl') || liveIds.has(basename(name, '.requests.jsonl'))) continue
-      const filePath = join(dir, name)
-      const stat = await fsp.stat(filePath).catch(() => null)
-      if (stat && stat.mtimeMs < cutoff) await fsp.rm(filePath, { force: true }).catch(() => {})
-    }
   }
 
   async lines() {
