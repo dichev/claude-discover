@@ -3,6 +3,9 @@
 
 Ever wondered what Claude Code is **actually** doing all day?
 
+<img width="1660" height="1256" alt="claude-discover-dimmed-screenshot" src="https://github.com/user-attachments/assets/708d05c7-8769-47d8-b5bd-14337d1d6037" />
+<br><br>
+
 **Claude Discover** is a desktop tool that shows you what **Claude Code** is actually doing. It collects all your sessions (from the CLI, Desktop, or SDK) and puts them on one timeline, where you can read every conversation, peek at the system prompts, memories, and tools, inspect the raw API traffic behind it all, and see exactly where your tokens - and your money - went. (Spoiler: mostly on re-sending tool definitions.)
 
 No configuration, no API keys, and **everything stays on your machine**.
@@ -62,10 +65,10 @@ npx ccusage claude monthly -z UTC
 
 ## Contributing
 
-PRs are welcome.
+PRs and feature requests are welcome.
 ```
 npm run dev   # start the tool with vite's hot reload
 npm test      # run the test suite
 ```
 ---
-**[MIT license](LICENSE)**. Not affiliated with Anthropic.
+**[MIT license](LICENSE)** - Not affiliated with Anthropic.
