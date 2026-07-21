@@ -42,7 +42,7 @@ const claudeDirTooltip = <>
   <p>The folder this app reads everything from — your Claude Code sessions and settings (usually <code>~/.claude</code>).</p>
   <p>Previous directories are listed in the File menu (press Alt).</p>
   <div className="statusbar-tooltip-changes">
-    <p>Changes in <code>~/.claude-discover.json</code>:</p>
+    <p>Changes in <code>~/.claude-discover/config.json</code>:</p>
     <pre>{`"claudeDir": "…the chosen folder"`}</pre>
   </div>
 </>

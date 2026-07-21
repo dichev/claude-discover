@@ -3,16 +3,22 @@ import {homedir} from 'node:os'
 import {join} from 'node:path'
 import { sync as writeFileAtomic } from 'write-file-atomic'
 
-const CONFIG_FILE = join(homedir(), '.claude-discover.json')
-export const getConfig = () => fs.existsSync(CONFIG_FILE) ? JSON.parse(fs.readFileSync(CONFIG_FILE, 'utf8')) : {}
-export const setConfig = data => writeFileAtomic(CONFIG_FILE, JSON.stringify({ ...getConfig(), ...data }, null, 2))
+const PROJECT_DIR = join(homedir(), '.claude-discover')
+const CONFIG_FILE = join(PROJECT_DIR, 'config.json')
+
+export const getConfig = () => {
+  return fs.existsSync(CONFIG_FILE) ? JSON.parse(fs.readFileSync(CONFIG_FILE, 'utf8')) : {}
+}
+export const setConfig = data => {
+  fs.mkdirSync(PROJECT_DIR, { recursive: true })
+  writeFileAtomic(CONFIG_FILE, JSON.stringify({ ...getConfig(), ...data }, null, 2))
+}
 
 const local = getConfig()
 export const CLAUDE_DIR           = local.claudeDir || process.env.CLAUDE_CONFIG_DIR || join(homedir(), '.claude')
 export const RECENT_CLAUDE_DIRS   = local.recents || [CLAUDE_DIR]
 export const CLAUDE_PROJECTS_DIR  = join(CLAUDE_DIR, 'projects')
-export const DISCOVER_DIR         = join(homedir(), '.claude-discover') // this app's global data dir, shared by every Claude dir — mirrored in bin/capture-requests-proxy.mjs
-export const REQUESTS_DIR         = join(DISCOVER_DIR, 'requests') // request logs written by bin/capture-requests-proxy.mjs
+export const REQUESTS_DIR         = join(PROJECT_DIR, 'requests') // request logs written by bin/capture-requests-proxy.mjs
 export const CLAUDE_SETTINGS      = join(CLAUDE_DIR, 'settings.json')
 export const STATUSLINE_PATH      = join(import.meta.dirname, '../../bin/claude/statusline.mjs')
 export const PROXY_PATH           = join(import.meta.dirname, '../../bin/capture-requests-proxy.mjs')

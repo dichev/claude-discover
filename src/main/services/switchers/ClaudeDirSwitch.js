@@ -1,4 +1,4 @@
-// Switch the Claude data directory this app reads from (claudeDir in ~/.claude-discover.json).
+// Switch the Claude data directory this app reads from (claudeDir in ~/.claude-discover/config.json).
 // Backs the StatusBar's "Change directory" button and the File menu's source-switcher;
 // sole owner of that config. Picking a new directory relaunches the app.
 import { app, BrowserWindow, dialog } from 'electron'
