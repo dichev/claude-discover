@@ -6,8 +6,8 @@ import './StatusBar.css'
 const proxyTooltip = <>
   <p>Captures Claude Code's raw API traffic — system prompt, tool definitions, injected reminders, responses — shown in the session's Requests tab.</p>
 
-  <div className="statusbar-tooltip-changes">
-    <p>Changes in <code>settings.json</code>:</p>
+  <details className="statusbar-tooltip-changes">
+    <summary>Changes in <code>settings.json</code></summary>
     <pre>{`"env": {
   "ANTHROPIC_BASE_URL": "http://127.0.0.1:41414",
   "ENABLE_TOOL_SEARCH": "true"
@@ -16,35 +16,35 @@ const proxyTooltip = <>
   "SessionStart": ["…/bin/claude/hooks.mjs"]
 }`}</pre>
     <p>Note: <code>/remote-control</code> is disabled while proxy is active.</p>
-  </div>
+  </details>
 </>
 
 const retentionTooltip = <>
   <p>Claude Code deletes transcripts older than <code>cleanupPeriodDays</code> (default 30) — this app can only show what's left. Raise it to keep a year of history browsable.</p>
-  <div className="statusbar-tooltip-changes">
-    <p>Changes in <code>settings.json</code>:</p>
+  <details className="statusbar-tooltip-changes">
+    <summary>Changes in <code>settings.json</code></summary>
     <pre>{`"cleanupPeriodDays": 365`}</pre>
-  </div>
+  </details>
 </>
 
 const statuslineTooltip = <>
   <p>This app ships a status line for Claude Code showing context/token usage and rate limits.</p>
-  <div className="statusbar-tooltip-changes">
-    <p>Changes in <code>settings.json</code>:</p>
+  <details className="statusbar-tooltip-changes">
+    <summary>Changes in <code>settings.json</code></summary>
     <pre>{`"statusLine": {
   "type": "command",
   "command": "node …/bin/claude/statusline.mjs"
 }`}</pre>
-  </div>
+  </details>
 </>
 
 const claudeDirTooltip = <>
   <p>The folder this app reads everything from — your Claude Code sessions and settings (usually <code>~/.claude</code>).</p>
   <p>Previous directories are listed in the File menu (press Alt).</p>
-  <div className="statusbar-tooltip-changes">
-    <p>Changes in <code>~/.claude-discover/config.json</code>:</p>
+  <details className="statusbar-tooltip-changes">
+    <summary>Changes in <code>~/.claude-discover/config.json</code></summary>
     <pre>{`"claudeDir": "…the chosen folder"`}</pre>
-  </div>
+  </details>
 </>
 
 const ONE_YEAR_DAYS = 365

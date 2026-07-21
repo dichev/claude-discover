@@ -51,7 +51,9 @@ export function flatten(items, instructions = []) {
     }
     if (it.type !== 'user' && it.type !== 'assistant') continue
     const msg = it.message || {}
-    const blocks = normalizeContent(msg.content)
+    // Drop thinking blocks with no persisted text (signature-only reasoning — billed output tokens
+    // but the plaintext isn't in the transcript). A turn left with nothing renders as an empty card.
+    const blocks = normalizeContent(msg.content).filter(b => !(b.type === 'thinking' && !b.thinking?.trim()))
     if (blocks.length === 0) continue
     for (const b of blocks) {
       if (b.type === 'tool_result' && b.tool_use_id) results[b.tool_use_id] = b
@@ -93,6 +95,9 @@ export function flatten(items, instructions = []) {
   }
   return out
 }
+
+// The conversation's current model: what the last user message was answered with.
+export const currentModel = turns => turns.findLast(t => t.model && t.model !== '<synthetic>')?.model
 
 function normalizeContent(content) {
   if (typeof content === 'string') return [{ type: 'text', text: content }]
@@ -148,6 +153,13 @@ export function parseCommand(text) {
     stdout:  field('local-command-stdout'),
     caveat:  field('local-command-caveat'),
   }
+}
+
+// Instruction strip title: `name (memory_type)` — the request's model is named only when it
+// differs from the conversation's own (currentModel), i.e. for side-channel requests like title gen.
+export function instructionTitle(it, model) {
+  const parts = [it.memory_type, it.model && it.model !== model && it.model].filter(Boolean).join(', ')
+  return parts ? `${it.name ?? it.file_path} (${parts})` : (it.name ?? it.file_path)
 }
 
 // Harness-injected context is a meta turn whose blocks are all attachments (the "attachments · N items" payload).

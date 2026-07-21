@@ -3,7 +3,7 @@ import { format } from 'date-fns'
 import { Terminal } from 'lucide-react'
 import { fmtCompact, fmtDuration } from '../../utils/formatting'
 import { THRESHOLDS as T } from '../../utils/thresholds.js'
-import { flatten, groupTurns, cycleDurations, tokenPoints, isContextTurn, toolSummary, parseCommand } from './transcript.js'
+import { flatten, groupTurns, cycleDurations, tokenPoints, isContextTurn, toolSummary, parseCommand, instructionTitle, currentModel } from './transcript.js'
 import LazyMount from '../../ui/LazyMount.jsx'
 import Markdown from '../../ui/Markdown.jsx'
 import { useFindActive } from '../../ui/useFindActive.js'
@@ -42,7 +42,7 @@ export default function ConversationView({ items, instructions = [], expandAll =
             <LazyMount eager={i < 8} forceMount={findOpen} placeholderMinHeight={80}>
               {g.kind === 'user'      ? <UserRow turns={g.turns} point={points[i]} />
                : g.kind === 'assistant' ? <AssistantCard turns={g.turns} point={points[i]} duration={durations[i]} showAuthor={groups[i - 1]?.kind !== 'assistant'} />
-               :                        <InstructionFile it={g.turn.blocks[0].it} />}
+               :                        <InstructionFile it={g.turn.blocks[0].it} model={currentModel(turns)} />}
             </LazyMount>
             {points[i] ? <TokenPoint point={points[i]} />
              // Commands consume no tokens so they never get a real point — mark them with a plain dot.
@@ -322,16 +322,17 @@ function JsonBlock({ value }) {
   return <Markdown className="block-text" text={'```json\n' + safeJson(value) + '\n```'} />
 }
 
-function InstructionFile({ it }) {
+function InstructionFile({ it, model }) {
   const [open, setOpen] = useCollapsed(false)
   return (
     <div className="aux instruction-file">
       <button className="aux-toggle" onClick={() => setOpen(v => !v)}>
         <span className="aux-chevron">{open ? '▾' : '▸'}</span>
-        <span className={it.kind && `kind-${it.kind}`}>{`${it.file_path} (${it.memory_type}, API request)`}</span>
+        <span>{instructionTitle(it, model)}</span>
       </button>
       {open && (
         <div className="aux-body">
+          {it.name && it.name !== it.file_path && <div className="instruction-path">{it.file_path}</div>}
           <Markdown className="block-text" text={it.content || ''} basePath={it.file_path} />
         </div>
       )}

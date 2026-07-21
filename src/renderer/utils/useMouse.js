@@ -62,7 +62,7 @@ export function useMouse(ref, handlers) {
         if (e.button !== 1 || !onReset) return
         e.preventDefault() // keep Windows autoscroll from kicking in
         onReset(e)
-      } else if (onPan) {
+      } else if (onPan && !e.target.closest?.('[data-no-pan]')) { // let overlays (e.g. work-hour handles) opt out of pan
         dragToPan(e)
       }
     }

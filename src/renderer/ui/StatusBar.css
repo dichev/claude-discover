@@ -36,13 +36,15 @@
   font-size: 11px;
   overflow-x: auto;
 }
-/* "Changes in settings.json" section: separated by a top line, dimmed relative to the prose */
+/* "Changes in settings.json" section: separated by a top line, dimmed relative to the prose, collapsed by default */
 .statusbar-tooltip-changes {
   margin-top: 10px;
   padding-top: 8px;
   border-top: 1px solid var(--border);
   opacity: 0.65;
 }
+.statusbar-tooltip-changes summary { cursor: pointer; }
+.statusbar-tooltip-changes[open] summary { margin-bottom: 6px; }
 .statusbar-tooltip ul { margin: 0 0 6px; padding-left: 18px; }
 .statusbar-tooltip li { margin: 2px 0; }
 .statusbar-tooltip > :last-child { margin-bottom: 0; }

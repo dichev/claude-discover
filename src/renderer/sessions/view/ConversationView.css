@@ -355,6 +355,15 @@ button.msg-summary:hover { color: var(--text); background: var(--bg-elev-2); bor
   margin-left: -10px;
 }
 
+/* Full path of an expanded memory file, first line of the body — one click selects it for copying. */
+.instruction-path {
+  font-family: var(--font-mono), monospace;
+  font-size: calc(10.5px * var(--font-scale, 1));
+  color: var(--text-faint);
+  margin: 2px 0 4px;
+  user-select: all;
+}
+
 .instructions-note {
   font-size: calc(11px * var(--font-scale, 1));
   color: var(--text-faint);

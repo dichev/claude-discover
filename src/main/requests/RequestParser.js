@@ -4,8 +4,13 @@ const jsonBytes = x => x == null ? 0 : Buffer.byteLength(JSON.stringify(x))
 const MEMORY_LABELS = {
   "user's private global instructions for all projects": 'User',
   'project instructions, checked into the codebase': 'Project',
+  "user's private project instructions, not checked in": 'Local',
   "user's auto-memory, persists across conversations": 'Auto',
 }
+
+// The standard file each memory type lives in — matching paths display as just the basename
+// (`name`); anything off-pattern keeps its full path.
+const MEMORY_FILES = { User: 'CLAUDE.md', Project: 'CLAUDE.md', Local: 'CLAUDE.local.md', Auto: 'MEMORY.md' }
 
 // Extracts the files listed under a system-reminder's `# claudeMd` section, each introduced by a
 // "Contents of <path> (<description>):" line. File bodies may contain their own "# " headings, so
@@ -20,11 +25,16 @@ export function parseClaudeMd(text) {
     .map(re => region.search(re)).filter(i => i !== -1)
   if (ends.length) region = region.slice(0, Math.min(...ends))
   const heads = [...region.matchAll(/^Contents of (.+?) \(([^)]*)\):\r?\n/gm)]
-  return heads.map((h, i) => ({
-    file_path: h[1],
-    memory_type: MEMORY_LABELS[h[2]] ?? h[2],
-    content: region.slice(h.index + h[0].length, heads[i + 1]?.index ?? region.length).trim(),
-  }))
+  return heads.map((h, i) => {
+    const memory_type = MEMORY_LABELS[h[2]] ?? h[2]
+    const base = h[1].split(/[\\/]/).pop()
+    return {
+      file_path: h[1],
+      name: base === MEMORY_FILES[memory_type] ? base : h[1],
+      memory_type,
+      content: region.slice(h.index + h[0].length, heads[i + 1]?.index ?? region.length).trim(),
+    }
+  })
 }
 
 // Classifies a request by its url (count_tokens probes) or, on /v1/messages, by its system
@@ -119,8 +129,8 @@ export class RequestParser {
     const value = this.resolve(sys.value) // blocks may be dedup-wrapped — a $ref'd block was stored by an earlier $hash record
     const content = typeof value === 'string' ? value : value.map(b => b?.text ?? '').join('\n\n')
     const [kind, kindLabel] = stripKind(rec.request)
-    const label = [kindLabel, rec.request.model].filter(Boolean).join(', ')
-    return { file_path: 'System Prompt', memory_type: label, content, hash: sys.$hash, kind }
+    // model kept separate — the frontend shows it only when it differs from the conversation's
+    return { file_path: 'System Prompt', memory_type: kindLabel || '', model: rec.request.model, content, hash: sys.$hash, kind }
   }
 
   // The request's tool definitions, only when this record logs the array in full (repeats are
@@ -134,8 +144,8 @@ export class RequestParser {
     for (const t of fresh) this.seenTools.add(t.name)
     const content = fresh.map(t => `## ${t.name}\n\n${t.description || ''}`.trim()).join('\n\n')
     const [kind, kindLabel] = stripKind(rec.request)
-    const label = [kindLabel, rec.request.model, `${fresh.length} tool${fresh.length === 1 ? '' : 's'}`].filter(Boolean).join(', ')
-    return { file_path: 'System Tools', memory_type: label, content, hash: tools.$hash, kind }
+    const label = [kindLabel, `${fresh.length} tool${fresh.length === 1 ? '' : 's'}`].filter(Boolean).join(', ')
+    return { file_path: 'System Tools', memory_type: label, model: rec.request.model, content, hash: tools.$hash, kind }
   }
 
   // Memory files (CLAUDE.md / MEMORY.md / …) carried by the record's messages inside `# claudeMd`

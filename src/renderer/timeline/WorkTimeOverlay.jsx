@@ -82,7 +82,7 @@ export default function WorkTimeOverlay({
     const isDragging = dragging === which
     const labelOnLeft = which === 'end'
     return (
-      <g className="work-handle" onMouseDown={startDrag(which)}>
+      <g className="work-handle" data-no-pan="" onMouseDown={startDrag(which)}>
         <rect className="work-handle-hit" x={x - 7} y={0} width={14} height={totalHeight} />
         <line className="work-handle-line" x1={x} x2={x} y1={0} y2={totalHeight} />
         <rect className="work-handle-grip" x={x - 4} y={6} width={8} height={16} rx={2} />

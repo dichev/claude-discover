@@ -138,8 +138,7 @@ button:hover { background: var(--border); }
 :hover::-webkit-scrollbar-thumb { background-color: rgba(255,255,255,0.25); }
 ::-webkit-scrollbar-thumb:hover { background-color: rgba(255,255,255,0.4); }
 
-/* Request-kind palette (classifyRequest in RequestParser) — shared by RequestsView's
-   list labels and ConversationView's instruction strips */
+/* Request-kind palette (classifyRequest in RequestParser) — used by RequestsView's list labels */
 .kind-main { color: #6b93c4; }
 .kind-tools { color: #6ea882; }
 .kind-agent { color: #9b87c9; }

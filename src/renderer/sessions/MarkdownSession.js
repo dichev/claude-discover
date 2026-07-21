@@ -1,11 +1,12 @@
 import { format } from 'date-fns'
 import { fmtDuration, fmtBytes, fmtNum, fmtUSD, fmtCompact } from '../utils/formatting.js'
 import { THRESHOLDS as T } from '../utils/thresholds.js'
-import { flatten, toolSummary } from './view/transcript.js'
+import { flatten, toolSummary, instructionTitle, currentModel } from './view/transcript.js'
 
 const CONTEXT_WINDOW = T.context.danger
 let MAX_LINES = 10
 let MAX_LINE_CHARS = 200
+let MODEL = null // the conversation's model, for instructionTitle
 
 function truncateLine(line) {
   if (line.length <= MAX_LINE_CHARS) return line
@@ -39,7 +40,8 @@ function renderBlock(b) {
   if (b.type === 'image') return '[image]'
   if (b.type === 'instruction') {
     const it = b.it
-    return `_${it.file_path} (${it.memory_type})_\n${fence(it.error ? `error: ${it.error}` : (it.content || ''))}`
+    const path = it.name && it.name !== it.file_path ? `\n\`${it.file_path}\`` : ''
+    return `_${instructionTitle(it, MODEL)}_${path}\n${fence(it.error ? `error: ${it.error}` : (it.content || ''))}`
   }
   return fence(JSON.stringify(b, null, 2), 'json')
 }
@@ -64,9 +66,9 @@ export function markdownSession(meta, items, truncated, instructions = []) {
   const wallDuration = meta.lastActivityAt - meta.startedAt
   const contextPct = Math.round((meta.lastContextTokens / CONTEXT_WINDOW) * 100)
   const cacheHitPct = (meta.cacheHitRatio * 100).toFixed(0)
-  const transcript = items
-    ? flatten(items, instructions).map(renderTurn).join('\n\n---\n\n')
-    : '_Loading…_'
+  const turns = items ? flatten(items, instructions) : null
+  MODEL = turns ? currentModel(turns) : null
+  const transcript = turns ? turns.map(renderTurn).join('\n\n---\n\n') : '_Loading…_'
   const conversation = `\n# Conversation\n\n${transcript}`
 
   const summary = `

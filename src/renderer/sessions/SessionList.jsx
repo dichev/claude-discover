@@ -18,7 +18,7 @@ const TIPS = {
 
 export default function SessionList({ sessions, selectedId, onSelect }) {
   const selectedRef         = useRef(null)
-  const [sortBy, setSortBy] = useLocalStorage('sessionList.sortBy', 'time')
+  const [sortBy, setSortBy] = useLocalStorage('session-list.sort', 'time')
   const [filter, setFilter] = useState('')
   const [, tick]            = useState(0)
 
