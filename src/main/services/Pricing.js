@@ -1,9 +1,10 @@
 // Rates per 1M tokens, sourced from LiteLLM's model_prices_and_context_window.json.
 import fs from 'node:fs'
 import path from 'node:path'
+import { CACHE_DIR } from '../paths.js'
 
-const SEED_PATH = path.resolve(process.cwd(), 'cache/prices.json')
-const CURRENT_PATH = path.resolve(process.cwd(), 'cache/prices.current.json')
+const SEED_PATH = path.join(CACHE_DIR, 'prices.json')
+const CURRENT_PATH = path.join(CACHE_DIR, 'prices.current.json')
 const LITELLM_URL = 'https://raw.githubusercontent.com/BerriAI/litellm/main/model_prices_and_context_window.json'
 const DAY_MS = 24 * 3600 * 1000
 const MILLION = 1e6

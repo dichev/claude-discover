@@ -1,6 +1,7 @@
 // Generic wrapper around <CLAUDE_DIR>/settings.json.
 // Keep app-specific logic (hook/statusline names, etc.) in callers.
 import fs from 'node:fs'
+import { dirname } from 'node:path'
 import { sync as writeFileAtomic } from 'write-file-atomic'
 import { CLAUDE_SETTINGS } from '../paths.js'
 
@@ -9,12 +10,14 @@ const mtimeOf = path => fs.statSync(path, { throwIfNoEntry: false })?.mtimeMs
 export class ClaudeSettings {
   constructor() {
     this.cfg = {}
-    try {
-      this.cfg = JSON.parse(fs.readFileSync(CLAUDE_SETTINGS, 'utf8'))
-      this.mtime = mtimeOf(CLAUDE_SETTINGS)
-    } catch (err) {
-      console.warn(`Failed to read ${CLAUDE_SETTINGS}: ${err.message}`)
-      this.loadFailed = true
+    this.mtime = mtimeOf(CLAUDE_SETTINGS)
+    if (this.mtime !== undefined) { // if there is no settings.json yet, start empty
+      try {
+        this.cfg = JSON.parse(fs.readFileSync(CLAUDE_SETTINGS, 'utf8'))
+      } catch (err) {
+        console.warn(`Failed to read ${CLAUDE_SETTINGS}: ${err.message}`)
+        this.loadFailed = true
+      }
     }
   }
 
@@ -84,6 +87,7 @@ export class ClaudeSettings {
   save() {
     if (this.loadFailed) throw new Error(`Refusing to save ${CLAUDE_SETTINGS}: settings did not load cleanly`)
     if (mtimeOf(CLAUDE_SETTINGS) !== this.mtime) throw new Error(`Refusing to save ${CLAUDE_SETTINGS}: file changed on disk since load`)
+    fs.mkdirSync(dirname(CLAUDE_SETTINGS), { recursive: true })
     writeFileAtomic(CLAUDE_SETTINGS, JSON.stringify(this.cfg, null, 2))
   }
 }
