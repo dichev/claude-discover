@@ -171,8 +171,8 @@ export function dedupeRequest(body, seen = new Set()) {
   const dedupe = value => {
     // hash with cache_control stripped — breakpoints move between requests, unchanged content must still match
     const json = JSON.stringify(value, (k, v) => k === 'cache_control' ? undefined : v)
-    // 8 base64url chars = 48 bits — plenty against collisions within one session's seen-set
-    const hash = crypto.createHash('sha256').update(json).digest('base64url').slice(0, 8)
+    // 16 base64url chars = 96 bits — a collision (silent: a new value logged as someone else's $ref) is negligible
+    const hash = crypto.createHash('sha256').update(json).digest('base64url').slice(0, 16)
     if (seen.has(hash)) return { $ref: hash }
     seen.add(hash)
     return { $hash: hash, value: deep(value) }

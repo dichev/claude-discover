@@ -42,7 +42,7 @@ describe('dedupeRequest', () => {
     expect(unwrap(out.system.value)).toEqual(body.system)
     expect(unwrap(out.tools.value)).toEqual(body.tools)
     expect(out.messages.map(m => unwrap(m.value))).toEqual(body.messages)
-    for (const x of [out.system, out.tools, ...out.messages]) expect(x.$hash).toMatch(/^[A-Za-z0-9_-]{8}$/)
+    for (const x of [out.system, out.tools, ...out.messages]) expect(x.$hash).toMatch(/^[A-Za-z0-9_-]{16}$/)
   })
 
   it('replaces seen values with { $ref } — only the new conversation tail stays full', () => {
