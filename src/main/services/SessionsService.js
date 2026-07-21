@@ -199,7 +199,8 @@ export class SessionsService extends EventEmitter {
       this.updateTimer = null
       this.lastUpdateAt = Date.now()
       const day = this.activeDay
-      if (day) this.emit('update', await this._dedupedDay(day))
+      try { if (day) this.emit('update', await this._dedupedDay(day)) } // fire-and-forget — a failed re-scan must not become an unhandled rejection
+      catch (err) { console.error('sessions update emit failed:', err) }
     }
     const wait = this.lastUpdateAt + this.throttleMs - Date.now()
     if (wait <= 0) emit()

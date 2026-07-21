@@ -1,4 +1,4 @@
-import { app, BrowserWindow, ipcMain, powerMonitor } from 'electron'
+import { app, BrowserWindow, ipcMain } from 'electron'
 import { SessionsService } from './services/SessionsService.js'
 import { WorkHours } from './services/WorkHours.js'
 import { AgentRunner } from './services/AgentRunner.js'
@@ -19,10 +19,6 @@ app.whenReady().then(() => {
   sessionsService.on('update', sessions => win.send('sessions:update', sessions))
   sessionsService.on('progress', p => win.send('sessions:scan-progress', p))
   sessionsService.start()
-  powerMonitor.on('suspend', () => {
-    sessionsService.stop()
-    powerMonitor.once('resume', () => setTimeout(() => sessionsService.start(), 1000))
-  })
 
   win.create()
   app.on('activate', () => { // @macOS

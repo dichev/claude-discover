@@ -99,7 +99,7 @@ export class SessionsScanner {
     if (this.watcher) {
       this.watcher.close()
       this.watcher = null
-      this.statCache.clear() // events are missed while stopped (e.g. across suspend/resume)
+      this.statCache.clear() // events are missed while stopped
     }
   }
 }
