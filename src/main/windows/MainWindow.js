@@ -42,7 +42,7 @@ export class MainWindow {
     this.win.on('page-title-updated', e => e.preventDefault())
     lockNavigation(this.win.webContents)
 
-    contextMenu({ window: this.win, showSelectAll: true, showCopyImage: true, showCopyLink: true, showInspectElement: !!DEV_URL })
+    contextMenu({ window: this.win, showSelectAll: true, showCopyImage: true, showCopyLink: true, showInspectElement: true })
     if (DEV_URL) {
       this.win.loadURL(DEV_URL)
     } else {
