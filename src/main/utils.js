@@ -1,7 +1,7 @@
 import { shell } from 'electron'
 import path from 'node:path'
 
-// Local links come from untrusted instruction/memory markdown — only extensions safe to hand to the OS default app;
+// extensions safe to open with the OS default app — local links come from untrusted markdown
 const VIEWABLE_EXT = new Set(['.md', '.txt', '.json', '.jsonl', '.log', '.csv', '.png', '.jpg', '.jpeg', '.gif', '.svg', '.webp', '.pdf'])
 
 export async function openLinkSafely(href, baseFile) {
@@ -13,10 +13,30 @@ export async function openLinkSafely(href, baseFile) {
   const baseDir = path.dirname(path.resolve(baseFile))
   const abs = path.resolve(baseDir, decoded)
   const rel = path.relative(baseDir, abs)
-  if (rel.startsWith('..') || path.isAbsolute(rel)) return // escapes the base dir (traversal / absolute href / UNC) — refuse
-  if (!VIEWABLE_EXT.has(path.extname(abs).toLowerCase())) return shell.showItemInFolder(abs) // not a known document type — reveal, never launch
+  if (rel.startsWith('..') || path.isAbsolute(rel)) return // escapes the base dir — refuse
+  if (!VIEWABLE_EXT.has(path.extname(abs).toLowerCase())) return shell.showItemInFolder(abs) // unknown type — reveal, never launch
 
-  const err = await shell.openPath(abs) // returns '' on success, error string otherwise
-  if (err) shell.showItemInFolder(abs)  // no associated app (or missing) -> reveal it instead
+  const err = await shell.openPath(abs) // '' on success, error string otherwise
+  if (err) shell.showItemInFolder(abs)  // couldn't open — reveal instead
   return err
+}
+
+
+// The window must never leave the app's own pages (a remote page would inherit the preload bridge).
+// Popups are denied; http(s)/mailto links open in the real browser instead.
+const DEV_ORIGIN = process.env.ELECTRON_RENDERER_URL && new URL(process.env.ELECTRON_RENDERER_URL).origin
+
+export function lockNavigation(contents) {
+  const toBrowser = url => /^(https?|mailto):/i.test(url) && shell.openExternal(url)
+  const block = (e, url) => {
+    if (url.startsWith('file:') || new URL(url).origin === DEV_ORIGIN) return
+    e.preventDefault()
+    toBrowser(url)
+  }
+  contents.setWindowOpenHandler(({ url }) => {
+    toBrowser(url)
+    return { action: 'deny' }
+  })
+  contents.on('will-navigate', block)
+  contents.on('will-redirect', block)
 }
