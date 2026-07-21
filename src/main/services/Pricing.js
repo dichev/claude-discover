@@ -17,7 +17,13 @@ export class Pricing {
 
   load() {
     const file = fs.existsSync(CURRENT_PATH) ? CURRENT_PATH : SEED_PATH
-    this.prices = JSON.parse(fs.readFileSync(file, 'utf8'))
+    this.setPrices(JSON.parse(fs.readFileSync(file, 'utf8')))
+  }
+
+  setPrices(rates) {
+    this.prices = {}
+    for (const [key, p] of Object.entries(rates))
+      if (p.input > 0 && p.output > 0) this.prices[key] = p // skip placeholder entries (0/null rates) — unknown pricing, not free
     // Match by longest prefix so 'claude-opus-4-7' wins over 'claude-opus-4'.
     this.keysByLength = Object.keys(this.prices).sort((a, b) => b.length - a.length)
   }
@@ -25,10 +31,9 @@ export class Pricing {
   priceFor(model) {
     if (!model) return null
     const m = model.toLowerCase()
-    for (const key of this.keysByLength) {
-      if (m.startsWith(key)) return this.prices[key]
-    }
-    return null
+    // the prefix must end on a token boundary: 'claude-opus-4-10' is a 4.x, not a 4-1
+    const key = this.keysByLength.find(k => m.startsWith(k) && !/^\w/.test(m.slice(k.length)))
+    return key ? this.prices[key] : null
   }
 
   // Fast mode (usage.speed === "fast") bills at a flat per-model multiple of
