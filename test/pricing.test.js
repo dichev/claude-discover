@@ -16,10 +16,27 @@ describe('priceFor', () => {
     expect(pricing.priceFor('claude-opus-4').input).toBe(15)
   })
 
+  it('requires a token boundary after the prefix match', () => {
+    const p = new Pricing()
+    p.prices = {
+      'claude-opus-4-1': { input: 15, output: 75, cacheRead: 1.5, cacheWrite: 18.75 },
+      'claude-opus-4':   { input: 5,  output: 25, cacheRead: 0.5, cacheWrite: 6.25 },
+    }
+    expect(p.priceFor('claude-opus-4-10').input).toBe(5) // 4-10 is a 4.x, not 4-1
+    expect(p.priceFor('claude-opus-4-1').input).toBe(15)
+  })
+
   it('returns null for unknown / empty', () => {
     expect(pricing.priceFor('gpt-5')).toBeNull()
     expect(pricing.priceFor(null)).toBeNull()
     expect(pricing.priceFor('')).toBeNull()
+  })
+
+  it('treats a placeholder/zero-rate entry as unpriced, not free', () => {
+    const p = new Pricing()
+    p.prices = { 'claude-placeholder': { input: 0, output: 0, cacheRead: null, cacheWrite: null } }
+    expect(p.priceFor('claude-placeholder-1')).toBeNull()
+    expect(p.costUSD({ 'claude-placeholder-1': { input: 1_000_000, output: 1_000_000, cacheRead: 0, cacheCreation: 0 } })).toBeNull()
   })
 })
 

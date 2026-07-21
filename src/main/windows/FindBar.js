@@ -1,6 +1,7 @@
 import { WebContentsView } from 'electron'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
+import { lockNavigation } from '../utils.js'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 const DEV_URL = process.env.ELECTRON_RENDERER_URL
@@ -15,13 +16,14 @@ export class FindBar {
     this.win = win
     this.view = new WebContentsView({
       webPreferences: {
-        preload: path.join(__dirname, '../preload/findPreload.mjs'),
+        preload: path.join(__dirname, '../preload/findPreload.cjs'),
         contextIsolation: true,
         nodeIntegration: false,
-        sandbox: false
+        sandbox: true
       }
     })
     this.view.setBackgroundColor('#00000000') // transparent; the bar draws its own rounded box
+    lockNavigation(this.view.webContents)
     win.contentView.addChildView(this.view)
     this.view.setVisible(false)
 

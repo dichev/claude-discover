@@ -38,7 +38,7 @@ function colorize(kind, text, value = 0) {
 
 // Collect stdin data
 const data = JSON.parse(readFileSync(0, 'utf-8')) // fd 0 = stdin
-const modelName = data.model.display_name.replace('Claude ', '')
+const modelName = data.model?.display_name?.replace('Claude ', '') || '?'
 const parts = []
 
 
@@ -70,7 +70,8 @@ function agentLoopUsage(transcriptPath) { // Read the transcript JSONL and sum A
   let seen = new Set() // One API response spans multiple lines (one per content block), each repeating the usage block, so dedupe by message.id.
 
   for (const line of lines) {
-    const e = JSON.parse(line)
+    let e
+    try { e = JSON.parse(line) } catch { continue } // the transcript may be mid-append — skip a half-written line
     const msg = e.message || {}
 
     if (e.type === 'user' && !e.isMeta) {

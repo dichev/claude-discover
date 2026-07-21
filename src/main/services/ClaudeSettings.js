@@ -1,6 +1,7 @@
 // Generic wrapper around <CLAUDE_DIR>/settings.json.
 // Keep app-specific logic (hook/statusline names, etc.) in callers.
 import fs from 'node:fs'
+import { sync as writeFileAtomic } from 'write-file-atomic'
 import { CLAUDE_SETTINGS } from '../paths.js'
 
 const mtimeOf = path => fs.statSync(path, { throwIfNoEntry: false })?.mtimeMs
@@ -83,6 +84,6 @@ export class ClaudeSettings {
   save() {
     if (this.loadFailed) throw new Error(`Refusing to save ${CLAUDE_SETTINGS}: settings did not load cleanly`)
     if (mtimeOf(CLAUDE_SETTINGS) !== this.mtime) throw new Error(`Refusing to save ${CLAUDE_SETTINGS}: file changed on disk since load`)
-    fs.writeFileSync(CLAUDE_SETTINGS, JSON.stringify(this.cfg, null, 2))
+    writeFileAtomic(CLAUDE_SETTINGS, JSON.stringify(this.cfg, null, 2))
   }
 }

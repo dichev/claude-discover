@@ -38,7 +38,11 @@ function createProxy({ upstream, onExchange, onError, errorBody }) {
   const mod = upstream.protocol === 'http:' ? http : https
 
   return http.createServer(async (req, res) => {
-    if (req.method === 'POST' && req.url === EXIT_ROUTE) return res.end('bye', () => process.exit(0))
+    if (req.method === 'POST' && req.url === EXIT_ROUTE) {
+      // Loopback-only control route. The restart client is a bare Node request; reject anything carrying browser fetch metadata so a web page can't CSRF the proxy into exiting.
+      if (req.headers.origin || req.headers.referer || req.headers['sec-fetch-site']) return res.writeHead(403).end('forbidden')
+      return res.end('bye', () => process.exit(0))
+    }
     if (req.url === PING_ROUTE) return res.end(PING_RESPONSE)
     const started = Date.now()
     let requestBody
@@ -91,17 +95,22 @@ function decode(encoding, buf) {
 }
 
 // ── 2. Claude Code capture ───────────────────────────────────────────────────
-// One NDJSON record per exchange in <CLAUDE_DIR>/.claude-discover/requests/<sessionId>.requests.jsonl
+// One JSON record per exchange in <CLAUDE_DIR>/.claude-discover/requests/<sessionId>.requests.jsonl
 // (session id from the X-Claude-Code-Session-Id header).
+
+// Keep the header name (useful signal) but never the credential.
+function redactHeaders(headers, keys) {
+  for (const k of keys) if (headers?.[k]) headers[k] = '<redacted>'
+  return headers
+}
 
 function logRequest({ req, requestBody, status, responseHeaders, responseBody, timestamp, durationMs }) {
   const sessionId = req.headers['x-claude-code-session-id']
   if (!sessionId || !/^[\w-]+$/.test(sessionId)) return // header value becomes a filename — accept only safe ids
   const logPath = path.join(REQUESTS_DIR, `${sessionId}.requests.jsonl`)
   const record = { type: 'api-request', timestamp, url: `${req.method} ${req.url}`, status, durationMs }
-  record.requestHeaders = { ...req.headers }
-  for (const h of ['authorization', 'x-api-key', 'cookie']) if (h in record.requestHeaders) record.requestHeaders[h] = '<redacted>' // keep the key, never the credential
-  record.responseHeaders = responseHeaders
+  record.requestHeaders = redactHeaders(req.headers, ['authorization', 'x-api-key', 'proxy-authorization', 'cookie'])
+  record.responseHeaders = redactHeaders(responseHeaders, ['set-cookie']) // upstream sits behind Cloudflare
   let body
   try { body = JSON.parse(requestBody.toString('utf8')) } catch {}
   // Every endpoint is captured in full — count_tokens probes re-send the conversation, so the
@@ -162,8 +171,8 @@ export function dedupeRequest(body, seen = new Set()) {
   const dedupe = value => {
     // hash with cache_control stripped — breakpoints move between requests, unchanged content must still match
     const json = JSON.stringify(value, (k, v) => k === 'cache_control' ? undefined : v)
-    // 8 base64url chars = 48 bits — plenty against collisions within one session's seen-set
-    const hash = crypto.createHash('sha256').update(json).digest('base64url').slice(0, 8)
+    // 16 base64url chars = 96 bits — a collision (silent: a new value logged as someone else's $ref) is negligible
+    const hash = crypto.createHash('sha256').update(json).digest('base64url').slice(0, 16)
     if (seen.has(hash)) return { $ref: hash }
     seen.add(hash)
     return { $hash: hash, value: deep(value) }

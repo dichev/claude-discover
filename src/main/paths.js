@@ -1,11 +1,11 @@
 import fs from 'node:fs'
 import {homedir} from 'node:os'
 import {join} from 'node:path'
+import { sync as writeFileAtomic } from 'write-file-atomic'
 
 const CONFIG_FILE = join(homedir(), '.claude-discover.json')
 export const getConfig = () => fs.existsSync(CONFIG_FILE) ? JSON.parse(fs.readFileSync(CONFIG_FILE, 'utf8')) : {}
-export const setConfig = data => fs.writeFileSync(CONFIG_FILE, JSON.stringify({ ...getConfig(), ...data }, null, 2))
-
+export const setConfig = data => writeFileAtomic(CONFIG_FILE, JSON.stringify({ ...getConfig(), ...data }, null, 2))
 
 const local = getConfig()
 export const CLAUDE_DIR           = local.claudeDir || process.env.CLAUDE_CONFIG_DIR || join(homedir(), '.claude')

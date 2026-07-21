@@ -5,6 +5,7 @@ import windowStateKeeper from 'electron-window-state'
 import contextMenu from 'electron-context-menu'
 import { buildAppMenu } from '../menu.js'
 import { FindBar } from './FindBar.js'
+import { lockNavigation } from '../utils.js'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 const DEV_URL = process.env.ELECTRON_RENDERER_URL
@@ -30,15 +31,16 @@ export class MainWindow {
       autoHideMenuBar: true,
       title: `Claude Discover v${app.getVersion()}`,
       webPreferences: {
-        preload: path.join(__dirname, '../preload/preload.mjs'),
+        preload: path.join(__dirname, '../preload/preload.cjs'),
         contextIsolation: true,
         nodeIntegration: false,
-        sandbox: false
+        sandbox: true
       }
     })
 
     state.manage(this.win)
     this.win.on('page-title-updated', e => e.preventDefault())
+    lockNavigation(this.win.webContents)
 
     contextMenu({ window: this.win, showSelectAll: true, showCopyImage: true, showCopyLink: true, showInspectElement: !!DEV_URL })
     if (DEV_URL) {

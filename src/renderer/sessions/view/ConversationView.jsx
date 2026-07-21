@@ -70,9 +70,10 @@ function TokenPoint({ point: p }) {
   )
 }
 
-// Total-tokens figure, shared by user and assistant headers. Its tooltip (tippy renders
-// title attributes as HTML, see main.jsx) carries the context bar, the turn's usage
-// breakdown (labels/formulas mirror SessionSummary's Tokens section) and the running total.
+// Total-tokens figure, shared by user and assistant headers. Its tooltip (HTML, opt-in via
+// data-tippy-html — see main.jsx) carries the context bar, the turn's usage breakdown
+// (labels/formulas mirror SessionSummary's Tokens section) and the running total. All values
+// are numeric/trusted; never interpolate transcript text into this string.
 function TokenStats({ point }) {
   if (!point) return null
   const rows = []
@@ -95,7 +96,7 @@ function TokenStats({ point }) {
   }
   rows.push(`<div class="token-tooltip-total"><span>Accumulated tokens</span><span>${fmtCompact(point.total)}</span></div>`)
   return (
-    <span className="msg-tokens" title={`<div class="token-tooltip">${rows.join('')}</div>`}>
+    <span className="msg-tokens" data-tippy-html={`<div class="token-tooltip">${rows.join('')}</div>`}>
       {fmtCompact(point.total)}
     </span>
   )
