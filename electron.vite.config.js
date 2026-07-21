@@ -54,10 +54,14 @@ export default defineConfig({
     root: resolve('src/renderer'),
     build: {
       modulePreload: { polyfill: false }, // Electron ships modern Chromium skip the inline polyfill so script-src can stay 'self'
+      assetsInlineLimit: 0, // export all assets as files (instead of inlining them as data URIs)
       rollupOptions: {
         input: {
           index: resolve('src/renderer/index.html'),
           find:  resolve('src/renderer/find/find.html')
+        },
+        output: { // Split deps into a shared vendors.js/css
+          manualChunks: id => id.includes('node_modules') ? 'vendors' : undefined
         }
       }
     },
