@@ -110,7 +110,8 @@ describe('fast mode', () => {
 const here = path.dirname(fileURLToPath(import.meta.url))
 const CURRENT_PATH = path.resolve(here, '../cache/prices.current.json')
 
-describe('refreshPricesFromLiteLLM (live)', () => {
+// Hits the network — opt-in via LIVE_TESTS=1 so the default suite stays portable/offline.
+describe.skipIf(!process.env.LIVE_TESTS)('refreshPricesFromLiteLLM (live)', () => {
   let backup = null
   beforeAll(() => {
     if (fs.existsSync(CURRENT_PATH)) {

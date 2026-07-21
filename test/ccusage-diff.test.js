@@ -69,7 +69,8 @@ const CASES = [
 
 
 for (const { name, claudeDir, select } of CASES) {
-  describe(`ccusage diff (${name})`, () => {
+  // The live pass needs a populated ~/.claude — opt-in via LIVE_TESTS=1 so the default suite runs on any machine.
+  describe.skipIf(name === 'live' && !process.env.LIVE_TESTS)(`ccusage diff (${name})`, () => {
     for (const [subcommand, gran] of Object.entries({ daily: 'day', weekly: 'week', monthly: 'month' })) {
       it(`${subcommand} matches (exact tokens, cost within rounding)`, async () => {
         const rangeOf = b => periodBounds(b.period, gran, tz('UTC'))

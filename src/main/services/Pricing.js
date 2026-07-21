@@ -23,7 +23,7 @@ export class Pricing {
   set prices(rates) {
     this.#prices = {}
     for (const [key, p] of Object.entries(rates))
-      if (p.input > 0 && p.output > 0) this.#prices[key] = p // skip placeholder entries (0/null rates) — unknown pricing, not free
+      if ([p.input, p.output, p.cacheRead, p.cacheWrite].every(r => r > 0)) this.#prices[key] = p // skip placeholder/partial entries (0/null/missing rates) — unknown pricing, not free
     this.#keys = Object.keys(this.#prices).sort((a, b) => b.length - a.length)
   }
 
@@ -58,7 +58,7 @@ export class Pricing {
       (bucket.output || 0) * p.output +
       (bucket.cacheRead || 0) * p.cacheRead +
       tokens5m * p.cacheWrite +
-      tokens1h * p.cacheWrite1h +
+      tokens1h * (p.cacheWrite1h ?? p.cacheWrite) + // 1h premium unknown → bill at the base write rate, not $0
       tokensUnknown * p.cacheWrite
     ) / MILLION
     // Unknown multiplier → best-effort 1×; callers flag the session as inaccurate.
@@ -103,12 +103,13 @@ export class Pricing {
     const out = {}
     for (const name of models) {
       const m = Object.assign({}, anthropic[name], claude[name]) // Merge each model: anthropic.* backfills, claude-* wins (they disagree on claude-3-haiku's cache rates)
+      const per = c => Number.isFinite(c) ? c * MILLION : undefined // absent field → omitted, never NaN→null→$0
       out['claude-' + name] = {
-        input: m.input_cost_per_token * MILLION,
-        output: m.output_cost_per_token * MILLION,
-        cacheRead: m.cache_read_input_token_cost * MILLION,
-        cacheWrite: m.cache_creation_input_token_cost * MILLION,
-        cacheWrite1h: m.cache_creation_input_token_cost_above_1hr * MILLION,
+        input: per(m.input_cost_per_token),
+        output: per(m.output_cost_per_token),
+        cacheRead: per(m.cache_read_input_token_cost),
+        cacheWrite: per(m.cache_creation_input_token_cost),
+        cacheWrite1h: per(m.cache_creation_input_token_cost_above_1hr),
       }
       // Fast-mode multiplier lives only on the first-party claude-* variant.
       const fast = m.provider_specific_entry?.fast
