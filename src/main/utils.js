@@ -1,5 +1,6 @@
 import { shell } from 'electron'
 import path from 'node:path'
+import { pathToFileURL } from 'node:url'
 
 // extensions safe to open with the OS default app — local links come from untrusted markdown
 const VIEWABLE_EXT = new Set(['.md', '.txt', '.json', '.jsonl', '.log', '.csv', '.png', '.jpg', '.jpeg', '.gif', '.svg', '.webp', '.pdf'])
@@ -25,11 +26,13 @@ export async function openLinkSafely(href, baseFile) {
 // The window must never leave the app's own pages (a remote page would inherit the preload bridge).
 // Popups are denied; http(s)/mailto links open in the real browser instead.
 const DEV_ORIGIN = process.env.ELECTRON_RENDERER_URL && new URL(process.env.ELECTRON_RENDERER_URL).origin
+const APP_PAGES = pathToFileURL(path.join(import.meta.dirname, '../renderer/')).href // other local html would inherit the bridge too
 
 export function lockNavigation(contents) {
   const toBrowser = url => /^(https?|mailto):/i.test(url) && shell.openExternal(url)
   const block = (e, url) => {
-    if (url.startsWith('file:') || new URL(url).origin === DEV_ORIGIN) return
+    const { href, origin } = new URL(url) // normalized, so ../ segments can't sneak past the prefix check
+    if (href.startsWith(APP_PAGES) || origin === DEV_ORIGIN) return
     e.preventDefault()
     toBrowser(url)
   }
