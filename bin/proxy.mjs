@@ -64,12 +64,22 @@ function createProxy({ upstream, onExchange, onError, errorBody }) {
       upRes.on('data', c => chunks.push(c))
       upRes.pipe(res)
       // 'close' fires after 'end' and also on an aborted stream — a truncated body is still captured
-      upRes.on('close', () => finish(upRes.statusCode, upRes.headers, decode(upRes.headers['content-encoding'], Buffer.concat(chunks))))
+      upRes.on('close', () => {
+        finish(upRes.statusCode, upRes.headers, decode(upRes.headers['content-encoding'], Buffer.concat(chunks)))
+        if (!upRes.complete) res.destroy() // upstream died mid-body — surface the reset so the client can retry
+      })
+    })
+    // Client gone mid-exchange — tear down upstream too; headersSent means upstream responded and its 'close' captures the partial body, otherwise log the attempt here (up.destroy() emits no 'error')
+    res.on('close', () => {
+      if (done) return
+      up.destroy()
+      if (!res.headersSent) finish()
     })
     up.on('error', err => {
       onError(err, `${req.method} ${req.url} → ${upstream.host}`)
       finish()
-      if (!res.headersSent) res.writeHead(502, { 'content-type': 'application/json' })
+      if (res.headersSent) return res.destroy() // mid-stream failure — never append an error body to a partially-piped response
+      res.writeHead(502, { 'content-type': 'application/json' })
       res.end(errorBody(err))
     })
     up.end(requestBody)
