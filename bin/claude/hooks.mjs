@@ -81,10 +81,13 @@ async function ensureProxy() {
   })()
 
   const outcome = await Promise.race([exited, settle])
-  if (outcome === 'up') return
-  console.error(outcome === 2
-    ? 'claude-discover: cannot reach api.anthropic.com — capture proxy not started'
-    : `claude-discover: capture proxy failed to start (see ${ERROR_LOG_PATH}) — Claude Code cannot reach the API until it runs; disable capture via the app's Stop button to unblock`)
+  if (outcome === 'up' || await ping()) return // up, or a proxy of ours won the race and is now answering
+
+  // Exit 0 ("already running") + failed ping = a foreign process holds the port Claude Code sends API traffic to
+  let msg = `capture proxy failed to start (see ${ERROR_LOG_PATH}) — Claude Code cannot reach the API until it runs; disable capture via the app's Stop button to unblock`
+  if (outcome === 0) msg = `127.0.0.1:${port} is held by another process that is not the capture proxy — Claude Code is configured to send API traffic there`
+  if (outcome === 2) msg = 'cannot reach api.anthropic.com — capture proxy not started'
+  console.error('claude-discover: ' + msg)
   process.exitCode = 1
 }
 
@@ -92,9 +95,9 @@ async function ensureProxy() {
 async function main() {
   const raw = await text(process.stdin)
   if (DEBUG_LOG) log(DEBUG_LOG_FILE, raw.trim())
-  const event = JSON.parse(raw || '{}')
 
   try {
+    const event = JSON.parse(raw || '{}') // inside the try so a malformed payload is logged, not silently swallowed
     if (event.hook_event_name === CLAUDE_HOOKS.SESSION_START) {
       await ensureProxy()
     }
