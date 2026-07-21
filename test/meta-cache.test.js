@@ -92,6 +92,16 @@ describe('MetaCache period layer', () => {
     expect([...cache.values()]).toHaveLength(1)
   })
 
+  it('clear drops both layers, forcing re-parses', async () => {
+    const cache = newCache()
+    const { calls, parse } = parser(1200, 1800)
+    await cache.resolve('a.jsonl', stat, day, parse)
+    cache.clear()
+    expect([...cache.values()]).toEqual([])
+    await cache.resolve('a.jsonl', stat, day, parse)
+    expect(calls).toEqual([null, null]) // whole-file meta gone too
+  })
+
   it('evict forgets the file entirely', async () => {
     const cache = newCache()
     const { calls, parse } = parser(1200, 1800)

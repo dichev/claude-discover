@@ -95,6 +95,8 @@ export class SessionsService extends EventEmitter {
   }
 
   start() {
+    // wired here, not in the constructor — repricing is for the watched UI mode, not CLI scans
+    this.pricing.on('update', () => this._reprice())
     this.scanner.watch({
       onChange: (p, stat) => this._refresh(p, stat),
       onUnlink: p => this._evict(p)
@@ -103,6 +105,7 @@ export class SessionsService extends EventEmitter {
   }
 
   stop() {
+    this.pricing.removeAllListeners('update')
     this.scanner.stop()
     this.scanAbort?.abort()
     if (this.updateTimer) {
@@ -178,6 +181,13 @@ export class SessionsService extends EventEmitter {
 
   _evict(filePath) {
     if (this.metaCache.evict(filePath)) this._scheduleUpdate()
+  }
+
+  // Prices changed after metas were parsed (first launch races the LiteLLM refresh) — reparse with the new rates.
+  _reprice() {
+    if (!this.activeDay) return
+    this.metaCache.clear()
+    this.scan(this.activeDay, { watch: true }).catch(console.error)
   }
 
   // Leading+trailing throttle: the first call emits immediately, calls within throttleMs

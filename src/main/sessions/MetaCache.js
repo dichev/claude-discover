@@ -35,6 +35,12 @@ export class MetaCache {
     return m
   }
 
+  // Drop both layers, e.g. when a pricing change invalidates every meta.
+  clear() {
+    this.files.clear()
+    this.periodMetas.clear()
+  }
+
   // Forget a deleted file. True if the period layer shrank.
   evict(filePath) {
     this.files.delete(filePath)

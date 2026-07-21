@@ -1,4 +1,5 @@
 // Rates per 1M tokens, sourced from LiteLLM's model_prices_and_context_window.json.
+import { EventEmitter } from 'node:events'
 import fs from 'node:fs'
 import path from 'node:path'
 import { CACHE_DIR } from '../paths.js'
@@ -9,11 +10,13 @@ const LITELLM_URL = 'https://raw.githubusercontent.com/BerriAI/litellm/main/mode
 const DAY_MS = 24 * 3600 * 1000
 const MILLION = 1e6
 
-export class Pricing {
+// Emits 'update' when a background refresh changes the rate table.
+export class Pricing extends EventEmitter {
   #prices = {}
   #keys = [] // longest first, so 'claude-opus-4-7' wins over 'claude-opus-4'
 
   constructor() {
+    super()
     this.load()
     // refresh in the background; early reads use the seed table
     this.refreshFromLiteLLM().catch(err => console.warn('[pricing] refresh failed:', err.message))
@@ -103,7 +106,7 @@ export class Pricing {
     const out = {}
     for (const name of models) {
       const m = Object.assign({}, anthropic[name], claude[name]) // Merge each model: anthropic.* backfills, claude-* wins (they disagree on claude-3-haiku's cache rates)
-      const per = c => Number.isFinite(c) ? c * MILLION : undefined // absent field → omitted, never NaN→null→$0
+      const per = c => Number.isFinite(c) ? Number((c * MILLION).toPrecision(12)) : undefined // absent field → omitted, never NaN→null→$0; toPrecision kills float noise (0.199999… → 0.2)
       out['claude-' + name] = {
         input: per(m.input_cost_per_token),
         output: per(m.output_cost_per_token),
@@ -117,8 +120,10 @@ export class Pricing {
     }
     if (Object.keys(out).length) {
       fs.writeFileSync(CURRENT_PATH, JSON.stringify(out, null, 2) + '\n')
+      const before = JSON.stringify(this.#prices)
       this.load()
       if (verbose) console.info(`[pricing] updated ${Object.keys(out).length} model prices`)
+      if (JSON.stringify(this.#prices) !== before) this.emit('update')
     }
   }
 }
