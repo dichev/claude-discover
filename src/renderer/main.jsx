@@ -14,10 +14,11 @@ import './styles.css'
 
 clearOutdatedLocalStorage()
 
-delegate('body', { // replace title attributes with tippy tooltips
+// Plain-text tooltips from title / data-tippy-content. allowHTML stays OFF: these carry
+// untrusted transcript fields (session/model/type labels), so tippy must render them as text.
+delegate('body', {
   target: '[title], [data-tippy-content]',
   delay: [0, 0],
-  allowHTML: true,
   content(reference) {
     const title = reference.getAttribute('title')
     reference.removeAttribute('title')
@@ -26,6 +27,18 @@ delegate('body', { // replace title attributes with tippy tooltips
   onShow(instance) { // re-read data-tippy-content each show so tooltips over live-updating data stay fresh
     const content = instance.reference.getAttribute('data-tippy-content')
     if (content != null) instance.setContent(content)
+  }
+})
+
+// HTML tooltips, opt-in via data-tippy-html. Only ever set from trusted, numeric content
+// (the token-usage breakdown) — never from transcript data. Keep it that way.
+delegate('body', {
+  target: '[data-tippy-html]',
+  delay: [0, 0],
+  allowHTML: true,
+  content: reference => reference.getAttribute('data-tippy-html'),
+  onShow(instance) {
+    instance.setContent(instance.reference.getAttribute('data-tippy-html'))
   }
 })
 
