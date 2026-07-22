@@ -168,6 +168,8 @@ describe('proxy end-to-end', () => {
   let discoverDir, upstream, upstreamPort, proxyPort, proxy
   const received = []
   const readRequestLog = () => fs.readFileSync(path.join(discoverDir, 'requests', 'sess-e2e.requests.jsonl'), 'utf8').trim().split('\n').map(JSON.parse)
+  const logCount = () => { try { return readRequestLog().length } catch { return 0 } }
+  const awaitLog = async count => { while (logCount() < count) await new Promise(r => setTimeout(r, 25)) } // the record lands only when the upstream response closes — poll for it
 
   const startProxy = async (...extraArgs) => {
     proxy = spawn(process.execPath, [PROXY_PATH, ...extraArgs], {
@@ -207,11 +209,17 @@ describe('proxy end-to-end', () => {
     fs.rmSync(discoverDir, { recursive: true, force: true })
   })
 
-  const post = (extraHeaders = {}) => fetch(`http://${HOST}:${proxyPort}/v1/messages?beta=true`, {
-    method: 'POST',
-    headers: { 'content-type': 'application/json', 'x-api-key': 'k', 'x-claude-code-session-id': 'sess-e2e', ...headers, ...extraHeaders },
-    body: JSON.stringify(body),
-  })
+  const post = async (extraHeaders = {}) => {
+    const before = logCount()
+    const res = await fetch(`http://${HOST}:${proxyPort}/v1/messages?beta=true`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json', 'x-api-key': 'k', 'x-claude-code-session-id': 'sess-e2e', ...headers, ...extraHeaders },
+      body: JSON.stringify(body),
+    })
+    await res.clone().text() // drain a clone so the response completes and its record gets logged, leaving res unconsumed
+    await awaitLog(before + 1)
+    return res
+  }
 
   it('forwards verbatim and streams the SSE response back untouched', async () => {
     const res = await post()
@@ -268,12 +276,14 @@ describe('proxy end-to-end', () => {
   }, 15000)
 
   it('captures other endpoints (count_tokens & co) in full, sharing the session seen-set', async () => {
+    const before = logCount()
     const res = await fetch(`http://${HOST}:${proxyPort}/v1/messages/count_tokens`, {
       method: 'POST',
       headers: { 'content-type': 'application/json', 'x-api-key': 'k', 'x-claude-code-session-id': 'sess-e2e' },
       body: JSON.stringify({ model: 'claude-sonnet-5', system: body.system, messages: body.messages }),
     })
     expect(res.status).toBe(200)
+    await awaitLog(before + 1)
     const last = readRequestLog().at(-1)
     expect(last).toMatchObject({ type: 'api-request', url: 'POST /v1/messages/count_tokens', status: 200 })
     expect(last.request.model).toBe('claude-sonnet-5')
@@ -290,11 +300,8 @@ describe('proxy end-to-end', () => {
     await startProxy('--restart') // waitForPort may still hit the old instance here…
     await oldExited               // …so wait for it to die, then for the new one to grab the port
     await waitForPort(proxyPort)
-    const before = readRequestLog().length
     const res = await post()
     expect(res.status).toBe(200)
-    await res.text() // the record is written when the upstream response closes — drain, then poll for it
-    while (readRequestLog().length === before) await new Promise(r => setTimeout(r, 25))
     expect(readRequestLog().at(-1).request.messages.every(m => m.$ref)).toBe(true) // new instance warmed its seen-set
   }, 15000)
 
