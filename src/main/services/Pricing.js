@@ -2,10 +2,10 @@
 import { EventEmitter } from 'node:events'
 import fs from 'node:fs'
 import path from 'node:path'
-import { CACHE_DIR } from '../paths.js'
+import { DATA_DIR } from '../paths.js'
+import seed from '../config/prices.seed.json' with { type: 'json' } // bundled seed — early reads before the first refresh
 
-const SEED_PATH = path.join(CACHE_DIR, 'prices.json')
-const CURRENT_PATH = path.join(CACHE_DIR, 'prices.current.json')
+const CURRENT_PATH = path.join(DATA_DIR, 'prices.current.json') // daily refresh is user data — never written into the install dir
 const LITELLM_URL = 'https://raw.githubusercontent.com/BerriAI/litellm/main/model_prices_and_context_window.json'
 const DAY_MS = 24 * 3600 * 1000
 const MILLION = 1e6
@@ -31,8 +31,7 @@ export class Pricing extends EventEmitter {
   }
 
   load() {
-    const file = fs.existsSync(CURRENT_PATH) ? CURRENT_PATH : SEED_PATH
-    this.prices = JSON.parse(fs.readFileSync(file, 'utf8'))
+    this.prices = fs.existsSync(CURRENT_PATH) ? JSON.parse(fs.readFileSync(CURRENT_PATH, 'utf8')) : seed
   }
 
   priceFor(model) {
@@ -119,6 +118,7 @@ export class Pricing extends EventEmitter {
       if (typeof fast === 'number') out['claude-' + name].fastModeMplr = fast
     }
     if (Object.keys(out).length) {
+      fs.mkdirSync(DATA_DIR, { recursive: true })
       fs.writeFileSync(CURRENT_PATH, JSON.stringify(out, null, 2) + '\n')
       const before = JSON.stringify(this.#prices)
       this.load()

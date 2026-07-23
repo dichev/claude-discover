@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeAll, afterAll } from 'vitest'
 import fs from 'node:fs'
 import path from 'node:path'
-import { fileURLToPath } from 'node:url'
+import { DATA_DIR } from '../src/main/paths.js'
 import { Pricing } from '../src/main/services/Pricing.js'
 
 const pricing = new Pricing()
@@ -107,8 +107,7 @@ describe('fast mode', () => {
   })
 })
 
-const here = path.dirname(fileURLToPath(import.meta.url))
-const CURRENT_PATH = path.resolve(here, '../cache/prices.current.json')
+const CURRENT_PATH = path.join(DATA_DIR, 'prices.current.json')
 
 // Hits the network — opt-in via LIVE_TESTS=1 so the default suite stays portable/offline.
 describe.skipIf(!process.env.LIVE_TESTS)('refreshPricesFromLiteLLM (live)', () => {
@@ -123,7 +122,7 @@ describe.skipIf(!process.env.LIVE_TESTS)('refreshPricesFromLiteLLM (live)', () =
     if (backup != null) fs.writeFileSync(CURRENT_PATH, backup)
   })
 
-  it('fetches and writes cache/prices.current.json with usable rates', async () => {
+  it('fetches and writes prices.current.json with usable rates', async () => {
     await pricing.refreshFromLiteLLM(false)
     expect(fs.existsSync(CURRENT_PATH)).toBe(true)
     const opus = pricing.priceFor('claude-opus-4-7') || pricing.priceFor('claude-opus-4-5')

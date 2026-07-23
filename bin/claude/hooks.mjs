@@ -25,13 +25,13 @@ import fs from 'node:fs'
 import path from 'node:path'
 import { spawn } from 'node:child_process'
 import { text } from 'node:stream/consumers'
-import { PROXY_URL, PING_ROUTE, PING_RESPONSE, PROJECT_DIR, ERROR_LOG_PATH } from '../proxy.config.js'
+import { PROXY_URL, PING_ROUTE, PING_RESPONSE, DATA_DIR, ERROR_LOG_PATH } from '../proxy.config.js'
 
 
 const DEBUG_LOG = false // Log every incoming hook event to DEBUG_LOG_FILE
-const DEBUG_LOG_FILE = path.join(PROJECT_DIR, 'hooks.debug.log')
+const DEBUG_LOG_FILE = path.join(DATA_DIR, 'hooks.debug.log')
 const ERROR_LOG = true // Log hook errors to ERROR_LOG_FILE
-const ERROR_LOG_FILE = path.join(PROJECT_DIR, 'hooks.error.log')
+const ERROR_LOG_FILE = path.join(DATA_DIR, 'hooks.error.log')
 
 const CLAUDE_HOOKS = {
   SESSION_START: 'SessionStart',

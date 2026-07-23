@@ -3,19 +3,19 @@
   Print per-period token usage and cost from local Claude Code transcripts.
 
   Usage:
-    node bin/usage.mjs [daily|weekly|monthly] [--since yyyy-MM-dd] [--until yyyy-MM-dd] [--timezone Area/City]
+    node test/scripts/usage.mjs [daily|weekly|monthly] [--since yyyy-MM-dd] [--until yyyy-MM-dd] [--timezone Area/City]
     (granularity defaults to monthly)
 
   To compare against ccusage use UTC and its claude-only subcommand (weekly also needs --start-of-week monday):
-    node bin/usage.mjs monthly --timezone UTC
+    node test/scripts/usage.mjs monthly --timezone UTC
     npx ccusage claude monthly -z UTC
 */
 
 import { addDays, addWeeks, addMonths, parseISO, isValid, format } from 'date-fns'
 import { tz } from '@date-fns/tz'
-import { SessionsService, periodBounds } from '../src/main/services/SessionsService.js'
+import { SessionsService, periodBounds } from '../../src/main/services/SessionsService.js'
 
-const USAGE = 'Usage: node bin/usage.mjs [daily|weekly|monthly] [--since yyyy-MM-dd] [--until yyyy-MM-dd] [--timezone Area/City]'
+const USAGE = 'Usage: node test/scripts/usage.mjs [daily|weekly|monthly] [--since yyyy-MM-dd] [--until yyyy-MM-dd] [--timezone Area/City]'
 const die = msg => { console.error(msg); process.exit(1) }
 
 const GRANULARITIES = {

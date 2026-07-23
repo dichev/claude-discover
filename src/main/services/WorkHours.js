@@ -1,4 +1,4 @@
-import {config} from './Config.js'
+import {config} from '../config/ConfigFile.js'
 
 const DEFAULT = { work_hours: { start: '09:00', end: '17:00' } }
 

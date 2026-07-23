@@ -59,7 +59,7 @@ Install the bundled Claude Code status line to see context usage, token counts, 
 Trust, but verify. You can print the tool's per-period token usage and cost as a terminal table, and then compare it against **ccusage** - the numbers should match to the cent:
 
 ```
-node bin/usage.mjs monthly --timezone UTC
+node test/scripts/usage.mjs monthly --timezone UTC
 npx ccusage claude monthly -z UTC
 ```
 

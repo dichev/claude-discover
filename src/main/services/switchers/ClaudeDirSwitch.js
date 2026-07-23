@@ -3,7 +3,7 @@
 // sole owner of that config. Picking a new directory relaunches the app.
 import { app, BrowserWindow, dialog } from 'electron'
 import { CLAUDE_DIR, RECENT_CLAUDE_DIRS } from '../../paths.js'
-import { config } from '../Config.js'
+import { config } from '../../config/ConfigFile.js'
 
 const IS_DEV = !!process.env.ELECTRON_RENDERER_URL
 
