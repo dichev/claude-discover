@@ -1,6 +1,6 @@
 {
   "name": "claude-discover",
-  "version": "1.8.0",
+  "version": "1.9.0",
   "type": "module",
   "description": "Claude Discover — a desktop tool to browse your local Claude Code sessions: conversations, token costs, and captured API traffic",
   "license": "MIT",
@@ -25,15 +25,16 @@
     "proxy": "node bin/proxy.mjs --restart",
     "readme": "gh markdown-preview",
     "smoke": "npm pack && npx -y ./claude-discover-${npm_package_version}.tgz",
+    "postinstall": "install-electron",
     "prepack": "npm run build",
     "prepublishOnly": "npm test"
   },
   "dependencies": {
-    "@anthropic-ai/claude-agent-sdk": "^0.3.216",
+    "@anthropic-ai/claude-agent-sdk": "^0.3.218",
     "@date-fns/tz": "^1.5.0",
     "chokidar": "^5.0.0",
     "date-fns": "^4.4.0",
-    "electron": "^43.1.1",
+    "electron": "43.2.0",
     "electron-context-menu": "^4.1.2",
     "electron-window-state": "^5.0.3",
     "write-file-atomic": "^8.0.0"
@@ -46,7 +47,7 @@
     "@vitejs/plugin-react": "^5.2.0",
     "electron-vite": "^5.0.0",
     "highlight.js": "^11.11.1",
-    "lucide-react": "^1.25.0",
+    "lucide-react": "^1.26.0",
     "react": "^19.2.8",
     "react-dom": "^19.2.8",
     "react-markdown": "^10.1.0",
