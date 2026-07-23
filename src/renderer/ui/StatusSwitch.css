@@ -1,0 +1,149 @@
+.statusbar-group { display: inline-flex; align-items: center; gap: 8px; cursor: default; }
+
+.statusbar-seg {
+  align-self: stretch;
+  margin-right: -8px; /* eat the flex gap so the background reaches the next separator */
+  padding-right: 8px;
+}
+.statusbar-seg-on { background: rgba(52, 211, 153, 0.08); }
+.statusbar-seg:hover { background: rgba(255, 255, 255, 0.07); }
+.statusbar-seg-on:hover { background: rgba(52, 211, 153, 0.18); }
+
+/* Fixed-width slot so switching ON/off/DOWN/day-counts never shifts the bar (widest token: DOWN / 365d) */
+.statusbar-state { display: inline-block; min-width: 2.9em; }
+
+/* ⚠ slot kept in layout even when hidden, so warn on/off doesn't shift the label */
+.statusbar-warn { visibility: hidden; }
+.statusbar-warn[data-on] { visibility: visible; }
+
+.statusbar-off { color: var(--warn); }
+.statusbar-active { color: #34d399; }
+
+/* Scoped to the StatusBar switch tooltips only — the global [title] tippies keep their own padding */
+.statusbar-tooltip { padding: 6px 8px; }
+.statusbar-tooltip p  { margin: 0 0 6px; }
+.statusbar-tooltip pre {
+  margin: 0 0 6px;
+  padding: 6px 8px;
+  border-radius: 4px;
+  background: rgba(0, 0, 0, 0.35);
+  font-size: 11px;
+  overflow-x: auto;
+}
+.statusbar-tooltip ul { margin: 0 0 6px; padding-left: 18px; }
+.statusbar-tooltip li { margin: 2px 0; }
+.statusbar-tooltip > :last-child { margin-bottom: 0; }
+
+/* Horizontal line always shown under the description */
+.statusbar-tooltip-footer {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  margin-top: 10px;
+  padding-top: 10px;
+  border-top: 1px solid var(--border);
+}
+/* Button centered, "?" toggle sitting right next to it (equal side columns keep the button centered) */
+.statusbar-tooltip-actions {
+  align-self: stretch;
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
+  align-items: center;
+  gap: 8px;
+}
+.statusbar-tooltip .statusbar-tooltip-btn {
+  grid-column: 2;
+  min-width: 120px;
+  padding: 6px 12px;
+}
+.statusbar-tooltip-help {
+  grid-column: 3;
+  justify-self: start;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 16px;
+  height: 16px;
+  padding: 0;
+  border-radius: 50%;
+  border: 1px solid var(--border-strong);
+  background: var(--bg-elev-2);
+  color: var(--text);
+  font-size: 11px;
+  font-weight: 700;
+  line-height: 1;
+  cursor: pointer;
+  transition: background 120ms ease, border-color 120ms ease;
+}
+.statusbar-tooltip-help:hover,
+.statusbar-tooltip-help[aria-expanded="true"] { border-color: var(--text-dim); }
+/* Grayed uniformly, with a line below separating it from the controls */
+.statusbar-tooltip-changes {
+  align-self: stretch;
+  padding-bottom: 10px;
+  border-bottom: 1px solid var(--border);
+  color: var(--text-dim);
+}
+.statusbar-tooltip-changes-title { margin-bottom: 6px; }
+.statusbar-tooltip-changes pre,
+.statusbar-tooltip-changes code { color: inherit; }
+.statusbar-tooltip-keep {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  white-space: nowrap;
+  cursor: pointer;
+}
+.statusbar-tooltip-keep input {
+  appearance: none;
+  -webkit-appearance: none;
+  width: 16px;
+  height: 16px;
+  background: var(--bg-elev-2);
+  border: 1px solid var(--border-strong);
+  border-radius: 3px;
+  position: relative;
+  cursor: pointer;
+  margin: 0;
+  transition: background 120ms ease, border-color 120ms ease;
+}
+.statusbar-tooltip-keep input:hover:not(:disabled),
+.statusbar-tooltip-keep input:checked { border-color: var(--text-dim); }
+.statusbar-tooltip-keep input:checked::after {
+  content: '';
+  position: absolute;
+  top: 2px;
+  left: 5px;
+  width: 4px;
+  height: 8px;
+  border: solid #fff;
+  border-width: 0 2px 2px 0;
+  transform: rotate(45deg);
+}
+.statusbar-tooltip-keep:has(input:disabled) { opacity: 0.5; cursor: default; }
+.statusbar-tooltip-keep input:disabled { cursor: default; }
+.statusbar-tooltip .statusbar-tooltip-btn-green {
+  color: #34d399;
+  border-color: #34d399;
+}
+.statusbar-tooltip .statusbar-tooltip-btn-green:hover:not(:disabled) {
+  background: rgba(52, 211, 153, 0.15);
+  border-color: #6ee7b7;
+}
+.statusbar-tooltip .statusbar-tooltip-btn-blue {
+  color: #60a5fa;
+  border-color: #60a5fa;
+}
+.statusbar-tooltip .statusbar-tooltip-btn-blue:hover:not(:disabled) {
+  background: rgba(96, 165, 250, 0.15);
+  border-color: #93c5fd;
+}
+.statusbar-tooltip .statusbar-tooltip-btn-red {
+  color: #f87171;
+  border-color: #f87171;
+}
+.statusbar-tooltip .statusbar-tooltip-btn-red:hover:not(:disabled) {
+  background: rgba(248, 113, 113, 0.15);
+  border-color: #fca5a5;
+}

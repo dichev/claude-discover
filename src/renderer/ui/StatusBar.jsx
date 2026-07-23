@@ -3,49 +3,32 @@ import StatusSwitch, { useSwitch } from './StatusSwitch'
 import './StatusBar.css'
 
 // Tooltip prose for each switch; StatusSwitch appends the live Activate/Deactivate button below it.
-const proxyTooltip = <>
-  <p>Captures Claude Code's raw API traffic — system prompt, tool definitions, injected reminders, responses — shown in the session's Requests tab.</p>
-
-  <details className="statusbar-tooltip-changes">
-    <summary>Changes in <code>settings.json</code></summary>
-    <pre>{`"env": {
+const proxyTooltip = <p>Captures Claude Code's raw API traffic - system prompt, tool definitions, injected reminders, responses.<p></p>Applies only to newly started Claude Code sessions.</p>
+const proxyChanges = <>
+  <pre>{`"env": {
   "ANTHROPIC_BASE_URL": "http://127.0.0.1:41414",
   "ENABLE_TOOL_SEARCH": "true"
 },
-"hooks": { 
+"hooks": {
   "SessionStart": ["…/bin/claude/hooks.mjs"]
 }`}</pre>
-    <p>Note: <code>/remote-control</code> is disabled while proxy is active.</p>
-  </details>
+  <p>Note: <code>/remote-control</code> is disabled while proxy is active.</p>
 </>
 
-const retentionTooltip = <>
-  <p>Claude Code deletes transcripts older than <code>cleanupPeriodDays</code> (default 30) — this app can only show what's left. Raise it to keep a year of history browsable.</p>
-  <details className="statusbar-tooltip-changes">
-    <summary>Changes in <code>settings.json</code></summary>
-    <pre>{`"cleanupPeriodDays": 365`}</pre>
-  </details>
-</>
+const retentionTooltip = <p>Claude Code deletes transcripts older than <code>cleanupPeriodDays</code> (default 30) - this app can only show what's left. Raise it to keep a year of history browsable.</p>
+const retentionChanges = <pre>{`"cleanupPeriodDays": 365`}</pre>
 
-const statuslineTooltip = <>
-  <p>This app ships a status line for Claude Code showing context/token usage and rate limits.</p>
-  <details className="statusbar-tooltip-changes">
-    <summary>Changes in <code>settings.json</code></summary>
-    <pre>{`"statusLine": {
+const statuslineTooltip = <p>This app ships a status line for Claude Code showing context/token usage and rate limits.</p>
+const statuslineChanges = <pre>{`"statusLine": {
   "type": "command",
   "command": "node …/bin/claude/statusline.mjs"
 }`}</pre>
-  </details>
-</>
 
 const claudeDirTooltip = <>
-  <p>The folder this app reads everything from — your Claude Code sessions and settings (usually <code>~/.claude</code>).</p>
+  <p>The folder this app reads everything from - your Claude Code sessions and settings (usually <code>~/.claude</code>).</p>
   <p>Previous directories are listed in the File menu (press Alt).</p>
-  <details className="statusbar-tooltip-changes">
-    <summary>Changes in <code>~/.claude-discover/config.json</code></summary>
-    <pre>{`"claudeDir": "…the chosen folder"`}</pre>
-  </details>
 </>
+const claudeDirChanges = <pre>{`"claudeDir": "…the chosen folder"`}</pre>
 
 const ONE_YEAR_DAYS = 365
 
@@ -85,16 +68,16 @@ export default function StatusBar({ progress, sessionCount = 0 }) {
           )}
         </span>
       )}
-      <StatusSwitch service={retention} on={retentionRaised} warn={!!(retention.status && !retentionRaised)} tooltip={retentionTooltip}>
+      <StatusSwitch service={retention} on={retentionRaised} warn={!!(retention.status && !retentionRaised)} tooltip={retentionTooltip} changes={retentionChanges}>
         Session logs <span className="statusbar-state">{retention.status ? humanizeDays(retention.status.days) : '…'}</span>
       </StatusSwitch>
-      <StatusSwitch service={proxy} on={proxyRunning} warn={!!proxyDown} tooltip={proxyTooltip}>
+      <StatusSwitch service={proxy} on={proxyRunning} warn={!!proxyDown} tooltip={proxyTooltip} changes={proxyChanges}>
         Capture proxy : <span className="statusbar-state">{proxyRunning ? 'ON' : proxyDown ? 'DOWN' : 'off'}</span>
       </StatusSwitch>
-      <StatusSwitch service={statusline} on={statusline.status?.installed} tooltip={statuslineTooltip}>
+      <StatusSwitch service={statusline} on={statusline.status?.installed} tooltip={statuslineTooltip} changes={statuslineChanges}>
         Status line : <span className="statusbar-state">{statusline.status?.installed ? 'ON' : 'off'}</span>
       </StatusSwitch>
-      <StatusSwitch service={claudedir} button="Change directory" className="statusbar-claude-dir" tooltip={claudeDirTooltip}>
+      <StatusSwitch service={claudedir} button="Change directory" className="statusbar-claude-dir" tooltip={claudeDirTooltip} changes={claudeDirChanges} changesTitle="Changes in ~/.claude-discover/config.json">
         Claude dir: <code>{claudeDir}</code>
       </StatusSwitch>
     </div>

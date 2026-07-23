@@ -10,7 +10,6 @@
   color: var(--text-faint);
 }
 
-.statusbar-group { display: inline-flex; align-items: center; gap: 8px; cursor: default; }
 .statusbar > * + * { padding-left: 8px; border-left: 1px solid rgb(255 255 255 / 0.17); }
 
 /* Last in the bar, at the right edge — no seg gap-eating there; the path ellipsizes. */
@@ -25,102 +24,6 @@
   text-overflow: ellipsis;
   white-space: nowrap;
 }
-
-
-.statusbar-tooltip p  { margin: 0 0 6px; }
-.statusbar-tooltip pre {
-  margin: 0 0 6px;
-  padding: 6px 8px;
-  border-radius: 4px;
-  background: rgba(0, 0, 0, 0.35);
-  font-size: 11px;
-  overflow-x: auto;
-}
-/* "Changes in settings.json" section: separated by a top line, dimmed relative to the prose, collapsed by default */
-.statusbar-tooltip-changes {
-  margin-top: 10px;
-  padding-top: 8px;
-  border-top: 1px solid var(--border);
-  opacity: 0.65;
-}
-.statusbar-tooltip-changes summary { cursor: pointer; }
-.statusbar-tooltip-changes[open] summary { margin-bottom: 6px; }
-.statusbar-tooltip ul { margin: 0 0 6px; padding-left: 18px; }
-.statusbar-tooltip li { margin: 2px 0; }
-.statusbar-tooltip > :last-child { margin-bottom: 0; }
-.statusbar-off { color: var(--warn); }
-
-/* Segment whose background tints green while its feature is ON (capture proxy, status line) */
-.statusbar-seg {
-  align-self: stretch;
-  margin-right: -8px; /* eat the flex gap so the background reaches the next separator */
-  padding-right: 8px;
-}
-.statusbar-seg-on { background: rgba(52, 211, 153, 0.08); }
-/* Weak hover brighten; the green ON-tint gets a slightly stronger green on hover instead of white */
-.statusbar-seg:hover { background: rgba(255, 255, 255, 0.07); }
-.statusbar-seg-on:hover { background: rgba(52, 211, 153, 0.18); }
-/* Fixed-width slot each switch wraps its varying value in, so switching ON/off/DOWN/day-counts
-   never shifts the bar. One shared width fits the widest token (DOWN / 365d); shorter states just
-   leave trailing space. */
-.statusbar-state { display: inline-block; min-width: 2.9em; }
-
-/* ⚠ slot kept in layout even when hidden, so warn on/off doesn't shift the label */
-.statusbar-warn { visibility: hidden; }
-.statusbar-warn[data-on] { visibility: visible; }
-
-/* Footer of the interactive tooltips: the Activate/Deactivate button plus, for the switches
-   that support it, the "keep active when the app is closed" checkbox */
-.statusbar-tooltip-footer {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 12px;
-  margin-top: 10px;
-}
-.statusbar-tooltip .statusbar-tooltip-btn {
-  min-width: 120px;
-  padding: 6px 12px;
-}
-.statusbar-tooltip-keep {
-  display: inline-flex;
-  align-items: center;
-  gap: 5px;
-  white-space: nowrap;
-  cursor: pointer;
-}
-.statusbar-tooltip-keep input { cursor: pointer; }
-.statusbar-tooltip-keep:has(input:disabled) { opacity: 0.5; cursor: default; }
-/* Green while it reads "Activate" (matches .statusbar-active's proxy-ON green) */
-.statusbar-tooltip .statusbar-tooltip-btn-green {
-  color: #34d399;
-  border-color: #34d399;
-}
-.statusbar-tooltip .statusbar-tooltip-btn-green:hover:not(:disabled) {
-  background: rgba(52, 211, 153, 0.15);
-  border-color: #6ee7b7;
-}
-/* Blue for action-style buttons (custom label, e.g. "Change directory") — not an on/off toggle */
-.statusbar-tooltip .statusbar-tooltip-btn-blue {
-  color: #60a5fa;
-  border-color: #60a5fa;
-}
-.statusbar-tooltip .statusbar-tooltip-btn-blue:hover:not(:disabled) {
-  background: rgba(96, 165, 250, 0.15);
-  border-color: #93c5fd;
-}
-/* Reddish while it reads "Deactivate" */
-.statusbar-tooltip .statusbar-tooltip-btn-red {
-  color: #f87171;
-  border-color: #f87171;
-}
-.statusbar-tooltip .statusbar-tooltip-btn-red:hover:not(:disabled) {
-  background: rgba(248, 113, 113, 0.15);
-  border-color: #fca5a5;
-}
-
-/* Highlighted ON text for the green segments (segment background: .statusbar-seg-on) */
-.statusbar-active { color: #34d399; }
 
 /* Session-loading indicator (compact progress bar, mirrors SessionSummary's .progress-bar) */
 /* Pinned to the left; the auto margin pushes everything else right.

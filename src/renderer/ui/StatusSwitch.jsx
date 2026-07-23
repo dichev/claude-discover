@@ -1,10 +1,11 @@
 import React, { useEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import tippy from 'tippy.js'
+import './StatusSwitch.css'
 
 // On/off feature switch in the StatusBar: tinted while `on`, optional ⚠ prefix, and a tooltip
 // with the passed prose plus an Activate/Deactivate button — or, with a custom `button` label,
-// an action button that always activates. Styles live in StatusBar.css.
+// an action button that always activates.
 //
 // The ⚠ is a fixed-width slot kept in layout whenever the switch can warn (a `warn` prop is passed,
 // even when false), so warn on/off doesn't shift the label. Callers wrap their own varying value in
@@ -39,11 +40,12 @@ export function useSwitch({ name, isOn = () => false }) {
   return { status, busy, toggle, setKeepActive }
 }
 
-export default function StatusSwitch({ service, on, warn, button, className = '', tooltip, children }) {
+export default function StatusSwitch({ service, on, warn, button, className = '', tooltip, changes, changesTitle = 'Changes in settings.json', children }) {
   const ref = useRef(null)
   // Interactive tippy (stays open under the cursor) with a live React body, portalled into its
   // container. main.jsx's global tippy delegate only targets [title] elements, so it skips this.
-  const [tip] = useState(() => document.createElement('div'))
+  const [tip]                     = useState(() => document.createElement('div'))
+  const [showChanges, setChanges] = useState(false)
   useEffect(() => {
     const t = tippy(ref.current, { content: tip, interactive: true, delay: [0, 0], appendTo: () => document.body })
     return () => t.destroy()
@@ -58,15 +60,26 @@ export default function StatusSwitch({ service, on, warn, button, className = ''
         <div className="statusbar-tooltip">
           {tooltip}
           <div className="statusbar-tooltip-footer">
-            <button className={`button-primary statusbar-tooltip-btn ${button ? 'statusbar-tooltip-btn-blue' : on ? 'statusbar-tooltip-btn-red' : 'statusbar-tooltip-btn-green'}`} disabled={service.busy || !service.status} onClick={service.toggle}>
-              {service.busy ? '…' : button || (on ? 'Deactivate' : 'Activate')}
-            </button>
+            {changes && showChanges && (
+              <div className="statusbar-tooltip-changes">
+                <div className="statusbar-tooltip-changes-title">{changesTitle}</div>
+                {changes}
+              </div>
+            )}
             {service.status?.keepActive !== undefined && (
-              <label className="statusbar-tooltip-keep" title={service.status.ephemeral ? 'Not available for a temporary npx run — install the app first' : undefined}>
+              <label className="statusbar-tooltip-keep" title={service.status.ephemeral ? 'Keep active is not available for a temporary npx run.\nInstall the app globally to enable it.' : undefined}>
                 <input type="checkbox" checked={service.status.keepActive} disabled={service.status.ephemeral} onChange={e => service.setKeepActive(e.target.checked)} />
-                Keep active after close
+                Keep active after the app closes
               </label>
             )}
+            <div className="statusbar-tooltip-actions">
+              <button className={`button-primary statusbar-tooltip-btn ${button ? 'statusbar-tooltip-btn-blue' : on ? 'statusbar-tooltip-btn-red' : 'statusbar-tooltip-btn-green'}`} disabled={service.busy || !service.status} onClick={service.toggle}>
+                {service.busy ? '…' : button || (on ? 'Deactivate' : 'Activate')}
+              </button>
+              {changes && (
+                <button type="button" className="statusbar-tooltip-help" aria-expanded={showChanges} onClick={() => setChanges(v => !v)}>?</button>
+              )}
+            </div>
           </div>
         </div>,
         tip
