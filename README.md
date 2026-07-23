@@ -12,15 +12,15 @@ No configuration, no API keys, and **everything stays on your machine**.
 
 ## Getting started
 
-The tool works on Windows, macOS, and Linux. There are no pre-built binaries yet, but if you have Node.js 22+ the tool runs in a few commands:
+The tool works on Windows, macOS, and Linux. If you have Node.js 22+, just try it:
 ```
-# Install
-git clone https://github.com/dichev/claude-discover.git && cd claude-discover
-npm install
-npm run build
+npx claude-discover@latest
+```
 
-# Run
-npm start
+Like it and want to keep it around? Install it:
+```
+npm install -g claude-discover
+claude-discover
 ```
 
 ## Features
@@ -54,21 +54,21 @@ Install the bundled Claude Code status line to see context usage, token counts, 
 [Opus 4.8] Context: ▓▓▓░░░░░░░ 32% used (45.2k, 87% cached)  |  Tokens: 1.2M total (+45.2k, 3 turns) ...
 ```
 
-## Verifying token/cost calculations
-
-Trust, but verify. You can print the tool's per-period token usage and cost as a terminal table, and then compare it against **ccusage** - the numbers should match to the cent:
-
-```
-node test/scripts/usage.mjs monthly --timezone UTC
-npx ccusage claude monthly -z UTC
-```
-
 ## Contributing
 
 PRs and feature requests are welcome.
 ```
+git clone https://github.com/dichev/claude-discover.git && cd claude-discover
+npm install
 npm run dev   # start the tool with vite's hot reload
 npm test      # run the test suite
+```
+
+**Verifying token/cost calculations** - trust, but verify. You can print the tool's per-period token usage and cost as a terminal table, and then compare it against **ccusage** - the numbers should match to the cent:
+
+```
+node test/scripts/usage.mjs monthly --timezone UTC
+npx ccusage claude monthly -z UTC
 ```
 ---
 **[MIT license](LICENSE)** - Not affiliated with Anthropic.

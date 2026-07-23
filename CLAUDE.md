@@ -15,6 +15,8 @@ Windows is the default OS, but we support also macOS and Linux.
 - `vitest run --reporter=tree` — run the Vitest suite.
 - `node bin/proxy.mjs --restart` — start/restart the API request-capture proxy in the foreground (does not touch settings.json).
 - `node test/scripts/usage.mjs` — print per-period token usage/cost from local transcripts
+- `npm pack` / `npm publish` — npm package for `npx claude-discover` (`prepack` builds, `prepublishOnly` runs tests; published files are the `files` whitelist in package.json — no src/, so bin/usage.mjs stays repo-only). `test/prod-build.test.js` packs the real tarball and verifies its contents and bundle invariants (terminal-only — launching the app is `npm run try`'s job).
+- `npm run smoke` — pack the tarball (gitignored in the repo root) and run it via npx like a first-time `npx claude-discover` user; needs a POSIX script-shell (`npm config set script-shell` to Git Bash on Windows).
 - UI testing: `npm run dev`, then the `mcp__playwright__*` tools (attach over CDP port `9333`, dev-only).
 
 
@@ -25,6 +27,7 @@ Not a hard constraint — restructure when it serves the code, just update this 
 ```
 .
 ├── bin/                            standalone scripts, no imports from src/ 
+│   ├── claude-discover.mjs         npm bin entry — spawns the local Electron binary on the package root (npx claude-discover)
 │   ├── claude/
 │   │   ├── hooks.mjs               single dispatcher for every Claude Code hook this app installs
 │   │   └── statusline.mjs          the installed statusLine command
