@@ -90,6 +90,7 @@
   cursor: pointer;
 }
 .statusbar-tooltip-keep input { cursor: pointer; }
+.statusbar-tooltip-keep:has(input:disabled) { opacity: 0.5; cursor: default; }
 /* Green while it reads "Activate" (matches .statusbar-active's proxy-ON green) */
 .statusbar-tooltip .statusbar-tooltip-btn-green {
   color: #34d399;

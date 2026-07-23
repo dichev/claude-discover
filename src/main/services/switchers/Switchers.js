@@ -5,6 +5,7 @@ import { ProxySwitch } from './ProxySwitch.js'
 import { StatuslineSwitch } from './StatuslineSwitch.js'
 import { RetentionSwitch } from './RetentionSwitch.js'
 import { ClaudeDirSwitch } from './ClaudeDirSwitch.js'
+import { IS_EPHEMERAL } from '../../paths.js'
 export class Switchers {
   #switches = {
     proxy:      new ProxySwitch(),
@@ -12,14 +13,14 @@ export class Switchers {
     retention:  new RetentionSwitch(),
     claudedir:  new ClaudeDirSwitch(),
   }
-  #keepActive = { proxy: true, statusline: true } // toggle feature persisting on app quit
+  #keepActive = { proxy: true, statusline: true } // toggle feature persisting on app quit — starts on, so a switch this run didn't activate is never undone by it
 
   async status(name) {
     const s = await this.#get(name).status()
-    return name in this.#keepActive ? { ...s, keepActive: this.#keepActive[name] } : s
+    return name in this.#keepActive ? { ...s, keepActive: this.#keepActive[name], ephemeral: IS_EPHEMERAL } : s
   }
 
-  activate(name)   { return this.#attempt(name, s => s.activate()) }
+  activate(name)   { return this.#attempt(name, async s => { await s.activate(); this.#keepActive[name] &&= !IS_EPHEMERAL }) } // an npx-cache run undoes what it activated
   deactivate(name) { return this.#attempt(name, s => s.deactivate()) }
   setKeepActive(name, value) { return this.#attempt(name, () => this.#keepActive[name] = !!value) }
 

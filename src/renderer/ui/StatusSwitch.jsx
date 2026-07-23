@@ -62,8 +62,8 @@ export default function StatusSwitch({ service, on, warn, button, className = ''
               {service.busy ? '…' : button || (on ? 'Deactivate' : 'Activate')}
             </button>
             {service.status?.keepActive !== undefined && (
-              <label className="statusbar-tooltip-keep">
-                <input type="checkbox" checked={service.status.keepActive} onChange={e => service.setKeepActive(e.target.checked)} />
+              <label className="statusbar-tooltip-keep" title={service.status.ephemeral ? 'Not available for a temporary npx run — install the app first' : undefined}>
+                <input type="checkbox" checked={service.status.keepActive} disabled={service.status.ephemeral} onChange={e => service.setKeepActive(e.target.checked)} />
                 Keep active after close
               </label>
             )}
