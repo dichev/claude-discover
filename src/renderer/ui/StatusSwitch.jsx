@@ -31,7 +31,12 @@ export function useSwitch({ name, isOn = () => false }) {
     setBusy(false)
     if (next.error) alert(next.error)
   }
-  return { status, busy, toggle }
+  const setKeepActive = async value => {
+    const next = await window.api.setSwitchKeepActive(name, value)
+    setStatus(next)
+    if (next.error) alert(next.error)
+  }
+  return { status, busy, toggle, setKeepActive }
 }
 
 export default function StatusSwitch({ service, on, warn, button, className = '', tooltip, children }) {
@@ -52,9 +57,17 @@ export default function StatusSwitch({ service, on, warn, button, className = ''
       {createPortal(
         <div className="statusbar-tooltip">
           {tooltip}
-          <button className={`button-primary statusbar-tooltip-btn ${button ? 'statusbar-tooltip-btn-blue' : on ? 'statusbar-tooltip-btn-red' : 'statusbar-tooltip-btn-green'}`} disabled={service.busy || !service.status} onClick={service.toggle}>
-            {service.busy ? '…' : button || (on ? 'Deactivate' : 'Activate')}
-          </button>
+          <div className="statusbar-tooltip-footer">
+            <button className={`button-primary statusbar-tooltip-btn ${button ? 'statusbar-tooltip-btn-blue' : on ? 'statusbar-tooltip-btn-red' : 'statusbar-tooltip-btn-green'}`} disabled={service.busy || !service.status} onClick={service.toggle}>
+              {service.busy ? '…' : button || (on ? 'Deactivate' : 'Activate')}
+            </button>
+            {service.status?.keepActive !== undefined && (
+              <label className="statusbar-tooltip-keep">
+                <input type="checkbox" checked={service.status.keepActive} onChange={e => service.setKeepActive(e.target.checked)} />
+                Keep active after close
+              </label>
+            )}
+          </div>
         </div>,
         tip
       )}

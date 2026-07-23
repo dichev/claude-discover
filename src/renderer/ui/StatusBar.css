@@ -69,13 +69,27 @@
 .statusbar-warn { visibility: hidden; }
 .statusbar-warn[data-on] { visibility: visible; }
 
-/* Activate/Deactivate button at the bottom of the interactive tooltips */
+/* Footer of the interactive tooltips: the Activate/Deactivate button plus, for the switches
+   that support it, the "keep active when the app is closed" checkbox */
+.statusbar-tooltip-footer {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  margin-top: 10px;
+}
 .statusbar-tooltip .statusbar-tooltip-btn {
-  display: block;
   min-width: 120px;
-  margin: 10px auto 0;
   padding: 6px 12px;
 }
+.statusbar-tooltip-keep {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  white-space: nowrap;
+  cursor: pointer;
+}
+.statusbar-tooltip-keep input { cursor: pointer; }
 /* Green while it reads "Activate" (matches .statusbar-active's proxy-ON green) */
 .statusbar-tooltip .statusbar-tooltip-btn-green {
   color: #34d399;

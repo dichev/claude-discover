@@ -44,9 +44,17 @@ app.whenReady().then(() => {
   ipcMain.on('claude-settings:get', e => e.returnValue = { claudeDir: CLAUDE_DIR })
 
   const switchers = new Switchers() // the on/off features behind the StatusBar switches
-  ipcMain.handle('switch:status',     (_e, name) => switchers.status(name))
-  ipcMain.handle('switch:activate',   (_e, name) => switchers.activate(name))
-  ipcMain.handle('switch:deactivate', (_e, name) => switchers.deactivate(name))
+  // Switches not marked "keep active when the app is closed" are undone on quit, so their
+  // settings.json config dies with the app (deactivate is async — hold the quit)
+  app.on('will-quit', async e => {
+    e.preventDefault()
+    await switchers.deactivateOnQuit()
+    app.exit()
+  })
+  ipcMain.handle('switch:status',      (_e, name) => switchers.status(name))
+  ipcMain.handle('switch:activate',    (_e, name) => switchers.activate(name))
+  ipcMain.handle('switch:deactivate',  (_e, name) => switchers.deactivate(name))
+  ipcMain.handle('switch:keep-active', (_e, name, value) => switchers.setKeepActive(name, value))
 })
 
 app.on('window-all-closed', () => {

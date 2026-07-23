@@ -11,6 +11,7 @@ contextBridge.exposeInMainWorld('api', {
   getSwitchStatus: name => ipcRenderer.invoke('switch:status', name),
   activateSwitch: name => ipcRenderer.invoke('switch:activate', name),
   deactivateSwitch: name => ipcRenderer.invoke('switch:deactivate', name),
+  setSwitchKeepActive: (name, value) => ipcRenderer.invoke('switch:keep-active', name, value),
   listSessions: (date, granularity = 'day') => ipcRenderer.invoke('sessions:list', date, granularity),
   readSession: (id, date = null, granularity = 'day') => ipcRenderer.invoke('sessions:read', id, date, granularity),
   readRequests: (id, date = null, granularity = 'day') => ipcRenderer.invoke('sessions:read-requests', id, date, granularity),
