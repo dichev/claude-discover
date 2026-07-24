@@ -1,5 +1,10 @@
+import { encode } from 'gpt-tokenizer/model/gpt-4o'
+
 // Pure transcript model, shared by ConversationView (rendering) and MarkdownSession (agent
 // payload): raw session items → turns (flatten) → row groups (groupTurns) → per-group stats.
+
+// Token count for `text` using the o200k BPE tokenizer. Not Claude's exact tokenizer, but close enough
+export const countTokens = text => text ? encode(text).length : 0
 
 // `instructions` are the system prompts / memory files captured by the request proxy
 // (readSession's separate `instructions` list) — not transcript items, merged in by timestamp.
@@ -179,7 +184,9 @@ export function groupTurns(turns) {
       else pending.push(t)
     } else if (t.role === 'instruction') {
       flush()
-      groups.push({ kind: 'instruction', turn: t })
+      // Coalesce a run of instructions (one request's system prompt/tools/memory) into one group.
+      if (groups.at(-1)?.kind === 'instruction') groups.at(-1).turns.push(t)
+      else groups.push({ kind: 'instruction', turns: [t] })
     } else if (t.role === 'user') {
       flush()
       groups.push({ kind: 'user', turns: [...pending, t] })
@@ -201,7 +208,7 @@ export function groupTurns(turns) {
 export function cycleDurations(groups) {
   let prevEnd = null
   return groups.map(g => {
-    const tss = (g.turns ?? [g.turn]).map(t => t.ts).filter(ts => ts != null)
+    const tss = g.turns.map(t => t.ts).filter(ts => ts != null)
     const end = tss.length ? tss[tss.length - 1] : null
     const duration = g.kind === 'assistant' && end != null && prevEnd != null ? end - prevEnd : null
     if (end != null) prevEnd = end
@@ -216,7 +223,7 @@ export function cycleDurations(groups) {
 export function tokenPoints(groups) {
   let prev = 0
   return groups.map(g => {
-    const turns = g.turns ?? [g.turn]
+    const turns = g.turns
     let total = null, ctx = null
     // Split lines of one reply repeat its message id with cumulative usage snapshots,
     // so dedupe by id (last snapshot wins) before summing the group's API calls.

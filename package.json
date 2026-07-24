@@ -37,6 +37,7 @@
     "electron": "43.2.0",
     "electron-context-menu": "^4.1.2",
     "electron-window-state": "^5.0.3",
+    "gpt-tokenizer": "^3.4.0",
     "write-file-atomic": "^8.0.0"
   },
   "devDependencies": {

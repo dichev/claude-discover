@@ -3,7 +3,7 @@ import { format } from 'date-fns'
 import { Terminal } from 'lucide-react'
 import { fmtCompact, fmtDuration } from '../../utils/formatting'
 import { THRESHOLDS as T } from '../../utils/thresholds.js'
-import { flatten, groupTurns, cycleDurations, tokenPoints, isContextTurn, toolSummary, parseCommand, instructionTitle, currentModel } from './transcript.js'
+import { flatten, groupTurns, cycleDurations, tokenPoints, isContextTurn, toolSummary, parseCommand, instructionTitle, currentModel, countTokens } from './transcript.js'
 import LazyMount from '../../ui/LazyMount.jsx'
 import Markdown from '../../ui/Markdown.jsx'
 import { useFindActive } from '../../ui/useFindActive.js'
@@ -38,11 +38,11 @@ export default function ConversationView({ items, instructions = [], expandAll =
     <ExpandAllContext.Provider value={expandAll}>
       <div ref={zoomRef} className={`conversation${hasTimeline ? ' has-token-timeline' : ''}`} style={{ '--font-scale': scale }}>
         {groups.map((g, i) => (
-          <div className={`conv-row conv-row-${g.kind}`} key={g.kind === 'instruction' ? g.turn.uuid : g.turns[0].uuid}>
+          <div className={`conv-row conv-row-${g.kind}`} key={g.turns[0].uuid}>
             <LazyMount eager={i < 8} forceMount={findOpen} placeholderMinHeight={80}>
               {g.kind === 'user'      ? <UserRow turns={g.turns} point={points[i]} />
                : g.kind === 'assistant' ? <AssistantCard turns={g.turns} point={points[i]} duration={durations[i]} showAuthor={groups[i - 1]?.kind !== 'assistant'} />
-               :                        <InstructionFile it={g.turn.blocks[0].it} model={currentModel(turns)} />}
+               :                        <InstructionRun turns={g.turns} model={currentModel(turns)} />}
             </LazyMount>
             {points[i] ? <TokenPoint point={points[i]} />
              // Commands consume no tokens so they never get a real point — mark them with a plain dot.
@@ -322,13 +322,28 @@ function JsonBlock({ value }) {
   return <Markdown className="block-text" text={'```json\n' + safeJson(value) + '\n```'} />
 }
 
-function InstructionFile({ it, model }) {
+// A run of instruction files from one request (system prompt / tools / CLAUDE.md / memory),
+// with a summed token total under it once there's more than one file to add up.
+function InstructionRun({ turns, model }) {
+  const tokens = turns.map(t => countTokens(t.blocks[0].it.content))
+  return (
+    <>
+      {turns.map((t, i) => <InstructionFile key={t.uuid} it={t.blocks[0].it} model={model} tokens={tokens[i]} />)}
+      {turns.length > 1 && (
+        <div className="aux instruction-total"><span className="instruction-tokens">~ {fmtCompact(tokens.reduce((a, b) => a + b, 0))}</span></div>
+      )}
+    </>
+  )
+}
+
+function InstructionFile({ it, model, tokens }) {
   const [open, setOpen] = useCollapsed(false)
   return (
     <div className="aux instruction-file">
       <button className="aux-toggle" onClick={() => setOpen(v => !v)}>
         <span className="aux-chevron">{open ? '▾' : '▸'}</span>
         <span>{instructionTitle(it, model)}</span>
+        {tokens > 0 && <span className="instruction-tokens" title="Approx. tokens">~ {fmtCompact(tokens)}</span>}
       </button>
       {open && (
         <div className="aux-body">

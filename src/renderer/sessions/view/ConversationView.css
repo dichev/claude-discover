@@ -355,6 +355,18 @@ button.msg-summary:hover { color: var(--text); background: var(--bg-elev-2); bor
   margin-left: -10px;
 }
 
+/* Full-width toggle so the estimated token count can sit right-aligned, like msg-header-right. */
+.instruction-file .aux-toggle { display: flex; width: 100%; align-items: center; }
+.instruction-tokens { margin-left: auto; color: var(--text-faint); }
+
+/* Summed token total under a run of instruction files: a rule over the right-aligned figure. */
+.instruction-total { display: flex; font-size: calc(11px * var(--font-scale, 1)); }
+.instruction-total .instruction-tokens {
+  border-top: 1px solid var(--border);
+  padding-top: 2px;
+  font-weight: 600;
+}
+
 /* Full path of an expanded memory file, first line of the body — one click selects it for copying. */
 .instruction-path {
   font-family: var(--font-mono), monospace;
