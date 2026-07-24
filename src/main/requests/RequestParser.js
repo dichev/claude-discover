@@ -142,7 +142,10 @@ export class RequestParser {
     const fresh = this.resolve(tools.value).filter(t => t?.name && !this.seenTools.has(t.name))
     if (!fresh.length) return null
     for (const t of fresh) this.seenTools.add(t.name)
-    const content = fresh.map(t => `## ${t.name}\n\n${t.description || ''}`.trim()).join('\n\n')
+    // Schemas included: they are a large part of what a tool actually costs, so leaving them
+    // out made the strip's token estimate far too low.
+    const schema = t => t.input_schema ? '```json\n' + JSON.stringify(t.input_schema, null, 2) + '\n```' : ''
+    const content = fresh.map(t => [`## ${t.name}`, t.description || '', schema(t)].filter(Boolean).join('\n\n')).join('\n\n')
     const [kind, kindLabel] = stripKind(rec.request)
     const label = [kindLabel, `${fresh.length} tool${fresh.length === 1 ? '' : 's'}`].filter(Boolean).join(', ')
     return { file_path: 'System Tools', memory_type: label, model: rec.request.model, content, hash: tools.$hash, kind }

@@ -278,11 +278,43 @@ const ATTACHMENT_RENDERERS = {
     body: safeJson({ added: a.addedNames, removed: a.removedNames }),
     defaultOpen: false,
   }),
+  // The one nested shape the fallback below can't flatten: files → diagnostics → range.
+  diagnostics: (a) => {
+    const lines = (a.files || []).flatMap(f => (f.diagnostics || [])
+      .map(d => `${f.uri}:${(d.range?.start?.line ?? 0) + 1} ${d.severity}: ${d.message}${d.source ? ` (${d.source})` : ''}`))
+    return { title: `Diagnostics: ${lines.length} in ${a.files?.length || 0} file${a.files?.length === 1 ? '' : 's'}`, body: lines.join('\n') }
+  },
+  // addedLines carry each agent's one-line description; addedTypes is just their names.
+  agent_listing_delta: (a) => ({
+    title: `${a.addedTypes?.length || 0} agent types${a.removedTypes?.length ? ` (removed: ${a.removedTypes.length})` : ''}`,
+    body: (a.addedLines || a.addedTypes || []).join('\n'),
+    defaultOpen: false,
+  }),
+}
+
+// Everything else — Claude Code keeps adding attachment types (hooks, plan mode, tips, …), so the
+// fallback reads them structurally instead of growing a renderer per type: the first short string
+// names the thing (a path, a hook, a date), long ones are the content, and if several short strings
+// carry the payload nothing is hidden — the raw record stays as the body.
+function genericAttachment(att) {
+  const short = [], long = []
+  const collect = (v, key) => {
+    if (typeof v === 'string') { if (v.trim()) (v.length > 100 ? long : short).push([key, v]) }
+    else if (Array.isArray(v)) { for (const x of v) collect(x, key) }
+    else if (v && typeof v === 'object') { for (const [k, x] of Object.entries(v)) collect(x, k) }
+  }
+  for (const [k, v] of Object.entries(att || {})) { if (k !== 'type') collect(v, k) }
+  const detail = short.find(([k]) => /path|file|name|dir|uri|url|date/i.test(k))?.[1] // what the attachment is about
+  const label = (att?.type || 'attachment').replace(/_/g, ' ').replace(/^./, c => c.toUpperCase())
+  return {
+    title: detail ? `${label}: ${detail}` : label,
+    body: long.length ? long.map(([, v]) => v).join('\n\n') : short.length > 1 ? safeJson(att) : null,
+  }
 }
 
 function Attachment({ att }) {
   const render = ATTACHMENT_RENDERERS[att?.type]
-  const { title, body, defaultOpen = false } = render ? render(att) : { title: `Attachment: ${att?.type || 'unknown'}`, body: safeJson(att) }
+  const { title, body, defaultOpen = false } = render ? render(att) : genericAttachment(att)
   if (body == null) return <Label title={title} className="attachment" />
   return (
     <Collapsible title={title} className="attachment" defaultOpen={defaultOpen}>

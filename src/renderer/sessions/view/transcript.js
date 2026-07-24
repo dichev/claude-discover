@@ -184,8 +184,11 @@ export function groupTurns(turns) {
       else pending.push(t)
     } else if (t.role === 'instruction') {
       flush()
-      // Coalesce a run of instructions (one request's system prompt/tools/memory) into one group.
-      if (groups.at(-1)?.kind === 'instruction') groups.at(-1).turns.push(t)
+      // Coalesce a run of instructions (one request's system prompt/tools/memory) into one group —
+      // but only within a single request: instructions carry their request's timestamp, and two
+      // back-to-back calls (title generation, then the main loop) must not have their totals summed.
+      const prev = groups.at(-1)
+      if (prev?.kind === 'instruction' && prev.turns.at(-1).ts === t.ts) prev.turns.push(t)
       else groups.push({ kind: 'instruction', turns: [t] })
     } else if (t.role === 'user') {
       flush()

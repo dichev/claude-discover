@@ -205,9 +205,10 @@ describe('RequestFile.readInstructions', () => {
 
   it('collects system tools once, then only newly added tools', async () => {
     const base = { type: 'api-request', url: 'POST /v1/messages', status: 200 }
-    const read = { name: 'Read', description: 'Reads a file' }
+    const read = { name: 'Read', description: 'Reads a file', input_schema: { type: 'object' } }
     const bash = { name: 'Bash', description: 'Runs a command' }
     const web = { name: 'WebFetch', description: 'Fetches a URL' }
+    const schema = '```json\n{\n  "type": "object"\n}\n```' // schemas are a big part of what a tool costs — counted, so shown
     fs.writeFileSync(path.join(dir, 'sess-t.requests.jsonl'), [
       { ...base, timestamp: '2026-07-14T10:00:00.000Z', request: { model: 'claude-sonnet-5',
         tools: { $hash: 't1', value: [{ $hash: 'ta', value: read }, bash] }, messages: [] } },
@@ -219,7 +220,7 @@ describe('RequestFile.readInstructions', () => {
     const files = await new RequestFile('sess-t', dir).readInstructions()
     expect(files).toEqual([
       { timestamp: '2026-07-14T10:00:00.000Z', file_path: 'System Tools', memory_type: '2 tools', model: 'claude-sonnet-5',
-        content: '## Read\n\nReads a file\n\n## Bash\n\nRuns a command', hash: 't1', kind: 'main' },
+        content: `## Read\n\nReads a file\n\n${schema}\n\n## Bash\n\nRuns a command`, hash: 't1', kind: 'main' },
       { timestamp: '2026-07-14T10:02:00.000Z', file_path: 'System Tools', memory_type: '1 tool', model: 'claude-opus-4-8',
         content: '## WebFetch\n\nFetches a URL', hash: 't2', kind: 'main' }, // Read/Bash already seen — only the addition
     ])

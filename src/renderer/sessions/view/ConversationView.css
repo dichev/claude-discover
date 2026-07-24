@@ -11,9 +11,9 @@
 }
 
 .conv-row + .conv-row { margin-top: 15px; }
+/* One instruction row per API call (see groupTurns) — the gap keeps two calls' strips apart. */
 .conv-row-instruction + .conv-row { margin-top: 20px; }
 .conv-row-assistant + .conv-row-user { margin-top: 60px; }
-.conv-row-instruction + .conv-row-instruction,
 .conv-row-assistant + .conv-row-assistant { margin-top: 0; }
 
 
