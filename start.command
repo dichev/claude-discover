@@ -1,41 +1,17 @@
 #!/bin/bash
-# Double-clickable macOS launcher and auto updater
+# Double-clickable macOS launcher and auto updater (for debug convenience purposes only).
+# Every launch resets this checkout to origin/main and rebuilds — local changes are always discarded,
+# so keep this copy for running the app, not for working in.
 set -e
 cd "$(dirname "$0")"
 
-if [ -d .git ]; then # Auto updater
-  git fetch --quiet origin main
-  LOCAL=$(git rev-parse HEAD)
-  REMOTE=$(git rev-parse origin/main)
-  if [ "$LOCAL" != "$REMOTE" ]; then
-    echo "Auto-updating to latest version (origin/main)..."
+git fetch --quiet origin main
+git reset --hard -q HEAD             # drop local edits, so the checkout below can never conflict
+git checkout -q -B main origin/main
+npm install
+npm run build
 
-    BRANCH=$(git rev-parse --abbrev-ref HEAD)
-    DIRTY=$(git status --porcelain)
-    UNPUSHED=$(git log origin/main..main --oneline 2>/dev/null || true)
-
-    REPLY=
-    if [ -n "$DIRTY" ] || [ "$BRANCH" != "main" ] || [ -n "$UNPUSHED" ]; then
-      echo "Warning: the update will discard your local changes."
-      read -r -p "Continue? [Y/n] " REPLY
-    fi
-
-    if [ "$REPLY" = "n" ] || [ "$REPLY" = "N" ]; then
-      echo "Aborted update. Starting app with current code..."
-    else
-      git reset --hard HEAD
-      git checkout -B main origin/main
-      npm install
-      npm run build
-    fi
-  fi
-fi
-
-if [ ! -d node_modules ]; then
-  npm install
-fi
-if [ ! -d out ]; then
-  npm run build
-fi
-
-npm start
+# macOS hands claude-discover:// links only to .app bundles, so run the app as one: package-mac
+# rebuilds the local unsigned bundle when it's stale and registers it as the scheme's handler.
+node test/scripts/package-mac.mjs
+open dist/claude-discover.app

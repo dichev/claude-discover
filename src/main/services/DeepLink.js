@@ -2,9 +2,14 @@
   Opens links coming from another app (e.g. a browser):
     claude-discover://session?id=<sessionId>&date=<yyyy-MM-dd>
 
-  Windows only for now (macOS needs a packaged .app bundle, Linux a .desktop file)
-    reg query  "HKCU\Software\Classes\claude-discover\shell\open\command"  # auto-register
-    reg delete "HKCU\Software\Classes\claude-discover" /f                  # unregister
+  Routing is shared, but the scheme registration is OS-specific:
+
+    @windows  registered on every launch (#register)  →  link arrives in a second launch's argv
+              reg query  "HKCU\Software\Classes\claude-discover\shell\open\command"  # inspect
+              reg delete "HKCU\Software\Classes\claude-discover" /f                  # unregister
+
+    @macOS    declared in the packaged .app's plist   →  link arrives as an `open-url` event
+              node test/scripts/package-mac.mjs                                      # rebuild + register
 */
 
 import { EventEmitter } from 'node:events'
@@ -16,21 +21,32 @@ const SCHEME = 'claude-discover'
 
 export class DeepLink extends EventEmitter {
   #pending = null
+  #live    = false // the renderer has pulled the cold-start link, so later links can be pushed to it
 
   // Call at startup, before app.whenReady(). Returns false when another instance already holds the
   // lock — the caller must then quit, our argv has been forwarded to the window that owns it.
   requestLock() {
     if (!app.requestSingleInstanceLock()) return false
     app.on('second-instance', (_e, argv) => this.emit('open', findTarget(argv)))
+    app.on('open-url', (e, url) => { e.preventDefault(); this.#deliver(findTarget([url])) }) // @macOS
     this.#register()
     this.#pending = findTarget(process.argv)
     return true
   }
 
   takePending() {
+    this.#live = true
     const target = this.#pending
     this.#pending = null
     return target
+  }
+
+  // @macOS Launch Services reuses the running bundle instead of launching a second process, so links
+  // come as events — and a cold-start one fires before the renderer exists, hence the park.
+  #deliver(target) {
+    if (!target) return
+    if (this.#live) this.emit('open', target)
+    else this.#pending = target
   }
 
   // @windows Rewritten on every launch — idempotent, and the last launched checkout wins.

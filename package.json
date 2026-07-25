@@ -41,6 +41,7 @@
     "write-file-atomic": "^8.0.0"
   },
   "devDependencies": {
+    "@electron/packager": "^20.0.4",
     "@fontsource/inter": "^5.3.0",
     "@fontsource/jetbrains-mono": "^5.3.0",
     "@tomjs/electron-devtools-installer": "^4.0.1",

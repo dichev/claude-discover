@@ -1,6 +1,6 @@
-// DeepLink turns a `claude-discover://session?id=…&date=…` argv into a { id, date } target. These
-// tests pin the two delivery paths — a cold-start link parked for the renderer to pull, a second
-// launch emitted as `open` — plus the lock handshake and the Windows-only scheme registration.
+// DeepLink turns a `claude-discover://session?id=…&date=…` link into a { id, date } target. These
+// tests pin the delivery paths — a cold-start link parked for the renderer to pull, a second launch
+// or a macOS `open-url` emitted as `open` — plus the lock handshake and the scheme registration.
 import { describe, it, expect, vi } from 'vitest'
 
 vi.mock('electron', () => ({ app: {
@@ -46,6 +46,13 @@ function secondLaunch(...args) {
   return { deepLink, emitted }
 }
 
+// a link clicked on macOS: Launch Services reuses the bundle and fires open-url instead of relaunching
+function openUrl(url) {
+  const event = { preventDefault: vi.fn() }
+  app.on.mock.calls.find(([e]) => e === 'open-url')[1](event, url)
+  return event
+}
+
 describe('delivery', () => {
   it('parks a cold-start link for the renderer to pull, and yields it only once', () => {
     const { deepLink, primary } = launch([LINK])
@@ -65,6 +72,30 @@ describe('delivery', () => {
 
   it('emits null for a second launch with no link, so the window is still raised', () => {
     expect(secondLaunch().emitted).toHaveBeenCalledWith(null)
+  })
+
+  it('parks an open-url link until the renderer has pulled, then pushes the next one', () => { // @macOS
+    const { deepLink } = launch([], { platform: 'darwin' })
+    const emitted = vi.fn()
+    deepLink.on('open', emitted)
+
+    const event = openUrl(LINK) // cold start — the window isn't up yet
+    expect(event.preventDefault).toHaveBeenCalled() // macOS logs the URL as unhandled otherwise
+    expect(emitted).not.toHaveBeenCalled()
+    expect(deepLink.takePending()).toEqual(TARGET)
+
+    openUrl(LINK) // the renderer is listening now
+    expect(emitted).toHaveBeenCalledWith(TARGET)
+    expect(deepLink.takePending()).toBe(null) // pushed, not parked
+  })
+
+  it('drops an open-url carrying no session, rather than raising the window', () => { // @macOS
+    const { deepLink } = launch([], { platform: 'darwin' })
+    const emitted = vi.fn()
+    deepLink.on('open', emitted)
+    deepLink.takePending() // the renderer is up, so any target would be pushed
+    openUrl('claude-discover://session')
+    expect(emitted).not.toHaveBeenCalled()
   })
 
   it('touches nothing when another instance owns the lock', () => {
