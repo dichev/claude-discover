@@ -15,7 +15,7 @@ const TABS = [
   { key: 'requests', label: 'API Requests' },
 ]
 
-export default function Session({ meta, date, granularity = 'day' }) {
+export default function Session({ meta, missing, date, granularity = 'day' }) {
   const [items, setItems]               = useState(null)
   const [instructions, setInstructions] = useState([])
   const [mode, setMode]                 = useLocalStorage('session.view-mode', 'conversation')
@@ -45,8 +45,12 @@ export default function Session({ meta, date, granularity = 'day' }) {
     return () => { cancelled = true }
   }, [sessionId, date, granularity, fileSize])
 
-  if (!meta) {
-    return <div className="session-view empty"><div>Select a session to inspect.</div></div>
+  if (!meta) { // `missing` explains an empty pane (unknown session / empty period); see App.jsx
+    return (
+      <div className="session-view empty">
+        {missing ? <div className="session-missing">⚠ {missing}</div> : <div>Select a session to inspect.</div>}
+      </div>
+    )
   }
 
   return (

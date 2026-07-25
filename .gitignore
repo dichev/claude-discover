@@ -1,6 +1,7 @@
 node_modules/
 .idea/
 out/
+dist/
 .claude/
 .playwright-mcp/
 *.ignore*

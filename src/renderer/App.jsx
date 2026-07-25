@@ -7,7 +7,7 @@ import SessionList from './sessions/SessionList.jsx'
 import Session from './sessions/Session.jsx'
 import StatusBar from './ui/StatusBar.jsx'
 import { closeFind } from './ui/useFindActive.js'
-import { format } from 'date-fns'
+import { format, parse } from 'date-fns'
 import { startOfPeriod, endOfPeriod, addPeriod } from './utils/period.js'
 import { useLocalStorage } from './utils/useLocalStorage.js'
 import './App.css'
@@ -19,6 +19,7 @@ export default function App() {
   const [granularity, setGranularity] = useLocalStorage('gantt.granularity', 'day')
   const [anchor, setAnchor] = useState(() => startOfPeriod(Date.now(), granularity))
   const [selectedId, setSelectedId] = useState(null)
+  const [deepLink, setDeepLink] = useState(null) // the link the current selection came from, if any
   const [sourceFilter, setSourceFilter] = useState(null)
   const [projectFilter, setProjectFilter] = useState(null)
   const { defaultLayout, onLayoutChanged } = useDefaultLayout({ id: 'app.body', panelIds: ['list', 'detail'], storage: localStorage })
@@ -61,10 +62,36 @@ export default function App() {
     [sessions, selectedId]
   )
 
-  const selectSession = useCallback((id) => {
+  // Say why the detail pane is empty instead of just showing nothing
+  let missing = null
+  if (!selected && scanProgress?.scanning === false) { // only once the scan is done, or it flashes "not found"
+    const when = granularity === 'day' ? `on ${format(anchor, 'MMM d, yyyy')}` : `in this ${granularity}`
+    if (!sessions.length) missing = `No sessions recorded ${when}.`
+    else if (selectedId)  missing = `Session ${selectedId} has no records ${when}.`
+  }
+
+  // `link` is set only by the deep-link handler below — picking a session by hand clears the notice
+  const selectSession = useCallback((id, link = null) => {
     closeFind() // Close find synchronously on switch so the new transcript renders with forceMount off (no lag)
     setSelectedId(id)
+    setDeepLink(link)
   }, [])
+
+  // Deep link (claude-discover://session?id=…&date=…): jump to the session's day and select it
+  useEffect(() => {
+    const open = ({ id, date }) => {
+      const day = date && parse(date, 'yyyy-MM-dd', new Date())
+      if (day && !isNaN(day)) { // without a usable date just select within the period already shown
+        setGranularity('day')
+        setAnchor(startOfPeriod(day, 'day'))
+        setSourceFilter(null) // filters could hide the session from the list
+        setProjectFilter(null)
+      }
+      selectSession(id, { id, date })
+    }
+    window.api.takeDeepLink().then(target => target && open(target)) // the link that cold-started us
+    return window.api.onDeepLink(open)
+  }, [selectSession, setGranularity])
 
   const shiftPeriod = useCallback((delta) => {
     setProjectFilter(null)
@@ -127,12 +154,13 @@ export default function App() {
           <SessionList
             sessions={dayItems.past}
             selectedId={selectedId}
+            deepLink={deepLink}
             onSelect={selectSession}
           />
         </Panel>
         <Separator className="resize-handle resize-handle-v" />
         <Panel id="detail" minSize={30} className="body-pane">
-          <Session meta={selected} date={format(anchor, 'yyyy-MM-dd')} granularity={granularity} />
+          <Session meta={selected} missing={missing} date={format(anchor, 'yyyy-MM-dd')} granularity={granularity} />
         </Panel>
         </Group>
       </Panel>

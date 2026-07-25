@@ -16,7 +16,7 @@ const TIPS = {
   time: `Consider sessions under ${T.workTime.warn / 60_000}m`,
 }
 
-export default function SessionList({ sessions, selectedId, onSelect }) {
+export default function SessionList({ sessions, selectedId, deepLink, onSelect }) {
   const selectedRef         = useRef(null)
   const [sortBy, setSortBy] = useLocalStorage('session-list.sort', 'time')
   const [filter, setFilter] = useState('')
@@ -91,6 +91,8 @@ export default function SessionList({ sessions, selectedId, onSelect }) {
           const isSubagent = s.sessionId.startsWith('agent-')
           const journal = isJournal(s)
           const isFork = !!s.forkedFrom
+          const linked = deepLink?.id === s.sessionId // opened by a claude-discover:// link, see App.jsx
+          const linkTip = linked && `Opened from deep link\nclaude-discover://session?id=${deepLink.id}${deepLink.date ? `&date=${deepLink.date}` : ''}`
           const sessionName = s.customTitle && s.agentName && s.customTitle !== s.agentName
             ? `${s.customTitle} [${s.agentName}]`
             : (s.customTitle || s.agentName || '')
@@ -98,7 +100,7 @@ export default function SessionList({ sessions, selectedId, onSelect }) {
             <div
               key={s.sessionId}
               ref={selectedId === s.sessionId ? selectedRef : null}
-              className={`session-row ${selectedId === s.sessionId ? 'selected' : ''} ${isChild ? 'is-subagent-child' : ''}`}
+              className={`session-row ${selectedId === s.sessionId ? 'selected' : ''} ${isChild ? 'is-subagent-child' : ''} ${linked ? 'deep-linked' : ''}`}
               onClick={() => onSelect(selectedId === s.sessionId ? null : s.sessionId)}
               style={{ borderLeftColor: SOURCE_COLORS[s.source] || SOURCE_COLORS.other }}
             >
@@ -123,6 +125,7 @@ export default function SessionList({ sessions, selectedId, onSelect }) {
                 <div className="session-time-bottom">
                   <span title={format(s.lastActivityAt, 'MMM d, HH:mm:ss')}>{fmtAgo(s.lastActivityAt)}</span>
                   {s.models?.length > 0 && <span className="session-model">, {s.models.map((m) => m.replace(/^claude-/, '')).join(', ')}</span>}
+                  {linked && <span className="deeplink-note" data-tippy-content={linkTip} data-tippy-maxWidth={560}>, opened from deep link</span>}
                 </div>
               </div>
               <div className="session-row-stats">
