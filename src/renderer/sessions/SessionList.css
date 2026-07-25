@@ -112,7 +112,10 @@
   &:hover { background: var(--bg-elev-2); }
   &.selected { background: var(--selected); }
   &.is-subagent-child { padding-left: 20px; }
+  &.deep-linked { background: rgba(52, 211, 153, 0.12); } /* last, so it wins over :hover and .selected */
 }
+
+.deeplink-note { color: #34d399; }
 
 .session-row-main { flex: 1; min-width: 0; }
 

@@ -5,12 +5,14 @@ import { AgentRunner } from './services/AgentRunner.js'
 import { MainWindow } from './windows/MainWindow.js'
 import { CLAUDE_DIR } from './paths.js'
 import { Switchers } from './services/switchers/Switchers.js'
+import { DeepLink } from './services/DeepLink.js'
 import { openLinkSafely } from './utils.js'
 
 if (import.meta.env.DEV) await import('./debug.js')
 
+const deepLink = new DeepLink()
 
-app.whenReady().then(() => {
+function start() {
   const win             = new MainWindow()
   const agentRunner     = new AgentRunner()
   const workHours       = new WorkHours()
@@ -20,11 +22,15 @@ app.whenReady().then(() => {
   sessionsService.on('progress', p => win.send('sessions:scan-progress', p))
   sessionsService.start()
 
+  deepLink.on('open', target => { // a second launch reached us — raise the window, follow its link if any
+    win.focus()
+    if (target) win.send('deeplink:open-session', target)
+  })
+
   win.create()
   app.on('activate', () => { // @macOS
     if (BrowserWindow.getAllWindows().length === 0) win.create()
   })
-
 
   ipcMain.handle('sessions:list', (_e, date, granularity) => sessionsService.list(date, granularity))
   ipcMain.handle('sessions:read', (_e, sessionId, date, granularity) => sessionsService.readSession(sessionId, date, granularity))
@@ -36,6 +42,8 @@ app.whenReady().then(() => {
   ipcMain.handle('agent:run', (e, text, systemTools, cache) => agentRunner.run(text, e.sender, systemTools, cache))
 
   ipcMain.handle('shell:open-link', (_e, href, baseFile) => openLinkSafely(href, baseFile))
+
+  ipcMain.handle('deeplink:take-pending', () => deepLink.takePending())
 
   ipcMain.on('find:query', (_e, text, options) => win.findBar?.query(text, options))
   ipcMain.on('find:stop',  () => win.findBar?.stop())
@@ -55,8 +63,18 @@ app.whenReady().then(() => {
   ipcMain.handle('switch:activate',    (_e, name) => switchers.activate(name))
   ipcMain.handle('switch:deactivate',  (_e, name) => switchers.deactivate(name))
   ipcMain.handle('switch:keep-active', (_e, name, value) => switchers.setKeepActive(name, value))
-})
+}
 
 app.on('window-all-closed', () => {
   if (process.platform !== 'darwin') app.quit()
 })
+
+// Every deep-link click launches a new process. The first one owns the window; later ones hand it
+// their argv (the link) and exit, so a click never opens a second copy of the app.
+const isFirstInstance = deepLink.requestLock()
+
+if (isFirstInstance) {
+  app.whenReady().then(start)
+} else {
+  app.quit()
+}

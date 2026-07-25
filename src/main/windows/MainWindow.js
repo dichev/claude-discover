@@ -56,4 +56,11 @@ export class MainWindow {
   send(channel, payload) {
     if (this.win && !this.win.isDestroyed()) this.win.webContents.send(channel, payload)
   }
+
+  focus() { // bring the window forward, e.g. for an incoming deep link
+    if (!this.win || this.win.isDestroyed()) return
+    if (this.win.isMinimized()) this.win.restore()
+    this.win.show()
+    this.win.focus()
+  }
 }

@@ -27,5 +27,8 @@ contextBridge.exposeInMainWorld('api', {
   openLink: (href, baseFile) => ipcRenderer.invoke('shell:open-link', href, baseFile),
 
   onFindActive: subscribe('find:active'),
-  findClose: () => ipcRenderer.send('find:close')
+  findClose: () => ipcRenderer.send('find:close'),
+
+  onDeepLink: subscribe('deeplink:open-session'),
+  takeDeepLink: () => ipcRenderer.invoke('deeplink:take-pending')
 })
