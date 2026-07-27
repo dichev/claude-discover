@@ -164,3 +164,62 @@ describe('SessionsScanner stat cache', () => {
     expect(await scanPaths()).toEqual([]) // fresh walk, deletion noticed
   })
 })
+
+// watch() waits for a scan before starting chokidar, and resolves once it is live — chokidar's setup
+// walks the whole projects dir, and on a cold disk racing that against our own walk dominates startup.
+describe('SessionsScanner deferred watcher', () => {
+  let watchRoot, scanner
+
+  beforeEach(() => {
+    watchRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'scanner-watch-test-'))
+    scanner = new SessionsScanner({ root: watchRoot })
+  })
+
+  afterEach(() => {
+    scanner.stop()
+    fs.rmSync(watchRoot, { recursive: true, force: true })
+  })
+
+  it('watch() touches nothing until a scan finishes', () => {
+    scanner.watch({})
+    expect(scanner.watcher).toBe(null)
+  })
+
+  it('starts the watcher once a scan has finished', async () => {
+    const watching = scanner.watch({})
+    await scanner.scan(day)
+    await watching // resolves when the watcher is live
+    expect(scanner.watcher).toBeTruthy()
+  })
+
+  it('a scan without watch() never starts one', async () => {
+    await scanner.scan(day)
+    expect(scanner.watcher).toBe(null)
+  })
+
+  it('later scans leave the watcher alone', async () => {
+    const watching = scanner.watch({})
+    await scanner.scan(day)
+    await watching
+    const started = scanner.watcher
+    await scanner.scan(day)
+    expect(scanner.watcher).toBe(started)
+  })
+
+  it('an aborted scan still releases it — a superseded walk must not strand the watcher', async () => {
+    const watching = scanner.watch({})
+    const ac = new AbortController()
+    ac.abort()
+    await scanner.scan(day, { signal: ac.signal })
+    await watching
+    expect(scanner.watcher).toBeTruthy()
+  })
+
+  it('stop() cancels a watch() still waiting on a scan', async () => {
+    const watching = scanner.watch({})
+    scanner.stop()
+    await scanner.scan(day)
+    await watching
+    expect(scanner.watcher).toBe(null)
+  })
+})

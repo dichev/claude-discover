@@ -10,6 +10,8 @@ export class SessionsScanner {
   constructor({ root = CLAUDE_PROJECTS_DIR } = {}) {
     this.root = root
     this.watcher = null
+    this.watchWanted = false // a watch() is waiting for the disk — cleared by stop() to cancel it
+    this.walkDone = Promise.withResolvers() // resolved by the first finished walk, awaited by watch()
     this.statCache = new StatCache() // lets warm scans skip the readdir+stat sweep (the bottleneck on remote dirs)
   }
 
@@ -40,8 +42,15 @@ export class SessionsScanner {
   // truthy — lets callers flush UI updates incrementally. An aborted `signal` (a superseded
   // scan) stops the walk: no further stats, onFile calls or emits. Once a walk has completed
   // with the watcher live, the StatCache mirrors the disk and serves later scans in memory.
-  async scan(day, { onFile, onBatchDone, onProgress, signal } = {}) {
-    if (this.statCache.complete && this.watcher) return this.statCache.scan(stat => this._inPeriod(stat, day), { onFile, onBatchDone, onProgress, signal })
+  async scan(day, opts = {}) {
+    if (this.statCache.complete && this.watcher) {
+      return this.statCache.scan(stat => this._inPeriod(stat, day), opts)
+    }
+    try { await this._walk(day, opts) }
+    finally { this.walkDone.resolve() } // the disk is free — releases a watch() waiting on it
+  }
+
+  async _walk(day, { onFile, onBatchDone, onProgress, signal } = {}) {
     const projects = await this._listDirs(this.root)
     let done = 0
     const progress = () => onProgress?.({ done, total: projects.length, scanning: done < projects.length }) // project count is the known denominator for the UI progress bar
@@ -64,7 +73,14 @@ export class SessionsScanner {
     progress() // terminal emit: covers total===0 and guarantees the bar clears
   }
 
-  watch({ onChange, onUnlink } = {}) {
+  // Starts chokidar once a scan has finished, and resolves when it's live. Its setup walks the whole
+  // projects dir to register watchers, and on a cold disk those stats are the bulk of startup, so it
+  // waits instead of racing our walk. The gap is self-healing: `ignoreInitial` skips files present at
+  // startup anyway, and a session still being written emits on its next append.
+  async watch({ onChange, onUnlink } = {}) {
+    this.watchWanted = true
+    await this.walkDone.promise
+    if (!this.watchWanted) return // stop() cancelled us while we waited
     const isUNC = this.root.startsWith('\\\\') || this.root.startsWith('//') // native fs.watch fails on UNC (e.g. \\wsl.localhost\...)
     this.watcher = chokidar.watch(this.root, {
       ignoreInitial: true,
@@ -89,6 +105,7 @@ export class SessionsScanner {
   }
 
   stop() {
+    this.watchWanted = false // a watch() waiting on a scan must not start after stop
     if (this.watcher) {
       this.watcher.close()
       this.watcher = null
