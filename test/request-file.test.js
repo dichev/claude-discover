@@ -31,7 +31,7 @@ afterAll(() => fs.rmSync(dir, { recursive: true, force: true }))
 
 describe('RequestFile', () => {
   it('resolves $hash/$ref back to full values, skipping malformed lines', async () => {
-    const out = await new RequestFile('sess-1', dir).read()
+    const out = await new RequestFile('sess-1', { dir }).read()
     expect(out).toHaveLength(3)
     expect(out[0].request.system).toEqual(system)
     expect(out[0].request.messages).toEqual([userMsg])
@@ -42,7 +42,7 @@ describe('RequestFile', () => {
   })
 
   it('classifies each request into a kind for the list labels', async () => {
-    const out = await new RequestFile('sess-1', dir).read()
+    const out = await new RequestFile('sess-1', { dir }).read()
     expect(out[0].kind).toEqual(['main', 'User message'])
     expect(out[2].kind).toEqual(['count', 'Token count']) // by url — works even for old body-less records
   })
@@ -52,12 +52,12 @@ describe('RequestFile', () => {
       type: 'api-request', timestamp: '2026-07-14T10:00:00.000Z', url: 'POST /v1/messages', status: 200,
       request: { model: 'claude-sonnet-5', system: 'You are some other agent', messages: [userMsg] },
     }) + '\n')
-    const out = await new RequestFile('sess-u', dir).read()
+    const out = await new RequestFile('sess-u', { dir }).read()
     expect(out[0].kind).toBeNull()
   })
 
   it('marks previously-seen parts ($refs) in $seen', async () => {
-    const out = await new RequestFile('sess-1', dir).read()
+    const out = await new RequestFile('sess-1', { dir }).read()
     expect(out[0].$seen).toEqual({ messages: [false], paths: [] })
     expect(out[1].$seen).toEqual({ messages: [true, false, false], paths: ['system', 'messages.0'] }) // unknown ref counts as unseen
     expect(out[2].$seen).toBeUndefined() // bare record has no request
@@ -65,13 +65,13 @@ describe('RequestFile', () => {
 
   it('filters by period but resolves refs across the whole file', async () => {
     const day15 = { start: Date.parse('2026-07-15T00:00:00.000Z'), end: Date.parse('2026-07-15T23:59:59.999Z') }
-    const out = await new RequestFile('sess-1', dir).read(day15)
+    const out = await new RequestFile('sess-1', { dir }).read(day15)
     expect(out.map(r => r.timestamp)).toEqual(['2026-07-15T10:00:00.000Z', '2026-07-15T11:00:00.000Z'])
     expect(out[0].request.system).toEqual(system) // $ref target lives in the filtered-out day-14 record
   })
 
   it('returns [] when no log exists for the session', async () => {
-    expect(await new RequestFile('no-such-session', dir).read()).toEqual([])
+    expect(await new RequestFile('no-such-session', { dir }).read()).toEqual([])
   })
 
   it('resolves block-level $hash/$ref inside messages, storing messages fully resolved', async () => {
@@ -83,7 +83,7 @@ describe('RequestFile', () => {
       { ...base, timestamp: '2026-07-14T10:01:00.000Z', request: { model: 'claude-sonnet-5',
         messages: [{ $ref: 'm1' }, { $hash: 'm2', value: { role: 'user', content: [{ $ref: 'b1' }, { type: 'text', text: 'ok' }] } }] } },
     ].map(r => JSON.stringify(r)).join('\n') + '\n')
-    const out = await new RequestFile('sess-b', dir).read()
+    const out = await new RequestFile('sess-b', { dir }).read()
     expect(out[0].request.messages).toEqual([{ role: 'user', content: [blk] }])
     expect(out[1].request.messages).toEqual([
       { role: 'user', content: [blk] }, // message $ref resolves to fully resolved content
@@ -106,7 +106,7 @@ describe('RequestFile', () => {
         tools: { $hash: 't2', value: [{ $ref: 'ta' }] },
         messages: [{ $ref: 'm1' }] } },
     ].map(r => JSON.stringify(r)).join('\n') + '\n')
-    const out = await new RequestFile('sess-d', dir).read()
+    const out = await new RequestFile('sess-d', { dir }).read()
     const resolved = [{ role: 'user', content: [{ type: 'tool_result', tool_use_id: 'x', content: [inner] }] }]
     expect(out[0].request.tools).toEqual([tool])
     expect(out[0].request.messages).toEqual(resolved)
@@ -179,11 +179,11 @@ describe('RequestFile.readInstructions', () => {
       JSON.stringify(withReminder('2026-07-14T10:00:00.000Z', { $hash: 'sys1', value: 'Be terse' })),
       JSON.stringify(withReminder('2026-07-15T10:00:00.000Z', { $ref: 'sys1' })), // e.g. a subagent request repeating the same files
     ].join('\n') + '\n')
-    const files = await new RequestFile('sess-2', dir).readInstructions()
+    const files = await new RequestFile('sess-2', { dir }).readInstructions()
     expect(files.map(f => f.file_path)).toEqual([
       'System Prompt', 'C:\\Users\\me\\.claude\\CLAUDE.md', 'D:\\proj\\CLAUDE.md', 'C:\\Users\\me\\.claude\\projects\\p\\memory\\MEMORY.md',
     ])
-    expect(files[0]).toMatchObject({ memory_type: '', model: 'claude-sonnet-5', content: 'Be terse', hash: 'sys1' })
+    expect(files[0]).toMatchObject({ memory_type: '', model: 'claude-sonnet-5', content: 'Be terse' })
     expect(files.every(f => f.timestamp === '2026-07-14T10:00:00.000Z')).toBe(true) // first sight wins
   })
 
@@ -196,7 +196,7 @@ describe('RequestFile.readInstructions', () => {
       { ...base, timestamp: '2026-07-14T10:01:00.000Z', request: { model: 'claude-opus-4-8',
         system: { $hash: 's2', value: [{ type: 'text', text: 'other billing' }, { $ref: 'p1' }] }, messages: [] } },
     ].map(r => JSON.stringify(r)).join('\n') + '\n')
-    const files = await new RequestFile('sess-s', dir).readInstructions()
+    const files = await new RequestFile('sess-s', { dir }).readInstructions()
     expect(files.map(f => f.content)).toEqual([
       'billing\n\nYou are Claude Code',
       'other billing\n\nYou are Claude Code', // block resolved from the earlier record
@@ -217,19 +217,20 @@ describe('RequestFile.readInstructions', () => {
       { ...base, timestamp: '2026-07-14T10:02:00.000Z', request: { model: 'claude-opus-4-8',
         tools: { $hash: 't2', value: [{ $ref: 'ta' }, bash, web] }, messages: [] } }, // grown by one deferred tool
     ].map(r => JSON.stringify(r)).join('\n') + '\n')
-    const files = await new RequestFile('sess-t', dir).readInstructions()
-    expect(files).toEqual([
+    const files = await new RequestFile('sess-t', { dir }).readInstructions()
+    expect(files).toMatchObject([
       { timestamp: '2026-07-14T10:00:00.000Z', file_path: 'System Tools', memory_type: '2 tools', model: 'claude-sonnet-5',
-        content: `## Read\n\nReads a file\n\n${schema}\n\n## Bash\n\nRuns a command`, hash: 't1', kind: 'main' },
+        content: `## Read\n\nReads a file\n\n${schema}\n\n## Bash\n\nRuns a command`, kind: 'main' },
       { timestamp: '2026-07-14T10:02:00.000Z', file_path: 'System Tools', memory_type: '1 tool', model: 'claude-opus-4-8',
-        content: '## WebFetch\n\nFetches a URL', hash: 't2', kind: 'main' }, // Read/Bash already seen — only the addition
+        content: '## WebFetch\n\nFetches a URL', kind: 'main' }, // Read/Bash already seen — only the addition
     ])
+    expect(files[0].hash).not.toBe(files[1].hash) // content hash — distinct per batch, used as the dedup key
   })
 
   it('joins block-array system prompts into one text', async () => {
-    const files = await new RequestFile('sess-1', dir).readInstructions()
-    expect(files).toEqual([{ timestamp: '2026-07-14T10:00:00.000Z',
-      file_path: 'System Prompt', memory_type: '', model: 'claude-sonnet-5', content: 'You are Claude Code', hash: 'aaa', kind: 'main' }])
+    const files = await new RequestFile('sess-1', { dir }).readInstructions()
+    expect(files).toMatchObject([{ timestamp: '2026-07-14T10:00:00.000Z',
+      file_path: 'System Prompt', memory_type: '', model: 'claude-sonnet-5', content: 'You are Claude Code', kind: 'main' }])
   })
 
   it('labels side-channel system prompts with the request kind', async () => {
@@ -239,11 +240,58 @@ describe('RequestFile.readInstructions', () => {
         system: { $hash: 'k1', value: 'You are a security monitor reviewing tool calls' },
         messages: [{ $hash: 'km', value: { role: 'user', content: '<transcript>…</transcript>' } }] } },
     ].map(r => JSON.stringify(r)).join('\n') + '\n')
-    const files = await new RequestFile('sess-k', dir).readInstructions()
-    expect(files[0]).toMatchObject({ memory_type: 'Security check', model: 'claude-haiku-4-5', kind: 'security' })
+    const files = await new RequestFile('sess-k', { dir }).readInstructions()
+    expect(files[0]).toMatchObject({ memory_type: 'Auto-mode check', model: 'claude-haiku-4-5', kind: 'security' })
   })
 
   it('returns [] when no log exists', async () => {
-    expect(await new RequestFile('no-such-session', dir).readInstructions()).toEqual([])
+    expect(await new RequestFile('no-such-session', { dir }).readInstructions()).toEqual([])
+  })
+})
+
+// Subagents share the parent's session id, so the proxy logs their requests into the parent's
+// file, tagged with an x-claude-code-agent-id header — `agentId` scopes reads to one agent.
+describe('RequestFile agent scoping', () => {
+  beforeAll(() => {
+    const base = { type: 'api-request', url: 'POST /v1/messages', status: 200 }
+    fs.writeFileSync(path.join(dir, 'sess-a.requests.jsonl'), [
+      { ...base, timestamp: '2026-07-14T10:00:00.000Z', request: { model: 'claude-sonnet-5',
+        system: { $hash: 's1', value: [{ $hash: 'p1', value: { type: 'text', text: 'You are Claude Code' } }] },
+        tools: { $hash: 't1', value: [{ $hash: 'ta', value: { name: 'Read', description: 'reads' } }] },
+        messages: [{ $hash: 'm1', value: { role: 'user', content: 'hi' } }] } },
+      { ...base, timestamp: '2026-07-14T10:01:00.000Z', requestHeaders: { 'x-claude-code-agent-id': 'abc123' },
+        request: { model: 'claude-sonnet-5',
+          system: { $hash: 's2', value: [{ type: 'text', text: 'You are an agent' }, { $ref: 'p1' }] },
+          tools: { $ref: 't1' }, // identical tool set — logged only as a repeat of the parent's
+          messages: [{ $hash: 'm2', value: { role: 'user', content: 'joke please' } }] } },
+      { ...base, timestamp: '2026-07-14T10:02:00.000Z', request: { model: 'claude-sonnet-5',
+        system: { $ref: 's1' }, tools: { $ref: 't1' },
+        messages: [{ $ref: 'm1' }, { $hash: 'm3', value: { role: 'assistant', content: 'done' } }] } },
+    ].map(r => JSON.stringify(r)).join('\n') + '\n')
+  })
+
+  it('read() splits records between the session and its subagent by the agent-id header', async () => {
+    const main = await new RequestFile('sess-a', { dir }).read()
+    expect(main.map(r => r.timestamp)).toEqual(['2026-07-14T10:00:00.000Z', '2026-07-14T10:02:00.000Z'])
+    const agent = await new RequestFile('sess-a', { dir, agentId: 'abc123' }).read()
+    expect(agent.map(r => r.timestamp)).toEqual(['2026-07-14T10:01:00.000Z'])
+    // refs still resolve across the whole file — the targets live in the parent's records
+    expect(agent[0].request.tools).toEqual([{ name: 'Read', description: 'reads' }])
+    expect(agent[0].request.system).toEqual([{ type: 'text', text: 'You are an agent' }, { type: 'text', text: 'You are Claude Code' }])
+  })
+
+  it('agent-scoped readInstructions resolves values first logged by the parent, with its own tool dedup', async () => {
+    const files = await new RequestFile('sess-a', { dir, agentId: 'abc123' }).readInstructions()
+    expect(files).toMatchObject([
+      { timestamp: '2026-07-14T10:01:00.000Z', file_path: 'System Prompt', memory_type: '', model: 'claude-sonnet-5',
+        content: 'You are an agent\n\nYou are Claude Code', kind: 'main' },
+      { timestamp: '2026-07-14T10:01:00.000Z', file_path: 'System Tools', memory_type: '1 tool', model: 'claude-sonnet-5',
+        content: '## Read\n\nreads', kind: 'main' }, // $ref'd tool set — still the agent's first sight
+    ])
+  })
+
+  it('unscoped readInstructions skips the subagent record', async () => {
+    const files = await new RequestFile('sess-a', { dir }).readInstructions()
+    expect(files.map(f => f.content)).toEqual(['You are Claude Code', '## Read\n\nreads']) // no "You are an agent" — that prompt is not the session's
   })
 })

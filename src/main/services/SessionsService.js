@@ -55,7 +55,7 @@ export class SessionsService extends EventEmitter {
     for (const o of items) delete o._ts
     // System prompts and memory files captured by the request proxy, shipped separately from the
     // transcript items; the renderer slots them into the view by timestamp.
-    const instructions = await new RequestFile(reader.sessionId).readInstructions()
+    const instructions = await this.#requestFile(reader.sessionId, reader.parentSessionId).readInstructions()
     return { items, instructions }
   }
 
@@ -63,7 +63,15 @@ export class SessionsService extends EventEmitter {
   async readRequests(sessionId, date = null, granularity = 'day') {
     if (!/^[\w-]+$/.test(sessionId)) return [] // the id becomes a filename — same guard as the proxy
     const range = date ? periodBounds(date, granularity) : null
-    return new RequestFile(sessionId).read(range)
+    return this.#requestFile(sessionId, this.metaCache.byId(sessionId)?.parentSessionId).read(range)
+  }
+
+  // Subagents send the parent's session id, so the proxy logs their requests into the parent's
+  // file, tagged x-claude-code-agent-id — route their reads there. The transcript filename is
+  // `agent-<id>` while the header carries the bare <id>.
+  #requestFile(sessionId, parentSessionId) {
+    const agentId = parentSessionId && sessionId.startsWith('agent-') ? sessionId.slice('agent-'.length) : null
+    return agentId ? new RequestFile(parentSessionId, { agentId }) : new RequestFile(sessionId)
   }
 
   // Scan `period` ({ start, end } epoch ms, optional `key`/`date`; see periodBounds). watch:true (UI) streams 'update' events per dir batch and returns the current cache immediately; watch:false (CLIs/tests) awaits completion and returns the deduped sessions with no emits.

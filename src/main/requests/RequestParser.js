@@ -1,4 +1,9 @@
+import crypto from 'node:crypto'
+
 const jsonBytes = x => x == null ? 0 : Buffer.byteLength(JSON.stringify(x))
+
+// Fingerprint of an instruction strip's content — its dedup key, and the renderer's list key.
+const contentHash = s => crypto.createHash('sha256').update(s).digest('base64url').slice(0, 16)
 
 // Short display names for the parenthesized descriptions Claude Code puts after each path.
 const MEMORY_LABELS = {
@@ -55,7 +60,8 @@ export const classifyRequest = (req, url) => {
   // /compact appends its instructions as an extra text block after the user's message, so look at the last text block
   const tail = (blocks?.findLast(b => b?.type === 'text')?.text ?? user).slice(0, 600)
   if (req.max_tokens === 1 || user.trim() === 'quota') return ['quota', 'Quota probe']
-  if (sysText.includes('You are a security monitor') || user.startsWith('<transcript>')) return ['security', 'Security check']
+  // auto permission mode vets each tool call with a security-monitor prompt before running it
+  if (sysText.includes('You are a security monitor') || user.startsWith('<transcript>')) return ['security', 'Auto-mode check']
   if (sysText.includes('Generate a concise, sentence-case title')) return ['title', 'Session title']
   if (sysText.includes('performing a web search')) return ['web', 'Web search']
   if (user.startsWith('[SUGGESTION MODE')) return ['suggest', 'Suggestions']
@@ -121,25 +127,24 @@ export class RequestParser {
     return rec
   }
 
-  // The request's system prompt, only when this record logs it in full ({ $hash, value } — repeats
-  // are $refs). `system` is either a plain string or an array of text blocks.
+  // The request's system prompt, from a resolveRefs'd record — a plain string or an array of
+  // text blocks. The content hash is the dedup key: repeats collapse in the caller's map.
   systemPrompt(rec) {
     const sys = rec.request?.system
-    if (!sys?.$hash) return null
-    const value = this.resolve(sys.value) // blocks may be dedup-wrapped — a $ref'd block was stored by an earlier $hash record
-    const content = typeof value === 'string' ? value : value.map(b => b?.text ?? '').join('\n\n')
+    if (sys == null || sys.$ref) return null // absent, or an unresolvable ref (truncated log)
+    const content = typeof sys === 'string' ? sys : sys.map(b => b?.text ?? '').join('\n\n')
     const [kind, kindLabel] = stripKind(rec.request)
     // model kept separate — the frontend shows it only when it differs from the conversation's
-    return { file_path: 'System Prompt', memory_type: kindLabel || '', model: rec.request.model, content, hash: sys.$hash, kind }
+    return { file_path: 'System Prompt', memory_type: kindLabel || '', model: rec.request.model, content, hash: contentHash(content), kind }
   }
 
-  // The request's tool definitions, only when this record logs the array in full (repeats are
-  // $refs). The array grows as deferred tools load mid-session, so only tools this parser hasn't
-  // seen yet are returned — the first request yields the full set, later arrays just the additions.
+  // The request's tool definitions, from a resolveRefs'd record. The array grows as deferred
+  // tools load mid-session, so only tools this parser hasn't seen yet are returned — the first
+  // request yields the full set, later arrays just the additions.
   systemTools(rec) {
     const tools = rec.request?.tools
-    if (!tools?.$hash) return null
-    const fresh = this.resolve(tools.value).filter(t => t?.name && !this.seenTools.has(t.name))
+    if (!Array.isArray(tools)) return null // absent, or an unresolvable ref (truncated log)
+    const fresh = tools.filter(t => t?.name && !this.seenTools.has(t.name))
     if (!fresh.length) return null
     for (const t of fresh) this.seenTools.add(t.name)
     // Schemas included: they are a large part of what a tool actually costs, so leaving them
@@ -148,17 +153,17 @@ export class RequestParser {
     const content = fresh.map(t => [`## ${t.name}`, t.description || '', schema(t)].filter(Boolean).join('\n\n')).join('\n\n')
     const [kind, kindLabel] = stripKind(rec.request)
     const label = [kindLabel, `${fresh.length} tool${fresh.length === 1 ? '' : 's'}`].filter(Boolean).join(', ')
-    return { file_path: 'System Tools', memory_type: label, model: rec.request.model, content, hash: tools.$hash, kind }
+    return { file_path: 'System Tools', memory_type: label, model: rec.request.model, content, hash: contentHash(content), kind }
   }
 
-  // Memory files (CLAUDE.md / MEMORY.md / …) carried by the record's messages inside `# claudeMd`
-  // system-reminders — one { file_path, memory_type, content } per file listed.
+  // Memory files (CLAUDE.md / MEMORY.md / …) carried by a resolveRefs'd record's messages inside
+  // `# claudeMd` system-reminders — one { file_path, memory_type, content } per file listed.
   memoryFiles(rec) {
     const files = []
     for (const m of rec.request?.messages || []) {
-      const content = (m?.value ?? m)?.content
+      const content = m?.content // an unresolvable ref (truncated log) has no content — skipped
       for (const part of Array.isArray(content) ? content : [{ text: content }]) {
-        const text = (part?.value ?? part)?.text // blocks may be dedup-wrapped too; $refs repeat earlier content and resolve to undefined here
+        const text = part?.text
         if (typeof text !== 'string' || !text.includes('<system-reminder>')) continue
         files.push(...parseClaudeMd(text))
       }
