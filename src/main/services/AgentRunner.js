@@ -1,9 +1,7 @@
-import { query } from '@anthropic-ai/claude-agent-sdk'
-
-
 export class AgentRunner {
 
   async run(text, sender, systemTools = false, cache = false) {
+    const { query } = await import('@anthropic-ai/claude-agent-sdk') // loaded on first run — 50ms off startup
     const send = chunk => {
       if (!sender.isDestroyed()) sender.send('agent:output', chunk)
     }

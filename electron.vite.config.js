@@ -31,6 +31,7 @@ const cspMeta = () => ({
 export default defineConfig({
   main: {
     build: {
+      externalizeDeps: { exclude: ['date-fns'] }, // bundle date-fns, its ~300-file barrel costs 450ms of startup unbundled
       lib: { entry: resolve('src/main/main.js') }
     }
   },
