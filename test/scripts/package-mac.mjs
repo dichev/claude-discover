@@ -29,6 +29,7 @@ if (mtime(app) < mtime(build)) { // missing, or stale since the last npm run bui
     overwrite: true,
     platform: 'darwin',                                  // host arch by default — no fat universal build
     appBundleId: 'com.claudediscover.app',               // stable identity, so open-url routes into the running window
+    asar: false,                                         // bin/ scripts are run by plain node, so they can't live inside an asar
     protocols: [{ name: 'Claude Discover', schemes: ['claude-discover'] }],
     prune: true,                                         // drop devDependencies from the bundle
     ignore: [                                            // dist/ and the lockfile are dropped by the packager itself
