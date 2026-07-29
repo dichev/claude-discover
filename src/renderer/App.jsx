@@ -40,7 +40,7 @@ export default function App() {
         .then((s) => {
           if (!cancelled) { setSessions(s || []); setLoading(false) }
         })
-    }, 120)
+    }, loading ? 0 : 120) // the 120ms debounce is for arrowing through periods — don't make the first scan wait for it
     const off = window.api.onSessionsUpdate((s) => { if (!cancelled) setSessions(s || [])
      })
     return () => { cancelled = true
