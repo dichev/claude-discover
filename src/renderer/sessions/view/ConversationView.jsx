@@ -358,7 +358,7 @@ function JsonBlock({ value }) {
 // A run of instruction files from one request (system prompt / tools / CLAUDE.md / memory),
 // with a summed token total under it once there's more than one file to add up.
 function InstructionRun({ turns, model }) {
-  const tokens = turns.map(t => countTokens(t.blocks[0].it.content))
+  const tokens = turns.map(t => countTokens(t.blocks[0].it.content, t.blocks[0].it.model ?? model))
   return (
     <>
       {turns.map((t, i) => <InstructionFile key={t.uuid} it={t.blocks[0].it} model={model} tokens={tokens[i]} />)}

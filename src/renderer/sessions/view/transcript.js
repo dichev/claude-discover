@@ -3,8 +3,13 @@ import { encode } from 'gpt-tokenizer/model/gpt-4o'
 // Pure transcript model, shared by ConversationView (rendering) and MarkdownSession (agent
 // payload): raw session items → turns (flatten) → row groups (groupTurns) → per-group stats.
 
-// Token count for `text` using the o200k BPE tokenizer. Not Claude's exact tokenizer, but close enough
-export const countTokens = text => text ? encode(text).length : 0
+// Estimate Claude tokens from tiktokenizer's o200k counts
+export const countTokens = (text, model = '') => {
+  if (!text) return 0
+  const LEGACY_CLAUDE = /-(3|4)(-|$)/
+  const scale = LEGACY_CLAUDE.test(model) ? 1.13 : 1.5
+  return Math.round(encode(text).length * scale)
+}
 
 // The user's own prompt, typed while Claude was working and recorded nowhere else — so it renders as
 // a real user turn. Harness- and agent-queued ones (task notifications, peer messages) stay attachments.
