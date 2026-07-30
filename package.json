@@ -1,6 +1,6 @@
 {
   "name": "claude-discover",
-  "version": "1.9.0",
+  "version": "1.9.1",
   "type": "module",
   "description": "Claude Discover — a desktop tool to browse your local Claude Code sessions: conversations, token costs, and captured API traffic",
   "license": "MIT",
