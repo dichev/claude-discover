@@ -48,7 +48,7 @@ function renderBlock(b) {
 
 function renderTurn(t) {
   if (t.role === 'instruction') return `**Instructions loaded:**\n\n${t.blocks.map(renderBlock).join('\n\n')}`
-  const role = t.role === 'user' ? 'User' : `Assistant`
+  const role = t.role === 'user' ? (t.queued ? 'User (queued)' : 'User') : `Assistant`
   const tokens = t.tokenTotal > 0 && t.tokenDelta != null
     ? ` (${t.tokenDelta >= 0 ? '+' : ''}${fmtCompact(t.tokenDelta)} / ${fmtCompact(t.tokenTotal)} tokens)`
     : ''

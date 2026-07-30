@@ -116,6 +116,7 @@ function UserRow({ turns, point }) {
       <div className="msg-header">
         <Terminal className="msg-icon" />
         <span className="msg-author">You</span>
+        {msg.queued && <span className="msg-summary">queued during the previous turn</span>}
         {ctxItems.length > 0 && (
           <button className="msg-summary" onClick={() => setOpen(v => !v)}>
             <span className="aux-chevron">{open ? '▾' : '▸'}</span>

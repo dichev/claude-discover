@@ -6,12 +6,34 @@ import { encode } from 'gpt-tokenizer/model/gpt-4o'
 // Token count for `text` using the o200k BPE tokenizer. Not Claude's exact tokenizer, but close enough
 export const countTokens = text => text ? encode(text).length : 0
 
+// The user's own prompt, typed while Claude was working and recorded nowhere else — so it renders as
+// a real user turn. Harness- and agent-queued ones (task notifications, peer messages) stay attachments.
+const queuedPrompt = it =>
+  it.type === 'attachment' && it.attachment?.type === 'queued_command'
+  && it.attachment.commandMode === 'prompt' && (it.attachment.origin?.kind ?? 'human') === 'human'
+  && it.attachment.prompt?.trim() ? it.attachment.prompt : null
+
 // `instructions` are the system prompts / memory files captured by the request proxy
 // (readSession's separate `instructions` list) — not transcript items, merged in by timestamp.
 export function flatten(items, instructions = []) {
   const turns = []
   const results = {}
   for (const it of items) {
+    const queued = queuedPrompt(it)
+    if (queued) {
+      turns.push({
+        uuid: it.uuid,
+        role: 'user',
+        isMeta: false,
+        queued: true,
+        ts: it.timestamp ? Date.parse(it.timestamp) : null,
+        model: null, msgId: null, usage: null,
+        tokenDelta: it._tokenDelta ?? null,
+        tokenTotal: it._tokenTotal ?? null,
+        blocks: [{ type: 'text', text: queued }]
+      })
+      continue
+    }
     if (it.type === 'attachment' && it.attachment) {
       const block = { type: 'attachment', attachment: it.attachment }
       const last = turns[turns.length - 1]
@@ -249,7 +271,9 @@ export function tokenPoints(groups) {
       usage.cacheCreation5m += u.cache_creation?.ephemeral_5m_input_tokens || 0
       usage.cacheCreation1h += u.cache_creation?.ephemeral_1h_input_tokens || 0
     }
-    if (total == null || total === prev) return null
+    // The total only grows, so one that doesn't advance is a stamp displaced by the timestamp sort —
+    // skip it instead of drawing a backwards jump; its tokens surface in the next group's delta.
+    if (total == null || total <= prev) return null
     const delta = total - prev
     prev = total
     // User (and tool-result) turns carry no `usage` object — the API only attaches usage to

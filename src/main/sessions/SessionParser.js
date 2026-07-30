@@ -99,11 +99,13 @@ export class SessionParser {
       if (inherited > meta.lastActivityAt) meta.lastActivityAt = inherited
     }
 
-    // Standalone attachment entries are always harness-injected context
-    // (diagnostics, task_reminder, selected_lines_in_ide, etc.), never user input.
+    // Standalone attachment entries are harness-injected context
+    // (diagnostics, task_reminder, selected_lines_in_ide, etc.), except for a queued command.
     if (t === 'attachment') {
       obj.isMeta = true
-      this.prevMessage = obj
+      // A queued command is logged when consumed but timestamped when typed, so readSession's sort
+      // moves it back — as input target its running total would jump backwards in the view.
+      if (obj.attachment?.type !== 'queued_command') this.prevMessage = obj
       return true
     }
     if (t !== 'user' && t !== 'assistant') return true
