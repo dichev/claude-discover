@@ -8,8 +8,6 @@ import { Switchers } from './services/switchers/Switchers.js'
 import { DeepLink } from './services/DeepLink.js'
 import { openLinkSafely } from './utils.js'
 
-if (import.meta.env.DEV) await import('./debug.js')
-
 const deepLink = new DeepLink()
 
 function start() {
@@ -74,7 +72,8 @@ app.on('window-all-closed', () => {
 const isFirstInstance = deepLink.requestLock()
 
 if (isFirstInstance) {
+  if (import.meta.env.DEV) await import('./debug.js')
   app.whenReady().then(start)
 } else {
-  app.quit()
+  app.exit(0)
 }

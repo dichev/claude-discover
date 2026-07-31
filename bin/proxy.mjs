@@ -9,6 +9,7 @@
 import fs from 'node:fs'
 import path from 'node:path'
 import http from 'node:http'
+import { spawn } from 'node:child_process'
 import https from 'node:https'
 import zlib from 'node:zlib'
 import crypto from 'node:crypto'
@@ -227,7 +228,19 @@ function logError(err, context) {
 }
 
 const isMain = process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href
-if (isMain) {
+if (process.parentPort) {
+  // Forked as an Electron utility process (ProxySwitch): Chromium gives those a clean handle
+  // table, unlike the app's main process whose children inherit the dev CDP server's socket on
+  // Windows and keep its port bound after the app quits. Utility processes die with the app,
+  // so re-spawn detached from here (as node — no system `node` required) and relay an early
+  // exit code back as a message until the app kills this relay.
+  const child = spawn(process.execPath, process.argv.slice(1), {
+    detached: true, stdio: 'ignore', windowsHide: true,
+    env: { ...process.env, ELECTRON_RUN_AS_NODE: '1' },
+  })
+  child.once('exit', code => { process.parentPort.postMessage(code); process.exit(0) })
+}
+else if (isMain) {
   const args = parseArgs({
     options: {
       restart: { type: 'boolean' }, // replace an already-running instance instead of exiting

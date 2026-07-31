@@ -1,7 +1,7 @@
 // Start/stop the request-capture proxy (bin/proxy.mjs) and the settings.json
 // env keys pointing Claude Code at it. Backs the StatusBar's status + Activate/Deactivate
 // button; sole owner of that config.
-import { spawn } from 'node:child_process'
+import { utilityProcess } from 'electron'
 import { ClaudeSettings } from '../ClaudeSettings.js'
 import { PROXY_PATH, CLAUDE_HOOKS_PATH } from '../../paths.js'
 import { PROXY_URL, PING_ROUTE, PING_RESPONSE, EXIT_ROUTE, ERROR_LOG_PATH } from '../../../../bin/proxy.config.js'
@@ -27,14 +27,13 @@ export class ProxySwitch {
     const baseUrl = settings.env?.ANTHROPIC_BASE_URL
     if (baseUrl && baseUrl !== PROXY_URL) // never overwrite a foreign base URL (custom gateway)
       throw new Error(`Leaving your existing env.ANTHROPIC_BASE_URL in place (${baseUrl}) — remove it from settings.json to enable capture.`)
-    // ELECTRON_RUN_AS_NODE runs the script with Electron's own binary — no system `node` required
-    const child = spawn(process.execPath, [PROXY_PATH, '--restart'], {
-      detached: true, stdio: 'ignore', windowsHide: true,
-      env: { ...process.env, ELECTRON_RUN_AS_NODE: '1' },
-    })
-    const exited = new Promise(resolve => child.once('exit', resolve)) // still fires while the app lives
-    child.unref()
+    // Forked as a utility process, where proxy.mjs re-spawns itself detached and relays an early
+    // exit code as a message — a direct child of the main process would inherit the dev CDP
+    // server's socket on Windows and keep port 9333 bound after the app quits.
+    const launcher = utilityProcess.fork(PROXY_PATH, ['--restart'], { stdio: 'ignore' })
+    const exited = new Promise(resolve => launcher.once('message', resolve))
     const outcome = await Promise.race([exited, this.#settle(true).then(ok => ok ? 'up' : 'unresponsive')])
+      .finally(() => launcher.kill()) // the detached proxy is unaffected
     if (outcome !== 'up')
       throw new Error(outcome === 2
         ? 'Cannot reach api.anthropic.com — not enabling capture. Check your network and try again.'
