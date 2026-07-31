@@ -66,9 +66,9 @@ export default function App() {
   let missing = null
   if (!selected && scanProgress?.scanning === false) { // only once the scan is done, or it flashes "not found"
     const when = granularity === 'day' ? `on ${format(anchor, 'MMM d, yyyy')}` : `in this ${granularity}`
-    if (!sessions.length) missing = `No sessions recorded ${when}.`
+    if (!sessions.length) missing = { text: `No sessions recorded ${when}.` }
     // Only a deep link explains itself — a hand-picked session missing from another date is just deselected
-    else if (deepLink?.date === format(anchor, 'yyyy-MM-dd')) missing = `Session ${selectedId} has no records ${when}.`
+    else if (deepLink?.date === format(anchor, 'yyyy-MM-dd')) missing = { text: `Session ${selectedId} has no records ${when}.`, warn: true }
   }
 
   // `link` is set only by the deep-link handler below — picking a session by hand clears the notice

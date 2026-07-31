@@ -48,7 +48,9 @@ export default function Session({ meta, missing, date, granularity = 'day' }) {
   if (!meta) { // `missing` explains an empty pane (unknown session / empty period); see App.jsx
     return (
       <div className="session-view empty">
-        {missing ? <div className="session-missing">⚠ {missing}</div> : <div>Select a session to inspect.</div>}
+        {missing?.warn
+          ? <div className="session-missing">⚠ {missing.text}</div>
+          : <div>{missing?.text || 'Select a session to inspect.'}</div>}
       </div>
     )
   }

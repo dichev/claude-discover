@@ -3,11 +3,10 @@ import { DollarSign } from 'lucide-react'
 import { format } from 'date-fns'
 import { fmtDuration, fmtBytes, fmtNum, fmtUSD, fmtCompact, tone } from '../utils/formatting.js'
 import { THRESHOLDS as T } from '../utils/thresholds.js'
+import { contextWindow } from './view/transcript.js'
 import AgentOutput from '../agent/AgentOutput.jsx'
 import { markdownSession } from './MarkdownSession.js'
 import './SessionSummary.css'
-
-const CONTEXT_WINDOW = T.context.danger
 
 export default function SessionSummary({ meta, items, instructions, agent, onOpenAgent, granularity = 'day' }) {
   const timeFormat = granularity === 'day' ? 'pp' : 'MMM d, pp'
@@ -24,7 +23,8 @@ export default function SessionSummary({ meta, items, instructions, agent, onOpe
   const stu = meta.serverToolUse
   const hasServerTools = stu.webSearch > 0 || stu.webFetch > 0
   const modelLabel = meta.models.join(', ') || '—'
-  const contextRatio = meta.lastContextTokens / CONTEXT_WINDOW
+  const ctxLimit = contextWindow(meta.models)
+  const ctxTone = tone(meta.lastContextTokens, T.context)
 
   return (
     <div className="session-summary">
@@ -63,9 +63,9 @@ export default function SessionSummary({ meta, items, instructions, agent, onOpe
         <Field label="Total tokens" value={<span className={tone(totalTokens, T.tokens)}>{fmtCompact(totalTokens)}</span>} />
         <Field label="Working time" value={<span className={tone(activeDuration, T.workTime)}>{fmtDuration(activeDuration)}</span>} />
         <Field label="Context size" value={
-          <span className={tone(meta.lastContextTokens, T.context)}>{`${fmtCompact(meta.lastContextTokens)} / ${fmtCompact(CONTEXT_WINDOW)}`}</span>
+          <span className={ctxTone}>{`${fmtCompact(meta.lastContextTokens)} / ${fmtCompact(ctxLimit)}`}</span>
         } below={
-          <Bar ratio={contextRatio} tone={tone(meta.lastContextTokens, T.context)} />
+          <Bar ratio={meta.lastContextTokens / ctxLimit} tone={ctxTone} />
         }/>
       </Section>
 

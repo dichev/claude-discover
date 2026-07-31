@@ -2,8 +2,7 @@ import React, { useContext, useEffect, useMemo, useState } from 'react'
 import { format } from 'date-fns'
 import { Terminal } from 'lucide-react'
 import { fmtCompact, fmtDuration } from '../../utils/formatting'
-import { THRESHOLDS as T } from '../../utils/thresholds.js'
-import { flatten, groupTurns, cycleDurations, tokenPoints, isContextTurn, toolSummary, parseCommand, instructionTitle, currentModel, countTokens } from './transcript.js'
+import { flatten, groupTurns, cycleDurations, tokenPoints, isContextTurn, toolSummary, parseCommand, instructionTitle, currentModel, contextWindow, countTokens } from './transcript.js'
 import LazyMount from '../../ui/LazyMount.jsx'
 import Markdown from '../../ui/Markdown.jsx'
 import { useFindActive } from '../../ui/useFindActive.js'
@@ -33,6 +32,9 @@ export default function ConversationView({ items, instructions = [], expandAll =
   const durations        = useMemo(() => cycleDurations(groups), [groups])
   const findOpen         = useFindActive()
   const [scale, zoomRef] = useMouseFontScale('font-scale.conversation')
+
+  const model = currentModel(turns)
+  const ctxLimit = contextWindow([model]) // bar scale: fraction of this model's context window
   const hasTimeline = points.some(Boolean)
   return (
     <ExpandAllContext.Provider value={expandAll}>
@@ -40,9 +42,9 @@ export default function ConversationView({ items, instructions = [], expandAll =
         {groups.map((g, i) => (
           <div className={`conv-row conv-row-${g.kind}`} key={g.turns[0].uuid}>
             <LazyMount eager={i < 8} forceMount={findOpen} placeholderMinHeight={80}>
-              {g.kind === 'user'      ? <UserRow turns={g.turns} point={points[i]} />
-               : g.kind === 'assistant' ? <AssistantCard turns={g.turns} point={points[i]} duration={durations[i]} showAuthor={groups[i - 1]?.kind !== 'assistant'} />
-               :                        <InstructionRun turns={g.turns} model={currentModel(turns)} />}
+              {g.kind === 'user'      ? <UserRow turns={g.turns} point={points[i]} ctxLimit={ctxLimit} />
+               : g.kind === 'assistant' ? <AssistantCard turns={g.turns} point={points[i]} ctxLimit={ctxLimit} duration={durations[i]} showAuthor={groups[i - 1]?.kind !== 'assistant'} />
+               :                        <InstructionRun turns={g.turns} model={model} />}
             </LazyMount>
             {points[i] ? <TokenPoint point={points[i]} />
              // Commands consume no tokens so they never get a real point — mark them with a plain dot.
@@ -56,8 +58,6 @@ export default function ConversationView({ items, instructions = [], expandAll =
 
 // Anthropic's official Claude sunburst mark, in the brand's clay-orange.
 const ClaudeIcon = () => <img className="msg-icon claude-icon" src={claudeIcon} alt="" />
-
-const CTX_LIMIT = T.context.danger // bar scale: fraction of a full context window
 
 // Sits in the conversation's right gutter at the row's own position, so it scrolls with
 // the content — no scroll syncing or measurement needed. Just a dot; the numbers it used
@@ -74,11 +74,11 @@ function TokenPoint({ point: p }) {
 // data-tippy-html — see main.jsx) carries the context bar, the turn's usage breakdown
 // (labels/formulas mirror SessionSummary's Tokens section) and the running total. All values
 // are numeric/trusted; never interpolate transcript text into this string.
-function TokenStats({ point }) {
+function TokenStats({ point, ctxLimit }) {
   if (!point) return null
   const rows = []
   if (point.ctx != null) {
-    const width = Math.min(point.ctx / CTX_LIMIT, 1) * 100
+    const width = Math.min(point.ctx / ctxLimit, 1) * 100
     rows.push(`<div class="token-tooltip-ctx">Context <span class="token-point-ctx-bar"><span style="width:${width}%"></span></span> <span class="token-tooltip-ctx-val">${fmtCompact(point.ctx)}</span></div>`)
   }
   const u = point.usage
@@ -102,7 +102,7 @@ function TokenStats({ point }) {
   )
 }
 
-function UserRow({ turns, point }) {
+function UserRow({ turns, point, ctxLimit }) {
   const [open, setOpen] = useCollapsed(false)
   const msg             = turns.find(t => !isContextTurn(t))
   const ctxItems        = turns.filter(isContextTurn).flatMap(t => t.blocks)
@@ -124,7 +124,7 @@ function UserRow({ turns, point }) {
           </button>
         )}
         <span className="msg-header-right">
-          <TokenStats point={point} />
+          <TokenStats point={point} ctxLimit={ctxLimit} />
           {msg.ts != null && <span className="msg-time">{format(msg.ts, 'HH:mm:ss')}</span>}
         </span>
       </div>
@@ -138,7 +138,7 @@ function UserRow({ turns, point }) {
   )
 }
 
-function AssistantCard({ turns, point, duration, showAuthor = true }) {
+function AssistantCard({ turns, point, ctxLimit, duration, showAuthor = true }) {
   const [open, setOpen] = useCollapsed(false)
   const toolBlocks = turns.flatMap(t => t.blocks.filter(b => b.type === 'tool_use'))
   const errorCount = toolBlocks.filter(b => b.result?.is_error).length
@@ -170,7 +170,7 @@ function AssistantCard({ turns, point, duration, showAuthor = true }) {
             </button>
           : <span className="msg-summary">{summary}</span>)}
         <span className="msg-header-right">
-          <TokenStats point={point} />
+          <TokenStats point={point} ctxLimit={ctxLimit} />
           {end != null && (
             <span className="msg-time" title={duration > 0 ? `Response time: ${fmtDuration(duration)}` : null}>
               {format(end, 'HH:mm:ss')}

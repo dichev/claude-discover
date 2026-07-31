@@ -131,6 +131,19 @@ export function flatten(items, instructions = []) {
 // The conversation's current model: what the last user message was answered with.
 export const currentModel = turns => turns.findLast(t => t.model && t.model !== '<synthetic>')?.model
 
+// Models with a 200k context window, mirroring Claude Code's own registry. Every model since
+// Opus 4.7 ships a 1M window, so anything not listed here (a future model) counts as 1M.
+const SMALL_CONTEXT = new Set([
+  'claude-3-opus', 'claude-3-sonnet', 'claude-3-haiku', 'claude-3-5-sonnet', 'claude-3-5-haiku', 'claude-3-7-sonnet',
+  'claude-haiku-4-5',
+  'claude-opus-4', 'claude-opus-4-1', 'claude-opus-4-5', 'claude-opus-4-6',
+  'claude-sonnet-4', 'claude-sonnet-4-5', 'claude-sonnet-4-6',
+])
+export function contextWindow(models = []) {
+  const is200k = model => SMALL_CONTEXT.has(model.replace(/[-@]\d{8}.*$/, ''))
+  return models.some(m => m && !is200k(m)) ? 1_000_000 : 200_000
+}
+
 function normalizeContent(content) {
   if (typeof content === 'string') return [{ type: 'text', text: content }]
   if (!Array.isArray(content)) return []

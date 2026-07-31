@@ -1,9 +1,7 @@
 import { format } from 'date-fns'
 import { fmtDuration, fmtBytes, fmtNum, fmtUSD, fmtCompact } from '../utils/formatting.js'
-import { THRESHOLDS as T } from '../utils/thresholds.js'
-import { flatten, toolSummary, instructionTitle, currentModel } from './view/transcript.js'
+import { flatten, toolSummary, instructionTitle, currentModel, contextWindow } from './view/transcript.js'
 
-const CONTEXT_WINDOW = T.context.danger
 let MAX_LINES = 10
 let MAX_LINE_CHARS = 200
 let MODEL = null // the conversation's model, for instructionTitle
@@ -64,7 +62,8 @@ export function markdownSession(meta, items, truncated, instructions = []) {
   const t = meta.tokens
   const stu = meta.serverToolUse
   const wallDuration = meta.lastActivityAt - meta.startedAt
-  const contextPct = Math.round((meta.lastContextTokens / CONTEXT_WINDOW) * 100)
+  const ctxLimit = contextWindow(meta.models)
+  const contextPct = Math.round((meta.lastContextTokens / ctxLimit) * 100)
   const cacheHitPct = (meta.cacheHitRatio * 100).toFixed(0)
   const turns = items ? flatten(items, instructions) : null
   MODEL = turns ? currentModel(turns) : null
@@ -78,7 +77,7 @@ export function markdownSession(meta, items, truncated, instructions = []) {
 - Estimated cost: ${fmtUSD(meta.cost)}
 - Total tokens: ${fmtCompact(meta.totalTokens)}
 - Working time: ${fmtDuration(meta.activeMs)}
-- Context size: ${fmtCompact(meta.lastContextTokens)} / ${fmtCompact(CONTEXT_WINDOW)} (${contextPct}%)${meta.savings.using5mCache > 0 ? `
+- Context size: ${fmtCompact(meta.lastContextTokens)} / ${fmtCompact(ctxLimit)} (${contextPct}%)${meta.savings.using5mCache > 0 ? `
 
 ## Potential savings
 - with 5m cache: ${meta.cost > 0 ? `(${(meta.savings.using5mCache / meta.cost * 100).toFixed(0)}%) ` : ''}−${fmtUSD(meta.savings.using5mCache)}` : ''}
