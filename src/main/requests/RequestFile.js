@@ -3,6 +3,12 @@ import { join } from 'node:path'
 import { REQUESTS_DIR } from '../../../bin/proxy.config.js'
 import { RequestParser } from './RequestParser.js'
 
+// The two sides spell an agent id differently, so compare a normalized key. An anonymous Task
+// subagent is `a<16hex>` in both the transcript id and the header; a named teammate is
+// `a<name>-<16hex>` in the transcript but `<name>@<team>` in the header.
+const agentKey = id => id?.includes('@') ? id.slice(0, id.indexOf('@'))
+  : id?.replace(/^a/, '').replace(/-[0-9a-f]{16}$/, '') ?? null
+
 // Reads a session's NDJSON request log written by bin/proxy.mjs;
 // RequestParser handles the per-record work (ref resolution, classification, memory-file extraction).
 // The proxy keys logs by session id, and subagents share their parent's session id — their requests
@@ -11,11 +17,11 @@ import { RequestParser } from './RequestParser.js'
 export class RequestFile {
   constructor(sessionId, { dir = REQUESTS_DIR, agentId = null } = {}) {
     this.filePath = join(dir, `${sessionId}.requests.jsonl`)
-    this.agentId = agentId
+    this.agentKey = agentKey(agentId)
   }
 
   #mine(rec) {
-    return (rec.requestHeaders?.['x-claude-code-agent-id'] ?? null) === this.agentId
+    return agentKey(rec.requestHeaders?.['x-claude-code-agent-id'] ?? null) === this.agentKey
   }
 
   async lines() {

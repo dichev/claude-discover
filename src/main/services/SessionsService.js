@@ -68,7 +68,7 @@ export class SessionsService extends EventEmitter {
 
   // Subagents send the parent's session id, so the proxy logs their requests into the parent's
   // file, tagged x-claude-code-agent-id — route their reads there. The transcript filename is
-  // `agent-<id>` while the header carries the bare <id>.
+  // `agent-<id>`; RequestFile normalizes that id against the header's own spelling.
   #requestFile(sessionId, parentSessionId) {
     const agentId = parentSessionId && sessionId.startsWith('agent-') ? sessionId.slice('agent-'.length) : null
     return agentId ? new RequestFile(parentSessionId, { agentId }) : new RequestFile(sessionId)

@@ -290,6 +290,20 @@ describe('RequestFile agent scoping', () => {
     ])
   })
 
+  // A named teammate's transcript is `agent-a<name>-<16hex>` while its header reads `<name>@<team>`
+  it('read() matches a named teammate whose header spells the id differently', async () => {
+    const base = { type: 'api-request', url: 'POST /v1/messages', status: 200, request: { model: 'claude-opus-5', messages: [] } }
+    fs.writeFileSync(path.join(dir, 'sess-t.requests.jsonl'), [
+      { ...base, timestamp: '2026-07-14T10:00:00.000Z' },
+      { ...base, timestamp: '2026-07-14T10:01:00.000Z', requestHeaders: { 'x-claude-code-agent-id': 'split-dashboard-store@session-4d7fa845' } },
+    ].map(r => JSON.stringify(r)).join('\n') + '\n')
+
+    const agent = await new RequestFile('sess-t', { dir, agentId: 'asplit-dashboard-store-6d7f6209f0c830ac' }).read()
+    expect(agent.map(r => r.timestamp)).toEqual(['2026-07-14T10:01:00.000Z'])
+    const main = await new RequestFile('sess-t', { dir }).read()
+    expect(main.map(r => r.timestamp)).toEqual(['2026-07-14T10:00:00.000Z'])
+  })
+
   it('unscoped readInstructions skips the subagent record', async () => {
     const files = await new RequestFile('sess-a', { dir }).readInstructions()
     expect(files.map(f => f.content)).toEqual(['You are Claude Code', '## Read\n\nreads']) // no "You are an agent" — that prompt is not the session's
