@@ -1,4 +1,4 @@
-import React, { useState } from 'react'
+import { useState } from 'react'
 import JsonView from '@uiw/react-json-view'
 import { vscodeTheme } from '@uiw/react-json-view/vscode'
 import LazyMount from '../../ui/LazyMount.jsx'

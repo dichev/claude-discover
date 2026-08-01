@@ -1,16 +1,10 @@
-/*
-  Opens links coming from another app (e.g. a browser):
-    claude-discover://session?id=<sessionId>&date=<yyyy-MM-dd>
-
-  Routing is shared, but the scheme registration is OS-specific:
-
-    @windows  registered on every launch (#register)  →  link arrives in a second launch's argv
-              reg query  "HKCU\Software\Classes\claude-discover\shell\open\command"  # inspect
-              reg delete "HKCU\Software\Classes\claude-discover" /f                  # unregister
-
-    @macOS    declared in the packaged .app's plist   →  link arrives as an `open-url` event
-              node test/scripts/package-mac.mjs                                      # rebuild + register
-*/
+// Opens claude-discover://session?id=<sessionId>&date=<yyyy-MM-dd> links from other apps.
+// Routing is shared; only the scheme registration is OS-specific.
+//
+// @windows  registered on every launch (#register) — the link arrives in a second launch's argv
+//           reg delete "HKCU\Software\Classes\claude-discover" /f   # unregister
+// @macOS    declared in the packaged .app's plist — arrives as an `open-url` event
+//           node test/scripts/package-mac.mjs                       # rebuild + register
 
 import { EventEmitter } from 'node:events'
 import { app } from 'electron'

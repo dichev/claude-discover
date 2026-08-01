@@ -98,9 +98,4 @@
   border-radius: 2px;
   padding: 0 1px;
 }
-.jsonl-viewer-loading,
-.jsonl-viewer-error {
-  color: var(--text-faint);
-}
-
-.jsonl-viewer-error { color: var(--danger); }
+.jsonl-viewer-loading { color: var(--text-faint); }

@@ -1,4 +1,3 @@
-import React from 'react'
 import StatusSwitch, { useSwitch } from './StatusSwitch'
 import './StatusBar.css'
 

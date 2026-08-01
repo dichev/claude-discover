@@ -294,11 +294,9 @@ export function tokenPoints(groups) {
     if (total == null || total <= prev) return null
     const delta = total - prev
     prev = total
-    // User (and tool-result) turns carry no `usage` object — the API only attaches usage to
-    // assistant replies — but the delta *is* their context size: input tokens are stamped onto
-    // whichever turn preceded the call that read them (see SessionParser#_stampRunningTotals).
-    // Context injected after a user message is folded into its group, so its pre-call stamp lands
-    // on the user turn's dot on the message's own timestamp.
+    // The API attaches `usage` only to assistant replies, but for a user turn the delta *is* its
+    // context size: input tokens are stamped onto whichever turn preceded the call that read them
+    // (see SessionParser#_stampRunningTotals).
     if (ctx == null && g.kind !== 'assistant') ctx = delta
     const ts = turns.find(t => t.ts != null)?.ts ?? null
     return { delta, total, ts, ctx, usage, role: g.kind === 'assistant' ? 'assistant' : turns[0].role }

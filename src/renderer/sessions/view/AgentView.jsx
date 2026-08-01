@@ -1,4 +1,4 @@
-import React, { useState } from 'react'
+import { useState } from 'react'
 import { useLocalStorage } from '../../utils/useLocalStorage.js'
 import { markdownSession } from '../MarkdownSession.js'
 import Toggle from '../../ui/Toggle.jsx'

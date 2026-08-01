@@ -1,15 +1,12 @@
-import React, { useEffect, useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import tippy from 'tippy.js'
 import './StatusSwitch.css'
 
-// On/off feature switch in the StatusBar: tinted while `on`, optional ⚠ prefix, and a tooltip
-// with the passed prose plus an Activate/Deactivate button — or, with a custom `button` label,
-// an action button that always activates.
-//
-// The ⚠ is a fixed-width slot kept in layout whenever the switch can warn (a `warn` prop is passed,
-// even when false), so warn on/off doesn't shift the label. Callers wrap their own varying value in
-// a .statusbar-state span for the same reason.
+// On/off feature switch in the StatusBar: tinted while `on`, with a tooltip carrying the prose and
+// an Activate/Deactivate button — or, given a `button` label, an action button that always activates.
+// The ⚠ slot keeps its width whenever a `warn` prop is passed (even when false), so toggling the
+// warning doesn't shift the label — callers wrap varying values in .statusbar-state for the same reason.
 
 // Poll a main-process switch by name (5s, so external changes show up live) and expose its
 // toggle. `isOn` reads the on-flag from the status shape (defaults to never-on, for

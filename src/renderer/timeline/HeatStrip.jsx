@@ -1,4 +1,4 @@
-import React, { useMemo } from 'react'
+import { useMemo } from 'react'
 
 const BIN_HEIGHT_PX = 4
 const BIN_WIDTH_MINUTES = 5

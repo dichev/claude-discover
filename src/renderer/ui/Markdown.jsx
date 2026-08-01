@@ -31,12 +31,10 @@ const Chunk = React.memo(({ text, components }) => (
   <ReactMarkdown remarkPlugins={[remarkGfm]} rehypePlugins={[rehypeHighlight]} components={components}>{text}</ReactMarkdown>
 ))
 
-// Long texts (dumps, pasted logs, whole-session bodies) render one chunk at a time, each
-// lazy-mounted against the block's own scroll box (.markdown is max-height'd, and clipped
-// chunks don't intersect), so only the scrolled-to part pays the markdown/highlight cost.
-// Short texts — the common case — keep the plain single-render path with no wrapper divs.
-// autoFence is for text that was never authored as markdown (raw transcript messages): bare
-// JSON/tags get repaired into fenced code blocks first. Leave it off for genuine markdown.
+// Long texts (dumps, pasted logs) render one chunk at a time, each lazy-mounted against the block's
+// own scroll box, so only the scrolled-to part pays the markdown/highlight cost. Short texts — the
+// common case — keep the plain single-render path. autoFence repairs bare JSON/tags into fenced code
+// blocks, for text never authored as markdown (raw transcript messages); leave it off for real markdown.
 export default function Markdown({ text, basePath = null, autoFence = false, className = '', ...rest }) {
   const ref        = useRef(null)
   const findOpen   = useFindActive()

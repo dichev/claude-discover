@@ -183,18 +183,11 @@ button.msg-summary:hover { color: var(--text); background: var(--bg-elev-2); bor
 
 /* Assistant cycle card: header row above, bordered body with the response (tools fold into it). */
 .assistant-card-body {
-  /*border: 1px solid var(--border);*/
   border-radius: 6px;
   padding: 5px 10px;
   background: var(--bg-elev);
   display: flex;
   flex-direction: column;
-}
-
-.aux {
-  & .block-text {
-    margin: 5px 0 10px 0;
-  }
 }
 
 /* Aux turns kept mounted while the card is folded, so their expanded state survives (see AssistantCard). */
@@ -304,6 +297,7 @@ button.msg-summary:hover { color: var(--text); background: var(--bg-elev-2); bor
 .aux {
   font-size: calc(12px * var(--font-scale, 1));
 
+  & .block-text { margin: 5px 0 10px 0; }
   &.error .aux-toggle { color: var(--danger); }
 }
 
@@ -374,13 +368,4 @@ button.msg-summary:hover { color: var(--text); background: var(--bg-elev-2); bor
   color: var(--text-faint);
   margin: 2px 0 4px;
   user-select: all;
-}
-
-.instructions-note {
-  font-size: calc(11px * var(--font-scale, 1));
-  color: var(--text-faint);
-  margin-bottom: 4px;
-  padding-bottom: 4px;
-  border-bottom: 1px dashed var(--border);
-  line-height: 1.5;
 }

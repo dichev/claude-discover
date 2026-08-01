@@ -173,13 +173,9 @@ export class SessionParser {
     obj._tokenTotal = this.tokenTotal
   }
 
-  // One assistant reply is written as several jsonl lines sharing message.id:
-  // input/cache stay fixed while output_tokens grows toward its final value. We
-  // add each line's *growth* over the previous one (the full usage on the first
-  // line), so the totals land on the final value — what ccusage bills. The
-  // per-item running-total stamps and the stream-stable metadata come only from
-  // the first line; ids in `excludeIds` (already counted in an earlier
-  // resumed-from session) stamp but never aggregate.
+  // One assistant reply spans several jsonl lines sharing message.id, with output_tokens growing
+  // toward its final value. Counting each line's *growth* lands the totals on that final value —
+  // what ccusage bills. Ids in `excludeIds` (already counted in a resumed-from session) never aggregate.
   _recordUsage(obj) {
     const meta = this.meta
     const msg = obj.message

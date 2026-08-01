@@ -1,13 +1,5 @@
-/*
-  Detect JSON/Python dict blocks in text and wrap them in fenced code blocks.
-
-  Example:
-    IN:  Some result: {"status": "ok", "count": 3}
-         And some data {'name': 'Alice', 'age': 30}
-    ->
-    OUT: Some result: ```json{"status": "ok", "count": 3}```
-         And some data: ```python {'name': 'Alice', 'age': 30}```
-*/
+// Detect JSON/Python dict blocks in text and wrap them in fenced code blocks, e.g.
+//   Some result: {"status": "ok"}  →  Some result: ```json {"status": "ok"} ```
 
 const detectLang = (body, limit = 500) => {
   if (body[0] === '[') return 'json'

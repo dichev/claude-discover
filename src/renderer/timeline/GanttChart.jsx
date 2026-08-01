@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { SOURCE_COLORS, SOURCE_LABELS } from '../utils/colors.js'
 import { useLocalStorage } from '../utils/useLocalStorage.js'
 import { useMouse } from '../utils/useMouse.js'

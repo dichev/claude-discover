@@ -1,10 +1,9 @@
 // Local logging proxy for Claude Code's API traffic — captures what transcripts never record
 // (system prompt, tool definitions, injected reminders, request params) plus the raw responses.
-// Claude Code is pointed at it via env.ANTHROPIC_BASE_URL (installed by the app's StatusBar
-// Activate button); started manually with `npm run proxy`. Capture must never fail or delay a request — errors go
-// to ~/.claude-discover/proxy.error.log instead of the client.
+// Capture must never fail or delay a request: errors go to ~/.claude-discover/proxy.error.log.
 //
-// Usage: node bin/proxy.mjs [--restart] — port/upstream/dir come from proxy.config.js ($CLAUDE_DISCOVER_* env overrides used only by tests)
+// Usage: node bin/proxy.mjs [--restart] — config in proxy.config.js. ProxySwitch points Claude
+// Code here via env.ANTHROPIC_BASE_URL.
 
 import fs from 'node:fs'
 import path from 'node:path'
@@ -229,11 +228,9 @@ function logError(err, context) {
 
 const isMain = process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href
 if (process.parentPort) {
-  // Forked as an Electron utility process (ProxySwitch): Chromium gives those a clean handle
-  // table, unlike the app's main process whose children inherit the dev CDP server's socket on
-  // Windows and keep its port bound after the app quits. Utility processes die with the app,
-  // so re-spawn detached from here (as node — no system `node` required) and relay an early
-  // exit code back as a message until the app kills this relay.
+  // Forked by ProxySwitch as a utility process, because those get a clean handle table — a child of
+  // the main process would inherit the dev CDP socket and keep its port bound after the app quits.
+  // But utility processes die with the app, so re-spawn detached from here and relay an early exit code back.
   const child = spawn(process.execPath, process.argv.slice(1), {
     detached: true, stdio: 'ignore', windowsHide: true,
     env: { ...process.env, ELECTRON_RUN_AS_NODE: '1' },

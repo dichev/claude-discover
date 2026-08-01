@@ -1,4 +1,3 @@
-import React from 'react'
 import { DollarSign } from 'lucide-react'
 import { format } from 'date-fns'
 import { fmtDuration, fmtBytes, fmtNum, fmtUSD, fmtCompact, tone } from '../utils/formatting.js'

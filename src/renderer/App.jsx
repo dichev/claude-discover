@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState, useCallback } from 'react'
+import { useEffect, useMemo, useState, useCallback } from 'react'
 import { Group, Panel, Separator, useDefaultLayout } from 'react-resizable-panels'
 import GanttChart from './timeline/GanttChart.jsx'
 import Toolbar from './timeline/Toolbar.jsx'

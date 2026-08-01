@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { format } from 'date-fns'
 import { endOfPeriod, isSamePeriod } from '../utils/period.js'
 import { SOURCE_COLORS, SOURCE_LABELS, SOURCE_ORDER } from '../utils/colors.js'

@@ -16,12 +16,6 @@
   border-top-right-radius: 4px;
 }
 
-.heat-strip-label {
-  fill: #cbd1dc;
-  font-size: 10px;
-  font-family: var(--font-mono), monospace;
-}
-
 .gantt-canvas {
   width: 100%;
   flex: 1;

@@ -1,6 +1,6 @@
-import React, { useEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { Hourglass, Gauge, MessageSquare, Clock, Zap, DollarSign } from 'lucide-react'
-import { SOURCE_COLORS, SOURCE_LABELS } from '../utils/colors.js'
+import { SOURCE_COLORS } from '../utils/colors.js'
 import { format } from 'date-fns'
 import { fmtCompact, fmtNum, fmtUSD, fmtDuration, fmtAgo, tone } from '../utils/formatting.js'
 import { THRESHOLDS as T } from '../utils/thresholds.js'

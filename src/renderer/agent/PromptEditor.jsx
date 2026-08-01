@@ -1,4 +1,4 @@
-import React, { useState } from 'react'
+import { useState } from 'react'
 import Markdown from '../ui/Markdown.jsx'
 import './PromptEditor.css'
 

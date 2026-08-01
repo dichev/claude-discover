@@ -1,5 +1,4 @@
 import { intervalToDuration } from 'date-fns'
-import { THRESHOLDS as T } from './thresholds.js'
 
 export function fmtDuration(ms) {
   if (!ms || ms < 0) return '—'
@@ -31,7 +30,6 @@ export function fmtNum(n) {
 
 export function fmtUSD(n) {
   if (n == null) return '—'
-  // if (n < 0.01) return `$${n.toFixed(4)}`
   return `$${n.toFixed(2)}`
 }
 

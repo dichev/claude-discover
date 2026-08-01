@@ -20,10 +20,8 @@ export class SessionsScanner {
     return entries.filter(e => e.isDirectory()).map(e => path.join(e.parentPath, e.name))
   }
 
-  // Every .jsonl under `dir`, at any depth — subagent transcripts live arbitrarily deep
-  // (e.g. <session>/subagents/workflows/<wf>/agent-*.jsonl). The walk can't prune subtrees
-  // by directory mtime, because on Windows appending to an existing transcript does NOT
-  // bump its parent dir's mtime.
+  // Every .jsonl under `dir`, at any depth — subagent transcripts nest arbitrarily deep. Subtrees
+  // can't be pruned by directory mtime: on Windows, appending to a transcript doesn't bump its parent dir.
   async _listJsonl(dir) {
     const entries = await fsp.readdir(dir, { recursive: true, withFileTypes: true }).catch(() => [])
     return entries.filter(e => e.isFile() && isJsonl(e.name)).map(e => path.join(e.parentPath, e.name))
@@ -36,12 +34,10 @@ export class SessionsScanner {
     return !(stat.birthtimeMs > day.end && stat.birthtimeMs + 2000 <= stat.mtimeMs)
   }
 
-  // Walks each project subtree in full. For each .jsonl whose stat passes _inPeriod
-  // (file mtime IS updated on append, unlike dir mtime), calls onFile(filePath, stat).
-  // After each project's files are processed, calls onBatchDone() if any onFile returned
-  // truthy — lets callers flush UI updates incrementally. An aborted `signal` (a superseded
-  // scan) stops the walk: no further stats, onFile calls or emits. Once a walk has completed
-  // with the watcher live, the StatCache mirrors the disk and serves later scans in memory.
+  // Calls onFile(filePath, stat) for every .jsonl passing _inPeriod, then onBatchDone() per project
+  // if any onFile returned truthy — so callers can flush UI updates incrementally. An aborted
+  // `signal` (a superseded scan) stops everything; once complete with the watcher live, the
+  // StatCache mirrors disk and serves later scans in memory.
   async scan(day, opts = {}) {
     if (this.statCache.complete && this.watcher) {
       return this.statCache.scan(stat => this._inPeriod(stat, day), opts)

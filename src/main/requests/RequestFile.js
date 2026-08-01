@@ -9,11 +9,9 @@ import { RequestParser } from './RequestParser.js'
 const agentKey = id => id?.includes('@') ? id.slice(0, id.indexOf('@'))
   : id?.replace(/^a/, '').replace(/-[0-9a-f]{16}$/, '') ?? null
 
-// Reads a session's NDJSON request log written by bin/proxy.mjs;
-// RequestParser handles the per-record work (ref resolution, classification, memory-file extraction).
-// The proxy keys logs by session id, and subagents share their parent's session id — their requests
-// land in the parent's file, distinguished only by the x-claude-code-agent-id request header.
-// `agentId` scopes every read to one agent's records (null = the session's own requests).
+// Reads a session's NDJSON request log written by bin/proxy.mjs (RequestParser does the per-record work).
+// Subagents share their parent's session id, so their requests land in the parent's file and are told
+// apart only by the x-claude-code-agent-id header — `agentId` scopes a read to one agent (null = the session's own).
 export class RequestFile {
   constructor(sessionId, { dir = REQUESTS_DIR, agentId = null } = {}) {
     this.filePath = join(dir, `${sessionId}.requests.jsonl`)
@@ -48,12 +46,9 @@ export class RequestFile {
     })
   }
 
-  // System prompts (request.system), tool definitions (request.tools) and memory files
-  // (CLAUDE.md / MEMORY.md / … inside a user message's `# claudeMd` system-reminder) — none of
-  // which Claude Code records in the session transcript, so the request log is the only source.
-  // Works on read()'s output, so dedup wrappers and the agent scope are already handled.
-  // Returns one record per unique system prompt / tool batch / file_path; readSession ships them
-  // alongside the transcript items.
+  // System prompts, tool definitions and memory files (CLAUDE.md / MEMORY.md / … from a user
+  // message's `# claudeMd` system-reminder) — none of which the transcript records, so the request
+  // log is the only source. Returns one record per unique prompt / tool batch / file_path.
   async readInstructions() {
     const parser = new RequestParser() // holds the per-tool dedup state
     const files = new Map() // dedup key → record, first sight wins

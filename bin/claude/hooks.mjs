@@ -1,24 +1,11 @@
 #!/usr/bin/env node
-/*
-Single entry point for every Claude Code hook this app installs — reads the hook event JSON from stdin
-and dispatches on hook_event_name; add new hooks as new branches in main(). Standalone (no imports from
-src/), wired into <CLAUDE_DIR>/settings.json by the app's ProxySwitch (StatusBar Activate/Deactivate button).
-
-Currently handled:
-- SessionStart → ensureProxy(): revive the request-capture proxy (bin/proxy.mjs) if it's
-  down. settings.json's env.ANTHROPIC_BASE_URL survives a PC restart or proxy crash, and without this every
-  Claude Code request would hit a dead port. A SessionStart hook's stdout is injected into the session
-  context, so only stderr may speak — exit 1 shows the warning without blocking the session.
-
-Copy-paste into <CLAUDE_DIR>/settings.json (replace the path):
-{
-  "hooks": {
-    "SessionStart": [
-      { "hooks": [{ "type": "command", "command": "node /ABSOLUTE/PATH/TO/claude-discover/bin/claude/hooks.mjs" }] }
-    ]
-  }
-}
-*/
+// Every Claude Code hook this app installs: reads the event JSON from stdin and dispatches on
+// hook_event_name — new hooks are new branches in main(). Standalone (no imports from src/);
+// ProxySwitch wires it into <CLAUDE_DIR>/settings.json.
+//
+// SessionStart → ensureProxy(): env.ANTHROPIC_BASE_URL outlives a proxy crash or PC restart, so
+// without this every request would hit a dead port. A SessionStart hook's stdout is injected into
+// the session context, so warnings go to stderr with exit 1 — visible, non-blocking.
 
 
 import fs from 'node:fs'

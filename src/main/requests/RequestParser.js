@@ -42,11 +42,9 @@ export function parseClaudeMd(text) {
   })
 }
 
-// Classifies a request by its url (count_tokens probes) or, on /v1/messages, by its system
-// prompt / trailing user message — the body is the only thing that says what such a request is
-// for. Returns [cssKind, label] (shown in RequestsView's list), or null when there's nothing to
-// classify. Tolerates the log's dedup wrappers ({ $hash, value } / { $ref }), so it works on raw
-// and resolved records.
+// Classifies a request by url, or on /v1/messages by its system prompt / trailing user message —
+// the body is the only thing that says what such a request is for. Returns [cssKind, label] for
+// RequestsView, or null. Tolerates the log's dedup wrappers, so raw and resolved records both work.
 export const classifyRequest = (req, url) => {
   if (url?.includes('/count_tokens')) return ['count', 'Token count']
   if (!req) return null
