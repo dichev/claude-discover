@@ -47,7 +47,7 @@ export class RequestFile {
   }
 
   // System prompts, tool definitions and memory files (CLAUDE.md / MEMORY.md / … from a user
-  // message's `# claudeMd` system-reminder) — none of which the transcript records, so the request
+  // message's instructions system-reminder) — none of which the transcript records, so the request
   // log is the only source. Returns one record per unique prompt / tool batch / file_path.
   async readInstructions() {
     const parser = new RequestParser() // holds the per-tool dedup state

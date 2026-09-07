@@ -169,6 +169,29 @@ describe('parseClaudeMd', () => {
   it('returns [] when there is no claudeMd section', () => {
     expect(parseClaudeMd('<system-reminder>\n# gitStatus\nclean\n</system-reminder>')).toEqual([])
   })
+
+  // Current Claude Code ships the files in a reminder of their own, with no `# claudeMd` key
+  it('reads the section when it is its own reminder instead of a context key', () => {
+    const own = `<system-reminder>
+Codebase and user instructions are shown below. Be sure to adhere to these instructions. IMPORTANT: These instructions OVERRIDE any default behavior and you MUST follow them exactly as written.
+
+Contents of D:\\proj\\CLAUDE.md (project instructions, checked into the codebase):
+
+# CLAUDE.md
+
+Body with its own # headings.
+
+Contents of C:\\Users\\me\\.claude\\projects\\p\\memory\\MEMORY.md (user's auto-memory, persists across conversations):
+
+# Memory index
+
+- [Some fact](fact.md)
+</system-reminder>`
+    const files = parseClaudeMd(own)
+    expect(files.map(f => [f.name, f.memory_type])).toEqual([['CLAUDE.md', 'Project'], ['MEMORY.md', 'Auto']])
+    expect(files[0].content).toBe('# CLAUDE.md\n\nBody with its own # headings.')
+    expect(files[1].content).toBe('# Memory index\n\n- [Some fact](fact.md)')
+  })
 })
 
 describe('RequestFile.readInstructions', () => {

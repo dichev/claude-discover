@@ -17,15 +17,16 @@ const MEMORY_LABELS = {
 // (`name`); anything off-pattern keeps its full path.
 const MEMORY_FILES = { User: 'CLAUDE.md', Project: 'CLAUDE.md', Local: 'CLAUDE.local.md', Auto: 'MEMORY.md' }
 
-// Extracts the files listed under a system-reminder's `# claudeMd` section, each introduced by a
-// "Contents of <path> (<description>):" line. File bodies may contain their own "# " headings, so
-// the section end is detected only by known-safe boundaries: the next lowerCamelCase reminder key
+// Extracts the files listed in a system-reminder's CLAUDE.md section, each introduced by a
+// "Contents of <path> (<description>):" line. Claude Code has shipped that section two ways — as a
+// `# claudeMd` key inside the context reminder, and (current) as a reminder of its own opening with
+// the sentence — so either one anchors the start. File bodies may contain their own "# " headings,
+// so the section end is detected only by known-safe boundaries: the next lowerCamelCase reminder key
 // (# userEmail, # gitStatus, …), the reminder's closing IMPORTANT note, or </system-reminder>.
 export function parseClaudeMd(text) {
-  const marker = '\n# claudeMd\n'
-  const start = text.indexOf(marker)
-  if (start === -1) return []
-  let region = text.slice(start + marker.length)
+  const marker = text.match(/\n# claudeMd\r?\n|Codebase and user instructions are shown below\./)
+  if (!marker) return []
+  let region = text.slice(marker.index + marker[0].length)
   const ends = [/\n# [a-z][a-zA-Z0-9]*\r?\n/, /\n\s*IMPORTANT: this context/, /<\/system-reminder>/]
     .map(re => region.search(re)).filter(i => i !== -1)
   if (ends.length) region = region.slice(0, Math.min(...ends))
@@ -155,7 +156,7 @@ export class RequestParser {
   }
 
   // Memory files (CLAUDE.md / MEMORY.md / …) carried by a resolveRefs'd record's messages inside
-  // `# claudeMd` system-reminders — one { file_path, memory_type, content } per file listed.
+  // system-reminders — one { file_path, memory_type, content } per file listed.
   memoryFiles(rec) {
     const files = []
     for (const m of rec.request?.messages || []) {
