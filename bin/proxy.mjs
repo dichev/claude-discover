@@ -55,34 +55,42 @@ function createProxy({ upstream, onExchange, onError, errorBody }) {
       delete headers['accept-encoding']
     }
 
-    const up = mod.request(new URL(req.url, upstream), { method: req.method, headers }, upRes => {
-      const resHeaders = { ...upRes.headers }
-      delete resHeaders['transfer-encoding'] // node re-frames the piped body itself
-      delete resHeaders.connection
-      res.writeHead(upRes.statusCode, resHeaders)
-      const chunks = []
-      upRes.on('data', c => chunks.push(c))
-      upRes.pipe(res)
-      // 'close' fires after 'end' and also on an aborted stream — a truncated body is still captured
-      upRes.on('close', () => {
-        finish(upRes.statusCode, upRes.headers, decode(upRes.headers['content-encoding'], Buffer.concat(chunks)))
-        if (!upRes.complete) res.destroy() // upstream died mid-body — surface the reset so the client can retry
+    let up, resent = false
+    const send = () => {
+      up = mod.request(new URL(req.url, upstream), { method: req.method, headers }, upRes => {
+        const resHeaders = { ...upRes.headers }
+        delete resHeaders['transfer-encoding'] // node re-frames the piped body itself
+        delete resHeaders.connection
+        res.writeHead(upRes.statusCode, resHeaders)
+        const chunks = []
+        upRes.on('data', c => chunks.push(c))
+        upRes.pipe(res)
+        // 'close' fires after 'end' and also on an aborted stream — a truncated body is still captured
+        upRes.on('close', () => {
+          finish(upRes.statusCode, upRes.headers, decode(upRes.headers['content-encoding'], Buffer.concat(chunks)))
+          if (!upRes.complete) res.destroy() // upstream died mid-body — surface the reset so the client can retry
+        })
       })
-    })
-    // Client gone mid-exchange — tear down upstream too; headersSent means upstream responded and its 'close' captures the partial body, otherwise log the attempt here (up.destroy() emits no 'error')
+      const cur = up
+      cur.on('error', err => {
+        if (done) return // our own up.destroy() below surfaces here as a 'socket hang up' — the client left, upstream is fine
+        // A pooled keep-alive socket the server closed just before we picked it: nothing reached upstream, so re-sending once is safe (Node's documented reusedSocket case)
+        if (cur.reusedSocket && err.code === 'ECONNRESET' && !resent) { resent = true; return send() }
+        onError(err, `${req.method} ${req.url} → ${upstream.host}`)
+        finish()
+        if (res.headersSent) return res.destroy() // mid-stream failure — never append an error body to a partially-piped response
+        res.writeHead(502, { 'content-type': 'application/json' })
+        res.end(errorBody(err))
+      })
+      cur.end(requestBody)
+    }
+    // Client gone mid-exchange — tear down upstream too; headersSent means upstream responded and its 'close' captures the partial body, otherwise log the attempt here
     res.on('close', () => {
       if (done) return
-      up.destroy()
       if (!res.headersSent) finish()
+      up.destroy()
     })
-    up.on('error', err => {
-      onError(err, `${req.method} ${req.url} → ${upstream.host}`)
-      finish()
-      if (res.headersSent) return res.destroy() // mid-stream failure — never append an error body to a partially-piped response
-      res.writeHead(502, { 'content-type': 'application/json' })
-      res.end(errorBody(err))
-    })
-    up.end(requestBody)
+    send()
   })
 }
 

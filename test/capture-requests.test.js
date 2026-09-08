@@ -166,6 +166,7 @@ const waitForPort = async port => {
 
 describe('proxy end-to-end', () => {
   let discoverDir, upstream, upstreamPort, proxyPort, proxy
+  let resets = 0
   const received = []
   const readRequestLog = () => fs.readFileSync(path.join(discoverDir, 'requests', 'sess-e2e.requests.jsonl'), 'utf8').trim().split('\n').map(JSON.parse)
   const logCount = () => { try { return readRequestLog().length } catch { return 0 } }
@@ -183,10 +184,14 @@ describe('proxy end-to-end', () => {
   beforeAll(async () => {
     discoverDir = fs.mkdtempSync(path.join(os.tmpdir(), 'cd-proxy-'))
     upstream = http.createServer((req, res) => {
+      // simulates a kept-alive socket the server dropped right as it was reused — the proxy must re-send, never 502
+      req.socket.served = (req.socket.served ?? 0) + 1
+      if ('x-test-reset-once' in req.headers && req.socket.served > 1 && !resets++) return req.socket.destroy()
       const chunks = []
       req.on('data', c => chunks.push(c))
       req.on('end', () => {
         received.push({ url: req.url, headers: req.headers, body: Buffer.concat(chunks).toString() })
+        if ('x-test-hold' in req.headers) return // never answer — lets a test abort the client side mid-flight
         if (req.url.startsWith('/v1/messages') && !req.url.includes('count_tokens')) {
           const gzip = 'x-test-gzip' in req.headers // opt-in per test — exercises the proxy's tee-side decompression
           res.writeHead(200, { 'content-type': 'text/event-stream', ...(gzip && { 'content-encoding': 'gzip' }) })
@@ -329,6 +334,35 @@ describe('proxy end-to-end', () => {
     })
     expect(res.status).toBe(200)
     expect(fs.readdirSync(path.join(discoverDir, 'requests'))).toEqual(['sess-e2e.requests.jsonl'])
+  })
+
+  it('re-sends once when a pooled keep-alive socket resets before upstream saw the request', async () => {
+    await post() // leaves a kept-alive upstream socket in the proxy's pool
+    const res = await post({ 'x-test-reset-once': '1' })
+    expect(resets).toBe(1)
+    expect(res.status).toBe(200)
+    expect(await res.text()).toBe(sse(streamEvents))
+    expect(readRequestLog().at(-1).status).toBe(200)
+  })
+
+  it('logs a client abort as an attempt without a response, not as an upstream error', async () => {
+    const before = logCount()
+    const errorLog = () => { try { return fs.readFileSync(path.join(discoverDir, 'proxy.error.log'), 'utf8') } catch { return '' } }
+    const errorsBefore = errorLog()
+    const ctl = new AbortController()
+    const pending = fetch(`http://${HOST}:${proxyPort}/v1/messages`, {
+      method: 'POST', signal: ctl.signal,
+      headers: { 'content-type': 'application/json', 'x-claude-code-session-id': 'sess-e2e', 'x-test-hold': '1' },
+      body: JSON.stringify(body),
+    })
+    setTimeout(() => ctl.abort(), 100)
+    await expect(pending).rejects.toThrow()
+    await awaitLog(before + 1)
+    const last = readRequestLog().at(-1)
+    expect(last.url).toBe('POST /v1/messages')
+    expect(last.status).toBeUndefined()
+    expect(last.response).toBeUndefined()
+    expect(errorLog()).toBe(errorsBefore) // tearing down our own upstream request is not an error
   })
 })
 
