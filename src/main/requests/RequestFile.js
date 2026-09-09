@@ -56,8 +56,9 @@ export class RequestFile {
       const record = f => ({ timestamp: rec.timestamp, ...f })
       const sys = parser.systemPrompt(rec)
       if (sys && !files.has(sys.hash)) files.set(sys.hash, record(sys))
-      const tools = parser.systemTools(rec) // per-tool dedup — only not-yet-seen tools
-      if (tools) files.set(tools.hash, record(tools))
+      const deferred = parser.deferredStrip(rec)
+      if (deferred && !files.has(deferred.hash)) files.set(deferred.hash, record(deferred))
+      for (const tools of parser.systemTools(rec)) files.set(tools.hash, record(tools)) // per-tool dedup — only not-yet-seen tools
       for (const f of parser.memoryFiles(rec)) {
         if (!files.has(f.file_path)) files.set(f.file_path, record(f))
       }

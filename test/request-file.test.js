@@ -250,6 +250,60 @@ describe('RequestFile.readInstructions', () => {
     expect(files[0].hash).not.toBe(files[1].hash) // content hash — distinct per batch, used as the dedup key
   })
 
+  it('splits a batch into a native and an MCP strip, so MCP schemas cost separately', async () => {
+    const base = { type: 'api-request', url: 'POST /v1/messages', status: 200 }
+    const tools = [{ name: 'Read', description: 'Reads a file' }, { name: 'mcp__pw__click', description: 'Clicks' },
+      { name: 'mcp__pw__type', description: 'Types' }]
+    fs.writeFileSync(path.join(dir, 'sess-m.requests.jsonl'),
+      JSON.stringify({ ...base, timestamp: '2026-07-14T10:00:00.000Z', request: { model: 'claude-sonnet-5', tools, messages: [] } }) + '\n')
+    const files = await new RequestFile('sess-m', { dir }).readInstructions()
+    expect(files).toMatchObject([
+      { file_path: 'System Tools', memory_type: '1 tool', content: '## Read\n\nReads a file' },
+      { file_path: 'MCP Tools', memory_type: '2 tools', content: '## mcp__pw__click\n\nClicks\n\n## mcp__pw__type\n\nTypes' },
+    ])
+  })
+
+  it('reports the deferred roster once, beside the tools of the same request', async () => {
+    const env = ['You are powered by Opus 5.', '',
+      'The following deferred tools are now available via ToolSearch. Use ToolSearch to load their schemas before calling them:',
+      'WebFetch', 'WebSearch', 'mcp__pw__click', 'mcp__pw__type', 'mcp__ide__getDiagnostics', '',
+      'Available agent types for the Agent tool:', '- Explore: reads files'].join('\n')
+    const tools = [{ name: 'Read', description: 'Reads a file' }, { name: 'mcp__pw__click', description: 'Clicks' }]
+    fs.writeFileSync(path.join(dir, 'sess-d.requests.jsonl'), JSON.stringify({ type: 'api-request', url: 'POST /v1/messages',
+      status: 200, timestamp: '2026-07-14T10:00:00.000Z', request: { model: 'claude-sonnet-5', tools,
+        messages: [{ role: 'user', content: [{ type: 'text', text: env }] }] } }) + '\n')
+    const files = await new RequestFile('sess-d', { dir }).readInstructions()
+    expect(files.map(f => [f.file_path, f.memory_type])).toEqual([
+      ['Deferred Tools', '2 deferred system tools, 3 deferred MCP tools'], // the roster's own strip carries the counts
+      ['System Tools', '1 tool'],
+      ['MCP Tools', '1 tool'],
+    ])
+  })
+
+  it('lists the deferred roster as its own strip — names only, no schemas to show', async () => {
+    const env = 'The following deferred tools are now available via ToolSearch, before calling them:\n'
+      + 'WebFetch\nWebSearch\nmcp__pw__click\n</system-reminder>' // the list also ends at a closing reminder tag
+    fs.writeFileSync(path.join(dir, 'sess-r.requests.jsonl'), JSON.stringify({ type: 'api-request', url: 'POST /v1/messages',
+      status: 200, timestamp: '2026-07-14T10:00:00.000Z', request: { model: 'claude-sonnet-5', tools: [],
+        messages: [{ role: 'user', content: [{ type: 'text', text: env }] }] } }) + '\n')
+    const files = await new RequestFile('sess-r', { dir }).readInstructions()
+    expect(files).toMatchObject([
+      { file_path: 'Deferred Tools', memory_type: '2 deferred system tools, 1 deferred MCP tool', content: '```\nWebFetch\nWebSearch\nmcp__pw__click\n```' },
+    ])
+  })
+
+  it('emits only the MCP strip when a later request adds nothing but MCP tools', async () => {
+    const base = { type: 'api-request', url: 'POST /v1/messages', status: 200 }
+    const read = { name: 'Read', description: 'Reads a file' }
+    fs.writeFileSync(path.join(dir, 'sess-m2.requests.jsonl'), [
+      { ...base, timestamp: '2026-07-14T10:00:00.000Z', request: { model: 'claude-sonnet-5', tools: [read], messages: [] } },
+      { ...base, timestamp: '2026-07-14T10:01:00.000Z', request: { model: 'claude-sonnet-5', // ToolSearch pulled a deferred MCP tool in
+        tools: [read, { name: 'mcp__ide__getDiagnostics', description: 'Diagnostics' }], messages: [] } },
+    ].map(r => JSON.stringify(r)).join('\n') + '\n')
+    const files = await new RequestFile('sess-m2', { dir }).readInstructions()
+    expect(files.map(f => [f.file_path, f.memory_type])).toEqual([['System Tools', '1 tool'], ['MCP Tools', '1 tool']])
+  })
+
   it('joins block-array system prompts into one text', async () => {
     const files = await new RequestFile('sess-1', { dir }).readInstructions()
     expect(files).toMatchObject([{ timestamp: '2026-07-14T10:00:00.000Z',
