@@ -30,7 +30,7 @@
     "prepublishOnly": "npm test"
   },
   "dependencies": {
-    "@anthropic-ai/claude-agent-sdk": "^0.3.220",
+    "@anthropic-ai/claude-agent-sdk": "^0.3.266",
     "@date-fns/tz": "^1.5.0",
     "chokidar": "^5.0.0",
     "date-fns": "^4.4.0",
@@ -41,24 +41,24 @@
     "write-file-atomic": "^8.0.0"
   },
   "devDependencies": {
-    "@electron/packager": "^20.0.4",
+    "@electron/packager": "^20.3.0",
     "@fontsource/inter": "^5.3.0",
     "@fontsource/jetbrains-mono": "^5.3.0",
     "@tomjs/electron-devtools-installer": "^4.0.1",
     "@uiw/react-json-view": "^2.0.0-alpha.43",
     "@vitejs/plugin-react": "^5.2.0",
     "electron-vite": "^5.0.0",
-    "highlight.js": "^11.11.1",
-    "lucide-react": "^1.27.0",
-    "react": "^19.2.8",
-    "react-dom": "^19.2.8",
+    "highlight.js": "^11.12.0",
+    "lucide-react": "^1.43.0",
+    "react": "^19.3.0",
+    "react-dom": "^19.3.0",
     "react-markdown": "^10.1.0",
-    "react-resizable-panels": "^4.12.2",
+    "react-resizable-panels": "^4.12.4",
     "rehype-highlight": "^7.0.2",
     "remark-gfm": "^4.0.1",
     "tippy.js": "^6.3.7",
     "vite": "^7.3.6",
-    "vitest": "^4.1.10"
+    "vitest": "^4.1.11"
   },
   "keywords": [
     "claude",
