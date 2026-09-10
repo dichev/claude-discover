@@ -3,12 +3,15 @@ import fs from 'node:fs'
 import path from 'node:path'
 import { DATA_DIR } from '../src/main/paths.js'
 import { Pricing } from '../src/main/services/Pricing.js'
+import seed from '../src/main/config/prices.seed.json' with { type: 'json' }
 
+// pinned to the committed seed — a live prices.current.json would make these assertions machine-dependent
 const pricing = new Pricing()
+pricing.prices = seed
 
 describe('priceFor', () => {
   it('matches a known model exactly', () => {
-    expect(pricing.priceFor('claude-opus-4-7')).toEqual({ input: 5, output: 25, cacheRead: 0.5, cacheWrite: 6.25, cacheWrite1h: 10, fastModeMplr: 6 })
+    expect(pricing.priceFor('claude-opus-4-7')).toEqual({ input: 5, output: 25, cacheRead: 0.5, cacheWrite: 6.25, cacheWrite1h: 10 })
   })
 
   it('prefers the longest matching prefix', () => {
@@ -89,7 +92,7 @@ describe('fast mode', () => {
 
   it('reads the per-model fast multiplier, null when absent', () => {
     expect(pricing.fastMultiplier('claude-opus-4-8')).toBe(2)
-    expect(pricing.fastMultiplier('claude-opus-4-7')).toBe(6)
+    expect(pricing.fastMultiplier('claude-opus-4-7')).toBeNull() // fast mode is offered on Opus 4.8 / 5 only
     expect(pricing.fastMultiplier('claude-sonnet-4-6')).toBeNull()
     expect(pricing.fastMultiplier('gpt-5')).toBeNull()
   })

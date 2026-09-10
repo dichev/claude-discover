@@ -74,7 +74,7 @@ writeFile('proj-alpha/main-session.jsonl', [
   // e4: 1h ephemeral cache split alongside 5m
   asst({ ts: '2025-03-12T09:10:00Z', model: 'claude-opus-4-7', rid: 'rD', mid: 'M4', sessionId: 'S1', u: usage({ input: 30, output: 90, cacheRead: 800, cc5m: 200, cc1h: 300 }) }),
   // e5: fast mode — same tokens, different (multiplied) cost
-  asst({ ts: '2025-03-13T14:00:00Z', model: 'claude-opus-4-7', rid: 'rE', mid: 'M5', sessionId: 'S1', u: usage({ input: 20, output: 70, cacheRead: 400, fast: true }) }),
+  asst({ ts: '2025-03-13T14:00:00Z', model: 'claude-opus-4-8', rid: 'rE', mid: 'M5', sessionId: 'S1', u: usage({ input: 20, output: 70, cacheRead: 400, fast: true }) }),
   // e6: synthetic notice (e.g. "limit reached") — no usage block, like the real ones; both tools skip it
   asst({ ts: '2025-03-13T14:01:00Z', model: '<synthetic>', rid: 'rF', mid: 'M6', sessionId: 'S1', text: 'Prompt is too long' }),
   // e10: cache-creation total with no 5m/1h split object (older transcript format)
