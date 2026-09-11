@@ -123,9 +123,10 @@ export default function SessionList({ sessions, selectedId, deepLink, onSelect }
                   <span className="session-label-text">{sessionLabel(s)}</span>
                 </div>
                 <div className="session-time-bottom">
+                  {s.project && <span className="session-project" title={s.project}>{s.projectShort}</span>}
+                  {s.models?.length > 0 && <span className="session-model">{s.models.map((m) => m.replace(/^claude-/, '')).join(', ')}</span>}
                   <span title={format(s.lastActivityAt, 'MMM d, HH:mm:ss')}>{fmtAgo(s.lastActivityAt)}</span>
-                  {s.models?.length > 0 && <span className="session-model">, {s.models.map((m) => m.replace(/^claude-/, '')).join(', ')}</span>}
-                  {linked && <span className="deeplink-note" data-tippy-content={linkTip} data-tippy-maxWidth={560}>, opened from deep link</span>}
+                  {linked && <span className="deeplink-note" data-tippy-content={linkTip} data-tippy-maxWidth={560}>opened from deep link</span>}
                 </div>
               </div>
               <div className="session-row-stats">
