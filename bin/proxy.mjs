@@ -2,13 +2,12 @@
 // (system prompt, tool definitions, injected reminders, request params) plus the raw responses.
 // Capture must never fail or delay a request: errors go to ~/.claude-discover/proxy.error.log.
 //
-// Usage: node bin/proxy.mjs [--restart] — config in proxy.config.js. ProxySwitch points Claude
-// Code here via env.ANTHROPIC_BASE_URL.
+// Usage: node bin/proxy.mjs [--restart] — config in proxy.config.js. ProxySwitch runs it as a
+// login service (LoginService) and points Claude Code here via env.ANTHROPIC_BASE_URL.
 
 import fs from 'node:fs'
 import path from 'node:path'
 import http from 'node:http'
-import { spawn } from 'node:child_process'
 import https from 'node:https'
 import zlib from 'node:zlib'
 import crypto from 'node:crypto'
@@ -235,33 +234,13 @@ function logError(err, context) {
 }
 
 const isMain = process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href
-if (process.parentPort) {
-  // Forked by ProxySwitch as a utility process, because those get a clean handle table — a child of
-  // the main process would inherit the dev CDP socket and keep its port bound after the app quits.
-  // But utility processes die with the app, so re-spawn detached from here and relay an early exit code back.
-  const child = spawn(process.execPath, process.argv.slice(1), {
-    detached: true, stdio: 'ignore', windowsHide: true,
-    env: { ...process.env, ELECTRON_RUN_AS_NODE: '1' },
-  })
-  child.once('exit', code => { process.parentPort.postMessage(code); process.exit(0) })
-}
-else if (isMain) {
+if (isMain) {
   const args = parseArgs({
     options: {
       restart: { type: 'boolean' }, // replace an already-running instance instead of exiting
     }
   })
   const upstream = new URL(UPSTREAM)
-  // Fail fast when the upstream is unreachable — a clear exit beats a proxy that 502s every request.
-  // Runs before --restart so a working instance is never replaced by a broken one. Exit code 2 is
-  // recognized by the app's ProxySwitch ("cannot reach upstream").
-  try {
-    await fetch(new URL('/v1/models', upstream), { signal: AbortSignal.timeout(5000) })
-  } catch (err) {
-    console.error(`Cannot reach ${upstream.origin} (${err?.cause?.code || err?.cause?.message || err?.name || err})`)
-    logError(err, `startup check → ${upstream.origin}`)
-    process.exit(2)
-  }
   const server = createProxy({
     upstream: upstream,
     onExchange: logRequest,
@@ -282,5 +261,8 @@ else if (isMain) {
     logError(err)
     process.exit(1)
   })
+  // Never die on a stray exception — log it and keep serving
+  process.on('uncaughtException', err => logError(err, 'uncaught exception'))
+  process.on('unhandledRejection', err => logError(err, 'unhandled rejection'))
   server.listen(PORT, HOST, () => console.log(`Capture proxy listening on ${PROXY_URL} → ${upstream.origin}\nLogging requests to ${REQUESTS_DIR}`))
 }

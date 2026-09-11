@@ -7,10 +7,8 @@ const proxyChanges = <>
   <pre>{`"env": {
   "ANTHROPIC_BASE_URL": "http://127.0.0.1:41414",
   "ENABLE_TOOL_SEARCH": "true"
-},
-"hooks": {
-  "SessionStart": ["…/bin/claude/hooks.mjs"]
 }`}</pre>
+  <p>Also registers the proxy as a login service so it survives restarts.</p>
   <p>Note: <code>/remote-control</code> is disabled while proxy is active.</p>
 </>
 

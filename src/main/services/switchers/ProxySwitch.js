@@ -1,15 +1,24 @@
-// Start/stop the request-capture proxy (bin/proxy.mjs) and the settings.json
-// env keys pointing Claude Code at it. Backs the StatusBar's status + Activate/Deactivate
-// button; sole owner of that config.
-import { utilityProcess } from 'electron'
+// Start/stop the request-capture proxy (bin/proxy.mjs) and the settings.json env keys pointing
+// Claude Code at it. Backs the StatusBar's status + Activate/Deactivate button; sole owner of that config.
+import which from 'which'
 import { ClaudeSettings } from '../ClaudeSettings.js'
-import { PROXY_PATH, CLAUDE_HOOKS_PATH } from '../../paths.js'
-import { PROXY_URL, PING_ROUTE, PING_RESPONSE, EXIT_ROUTE, ERROR_LOG_PATH } from '../../../../bin/proxy.config.js'
+import { LoginService } from '../LoginService.js'
+import { PROXY_PATH } from '../../paths.js'
+import { PROXY_URL, UPSTREAM, PING_ROUTE, PING_RESPONSE, EXIT_ROUTE, ERROR_LOG_PATH } from '../../../../bin/proxy.config.js'
 
-const HOOK_BASENAME = 'hooks.mjs' // also matches the retired claude-hooks.mjs name, repairing it in place
-const HOOK_COMMAND = `node "${CLAUDE_HOOKS_PATH}"`
+// Login services get a bare PATH (launchd, systemd), so pass node's absolute path — the app's own
+// PATH has it, whichever way the app was launched
+const NODE = await which('node', { nothrow: true }) ?? 'node'
 
 export class ProxySwitch {
+  #service = new LoginService({ name: 'claude-discover-proxy', command: [NODE, PROXY_PATH] })
+
+  constructor() {
+    try { // remove the SessionStart hook of ≤1.9.3 — its script no longer ships and would fail on every session start
+      const settings = new ClaudeSettings()
+      if (settings.removeHooks(/claude-discover/).length) settings.save()
+    } catch {}
+  }
 
   async status() {
     return {
@@ -18,55 +27,45 @@ export class ProxySwitch {
     }
   }
 
-  // Spawn the proxy detached (it outlives the app) and point Claude Code at it only once it's
-  // confirmed listening — a failed start never changes settings.json. The proxy verifies the
-  // upstream itself before listening (exit code 2 when unreachable), so a successful start
-  // proves end-to-end connectivity. Failures throw; Switchers maps them to { error }.
+  // Install the proxy as a login service, then point Claude Code at it — only once it answers, so
+  // a failed start never touches settings.json. Throws on failure (Switchers turns that into { error }).
   async activate() {
     const settings = new ClaudeSettings() // fresh — settings.json may have changed since app launch
     const baseUrl = settings.env?.ANTHROPIC_BASE_URL
     if (baseUrl && baseUrl !== PROXY_URL) // never overwrite a foreign base URL (custom gateway)
       throw new Error(`Leaving your existing env.ANTHROPIC_BASE_URL in place (${baseUrl}) — remove it from settings.json to enable capture.`)
-    // Forked as a utility process, where proxy.mjs re-spawns itself detached and relays an early
-    // exit code as a message — a direct child of the main process would inherit the dev CDP
-    // server's socket on Windows and keep port 9333 bound after the app quits.
-    const launcher = utilityProcess.fork(PROXY_PATH, ['--restart'], { stdio: 'ignore' })
-    const exited = new Promise(resolve => launcher.once('message', resolve))
-    const outcome = await Promise.race([exited, this.#settle(true).then(ok => ok ? 'up' : 'unresponsive')])
-      .finally(() => launcher.kill()) // the detached proxy is unaffected
-    if (outcome !== 'up')
-      throw new Error(outcome === 2
-        ? 'Cannot reach api.anthropic.com — not enabling capture. Check your network and try again.'
-        : `Proxy did not start — see ${ERROR_LOG_PATH}`)
-    const hook = settings.findHook('SessionStart', HOOK_BASENAME)
-    if (!baseUrl || settings.env?.ENABLE_TOOL_SEARCH !== 'true' || hook?.command !== HOOK_COMMAND) {
-      settings.setEnv('ANTHROPIC_BASE_URL', PROXY_URL)
-      // Claude Code disables Tool Search under a custom base URL (most proxies can't forward
-      // `tool_reference` blocks); ours forwards verbatim to real Anthropic, so re-enable it
-      // to keep the ~27k tokens/request savings. https://code.claude.com/docs/en/env-vars
-      settings.setEnv('ENABLE_TOOL_SEARCH', 'true')
-      if (hook?.command !== HOOK_COMMAND) {
-        // SessionStart hook revives the proxy after a PC restart/crash — the env keys survive
-        // but the process doesn't, which would otherwise leave Claude Code pointed at a dead port.
-        settings.removeHook('SessionStart', HOOK_BASENAME) // repair a stale absolute path in place
-        settings.addHook('SessionStart', HOOK_COMMAND)
-      }
+    // The proxy listens even with no network, so check the upstream here for a clear error instead of 502s later
+    try { await fetch(new URL('/v1/models', UPSTREAM), { signal: AbortSignal.timeout(5000) }) }
+    catch { throw new Error('Cannot reach api.anthropic.com — not enabling capture. Check your network and try again.') }
+    await this.#exit() // replace a running instance so the service owns it and it runs the current code
+    await this.#service.install()
+    if (!await this.#settle(true)) {
+      await this.#service.uninstall().catch(() => {})
+      throw new Error(`Proxy did not start — see ${ERROR_LOG_PATH}`)
+    }
+    settings.setEnv('ANTHROPIC_BASE_URL', PROXY_URL)
+    // Claude Code turns Tool Search off under a custom base URL (most proxies can't forward
+    // `tool_reference` blocks); ours forwards verbatim, so turn it back on — it saves ~27k tokens
+    // per request. https://code.claude.com/docs/en/env-vars
+    settings.setEnv('ENABLE_TOOL_SEARCH', 'true')
+    settings.save()
+  }
+
+  // Stop the proxy, remove the service and our env keys — a foreign base URL is left alone
+  async deactivate() {
+    await this.#exit()
+    await this.#service.uninstall()
+    const settings = new ClaudeSettings()
+    if (settings.env?.ANTHROPIC_BASE_URL === PROXY_URL) {
+      settings.deleteEnv('ANTHROPIC_BASE_URL')
+      settings.deleteEnv('ENABLE_TOOL_SEARCH')
       settings.save()
     }
   }
 
-  // Exit the proxy via its control route and remove the env keys + revive hook — env keys only
-  // when the base URL is ours, so a foreign gateway config is never touched.
-  async deactivate() {
-    try { await fetch(`${PROXY_URL}${EXIT_ROUTE}`, { method: 'POST', signal: AbortSignal.timeout(1000) }) } catch {} // already stopped is fine
-    const settings = new ClaudeSettings()
-    const ours = settings.env?.ANTHROPIC_BASE_URL === PROXY_URL
-    const removedHook = settings.removeHook('SessionStart', HOOK_BASENAME).length > 0
-    if (ours) {
-      settings.deleteEnv('ANTHROPIC_BASE_URL')
-      settings.deleteEnv('ENABLE_TOOL_SEARCH')
-    }
-    if (ours || removedHook) settings.save()
+  // Ask a running instance to exit via its control route and wait for the port to free up
+  async #exit() {
+    try { await fetch(`${PROXY_URL}${EXIT_ROUTE}`, { method: 'POST', signal: AbortSignal.timeout(1000) }) } catch { return } // not running is fine
     await this.#settle(false)
   }
 
@@ -77,7 +76,7 @@ export class ProxySwitch {
     } catch { return false }
   }
 
-  // Poll (≤8s — the proxy's startup upstream check can take 5s) until ping matches `target`
+  // Poll up to 8s until ping matches `target` (the service takes a moment to start it)
   async #settle(target) {
     for (let i = 0; i < 40; i++) {
       if (await this.#running() === target) return true

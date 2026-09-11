@@ -9,7 +9,7 @@ import { spawn } from 'node:child_process'
 import { describe, it, expect, beforeAll, afterAll } from 'vitest'
 import { dedupeRequest, assembleSSE } from '../bin/proxy.mjs'
 import { HOST } from '../bin/proxy.config.js'
-import { PROXY_PATH, CLAUDE_HOOKS_PATH } from '../src/main/paths.js'
+import { PROXY_PATH } from '../src/main/paths.js'
 
 const body = {
   model: 'claude-sonnet-5',
@@ -178,7 +178,6 @@ describe('proxy end-to-end', () => {
       env: { ...process.env, CLAUDE_DISCOVER_DIR: discoverDir, CLAUDE_DISCOVER_PORT: String(proxyPort), CLAUDE_DISCOVER_UPSTREAM: `http://${HOST}:${upstreamPort}` },
     })
     await waitForPort(proxyPort)
-    received.length = 0 // drop the proxy's own startup upstream check (GET /v1/models)
   }
 
   beforeAll(async () => {
@@ -318,14 +317,6 @@ describe('proxy end-to-end', () => {
     expect(received.length).toBe(before)
   })
 
-  it('exits with code 2 at startup when the upstream is unreachable', async () => {
-    const dead = spawn(process.execPath, [PROXY_PATH], {
-      stdio: 'ignore',
-      env: { ...process.env, CLAUDE_DISCOVER_DIR: discoverDir, CLAUDE_DISCOVER_PORT: String(await freePort()), CLAUDE_DISCOVER_UPSTREAM: `http://${HOST}:${await freePort()}` },
-    })
-    expect(await new Promise(r => dead.once('exit', r))).toBe(2)
-  }, 15000)
-
   it('ignores requests without a session id', async () => {
     const res = await fetch(`http://${HOST}:${proxyPort}/v1/messages`, {
       method: 'POST',
@@ -364,46 +355,4 @@ describe('proxy end-to-end', () => {
     expect(last.response).toBeUndefined()
     expect(errorLog()).toBe(errorsBefore) // tearing down our own upstream request is not an error
   })
-})
-
-describe('claude-hooks SessionStart (ensure proxy)', () => {
-  let discoverDir, upstream, upstreamPort, port
-
-  beforeAll(async () => {
-    discoverDir = fs.mkdtempSync(path.join(os.tmpdir(), 'cd-hook-'))
-    upstream = http.createServer((_, res) => res.end('{}'))
-    upstreamPort = await freePort()
-    await new Promise(r => upstream.listen(upstreamPort, HOST, r))
-    port = await freePort()
-  })
-
-  afterAll(async () => {
-    try { await fetch(`http://${HOST}:${port}/claude-discover/exit`, { method: 'POST' }) } catch {} // kill the proxy the hook spawned
-    upstream?.close()
-    fs.rmSync(discoverDir, { recursive: true, force: true })
-  })
-
-  const runHook = (hookPort, hookUpstream, event = { hook_event_name: 'SessionStart' }) => new Promise(resolve => {
-    const child = spawn(process.execPath, [CLAUDE_HOOKS_PATH], {
-      stdio: ['pipe', 'ignore', 'ignore'],
-      env: { ...process.env, CLAUDE_DISCOVER_DIR: discoverDir, CLAUDE_DISCOVER_PORT: String(hookPort), CLAUDE_DISCOVER_UPSTREAM: hookUpstream },
-    })
-    child.stdin.end(JSON.stringify(event))
-    child.once('exit', resolve)
-  })
-
-  it('starts the proxy when down, then no-ops while it stays up', async () => {
-    expect(await runHook(port, `http://${HOST}:${upstreamPort}`)).toBe(0)
-    const res = await fetch(`http://${HOST}:${port}/claude-discover/ping`)
-    expect(await res.text()).toBe('claude-discover-proxy')
-    expect(await runHook(port, `http://${HOST}:${upstreamPort}`)).toBe(0)
-  }, 15000)
-
-  it('exits 1 when the proxy cannot come up (upstream unreachable)', async () => {
-    expect(await runHook(await freePort(), `http://${HOST}:${await freePort()}`)).toBe(1)
-  }, 15000)
-
-  it('ignores events it has no handler for', async () => {
-    expect(await runHook(await freePort(), `http://${HOST}:${await freePort()}`, { hook_event_name: 'SessionEnd' })).toBe(0)
-  }, 15000)
 })

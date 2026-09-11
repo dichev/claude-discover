@@ -30,7 +30,6 @@ Not a hard constraint — restructure when it serves the code, just update this 
 ├── bin/                            standalone scripts, no imports from src/
 │   ├── claude-discover.mjs         npm bin entry — spawns the local Electron binary on the package root (npx claude-discover)
 │   ├── claude/
-│   │   ├── hooks.mjs               single dispatcher for every Claude Code hook this app installs
 │   │   └── statusline.mjs          the installed statusLine command
 │   ├── proxy.config.js             proxy config (port, routes, ping body, log paths) — imported by bin/ and src/main/
 │   └── proxy.mjs                   API request-capture logging proxy
@@ -38,7 +37,7 @@ Not a hard constraint — restructure when it serves the code, just update this 
 │   ├── main/                       main process (OOP): entry point, app menu, path/config resolution
 │   │   ├── config/                 the app's own config: ConfigFile (~/.claude-discover/config.json) + pricing seed
 │   │   ├── requests/               captured-request reading & parsing
-│   │   ├── services/               backend services + the StatusBar switchers
+│   │   ├── services/               backend services (LoginService = a generic per-OS login service) + the StatusBar switchers
 │   │   ├── sessions/               transcript scanning, caching & parsing
 │   │   └── windows/                the app window + the find-bar overlay
 │   ├── preload/                    contextBridge preloads (main window + find overlay)
@@ -91,7 +90,7 @@ Invariants — token totals break if any of these are bypassed:
 
 Optional features, secondary to the core timeline. The switchable ones are a class in `src/main/services/switchers/` with `status()/activate()/deactivate()`, toggled from the StatusBar; switches not marked keep-active are undone on quit.
 
-- **Capture proxy** (`bin/proxy.mjs`) — a loopback-only tee proxy on `127.0.0.1:41414` that logs raw API traffic; `ProxySwitch` points Claude Code at it via `env.ANTHROPIC_BASE_URL` in `<CLAUDE_DIR>/settings.json` and never overwrites a foreign base URL. Hard rule: **capture must never fail, delay, or alter a request** — errors go to `~/.claude-discover/proxy.error.log`, auth headers are redacted. Logs dedup bulk values as `{ $hash, value }`/`{ $ref }` pairs; subagent requests land in the parent's log file, distinguished by the `x-claude-code-agent-id` header. `ProxySwitch` also installs `bin/claude/hooks.mjs` as a `SessionStart` hook: the base URL outlives a proxy crash or PC restart, so without it every request would hit a dead port.
+- **Capture proxy** (`bin/proxy.mjs`) — a loopback-only tee proxy on `127.0.0.1:41414` that logs raw API traffic; `ProxySwitch` points Claude Code at it via `env.ANTHROPIC_BASE_URL` in `<CLAUDE_DIR>/settings.json` and never overwrites a foreign base URL. Hard rule: **capture must never fail, delay, or alter a request** — errors go to `~/.claude-discover/proxy.error.log`, auth headers are redacted. Logs dedup bulk values as `{ $hash, value }`/`{ $ref }` pairs; subagent requests land in the parent's log file, distinguished by the `x-claude-code-agent-id` header. The proxy runs as a `LoginService` (Task Scheduler task on Windows, launchd agent on macOS, systemd user unit on Linux), which starts it at login and restarts it after a crash — the base URL in settings.json outlives both, so without the service every request would hit a dead port. On Windows a non-admin user can only register an interactive task, which would open a console window, so the command runs through `conhost --headless`; conhost hides the exit code, so a minutely trigger stands in for restart-on-failure. The scheduler starts it outside any terminal's job object, so closing a terminal can't kill it.
 - **Statusline** — installs `bin/claude/statusline.mjs` as Claude Code's statusLine command.
 - **Retention** — raises Claude Code's `cleanupPeriodDays` so transcripts aren't swept before this app can browse them.
 - **Claude dir** — switches which Claude data directory the app reads from (relaunches the app on it).

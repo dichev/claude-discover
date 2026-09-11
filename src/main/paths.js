@@ -12,4 +12,3 @@ export const IS_EPHEMERAL         = import.meta.dirname.split(/[\\/]/).includes(
 // bin paths assume this file sits two levels below the repo root (true for both src/main and out/main bundle)
 export const STATUSLINE_PATH      = join(import.meta.dirname, '../../bin/claude/statusline.mjs')
 export const PROXY_PATH           = join(import.meta.dirname, '../../bin/proxy.mjs')
-export const CLAUDE_HOOKS_PATH    = join(import.meta.dirname, '../../bin/claude/hooks.mjs') // hook dispatcher, installed by ProxySwitch

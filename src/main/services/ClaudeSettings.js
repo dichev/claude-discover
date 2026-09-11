@@ -21,25 +21,18 @@ export class ClaudeSettings {
     }
   }
 
-  hooks(eventName) {
-    return (this.cfg.hooks?.[eventName] ?? []).flatMap(g => g.hooks ?? [])
-  }
-
-  // The hook entry on this event whose command mentions `needle` (basename, so stale absolute paths still match), or undefined.
-  findHook(eventName, needle) {
-    return this.hooks(eventName).find(h => h.command?.includes(needle))
-  }
-
-
-  // Removes every hook on this event whose command mentions `needle` (basename, so stale
-  // absolute paths still match); groups left empty are dropped. Returns the removed commands.
-  removeHook(eventName, needle) {
-    const matches = h => h.command?.includes(needle)
-    const groups = this.cfg.hooks?.[eventName] ?? []
-    const removed = groups.flatMap(g => (g.hooks ?? []).filter(matches).map(h => h.command))
-    if (removed.length) {
+  // Removes every hook (any event) whose command matches `pattern`, dropping groups and events
+  // left empty. Returns the removed commands.
+  removeHooks(pattern) {
+    const matches = h => pattern.test(h.command ?? '')
+    const removed = []
+    for (const [event, groups] of Object.entries(this.cfg.hooks ?? {})) {
+      const hit = groups.flatMap(g => (g.hooks ?? []).filter(matches).map(h => h.command))
+      if (!hit.length) continue
+      removed.push(...hit)
       for (const g of groups) g.hooks = (g.hooks ?? []).filter(h => !matches(h))
-      this.cfg.hooks[eventName] = groups.filter(g => g.hooks.length)
+      this.cfg.hooks[event] = groups.filter(g => g.hooks.length)
+      if (!this.cfg.hooks[event].length) delete this.cfg.hooks[event]
     }
     return removed
   }
@@ -76,12 +69,6 @@ export class ClaudeSettings {
 
   deleteEnv(name) {
     delete this.cfg.env?.[name]
-  }
-
-  addHook(eventName, command) {
-    this.cfg.hooks ??= {}
-    this.cfg.hooks[eventName] ??= []
-    this.cfg.hooks[eventName].push({ hooks: [{ type: 'command', command }] })
   }
 
   save() {
