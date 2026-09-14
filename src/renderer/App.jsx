@@ -31,6 +31,17 @@ export default function App() {
     return { start, end }
   }, [anchor, granularity])
 
+  // Left open across midnight, a view of the current period must follow the clock into the new one
+  useEffect(() => {
+    const shown = startOfPeriod(Date.now(), granularity)
+    if (anchor !== shown) return // a past period was picked on purpose — never yank it forward
+    const id = setInterval(() => {
+      const current = startOfPeriod(Date.now(), granularity)
+      if (current !== shown) setAnchor(current)
+    }, 60_000)
+    return () => clearInterval(id)
+  }, [anchor, granularity])
+
   useEffect(() => {
     let cancelled = false
     setScanProgress(null) // fresh scan for this period
