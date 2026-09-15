@@ -6,6 +6,8 @@ import { describe, it, expect, vi } from 'vitest'
 vi.mock('electron', () => ({ app: {
   requestSingleInstanceLock: vi.fn(),
   on: vi.fn(),
+  relaunch: vi.fn(),
+  quit: vi.fn(),
   setAsDefaultProtocolClient: vi.fn(),
   getAppPath: () => 'C:\\repo', // an opaque token — only ever echoed back in an assertion
 } }))
@@ -72,6 +74,13 @@ describe('delivery', () => {
 
   it('emits null for a second launch with no link, so the window is still raised', () => {
     expect(secondLaunch().emitted).toHaveBeenCalledWith(null)
+  })
+
+  it('relaunches onto the new build instead when the second launch says --restart', () => {
+    const { emitted } = secondLaunch('--restart')
+    expect(app.relaunch).toHaveBeenCalled()
+    expect(app.quit).toHaveBeenCalled()
+    expect(emitted).not.toHaveBeenCalled()
   })
 
   it('parks an open-url link until the renderer has pulled, then pushes the next one', () => { // @macOS

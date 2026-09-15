@@ -5,6 +5,9 @@
 //           reg delete "HKCU\Software\Classes\claude-discover" /f   # unregister
 // @macOS    not registered — only an .app bundle can own a scheme, and npx runs bare Electron;
 //           the `open-url` handler is wired so a packaged bundle would work as is
+//
+// A second launch normally raises the running window; launched with --restart (start.command)
+// the running copy relaunches instead, so it comes back on the build now on disk.
 
 import { EventEmitter } from 'node:events'
 import { app } from 'electron'
@@ -21,7 +24,10 @@ export class DeepLink extends EventEmitter {
   // lock — the caller must then quit, our argv has been forwarded to the window that owns it.
   requestLock() {
     if (!app.requestSingleInstanceLock()) return false
-    app.on('second-instance', (_e, argv) => this.emit('open', findTarget(argv)))
+    app.on('second-instance', (_e, argv) => {
+      if (argv.includes('--restart')) return this.#restart()
+      this.emit('open', findTarget(argv))
+    })
     app.on('open-url', (e, url) => { e.preventDefault(); this.#deliver(findTarget([url])) }) // @macOS
     this.#register()
     this.#pending = findTarget(process.argv)
@@ -41,6 +47,11 @@ export class DeepLink extends EventEmitter {
     if (!target) return
     if (this.#live) this.emit('open', target)
     else this.#pending = target
+  }
+
+  #restart() {
+    app.relaunch()
+    app.quit()
   }
 
   // @windows Rewritten on every launch — idempotent, and the last launched checkout wins.
