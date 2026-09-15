@@ -14,7 +14,4 @@ if [ -n "$stale" ] || [ ! -d out ]; then
   npm run build
 fi
 
-# macOS hands claude-discover:// links only to .app bundles, so run the app as one: package-mac
-# rebuilds the local unsigned bundle when it's stale and registers it as the scheme's handler.
-node test/scripts/package-mac.mjs
-open dist/claude-discover.app
+npm start

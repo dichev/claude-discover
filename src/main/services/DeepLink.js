@@ -3,8 +3,8 @@
 //
 // @windows  registered on every launch (#register) — the link arrives in a second launch's argv
 //           reg delete "HKCU\Software\Classes\claude-discover" /f   # unregister
-// @macOS    declared in the packaged .app's plist — arrives as an `open-url` event
-//           node test/scripts/package-mac.mjs                       # rebuild + register
+// @macOS    not registered — only an .app bundle can own a scheme, and npx runs bare Electron;
+//           the `open-url` handler is wired so a packaged bundle would work as is
 
 import { EventEmitter } from 'node:events'
 import { app } from 'electron'

@@ -51,7 +51,6 @@ Not a hard constraint — restructure when it serves the code, just update this 
 │       └── utils/                  shared hooks & helpers
 ├── test/                           Vitest suites + fixtures
 │   └── scripts/                    repo-only CLIs, never shipped in the npm tarball
-│       ├── package-mac.mjs         @macOS repackages dist/claude-discover.app when stale + registers the scheme
 │       └── usage.mjs               per-period token usage/cost table (imports src/)
 └── electron.vite.config.js         build config: main, two preloads, two renderer entries
 ```
@@ -94,7 +93,7 @@ Optional features, secondary to the core timeline. The switchable ones are a cla
 - **Statusline** — installs `bin/claude/statusline.mjs` as Claude Code's statusLine command.
 - **Retention** — raises Claude Code's `cleanupPeriodDays` so transcripts aren't swept before this app can browse them.
 - **Claude dir** — switches which Claude data directory the app reads from (relaunches the app on it).
-- **Deep links** (not a switcher) — `claude-discover://session?id=<sessionId>&date=<yyyy-MM-dd>` opens a session from another app. `DeepLink` does the routing; only the scheme registration is OS-specific — @windows registers on every launch and the link arrives in a second launch's argv, @macOS declares it in the packaged `.app` plist (`node test/scripts/package-mac.mjs`) and it arrives as an `open-url` event.
+- **Deep links** (not a switcher) — `claude-discover://session?id=<sessionId>&date=<yyyy-MM-dd>` opens a session from another app. `DeepLink` does the routing; only the scheme registration is OS-specific — @windows registers on every launch and the link arrives in a second launch's argv; @macOS is not registered (only an `.app` bundle can own a scheme, and npx runs bare Electron), though the `open-url` handler is wired for a future bundle.
 
 ### Dev-only bits
 
