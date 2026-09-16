@@ -5,9 +5,6 @@
 //           reg delete "HKCU\Software\Classes\claude-discover" /f   # unregister
 // @macOS    not registered — only an .app bundle can own a scheme, and npx runs bare Electron;
 //           the `open-url` handler is wired so a packaged bundle would work as is
-//
-// A second launch normally raises the running window; launched with --restart (start.command)
-// the running copy relaunches instead, so it comes back on the build now on disk.
 
 import { EventEmitter } from 'node:events'
 import { app } from 'electron'
@@ -20,18 +17,15 @@ export class DeepLink extends EventEmitter {
   #pending = null
   #live    = false // the renderer has pulled the cold-start link, so later links can be pushed to it
 
-  // Call at startup, before app.whenReady(). Returns false when another instance already holds the
-  // lock — the caller must then quit, our argv has been forwarded to the window that owns it.
-  requestLock() {
-    if (!app.requestSingleInstanceLock()) return false
-    app.on('second-instance', (_e, argv) => {
-      if (argv.includes('--restart')) return this.#restart()
-      this.emit('open', findTarget(argv))
-    })
+  // Call in the first instance before app.whenReady(), so cold-start URLs can be parked.
+  activate() {
     app.on('open-url', (e, url) => { e.preventDefault(); this.#deliver(findTarget([url])) }) // @macOS
     this.#register()
     this.#pending = findTarget(process.argv)
-    return true
+  }
+
+  open(target) {
+    if (target) this.emit('open', target)
   }
 
   takePending() {
@@ -49,11 +43,6 @@ export class DeepLink extends EventEmitter {
     else this.#pending = target
   }
 
-  #restart() {
-    app.relaunch()
-    app.quit()
-  }
-
   // @windows Rewritten on every launch — idempotent, and the last launched checkout wins.
   #register() {
     if (process.platform !== 'win32') return
@@ -64,7 +53,7 @@ export class DeepLink extends EventEmitter {
 
 // Only the query params are read. The `session` host is there to make the link readable, but it's
 // not matched — Windows hands it to us rewritten as `session/`, so matching it would need both forms.
-function findTarget(argv) {
+export function findTarget(argv) {
   const link = URL.parse(argv.find(a => a.startsWith(`${SCHEME}://`)) ?? '') // null when absent or unreadable
   const id = link?.searchParams.get('id')
   return id ? { id, date: link.searchParams.get('date') } : null

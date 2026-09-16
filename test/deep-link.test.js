@@ -1,13 +1,10 @@
 // DeepLink turns a `claude-discover://session?id=…&date=…` link into a { id, date } target. These
 // tests pin the delivery paths — a cold-start link parked for the renderer to pull, a second launch
-// or a macOS `open-url` emitted as `open` — plus the lock handshake and the scheme registration.
+// or a macOS `open-url` emitted as `open` — plus the scheme registration.
 import { describe, it, expect, vi } from 'vitest'
 
 vi.mock('electron', () => ({ app: {
-  requestSingleInstanceLock: vi.fn(),
   on: vi.fn(),
-  relaunch: vi.fn(),
-  quit: vi.fn(),
   setAsDefaultProtocolClient: vi.fn(),
   getAppPath: () => 'C:\\repo', // an opaque token — only ever echoed back in an assertion
 } }))
@@ -17,22 +14,22 @@ const paths = { ephemeral: false }
 vi.mock('../src/main/paths.js', () => ({ get IS_EPHEMERAL() { return paths.ephemeral } }))
 
 import { app } from 'electron'
-import { DeepLink } from '../src/main/services/DeepLink.js'
+import { DeepLink, findTarget } from '../src/main/services/DeepLink.js'
 
 const LINK = 'claude-discover://session?id=abc123&date=2026-07-23'
 const TARGET = { id: 'abc123', date: '2026-07-23' }
 
-// a DeepLink that has run the lock handshake, launched as `electron.exe . <args>`
-function launch(args = [], { lock = true, platform = 'win32', ephemeral = false } = {}) {
+// a DeepLink activated in the first instance, launched as `electron.exe . <args>`
+function launch(args = [], { platform = 'win32', ephemeral = false } = {}) {
   vi.clearAllMocks()
-  app.requestSingleInstanceLock.mockReturnValue(lock)
   paths.ephemeral = ephemeral
   const [argv, plat] = [process.argv, Object.getOwnPropertyDescriptor(process, 'platform')]
   process.argv = ['electron.exe', '.', ...args]
   Object.defineProperty(process, 'platform', { value: platform, configurable: true })
   try {
     const deepLink = new DeepLink()
-    return { deepLink, primary: deepLink.requestLock() }
+    deepLink.activate()
+    return { deepLink }
   } finally {
     process.argv = argv
     Object.defineProperty(process, 'platform', plat)
@@ -44,7 +41,7 @@ function secondLaunch(...args) {
   const { deepLink } = launch()
   const emitted = vi.fn()
   deepLink.on('open', emitted)
-  app.on.mock.calls.find(([event]) => event === 'second-instance')[1]({}, ['electron.exe', '.', ...args])
+  deepLink.open(findTarget(['electron.exe', '.', ...args]))
   return { deepLink, emitted }
 }
 
@@ -57,10 +54,9 @@ function openUrl(url) {
 
 describe('delivery', () => {
   it('parks a cold-start link for the renderer to pull, and yields it only once', () => {
-    const { deepLink, primary } = launch([LINK])
+    const { deepLink } = launch([LINK])
     const emitted = vi.fn()
     deepLink.on('open', emitted)
-    expect(primary).toBe(true)
     expect(emitted).not.toHaveBeenCalled() // no window exists yet to push to
     expect(deepLink.takePending()).toEqual(TARGET)
     expect(deepLink.takePending()).toBe(null) // a reload must not re-open it
@@ -72,15 +68,8 @@ describe('delivery', () => {
     expect(deepLink.takePending()).toBe(null)
   })
 
-  it('emits null for a second launch with no link, so the window is still raised', () => {
-    expect(secondLaunch().emitted).toHaveBeenCalledWith(null)
-  })
-
-  it('relaunches onto the new build instead when the second launch says --restart', () => {
-    const { emitted } = secondLaunch('--restart')
-    expect(app.relaunch).toHaveBeenCalled()
-    expect(app.quit).toHaveBeenCalled()
-    expect(emitted).not.toHaveBeenCalled()
+  it('does not emit a link event for a second launch with no link', () => {
+    expect(secondLaunch().emitted).not.toHaveBeenCalled()
   })
 
   it('parks an open-url link until the renderer has pulled, then pushes the next one', () => { // @macOS
@@ -106,14 +95,6 @@ describe('delivery', () => {
     openUrl('claude-discover://session')
     expect(emitted).not.toHaveBeenCalled()
   })
-
-  it('touches nothing when another instance owns the lock', () => {
-    const { deepLink, primary } = launch([LINK], { lock: false })
-    expect(primary).toBe(false)
-    expect(deepLink.takePending()).toBe(null) // requestLock already handed our argv to the primary
-    expect(app.on).not.toHaveBeenCalled()
-    expect(app.setAsDefaultProtocolClient).not.toHaveBeenCalled()
-  })
 })
 
 describe('link parsing', () => {
@@ -126,7 +107,7 @@ describe('link parsing', () => {
     ['claude-discover://[',                                  null],                   // unparseable — ignored, never thrown
     ['https://example.com/?id=nope',                         null],                   // not our scheme
   ])('%s → %j', (url, expected) => {
-    expect(secondLaunch(url).emitted).toHaveBeenCalledWith(expected)
+    expect(findTarget(['electron.exe', '.', url])).toEqual(expected)
   })
 })
 
