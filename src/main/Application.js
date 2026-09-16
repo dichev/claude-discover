@@ -1,10 +1,10 @@
-import { app, BrowserWindow, ipcMain } from 'electron'
+import { app, BrowserWindow, dialog, ipcMain, Menu } from 'electron'
 import { SessionsService } from './services/SessionsService.js'
 import { WorkHours } from './services/WorkHours.js'
 import { AgentRunner } from './services/AgentRunner.js'
 import { Switchers } from './services/switchers/Switchers.js'
 import { MainWindow } from './windows/MainWindow.js'
-import { CLAUDE_DIR } from './paths.js'
+import { CLAUDE_DIR, RECENT_CLAUDE_DIRS } from './paths.js'
 import { openLinkSafely } from './utils.js'
 
 export class Application {
@@ -14,11 +14,13 @@ export class Application {
     this.agentRunner     = new AgentRunner()
     this.workHours       = new WorkHours()
     this.sessionsService = new SessionsService()
-    this.switchers       = new Switchers() // the on/off features behind the StatusBar switches
+    this.switchers       = new Switchers({ restart: () => this.restart() }) // the on/off features behind the StatusBar switches
   }
 
   start() {
     const { deepLink, win, agentRunner, workHours, sessionsService, switchers } = this
+
+    Menu.setApplicationMenu(this.#buildMenu())
 
     // main → renderer
     sessionsService.on('update', sessions => win.send('sessions:update', sessions))
@@ -64,5 +66,54 @@ export class Application {
     // Finish wiring before starting services or loading the renderer.
     sessionsService.start()
     win.create()
+  }
+
+  // app.exit skips will-quit, so switches stay active across the restart
+  restart() {
+    if (import.meta.env.DEV) { // electron-vite dev tears down its Vite server when Electron exits, so a relaunched window would have no renderer to load
+      dialog.showMessageBoxSync({ type: 'info', message: 'Restart required', detail: 'Stop and re-run `npm run dev` to apply the change.' })
+    } else {
+      app.relaunch()
+    }
+    BrowserWindow.getAllWindows().forEach(w => w.close())
+    app.exit(0)
+  }
+
+  #buildMenu() {
+    const { win, switchers } = this
+    const changeDir = dir => switchers.activate('claudedir', dir)
+    return Menu.buildFromTemplate([
+      ...(process.platform === 'darwin' ? [{ role: 'appMenu' }] : []), // @macOS
+      {
+        label: 'File',
+        submenu: [
+          { label: 'Change directory…', click: () => changeDir() },
+          { type: 'separator' },
+          ...RECENT_CLAUDE_DIRS.map(p => ({
+            label: p, type: 'checkbox', checked: p === CLAUDE_DIR, click: () => changeDir(p),
+          })),
+          { type: 'separator' },
+          { role: 'quit' },
+        ],
+      },
+      { // @macOS Cmd+C/V/A have no key equivalents without an Edit menu; Windows/Linux get these from Chromium
+        label: 'Edit',
+        submenu: [
+          { role: 'copy' },
+          { role: 'paste' },
+          { role: 'selectAll' },
+          { label: 'Find…', accelerator: 'CmdOrCtrl+F', click: () => win.findBar?.show() },
+          { label: 'Deselect', accelerator: 'Escape', click: (_i, w) => win.findBar?.visible ? win.findBar.hide() : w?.webContents.unselect() },
+        ],
+      },
+      {
+        label: 'View',
+        submenu: [
+          { role: 'reload' },
+          { role: 'forceReload' },
+          { role: 'toggleDevTools' },
+        ],
+      },
+    ])
   }
 }

@@ -4,16 +4,18 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 
 vi.mock('electron', () => ({ app: {
   requestSingleInstanceLock: vi.fn(),
-  whenReady: vi.fn(() => new Promise(() => {})), // never ready — Application stays out of these tests
+  whenReady: vi.fn(() => Promise.resolve()),
   on: vi.fn(),
-  relaunch: vi.fn(),
-  quit: vi.fn(),
   exit: vi.fn(),
   setAsDefaultProtocolClient: vi.fn(),
   getAppPath: () => 'C:\\repo',
 } }))
 vi.mock('../src/main/paths.js', () => ({ IS_EPHEMERAL: false }))
-vi.mock('../src/main/Application.js', () => ({ Application: vi.fn() }))
+const restart = vi.fn()
+vi.mock('../src/main/Application.js', () => ({ Application: class {
+  start() {}
+  restart = restart
+} }))
 vi.mock('../src/main/debug.js', () => ({}))
 
 import { app } from 'electron'
@@ -29,6 +31,7 @@ async function launch(args = [], { lock = true } = {}) {
   try {
     vi.resetModules()
     await import('../src/main/main.js')
+    await new Promise(r => setTimeout(r)) // let whenReady build the Application
   } finally {
     process.argv = argv
     Object.defineProperty(process, 'platform', plat)
@@ -38,12 +41,11 @@ async function launch(args = [], { lock = true } = {}) {
 beforeEach(() => vi.clearAllMocks())
 
 describe('single instance', () => {
-  it('relaunches onto the new build when a second launch says --restart', async () => {
+  it('restarts onto the new build when a second launch says --restart', async () => {
     await launch()
     const secondInstance = app.on.mock.calls.find(([event]) => event === 'second-instance')[1]
     secondInstance({}, ['electron.exe', '.', '--restart'])
-    expect(app.relaunch).toHaveBeenCalled()
-    expect(app.quit).toHaveBeenCalled()
+    expect(restart).toHaveBeenCalled()
   })
 
   it('touches nothing when another instance owns the lock', async () => {

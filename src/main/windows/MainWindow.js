@@ -1,9 +1,8 @@
-import { app, BrowserWindow, Menu } from 'electron'
+import { app, BrowserWindow } from 'electron'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import windowStateKeeper from 'electron-window-state'
 import contextMenu from 'electron-context-menu'
-import { buildAppMenu } from '../menu.js'
 import { FindBar } from './FindBar.js'
 import { lockNavigation } from '../utils.js'
 
@@ -16,11 +15,6 @@ export class MainWindow {
   }
 
   create() {
-    Menu.setApplicationMenu(buildAppMenu({
-      onFind: () => this.findBar?.show(),
-      onEscape: win => this.findBar?.visible ? this.findBar.hide() : win?.webContents.unselect(),
-    }))
-
     const state = windowStateKeeper({ defaultWidth: 1500, defaultHeight: 900 })
     this.win = new BrowserWindow({
       x: state.x,

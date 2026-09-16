@@ -20,8 +20,7 @@ if (isFirstInstance) {
   app.on('second-instance', (_e, argv) => {
     const target = findTarget(argv)
     if (argv.includes('--restart')) {
-      app.relaunch()
-      app.quit()
+      application?.restart()
     } else if (target) {
       deepLink.open(target)
     } else {

@@ -34,7 +34,7 @@ Not a hard constraint — restructure when it serves the code, just update this 
 │   ├── proxy.config.js             proxy config (port, routes, ping body, log paths) — imported by bin/ and src/main/
 │   └── proxy.mjs                   API request-capture logging proxy
 ├── src/
-│   ├── main/                       main process (OOP): entry point, app menu, path/config resolution
+│   ├── main/                       main process (OOP): entry point, app wiring & menu (Application), path/config resolution
 │   │   ├── config/                 the app's own config: ConfigFile (~/.claude-discover/config.json) + pricing seed
 │   │   ├── requests/               captured-request reading & parsing
 │   │   ├── services/               backend services (LoginService = a generic per-OS login service) + the StatusBar switchers
@@ -60,7 +60,7 @@ Not a hard constraint — restructure when it serves the code, just update this 
 Three-process Electron split:
 
 - **`src/main/`** — all disk and network access. Node ESM.
-- **`src/preload/`** — renderers↔main API surface (`window.api`); every IPC channel is registered in `src/main/main.js`. Preloads are sandboxed, so each must stay a single self-contained CommonJS file — no cross-file imports (the shared `subscribe` helper is inlined in each by hand).
+- **`src/preload/`** — renderers↔main API surface (`window.api`); every IPC channel is registered in `src/main/Application.js`. Preloads are sandboxed, so each must stay a single self-contained CommonJS file — no cross-file imports (the shared `subscribe` helper is inlined in each by hand).
 - **`src/renderer/`** — React 19+. Runs under a strict CSP, so anything that would need a remote fetch or an inline script will break the app.
 
 Three independent data sources feed the UI:
