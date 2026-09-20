@@ -68,8 +68,10 @@ export default function App() {
     return { sourceFiltered, past, availableSources }
   }, [sessions, sourceFilter, projectFilter])
 
+  // `selectedId` is a file path, or a session id when the selection came from a deep
+  // link — one id can cover several transcripts, one per cwd.
   const selected = useMemo(
-    () => sessions.find((s) => s.sessionId === selectedId) || null,
+    () => sessions.find((s) => s.filePath === selectedId || s.sessionId === selectedId) || null,
     [sessions, selectedId]
   )
 
@@ -145,7 +147,7 @@ export default function App() {
             dayRange={dayRange}
             sessions={dayItems.sourceFiltered}
             onSelect={selectSession}
-            selectedId={selectedId}
+            selectedId={selected?.filePath ?? null}
             dayAnchor={anchor}
             granularity={granularity}
             projectFilter={projectFilter}
@@ -165,7 +167,7 @@ export default function App() {
         <Panel id="list" defaultSize={350} minSize={200} maxSize={700} className="body-pane">
           <SessionList
             sessions={dayItems.past}
-            selectedId={selectedId}
+            selectedId={selected?.filePath ?? null}
             deepLink={deepLink}
             onSelect={selectSession}
           />

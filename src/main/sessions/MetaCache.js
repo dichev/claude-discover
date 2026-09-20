@@ -15,7 +15,6 @@ export class MetaCache {
   }
 
   get(filePath) { return this.periodMetas.get(filePath) }
-  byId(sessionId) { return [...this.periodMetas.values()].find(m => m.sessionId === sessionId) }
   values() { return this.periodMetas.values() }
 
   // Meta for one file within `day` ({ start, end, key }), or null when it has no activity there.

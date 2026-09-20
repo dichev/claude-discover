@@ -43,8 +43,10 @@ export class SessionsService extends EventEmitter {
 
   // Always parses the whole file from 0: the parser's running token totals only stamp
   // correctly from a fresh start, so live updates re-read rather than resume at an offset.
-  async readSession(sessionId, date = null, granularity = 'day') {
-    const meta = this.metaCache.byId(sessionId)
+  // Keyed by file path, not session id: Claude Code reuses one id across cwds, writing a
+  // separate transcript per project dir.
+  async readSession(filePath, date = null, granularity = 'day') {
+    const meta = this.metaCache.get(filePath)
     if (!meta) return null
     const range = date ? periodBounds(date, granularity) : null
     const reader = new SessionFile(meta.filePath)
@@ -60,10 +62,11 @@ export class SessionsService extends EventEmitter {
   }
 
   // Captured API requests for a session (see bin/proxy.mjs), period-filtered like readSession.
-  async readRequests(sessionId, date = null, granularity = 'day') {
-    if (!/^[\w-]+$/.test(sessionId)) return [] // the id becomes a filename — same guard as the proxy
+  async readRequests(filePath, date = null, granularity = 'day') {
+    const meta = this.metaCache.get(filePath)
+    if (!meta || !/^[\w-]+$/.test(meta.sessionId)) return [] // the id becomes a filename — same guard as the proxy
     const range = date ? periodBounds(date, granularity) : null
-    return this.#requestFile(sessionId, this.metaCache.byId(sessionId)?.parentSessionId).read(range)
+    return this.#requestFile(meta.sessionId, meta.parentSessionId).read(range)
   }
 
   // Subagents send the parent's session id, so the proxy logs their requests into the parent's
@@ -131,6 +134,7 @@ export class SessionsService extends EventEmitter {
       sessionId: reader.sessionId,
       parentSessionId: reader.parentSessionId,
       filePath: reader.filePath,
+      parentFilePath: reader.parentFilePath,
       fileSize: stat.size,
       mtime: stat.mtimeMs,
       range, excludeIds,
@@ -153,10 +157,10 @@ export class SessionsService extends EventEmitter {
         if (globalSeen.has(id)) (overlap ||= new Set()).add(id)
         globalSeen.add(id)
       }
-      if (overlap) rescans.set(m.sessionId, this._scanSession(new SessionFile(m.filePath), { range, excludeIds: overlap }))
+      if (overlap) rescans.set(m.filePath, this._scanSession(new SessionFile(m.filePath), { range, excludeIds: overlap }))
     }
     const sessions = await Promise.all(metas.map(async m => {
-      const rescanned = await rescans.get(m.sessionId)
+      const rescanned = await rescans.get(m.filePath)
       return stripInternal(rescanned ? { ...m, ...rescanned } : m)
     }))
     // Different project dirs can share a "last two segments" label (pytest tmp dirs) — relabel per snapshot

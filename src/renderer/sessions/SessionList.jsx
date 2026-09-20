@@ -51,9 +51,9 @@ export default function SessionList({ sessions, selectedId, deepLink, onSelect }
 
   const grouped = useMemo(() => {
     const byParent = subagentsByParent(sorted)
-    return sorted.flatMap((s) => byParent.has(s.parentSessionId) ? [] : [
+    return sorted.flatMap((s) => byParent.has(s.parentFilePath) ? [] : [
       { session: s, isChild: false },
-      ...(byParent.get(s.sessionId) ?? []).map((c) => ({ session: c, isChild: true }))
+      ...(byParent.get(s.filePath) ?? []).map((c) => ({ session: c, isChild: true }))
     ])
   }, [sorted])
 
@@ -91,17 +91,17 @@ export default function SessionList({ sessions, selectedId, deepLink, onSelect }
           const isSubagent = s.sessionId.startsWith('agent-')
           const journal = isJournal(s)
           const isFork = !!s.forkedFrom
-          const linked = deepLink?.id === s.sessionId // opened by a claude-discover:// link, see App.jsx
+          const linked = !!deepLink && s.filePath === selectedId // opened by a claude-discover:// link, see App.jsx
           const linkTip = linked && `Opened from deep link\nclaude-discover://session?id=${deepLink.id}${deepLink.date ? `&date=${deepLink.date}` : ''}`
           const sessionName = s.customTitle && s.agentName && s.customTitle !== s.agentName
             ? `${s.customTitle} [${s.agentName}]`
             : (s.customTitle || s.agentName || '')
           return (
             <div
-              key={s.sessionId}
-              ref={selectedId === s.sessionId ? selectedRef : null}
-              className={`session-row ${selectedId === s.sessionId ? 'selected' : ''} ${isChild ? 'is-subagent-child' : ''} ${linked ? 'deep-linked' : ''}`}
-              onClick={() => onSelect(selectedId === s.sessionId ? null : s.sessionId)}
+              key={s.filePath}
+              ref={selectedId === s.filePath ? selectedRef : null}
+              className={`session-row ${selectedId === s.filePath ? 'selected' : ''} ${isChild ? 'is-subagent-child' : ''} ${linked ? 'deep-linked' : ''}`}
+              onClick={() => onSelect(selectedId === s.filePath ? null : s.filePath)}
               style={{ borderLeftColor: SOURCE_COLORS[s.source] || SOURCE_COLORS.other }}
             >
               <div className="session-row-main">

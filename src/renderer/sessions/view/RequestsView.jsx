@@ -132,7 +132,7 @@ const Pane = React.memo(function Pane({ value, headers, seen, expandAll }) {
 
 // Postman-like inspector for the API request logs captured by bin/proxy.mjs:
 // a list of the session's requests on the left, the selected request/response JSON on the right.
-export default function RequestsView({ sessionId, date, granularity = 'day', fileSize = 0, expandAll = null }) {
+export default function RequestsView({ filePath, date, granularity = 'day', fileSize = 0, expandAll = null }) {
   const [records, setRecords]   = useState(null)
   const [selected, setSelected] = useState(0)
   const [tab, setTab]           = useState('request')
@@ -147,17 +147,17 @@ export default function RequestsView({ sessionId, date, granularity = 'day', fil
   useEffect(() => {
     setRecords(null)
     setSelected(0)
-  }, [sessionId, date, granularity])
+  }, [filePath, date, granularity])
 
   // fileSize is the transcript's size — a growth signal for the request log too, since
   // the proxy appends its record around the time the transcript gets the reply.
   useEffect(() => {
     let cancelled = false
-    window.api.readRequests(sessionId, date || null, granularity).then(res => {
+    window.api.readRequests(filePath, date || null, granularity).then(res => {
       if (!cancelled) setRecords(res)
     })
     return () => { cancelled = true }
-  }, [sessionId, date, granularity, fileSize])
+  }, [filePath, date, granularity, fileSize])
 
   if (!records) return <div className="requests-view"><div className="requests-empty">Loading…</div></div>
   if (!records.length) {

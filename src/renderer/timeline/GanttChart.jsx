@@ -63,7 +63,7 @@ export default function GanttChart({
   const { groups, totalHeight } = useMemo(() => {
     // Subagents split into time-separated runs; a run of 2+ collapses into one labelled bar.
     const clusters = subagentClusters(sessions, SUBAGENT_SPLIT_GAP).filter((c) => c.length >= 2)
-    const collapsed = new Set(clusters.flat().map((s) => s.sessionId))
+    const collapsed = new Set(clusters.flat().map((s) => s.filePath))
 
     const byKey = new Map()
     const addItem = (s, item, cost) => {
@@ -75,9 +75,9 @@ export default function GanttChart({
     }
 
     for (const s of sessions) {
-      if (collapsed.has(s.sessionId)) continue
+      if (collapsed.has(s.filePath)) continue
       addItem(s, {
-        id: s.sessionId,
+        id: s.filePath,
         label: s.summary || s.firstUserPrompt || s.firstUserCommand || s.sessionId,
         start: s.startedAt,
         end: endOf(s),
@@ -89,7 +89,7 @@ export default function GanttChart({
     for (const subs of clusters) {
       const periods = subs.map((c) => ({ start: c.startedAt, end: endOf(c) }))
       addItem(subs[0], {
-        id: `${subs[0].sessionId}::subagents`,
+        id: `${subs[0].filePath}::subagents`,
         start: periods[0].start,
         end: Math.max(...periods.map((p) => p.end)),
         source: subs[0].source,
@@ -193,7 +193,7 @@ export default function GanttChart({
               {g.placed.map(({ item, lane }) => {
                 const y = g.yOffset + lane * (bar.height + bar.row_gap)
                 const color = SOURCE_COLORS[item.source] || SOURCE_COLORS.other
-                const isSelected = item.subs ? item.subs.some((c) => c.sessionId === selectedId) : item.id === selectedId
+                const isSelected = item.subs ? item.subs.some((c) => c.filePath === selectedId) : item.id === selectedId
                 const periods = item.activityPeriods?.length
                   ? item.activityPeriods
                   : [{ start: item.start, end: item.end }]
@@ -206,7 +206,7 @@ export default function GanttChart({
 
                 return (
                   <g key={item.id} className={`bar ${isSelected ? 'selected' : ''}`}
-                     onClick={() => onSelect(item.subs ? item.subs.at(-1).sessionId : item.id)}>
+                     onClick={() => onSelect(item.subs ? item.subs.at(-1).filePath : item.id)}>
                     <rect x={x} y={y} width={w} height={bar.height} rx={bar.radius} fill={color} className="bar-fill" />
                     {periods.slice(0, -1).map((p, i) => {
                       const gx1 = Math.max(PROJECTS_WIDTH, xFor(p.end))

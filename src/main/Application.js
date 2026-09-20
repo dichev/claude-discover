@@ -32,8 +32,8 @@ export class Application {
 
     // renderer → main
     ipcMain.handle('sessions:list', (_e, date, granularity) => sessionsService.list(date, granularity))
-    ipcMain.handle('sessions:read', (_e, sessionId, date, granularity) => sessionsService.readSession(sessionId, date, granularity))
-    ipcMain.handle('sessions:read-requests', (_e, sessionId, date, granularity) => sessionsService.readRequests(sessionId, date, granularity))
+    ipcMain.handle('sessions:read', (_e, filePath, date, granularity) => sessionsService.readSession(filePath, date, granularity))
+    ipcMain.handle('sessions:read-requests', (_e, filePath, date, granularity) => sessionsService.readRequests(filePath, date, granularity))
     ipcMain.handle('switch:status', (_e, name) => switchers.status(name))
     ipcMain.handle('switch:activate', (_e, name) => switchers.activate(name))
     ipcMain.handle('switch:deactivate', (_e, name) => switchers.deactivate(name))

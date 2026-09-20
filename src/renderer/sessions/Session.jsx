@@ -21,29 +21,29 @@ export default function Session({ meta, missing, date, granularity = 'day' }) {
   const [mode, setMode]                 = useLocalStorage('session.view-mode', 'conversation')
   const [agentOpen, setAgentOpen]       = useState(false)
   const [expandAll, setExpandAll]       = useState(null)
-  const sessionId = meta?.sessionId
+  const filePath = meta?.filePath // not the session id, which can cover several transcripts
   const fileSize = meta?.fileSize
-  const agent = useAgent(`${sessionId}|${date}`)
+  const agent = useAgent(`${filePath}|${date}`)
 
   // Clear only when the session identity changes — live growth (fileSize) swaps
   // the content in place below, without flashing the loading state.
   useEffect(() => {
     setItems(null)
     setInstructions([])
-  }, [sessionId, date, granularity])
+  }, [filePath, date, granularity])
 
   // Re-read the whole session whenever it grows: rows are keyed by turn uuid, so
   // replacing `items` wholesale keeps the expanded/collapsed state of existing rows.
   useEffect(() => {
-    if (!sessionId) return
+    if (!filePath) return
     let cancelled = false
-    window.api.readSession(sessionId, date || null, granularity).then((res) => {
+    window.api.readSession(filePath, date || null, granularity).then((res) => {
       if (cancelled || !res) return
       setItems(res.items)
       setInstructions(res.instructions || [])
     })
     return () => { cancelled = true }
-  }, [sessionId, date, granularity, fileSize])
+  }, [filePath, date, granularity, fileSize])
 
   if (!meta) { // `missing` explains an empty pane (unknown session / empty period); see App.jsx
     return (
@@ -90,7 +90,7 @@ export default function Session({ meta, missing, date, granularity = 'day' }) {
                   ) : mode === 'jsonl' ? (
                     <JsonlView items={items} expandAll={expandAll} />
                   ) : (
-                    <RequestsView sessionId={sessionId} date={date} granularity={granularity} fileSize={fileSize} expandAll={expandAll} />
+                    <RequestsView filePath={filePath} date={date} granularity={granularity} fileSize={fileSize} expandAll={expandAll} />
                   )}
                 </div>
                 <SessionSummary meta={meta} items={items} instructions={instructions} agent={agent} onOpenAgent={() => setAgentOpen(true)} granularity={granularity} />

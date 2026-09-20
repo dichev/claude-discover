@@ -1,14 +1,15 @@
 // Workflow journals (subagents/workflows/<wf>/journal.jsonl) get a `<wfId>-journal` session id.
 export const isJournal = s => s.sessionId.endsWith('-journal')
 
-// Group subagents under their parent (orphans, whose parent is outside the period, are dropped). Map<parentId, child[]>.
+// Group subagents under their parent (orphans, whose parent is outside the period, are dropped). Map<parentFilePath, child[]>.
+// Paired on file path, not session id: one id can cover several transcripts, one per cwd.
 export function subagentsByParent(sessions) {
-  const ids = new Set(sessions.map(s => s.sessionId))
+  const parents = new Set(sessions.map(s => s.filePath))
   const byParent = new Map()
   for (const s of sessions) {
-    if (!ids.has(s.parentSessionId)) continue
-    let arr = byParent.get(s.parentSessionId)
-    if (!arr) byParent.set(s.parentSessionId, arr = [])
+    if (!parents.has(s.parentFilePath)) continue
+    let arr = byParent.get(s.parentFilePath)
+    if (!arr) byParent.set(s.parentFilePath, arr = [])
     arr.push(s)
   }
   return byParent

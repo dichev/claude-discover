@@ -1,7 +1,7 @@
 // MetaCache is pure policy over an injected `parse(range)` — no fs involved. These tests
 // pin the cross-period behaviors (reuse a contained meta without parsing, skip disjoint
 // files, ranged re-parse only for period-straddling files, invalidation on file growth)
-// and the period layer (setPeriod scoping, byId lookup, eviction, stale-scan writes).
+// and the period layer (setPeriod scoping, eviction, stale-scan writes).
 import { describe, it, expect } from 'vitest'
 import { MetaCache } from '../src/main/sessions/MetaCache.js'
 
@@ -58,11 +58,10 @@ describe('MetaCache.resolve', () => {
 })
 
 describe('MetaCache period layer', () => {
-  it('resolve records the meta, readable via get/byId/values', async () => {
+  it('resolve records the meta, readable via get/values', async () => {
     const cache = newCache()
     const meta = await cache.resolve('a.jsonl', stat, day, parser(1200, 1800).parse)
     expect(cache.get('a.jsonl')).toBe(meta)
-    expect(cache.byId('s1')).toBe(meta)
     expect([...cache.values()]).toEqual([meta])
   })
 
@@ -72,7 +71,7 @@ describe('MetaCache period layer', () => {
     await cache.resolve('a.jsonl', stat, day, parse)
     cache.setPeriod('day|B')
     expect([...cache.values()]).toEqual([])
-    expect(cache.byId('s1')).toBe(undefined)
+    expect(cache.get('a.jsonl')).toBe(undefined)
     cache.setPeriod(day.key)
     await cache.resolve('a.jsonl', stat, day, parse)
     expect(calls).toEqual([null]) // no re-parse — whole-file meta survived the period changes
@@ -107,7 +106,7 @@ describe('MetaCache period layer', () => {
     const { calls, parse } = parser(1200, 1800)
     await cache.resolve('a.jsonl', stat, day, parse)
     expect(cache.evict('a.jsonl')).toBe(true)
-    expect(cache.byId('s1')).toBe(undefined)
+    expect(cache.get('a.jsonl')).toBe(undefined)
     expect(cache.evict('a.jsonl')).toBe(false) // already gone
     await cache.resolve('a.jsonl', stat, day, parse)
     expect(calls).toEqual([null, null]) // evict forced a re-parse

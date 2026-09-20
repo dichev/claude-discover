@@ -39,9 +39,9 @@ function classifySource(meta) {
   return (meta.entrypoint || '').toLowerCase() || 'other'
 }
 
-function freshMeta({ sessionId, parentSessionId, filePath, fileSize, mtime }) {
+function freshMeta({ sessionId, parentSessionId, filePath, parentFilePath, fileSize, mtime }) {
   return {
-    sessionId, parentSessionId, filePath, fileSize, mtime,
+    sessionId, parentSessionId, filePath, parentFilePath, fileSize, mtime,
     startedAt: null, lastActivityAt: null,
     entrypoint: null, project: null, worktree: null, worktreePath: null, gitBranch: null, version: null,
     model: null, models: [], serviceTier: null, speed: null, fastPricingUnknown: false, priceUnknown: false,
@@ -57,11 +57,11 @@ function freshMeta({ sessionId, parentSessionId, filePath, fileSize, mtime }) {
 }
 
 export class SessionParser {
-  constructor({ sessionId, parentSessionId, filePath, fileSize = 0, mtime = 0, pricing = null, range = null, excludeIds = null }) {
+  constructor({ sessionId, parentSessionId, filePath, parentFilePath = null, fileSize = 0, mtime = 0, pricing = null, range = null, excludeIds = null }) {
     this.range = range
     this.excludeIds = excludeIds
     this.pricing = pricing
-    this.meta = freshMeta({ sessionId, parentSessionId, filePath, fileSize, mtime })
+    this.meta = freshMeta({ sessionId, parentSessionId, filePath, parentFilePath, fileSize, mtime })
     // Per-stream state for stamping items with running totals; not part of meta.
     this.prevMessage = null
     this.tokenTotal = 0
