@@ -102,8 +102,8 @@ writeFile('proj-alpha/resumed.jsonl', [
 writeFile('proj-alpha/main-session/subagents/workflows/wf_demo/agent-1.jsonl', [
   // e7: genuine sidechain turn (unique msgId) — counted by both
   asst({ ts: '2025-03-12T11:00:00Z', model: 'claude-opus-4-7', rid: 'rG', mid: 'M7', sessionId: 'S1sub', sidechain: true, u: usage({ input: 25, output: 65, cacheRead: 700 }) }),
-  // e8: sidechain REPLAY of parent M1 with a new requestId — must be deduped to M1's single count
-  asst({ ts: '2025-03-11T10:00:00Z', model: 'claude-opus-4-7', rid: 'rH', mid: 'M1', sessionId: 'S1sub', sidechain: true, u: usage({ input: 100, output: 200, cacheRead: 1000, cc5m: 300 }) }),
+  // e8: sidechain REPLAY of parent M1 — copied verbatim (requestId included, as real replays are), must be deduped to M1's single count
+  asst({ ts: '2025-03-11T10:00:00Z', model: 'claude-opus-4-7', rid: 'rA', mid: 'M1', sessionId: 'S1sub', sidechain: true, u: usage({ input: 100, output: 200, cacheRead: 1000, cc5m: 300 }) }),
 ])
 
 // Second project — separate top-level dir
