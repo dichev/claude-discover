@@ -2,7 +2,10 @@ import StatusSwitch, { useSwitch } from './StatusSwitch'
 import './StatusBar.css'
 
 // Tooltip prose for each switch; StatusSwitch appends the live Activate/Deactivate button below it.
-const proxyTooltip = <p>Captures Claude Code's raw API traffic - system prompt, tool definitions, injected reminders, responses.<p></p>Applies only to newly started Claude Code sessions.</p>
+const proxyTooltip = <>
+  <p>Captures Claude Code's raw API traffic - system prompt, tool definitions, injected reminders, responses.</p>
+  <p>Applies only to newly started Claude Code sessions.</p>
+</>
 const proxyChanges = <>
   <pre>{`"env": {
   "ANTHROPIC_BASE_URL": "http://127.0.0.1:41414",
