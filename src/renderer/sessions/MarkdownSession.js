@@ -28,7 +28,7 @@ function resultText(r) {
 
 function renderBlock(b) {
   if (b.type === 'text') return truncate(b.text || '')
-  if (b.type === 'thinking') return `thinking:\n${fence(b.thinking || '')}`
+  if (b.type === 'thinking') return b.redacted ? `_Thinking (encrypted${b.redacted > 1 ? ` · ${b.redacted}` : ''})_` : `Thinking:\n${fence(b.thinking)}`
   if (b.type === 'tool_use') {
     const tail = b.result ? `\n${b.result.is_error ? 'error' : 'result'}:\n${fence(resultText(b.result))}` : ''
     const title = toolSummary(b.name, b.input)

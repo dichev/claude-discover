@@ -226,8 +226,8 @@ function Block({ block }) {
     return <Markdown className="block-text" text={block.text} autoFence />
   }
   if (block.type === 'thinking') {
-    if (!block.thinking) return null // we won't display "• Thinking" anymore
-    return <Collapsible title="thinking" defaultOpen={false}><pre>{block.thinking}</pre></Collapsible>
+    if (block.redacted) return <Label title={`Thinking (encrypted${block.redacted > 1 ? ` · ${block.redacted}` : ''})`} />
+    return <Collapsible title="Thinking" defaultOpen={false}><pre>{block.thinking}</pre></Collapsible>
   }
   if (block.type === 'tool_use') {
     return (

@@ -83,9 +83,7 @@ export function flatten(items, instructions = []) {
     }
     if (it.type !== 'user' && it.type !== 'assistant') continue
     const msg = it.message || {}
-    // Drop thinking blocks with no persisted text (signature-only reasoning — billed output tokens
-    // but the plaintext isn't in the transcript). A turn left with nothing renders as an empty card.
-    const blocks = normalizeContent(msg.content).filter(b => !(b.type === 'thinking' && !b.thinking?.trim()))
+    const blocks = collapseRedactedThinking(normalizeContent(msg.content))
     if (blocks.length === 0) continue
     for (const b of blocks) {
       if (b.type === 'tool_result' && b.tool_use_id) results[b.tool_use_id] = b
@@ -145,6 +143,20 @@ const SMALL_CONTEXT = new Set([
 export function contextWindow(models = []) {
   const is200k = model => SMALL_CONTEXT.has(model.replace(/[-@]\d{8}.*$/, ''))
   return models.some(m => m && !is200k(m)) ? 1_000_000 : 200_000
+}
+
+// Most models persist reasoning signature-only (billed output tokens, no plaintext in the
+// transcript). Those blocks still mark that the model thought, so keep one `redacted` block
+// per consecutive run instead of repeating an identical row.
+function collapseRedactedThinking(blocks) {
+  const out = []
+  for (const b of blocks) {
+    if (!(b.type === 'thinking' && !b.thinking?.trim())) { out.push(b); continue }
+    const last = out[out.length - 1]
+    if (last?.redacted) last.redacted++
+    else out.push({ type: 'thinking', redacted: 1 })
+  }
+  return out
 }
 
 function normalizeContent(content) {

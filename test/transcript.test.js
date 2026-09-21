@@ -23,6 +23,20 @@ describe('parseCommand', () => {
   })
 })
 
+describe('flatten — encrypted thinking', () => {
+  const assistant = content => ({ type: 'assistant', uuid: 'a1', timestamp: '2026-09-21T09:00:00.000Z', message: { role: 'assistant', content } })
+
+  it('keeps a signature-only thinking block as one redacted marker', () => {
+    const turns = flatten([assistant([{ type: 'thinking', thinking: '', signature: 'sig==' }, { type: 'text', text: 'ok' }])])
+    expect(turns[0].blocks).toEqual([{ type: 'thinking', redacted: 1 }, { type: 'text', text: 'ok' }])
+  })
+
+  it('collapses a run of them into a single counted marker', () => {
+    const turns = flatten([assistant([{ type: 'thinking', thinking: '' }, { type: 'thinking', thinking: '  ' }, { type: 'thinking', thinking: 'out loud' }])])
+    expect(turns[0].blocks).toEqual([{ type: 'thinking', redacted: 2 }, { type: 'thinking', thinking: 'out loud' }])
+  })
+})
+
 describe('flatten — queued commands', () => {
   const queued = (attachment, uuid = 'q1') => ({ type: 'attachment', uuid, timestamp: '2026-07-30T00:41:09.674Z', attachment: { type: 'queued_command', ...attachment } })
   const assistant = { type: 'assistant', uuid: 'a1', timestamp: '2026-07-30T00:41:00.000Z', message: { role: 'assistant', content: [{ type: 'text', text: 'ok' }] } }
