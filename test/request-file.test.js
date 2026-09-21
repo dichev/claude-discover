@@ -205,10 +205,41 @@ describe('RequestFile.readInstructions', () => {
     const files = await new RequestFile('sess-2', { dir }).readInstructions()
     expect(files.map(f => f.file_path)).toEqual([
       'System Prompt', 'C:\\Users\\me\\.claude\\CLAUDE.md', 'D:\\proj\\CLAUDE.md', 'C:\\Users\\me\\.claude\\projects\\p\\memory\\MEMORY.md',
+      'Session Context', // the rest of the reminder, once its files are strips of their own
     ])
     expect(files[0]).toMatchObject({ source: 'system', memory_type: '', model: 'claude-sonnet-5', content: 'Be terse' })
     expect(files.slice(1).every(f => f.source === 'message')).toBe(true) // read from the user message's reminder
     expect(files.every(f => f.timestamp === '2026-07-14T10:00:00.000Z')).toBe(true) // first sight wins
+    expect(files[4]).toMatchObject({ memory_type: 'system-reminder', content: "As you answer the user's questions, you can use the following context:\n"
+      + "# userEmail\nme@example.com\n# currentDate\nToday's date is 2026-07-17.\n\n      IMPORTANT: this context may or may not be relevant to your tasks." })
+  })
+
+  it('lists every other injected reminder as a strip, named by its opening line', async () => {
+    const wrap = t => `<system-reminder>\n${t}\n</system-reminder>`
+    const text = [
+      wrap('Codebase and user instructions are shown below. Be sure to adhere to these instructions.\n\nContents of D:\\proj\\CLAUDE.md (project instructions, checked into the codebase):\n\nBody.'),
+      wrap("As you answer the user's questions, you can use the following context:\n# gitStatus\nclean"),
+      wrap('The following deferred tools are now available via ToolSearch, before calling them:\nWebFetch'),
+      wrap('Attribution for git commits and pull requests you create from here on:\n- none'),
+      wrap('The user opened the file D:\\proj\\a.js in the IDE. This may or may not be related to the current task.'),
+    ].join('\n')
+    const base = { type: 'api-request', url: 'POST /v1/messages', status: 200 }
+    fs.writeFileSync(path.join(dir, 'sess-rem.requests.jsonl'), [
+      { ...base, timestamp: '2026-07-14T10:00:00.000Z', request: { model: 'claude-sonnet-5', tools: [],
+        messages: [{ role: 'user', content: [{ type: 'text', text }, { type: 'text', text: 'hi' }] }] } },
+      { ...base, timestamp: '2026-07-14T10:01:00.000Z', request: { model: 'claude-sonnet-5', tools: [],
+        messages: [{ role: 'user', content: [{ type: 'text', text }] }, { role: 'assistant', content: wrap('quoted, not injected') }, { role: 'user', content: 'again' }] } },
+    ].map(r => JSON.stringify(r)).join('\n') + '\n')
+    const files = await new RequestFile('sess-rem', { dir }).readInstructions()
+    expect(files.map(f => [f.file_path, f.memory_type])).toEqual([
+      ['Deferred Tools', '1 deferred system tool'],
+      ['D:\\proj\\CLAUDE.md', 'Project'], // the wrapper reminder is nothing but its files — no strip of its own
+      ['Session Context', 'system-reminder'],
+      ['Attribution', 'system-reminder'],
+      ['The user opened the file D:\\proj\\…', 'system-reminder'], // unlisted opening line, shortened
+    ])
+    expect(files[2].content).toBe("As you answer the user's questions, you can use the following context:\n# gitStatus\nclean")
+    expect(files.every(f => f.timestamp === '2026-07-14T10:00:00.000Z')).toBe(true) // a repeated reminder dedups by content
   })
 
   // An Agent SDK app appends its own files to the system prompt in Claude Code's reminder shape

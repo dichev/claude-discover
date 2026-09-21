@@ -46,9 +46,10 @@ export class RequestFile {
     })
   }
 
-  // System prompts, tool definitions and memory files (CLAUDE.md / MEMORY.md / … from a user
-  // message's instructions system-reminder) — none of which the transcript records, so the request
-  // log is the only source. Returns one record per unique prompt / tool batch / file_path.
+  // System prompts, tool definitions, memory files (CLAUDE.md / MEMORY.md / … from a user
+  // message's instructions system-reminder) and every other injected system-reminder — none of
+  // which the transcript records, so the request log is the only source. Returns one record per
+  // unique prompt / tool batch / file_path / reminder.
   async readInstructions() {
     const parser = new RequestParser() // holds the per-tool dedup state
     const files = new Map() // dedup key → record, first sight wins
@@ -61,6 +62,9 @@ export class RequestFile {
       for (const tools of parser.systemTools(rec)) files.set(tools.hash, record(tools)) // per-tool dedup — only not-yet-seen tools
       for (const f of parser.memoryFiles(rec)) {
         if (!files.has(f.file_path)) files.set(f.file_path, record(f))
+      }
+      for (const r of parser.reminderStrips(rec)) {
+        if (!files.has(r.hash)) files.set(r.hash, record(r))
       }
     }
     return [...files.values()]

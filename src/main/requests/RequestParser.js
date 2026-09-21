@@ -59,14 +59,41 @@ export function parseClaudeMd(text) {
   })
 }
 
+const headline = line => line.length > 34 ? line.slice(0, 33).trimEnd() + '…' : line
+
 // Names a side channel we have no matcher for after its own opening line — the boilerplate every
 // Claude Code prompt starts with is skipped, so what's left is the line that says what it is for.
 const promptHeadline = sysText => {
   const line = sysText.split('\n').map(l => l.trim())
     .find(l => l && !l.startsWith('x-anthropic-billing-header') && !l.startsWith('You are Claude Code'))
-  if (!line) return 'Side channel'
-  return line.length > 34 ? line.slice(0, 33).trimEnd() + '…' : line
+  return line ? headline(line) : 'Side channel'
 }
+
+// The reminders Claude Code injects into user messages, named by their opening line; an unlisted
+// one is named after that line itself.
+const REMINDER_LABELS = [
+  ['As you answer the user',             'Session Context'],
+  ['# Environment',                      'Environment'],
+  ['Attribution for git commits',        'Attribution'],
+  ['Available agent types',              'Agent Types'],
+  ['The following skills are available', 'Skills'],
+  ['# MCP Server Instructions',          'MCP Instructions'],
+  ['You are powered by the model',       'Model'],
+  ["Today's date",                       'Date'],
+  ['While auto mode is active',          'Auto Mode'],
+  ['## Auto Mode Active',                'Auto Mode'],
+  ['[SYSTEM NOTIFICATION',               'Notification'],
+  ['Other agents active',                'Agents'],
+  ['<total_tokens>',                     'Token Budget'],
+]
+const reminderLabel = text => {
+  const line = text.split('\n').map(l => l.trim()).find(Boolean) ?? ''
+  return REMINDER_LABELS.find(([open]) => line.startsWith(open))?.[1] ?? headline(line)
+}
+
+// The environment block's announcement of the deferred-tool roster — deferredTools reads the names
+// after it, and reminderStrips skips the reminder that carries it (the roster is a strip of its own).
+const DEFERRED_INTRO = /deferred tools are now available[^\n]*:\r?\n/
 
 // Classifies a request by url, or on /v1/messages by its system prompt / trailing user message —
 // the body is the only thing that says what such a request is for. Returns [cssKind, label] for
@@ -120,6 +147,13 @@ const toStrip = (rec, source, file_path, label, content) => {
   return { source, file_path, memory_type: [kindLabel, label].filter(Boolean).join(', '),
     model: rec.request.model, content, hash: contentHash(content), kind }
 }
+
+// an unresolvable ref (truncated log) is an object, not text — skipped
+const texts = c => (Array.isArray(c) ? c.map(p => p?.text) : [c]).filter(t => typeof t === 'string')
+
+// The text parts of every non-assistant message — an assistant reply quoting a reminder's shape
+// must not parse as one the harness injected.
+const injectedTexts = req => (req?.messages || []).filter(m => m?.role !== 'assistant').flatMap(m => texts(m.content))
 
 // Record-level parsing of the NDJSON request log written by bin/proxy.mjs.
 // Stateful: the log's dedup scheme stores system/tools/each message in full ({ $hash, value })
@@ -186,7 +220,7 @@ export class RequestParser {
       for (const part of Array.isArray(content) ? content : [{ text: content }]) {
         const text = part?.text
         if (typeof text !== 'string') continue
-        const intro = text.match(/deferred tools are now available[^\n]*:\r?\n/)
+        const intro = text.match(DEFERRED_INTRO)
         if (!intro) continue
         const names = []
         for (const line of text.slice(intro.index + intro[0].length).split(/\r?\n/)) {
@@ -239,11 +273,24 @@ export class RequestParser {
   // message's system-reminder; an Agent SDK app can append the same section to the system prompt.
   memoryFiles(rec) {
     const req = rec.request
-    // an unresolvable ref (truncated log) is an object, not text — skipped
-    const texts = c => (Array.isArray(c) ? c.map(p => p?.text) : [c]).filter(t => typeof t === 'string')
-    // user messages only — an assistant reply quoting the reminder's shape must not parse as files loaded
-    const reminders = (req?.messages || []).filter(m => m?.role === 'user').flatMap(m => texts(m.content)).filter(t => t.includes('<system-reminder>'))
+    const reminders = injectedTexts(req).filter(t => t.includes('<system-reminder>'))
     const from = (source, list) => list.flatMap(parseClaudeMd).map(f => ({ source, ...f }))
     return [...from('system', texts(req?.system)), ...from('message', reminders)]
+  }
+
+  // Every other <system-reminder> the harness injected into the messages — session context, git
+  // status, environment, attribution rules, … — one strip each, minus what is already a strip of
+  // its own: the CLAUDE.md files (cut out, which empties the reminder that only wraps them) and
+  // the deferred-tool roster. Nothing the model was sent stays hidden.
+  reminderStrips(rec) {
+    const strips = []
+    for (const text of injectedTexts(rec.request)) {
+      for (const [, inner] of text.matchAll(/<system-reminder>([\s\S]*?)<\/system-reminder>/g)) {
+        if (DEFERRED_INTRO.test(inner)) continue
+        const content = stripClaudeMd(inner).trim()
+        if (content) strips.push(toStrip(rec, 'message', reminderLabel(content), 'system-reminder', content))
+      }
+    }
+    return strips
   }
 }
