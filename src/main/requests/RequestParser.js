@@ -20,19 +20,32 @@ const MEMORY_LABELS = {
 // (`name`); anything off-pattern keeps its full path.
 const MEMORY_FILES = { User: 'CLAUDE.md', Project: 'CLAUDE.md', Local: 'CLAUDE.local.md', Auto: 'MEMORY.md' }
 
-// Extracts the files listed in a system-reminder's CLAUDE.md section, each introduced by a
+// Locates the CLAUDE.md section of a text: the files listed after the anchor, each introduced by a
 // "Contents of <path> (<description>):" line. Claude Code has shipped that section two ways — as a
 // `# claudeMd` key inside the context reminder, and (current) as a reminder of its own opening with
 // the sentence — so either one anchors the start. File bodies may contain their own "# " headings,
 // so the section end is detected only by known-safe boundaries: the next lowerCamelCase reminder key
 // (# userEmail, # gitStatus, …), the reminder's closing IMPORTANT note, or </system-reminder>.
-export function parseClaudeMd(text) {
+function claudeMdSection(text) {
   const marker = text.match(/\n# claudeMd\r?\n|Codebase and user instructions are shown below\./)
-  if (!marker) return []
-  let region = text.slice(marker.index + marker[0].length)
+  if (!marker) return null
+  const start = marker.index + marker[0].length
   const ends = [/\n# [a-z][a-zA-Z0-9]*\r?\n/, /\n\s*IMPORTANT: this context/, /<\/system-reminder>/]
-    .map(re => region.search(re)).filter(i => i !== -1)
-  if (ends.length) region = region.slice(0, Math.min(...ends))
+    .map(re => text.slice(start).search(re)).filter(i => i !== -1)
+  return { anchor: marker.index, start, end: ends.length ? start + Math.min(...ends) : text.length }
+}
+
+// The text with its CLAUDE.md section cut out — what a system prompt costs on its own once the
+// files it carries are strips of their own.
+export function stripClaudeMd(text) {
+  const s = claudeMdSection(text)
+  return s ? (text.slice(0, s.anchor) + text.slice(s.end)).trimEnd() : text
+}
+
+export function parseClaudeMd(text) {
+  const s = claudeMdSection(text)
+  if (!s) return []
+  const region = text.slice(s.start, s.end)
   const heads = [...region.matchAll(/^Contents of (.+?) \(([^)]*)\):\r?\n/gm)]
   return heads.map((h, i) => {
     const memory_type = MEMORY_LABELS[h[2]] ?? h[2]
@@ -140,11 +153,12 @@ export class RequestParser {
   }
 
   // The request's system prompt, from a resolveRefs'd record — a plain string or an array of
-  // text blocks. The content hash is the dedup key: repeats collapse in the caller's map.
+  // text blocks, minus any CLAUDE.md section (those files are strips of their own, see memoryFiles).
+  // The content hash is the dedup key: repeats collapse in the caller's map.
   systemPrompt(rec) {
     const sys = rec.request?.system
     if (sys == null || sys.$ref) return null // absent, or an unresolvable ref (truncated log)
-    const content = typeof sys === 'string' ? sys : sys.map(b => b?.text ?? '').join('\n\n')
+    const content = typeof sys === 'string' ? stripClaudeMd(sys) : sys.map(b => stripClaudeMd(b?.text ?? '')).join('\n\n')
     return toStrip(rec, 'System Prompt', '', content)
   }
 
@@ -207,18 +221,14 @@ export class RequestParser {
     return [strip('System Tools', n => !isMcp(n)), strip('MCP Tools', isMcp)].filter(Boolean)
   }
 
-  // Memory files (CLAUDE.md / MEMORY.md / …) carried by a resolveRefs'd record's messages inside
-  // system-reminders — one { file_path, memory_type, content } per file listed.
+  // Memory files (CLAUDE.md / MEMORY.md / …) carried by a resolveRefs'd record — one
+  // { file_path, memory_type, content } per file listed. Claude Code ships them in a user message's
+  // system-reminder; an Agent SDK app can append the same section to the system prompt instead.
   memoryFiles(rec) {
-    const files = []
-    for (const m of rec.request?.messages || []) {
-      const content = m?.content // an unresolvable ref (truncated log) has no content — skipped
-      for (const part of Array.isArray(content) ? content : [{ text: content }]) {
-        const text = part?.text
-        if (typeof text !== 'string' || !text.includes('<system-reminder>')) continue
-        files.push(...parseClaudeMd(text))
-      }
-    }
-    return files
+    const req = rec.request
+    // an unresolvable ref (truncated log) is an object, not text — skipped
+    const texts = c => (Array.isArray(c) ? c.map(p => p?.text) : [c]).filter(t => typeof t === 'string')
+    const reminders = (req?.messages || []).flatMap(m => texts(m?.content)).filter(t => t.includes('<system-reminder>'))
+    return [...texts(req?.system), ...reminders].flatMap(parseClaudeMd)
   }
 }

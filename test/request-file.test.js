@@ -210,6 +210,22 @@ describe('RequestFile.readInstructions', () => {
     expect(files.every(f => f.timestamp === '2026-07-14T10:00:00.000Z')).toBe(true) // first sight wins
   })
 
+  // An Agent SDK app appends its own files to the system prompt in Claude Code's reminder shape
+  it('reads a CLAUDE.md section from the system prompt too, and leaves it out of the System Prompt strip', async () => {
+    const appended = 'You are Claude Code\n\nCodebase and user instructions are shown below. Be sure to adhere to these instructions.\n\n'
+      + 'Contents of D:\\biz\\ROLE.md (role instructions):\n\n# Customer Support\n\nRole body.\n\n'
+      + 'Contents of D:\\biz\\briefing.md (role briefing):\n\nBriefing body.\n'
+    fs.writeFileSync(path.join(dir, 'sess-p.requests.jsonl'), JSON.stringify({ type: 'api-request', url: 'POST /v1/messages',
+      status: 200, timestamp: '2026-07-14T10:00:00.000Z', request: { model: 'claude-sonnet-5',
+        system: [{ type: 'text', text: 'billing' }, { type: 'text', text: appended }], messages: [userMsg] } }) + '\n')
+    const files = await new RequestFile('sess-p', { dir }).readInstructions()
+    expect(files).toMatchObject([
+      { file_path: 'System Prompt', content: 'billing\n\nYou are Claude Code' },
+      { file_path: 'D:\\biz\\ROLE.md', name: 'D:\\biz\\ROLE.md', memory_type: 'role instructions', content: '# Customer Support\n\nRole body.' },
+      { file_path: 'D:\\biz\\briefing.md', memory_type: 'role briefing', content: 'Briefing body.' },
+    ])
+  })
+
   it('resolves dedup-wrapped system blocks across records — a $ref\'d block keeps its text', async () => {
     const prompt = { type: 'text', text: 'You are Claude Code' }
     const base = { type: 'api-request', url: 'POST /v1/messages', status: 200 }
