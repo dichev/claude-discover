@@ -37,6 +37,36 @@ describe('flatten — encrypted thinking', () => {
   })
 })
 
+describe('flatten — skill companion records', () => {
+  const call   = { type: 'assistant', uuid: 'a1', timestamp: '2026-09-22T00:02:00.000Z', message: { role: 'assistant', content: [{ type: 'tool_use', id: 'tu1', name: 'Skill', input: { skill: 'claude-api' } }] } }
+  const result = { type: 'user', uuid: 'r1', timestamp: '2026-09-22T00:02:01.385Z', message: { role: 'user', content: [{ type: 'tool_result', tool_use_id: 'tu1', content: 'Launching skill: claude-api' }] } }
+  const body   = { type: 'user', uuid: 'c1', timestamp: '2026-09-22T00:02:01.383Z', isMeta: true, turnCompanion: true, sourceToolUseID: 'tu1', message: { role: 'user', content: [{ type: 'text', text: '# Building with Claude' }] } }
+
+  it('counts a Skill call among tool calls and as a skill', () => {
+    const parser = new SessionParser({ sessionId: 's1', filePath: 's1.jsonl' })
+    for (const l of [call, result, body]) parser.feed(structuredClone(l))
+    expect(parser.meta).toMatchObject({ toolCalls: 1, skillCalls: 1 })
+  })
+
+  it('folds the skill body into the Skill call result instead of a meta note', () => {
+    const turns = flatten([call, result, body])
+    expect(turns).toHaveLength(1)
+    expect(turns[0].blocks[0].result.content).toEqual([{ type: 'text', text: 'Launching skill: claude-api' }, { type: 'text', text: '# Building with Claude' }])
+  })
+
+  it('folds a slash-command skill body into the command turn', () => {
+    const cmd  = { type: 'user', uuid: 'u1', timestamp: '2026-09-23T18:50:38.018Z', message: { role: 'user', content: '<command-message>hire</command-message>\n<command-name>/hire</command-name>' } }
+    const body = { type: 'user', uuid: 'c2', parentUuid: 'u1', timestamp: '2026-09-23T18:50:38.018Z', isMeta: true, turnCompanion: true, message: { role: 'user', content: [{ type: 'text', text: '# Writing a job' }] } }
+    const turns = flatten([cmd, body])
+    expect(turns).toHaveLength(1)
+    expect(turns[0].blocks[1]).toEqual({ type: 'skill', name: 'hire', text: '# Writing a job' })
+
+    const parser = new SessionParser({ sessionId: 's1', filePath: 's1.jsonl' })
+    for (const l of [cmd, body]) parser.feed(structuredClone(l))
+    expect(parser.meta).toMatchObject({ toolCalls: 0, skillCalls: 1, firstUserPrompt: null })
+  })
+})
+
 describe('flatten — queued commands', () => {
   const queued = (attachment, uuid = 'q1') => ({ type: 'attachment', uuid, timestamp: '2026-07-30T00:41:09.674Z', attachment: { type: 'queued_command', ...attachment } })
   const assistant = { type: 'assistant', uuid: 'a1', timestamp: '2026-07-30T00:41:00.000Z', message: { role: 'assistant', content: [{ type: 'text', text: 'ok' }] } }

@@ -33,11 +33,12 @@ export default function SessionList({ sessions, selectedId, deepLink, onSelect }
   }, [])
 
 
-  const cmd = (text) => {
-    const c = parseCommand(text)
-    return c ? `${c.name || c.message} ${c.args}` : ''
+  // The first command, when nothing better names the session.
+  const labelCommand = (s) => !(s.aiTitle || s.summary || s.firstUserPrompt) && parseCommand(s.firstUserCommand)
+  const sessionLabel = (s) => {
+    const c = labelCommand(s)
+    return c ? `${c.name || c.message} ${c.args}` : (s.aiTitle || s.summary || s.firstUserPrompt || s.sessionId || '')
   }
-  const sessionLabel = (s) => s.aiTitle || s.summary || s.firstUserPrompt || cmd(s.firstUserCommand) || s.sessionId || ''
 
   const q = filter.trim().toLowerCase()
   const filtered = q ? sessions.filter((s) => [
@@ -93,6 +94,7 @@ export default function SessionList({ sessions, selectedId, deepLink, onSelect }
           const isFork = !!s.forkedFrom
           const linked = !!deepLink && s.filePath === selectedId // opened by a claude-discover:// link, see App.jsx
           const linkTip = linked && `Opened from deep link\nclaude-discover://session?id=${deepLink.id}${deepLink.date ? `&date=${deepLink.date}` : ''}`
+          const command = labelCommand(s)
           const sessionName = s.customTitle && s.agentName && s.customTitle !== s.agentName
             ? `${s.customTitle} [${s.agentName}]`
             : (s.customTitle || s.agentName || '')
@@ -120,7 +122,9 @@ export default function SessionList({ sessions, selectedId, deepLink, onSelect }
                   {s.worktree && <span className="worktree-tag" title={`Worktree of ${s.projectShort}`}>[{s.worktree}]</span>}
                   {isFork && <span className="fork-tag" title={`Forked from session ${s.forkedFrom.sessionId}`}>↳</span>}
                   {sessionName && <span className="session-name">{sessionName}</span>}
-                  <span className="session-label-text">{sessionLabel(s)}</span>
+                  <span className="session-label-text">
+                    {command ? <><span className="session-command">{command.name || command.message}</span> {command.args}</> : sessionLabel(s)}
+                  </span>
                 </div>
                 <div className="session-time-bottom">
                   {s.project && <span className="session-project" title={s.project}>{s.projectShort}</span>}

@@ -28,6 +28,11 @@ export function fmtNum(n) {
   return n.toLocaleString()
 }
 
+// "12 tool calls, 1 skill" — the skill count only when there is one
+export function fmtToolCalls({ toolCalls, skillCalls }) {
+  return skillCalls ? `${fmtNum(toolCalls)}, ${fmtNum(skillCalls)} skill${skillCalls === 1 ? '' : 's'}` : fmtNum(toolCalls)
+}
+
 export function fmtUSD(n) {
   if (n == null) return '—'
   return `$${n.toFixed(2)}`

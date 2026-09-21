@@ -142,6 +142,7 @@ function AssistantCard({ turns, point, ctxLimit, duration, showAuthor = true }) 
   const [open, setOpen] = useCollapsed(false)
   const toolBlocks = turns.flatMap(t => t.blocks.filter(b => b.type === 'tool_use'))
   const errorCount = toolBlocks.filter(b => b.result?.is_error).length
+  const skillCount = toolBlocks.filter(b => b.name === 'Skill').length
   const isAux      = t => !t.blocks.some(b => b.type === 'text')
   // Aux turns (tool calls, thinking-only, meta) fold behind the header chevron; without
   // any tool calls there is nothing worth hiding, so everything stays visible.
@@ -155,6 +156,7 @@ function AssistantCard({ turns, point, ctxLimit, duration, showAuthor = true }) 
   const anyVisible = turns.some(t => !hidden(t))
   const parts = [
     toolBlocks.length > 0 && `${toolBlocks.length} tool call${toolBlocks.length === 1 ? '' : 's'}`,
+    skillCount > 0 && `${skillCount} skill${skillCount === 1 ? '' : 's'}`,
     errorCount > 0 && <span key="err" className="msg-errors">{errorCount} error{errorCount === 1 ? '' : 's'}</span>,
   ].filter(Boolean)
   const summary = parts.map((p, i) => <React.Fragment key={i}>{i > 0 && ', '}{p}</React.Fragment>)
@@ -236,6 +238,9 @@ function Block({ block }) {
         {block.result && <Block block={block.result} />}
       </Collapsible>
     )
+  }
+  if (block.type === 'skill') {
+    return <Collapsible title={block.name ? `Skill: ${block.name}` : 'Skill'} defaultOpen={false}><Markdown className="block-text" text={block.text} /></Collapsible>
   }
   if (block.type === 'tool_result') {
     const c = block.content

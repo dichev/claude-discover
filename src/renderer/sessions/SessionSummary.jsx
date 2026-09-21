@@ -1,6 +1,6 @@
 import { DollarSign } from 'lucide-react'
 import { format } from 'date-fns'
-import { fmtDuration, fmtBytes, fmtNum, fmtUSD, fmtCompact, tone } from '../utils/formatting.js'
+import { fmtDuration, fmtBytes, fmtNum, fmtUSD, fmtCompact, fmtToolCalls, tone } from '../utils/formatting.js'
 import { THRESHOLDS as T } from '../utils/thresholds.js'
 import { contextWindow } from './view/transcript.js'
 import AgentOutput from '../agent/AgentOutput.jsx'
@@ -104,7 +104,7 @@ export default function SessionSummary({ meta, items, instructions, agent, onOpe
         <Field label="Messages" value={
           <span className={tone(meta.messageCount, T.messages)}>{fmtNum(meta.messageCount)}</span>
         } />
-        <Field label="Tool calls" value={fmtNum(meta.toolCalls)} />
+        <Field label="Tool calls" value={fmtToolCalls(meta)} />
       </Section>
 
       <Section title="Identity">

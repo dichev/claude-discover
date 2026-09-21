@@ -177,6 +177,8 @@
   color: var(--accent, #4ea1ff);
 }
 
+.session-command { color: var(--accent); }
+
 .subagent-tag,
 .worktree-tag {
   font-family: var(--font-mono), monospace;

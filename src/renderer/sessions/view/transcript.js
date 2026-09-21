@@ -23,6 +23,7 @@ const queuedPrompt = it =>
 export function flatten(items, instructions = []) {
   const turns = []
   const results = {}
+  const companions = {}
   for (const it of items) {
     const queued = queuedPrompt(it)
     if (queued) {
@@ -81,6 +82,19 @@ export function flatten(items, instructions = []) {
       })
       continue
     }
+    // Since Claude Code 2.1.263 a skill's body is its own meta user record pointing at the Skill
+    // call that launched it — fold it into that call's result instead of a floating note.
+    if (it.turnCompanion && it.sourceToolUseID) {
+      companions[it.sourceToolUseID] = companionText(it)
+      continue
+    }
+    // A skill run as a slash command has no Skill call — its body folds into the command turn it follows.
+    const command = it.turnCompanion && turns.findLast(t => t.uuid === it.parentUuid)
+    if (command) {
+      const name = command.blocks.map(b => parseCommand(b.text)?.name).find(Boolean)?.replace(/^\//, '')
+      command.blocks.push({ type: 'skill', name, text: companionText(it) })
+      continue
+    }
     if (it.type !== 'user' && it.type !== 'assistant') continue
     const msg = it.message || {}
     const blocks = collapseRedactedThinking(normalizeContent(msg.content))
@@ -106,7 +120,7 @@ export function flatten(items, instructions = []) {
   }
   for (const t of turns) {
     t.blocks = t.blocks
-      .map((b) => (b.type === 'tool_use' ? { ...b, result: results[b.id] } : b))
+      .map((b) => (b.type === 'tool_use' ? { ...b, result: withCompanion(results[b.id], companions[b.id]) } : b))
       .filter((b) => !(b.type === 'tool_result' && results[b.tool_use_id]))
   }
   const out = turns.filter((t) => t.blocks.length > 0)
@@ -158,6 +172,12 @@ function collapseRedactedThinking(blocks) {
   }
   return out
 }
+
+const companionText = it => normalizeContent(it.message?.content).filter(b => b.type === 'text').map(b => b.text).join('\n')
+
+const withCompanion = (result, text) => text
+  ? { ...(result ?? { type: 'tool_result' }), content: [...normalizeContent(result?.content), { type: 'text', text }] }
+  : result
 
 function normalizeContent(content) {
   if (typeof content === 'string') return [{ type: 'text', text: content }]

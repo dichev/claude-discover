@@ -1,5 +1,5 @@
 import { format } from 'date-fns'
-import { fmtDuration, fmtBytes, fmtNum, fmtUSD, fmtCompact } from '../utils/formatting.js'
+import { fmtDuration, fmtBytes, fmtNum, fmtUSD, fmtCompact, fmtToolCalls } from '../utils/formatting.js'
 import { flatten, toolSummary, instructionTitle, groupInstructions, currentModel, contextWindow } from './view/transcript.js'
 
 let MAX_LINES = 10
@@ -35,6 +35,7 @@ function renderBlock(b) {
     return `[${title}]\n${fence(JSON.stringify(b.input, null, 2), 'json')}${tail}`
   }
   if (b.type === 'tool_result') return `${b.is_error ? 'error' : 'result'}:\n${fence(resultText(b))}`
+  if (b.type === 'skill') return `Skill${b.name ? `: ${b.name}` : ''}:\n${fence(b.text)}`
   if (b.type === 'image') return '[image]'
   if (b.type === 'instruction') {
     const it = b.it
@@ -101,7 +102,7 @@ export function markdownSession(meta, items, truncated, instructions = []) {
 - Wall duration: ${fmtDuration(wallDuration)}
 - Active periods: ${fmtNum(meta.activityPeriods.length)}
 - Messages: ${fmtNum(meta.messageCount)}
-- Tool calls: ${fmtNum(meta.toolCalls)}
+- Tool calls: ${fmtToolCalls(meta)}
 
 ## Identity
 - Model: ${meta.models.join(', ') || '—'}
