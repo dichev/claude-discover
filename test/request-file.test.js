@@ -1,11 +1,11 @@
 // $hash/$ref resolution, period filtering and system-prompt/memory-file extraction of src/main/requests/
-// RequestFile.js + RequestParser.js (reads the NDJSON logs written by bin/proxy.mjs).
+// RequestFile.js + RequestParser.js + claudeMarkers.js (reads the NDJSON logs written by bin/proxy.mjs).
 import fs from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
 import { describe, it, expect, beforeAll, afterAll } from 'vitest'
 import { RequestFile } from '../src/main/requests/RequestFile.js'
-import { parseClaudeMd } from '../src/main/requests/RequestParser.js'
+import { splitClaudeMd } from '../src/main/requests/claudeMarkers.js'
 
 const system = [{ type: 'text', text: 'You are Claude Code' }]
 const userMsg = { role: 'user', content: 'hi' }
@@ -147,9 +147,9 @@ Today's date is 2026-07-17.
       IMPORTANT: this context may or may not be relevant to your tasks.
 </system-reminder>`
 
-describe('parseClaudeMd', () => {
+describe('splitClaudeMd', () => {
   it('extracts each file with a short memory_type, stopping at the next reminder key', () => {
-    const files = parseClaudeMd(reminder)
+    const files = splitClaudeMd(reminder).files
     expect(files.map(f => [f.file_path, f.memory_type])).toEqual([
       ['C:\\Users\\me\\.claude\\CLAUDE.md', 'User'],
       ['D:\\proj\\CLAUDE.md', 'Project'],
@@ -161,13 +161,13 @@ describe('parseClaudeMd', () => {
   })
 
   it('shortens display names to the basename only for the standard file of each type', () => {
-    expect(parseClaudeMd(reminder).map(f => f.name)).toEqual(['CLAUDE.md', 'CLAUDE.md', 'MEMORY.md'])
-    const offPattern = parseClaudeMd('\n# claudeMd\nContents of D:\\proj\\NOTES.md (project instructions, checked into the codebase):\n\nhi\n')
+    expect(splitClaudeMd(reminder).files.map(f => f.name)).toEqual(['CLAUDE.md', 'CLAUDE.md', 'MEMORY.md'])
+    const offPattern = splitClaudeMd('\n# claudeMd\nContents of D:\\proj\\NOTES.md (project instructions, checked into the codebase):\n\nhi\n').files
     expect(offPattern[0].name).toBe('D:\\proj\\NOTES.md') // not the file the Project rule loads — keep the full path
   })
 
   it('returns [] when there is no claudeMd section', () => {
-    expect(parseClaudeMd('<system-reminder>\n# gitStatus\nclean\n</system-reminder>')).toEqual([])
+    expect(splitClaudeMd('<system-reminder>\n# gitStatus\nclean\n</system-reminder>').files).toEqual([])
   })
 
   // Current Claude Code ships the files in a reminder of their own, with no `# claudeMd` key
@@ -187,7 +187,7 @@ Contents of C:\\Users\\me\\.claude\\projects\\p\\memory\\MEMORY.md (user's auto-
 
 - [Some fact](fact.md)
 </system-reminder>`
-    const files = parseClaudeMd(own)
+    const files = splitClaudeMd(own).files
     expect(files.map(f => [f.name, f.memory_type])).toEqual([['CLAUDE.md', 'Project'], ['MEMORY.md', 'Auto']])
     expect(files[0].content).toBe('# CLAUDE.md\n\nBody with its own # headings.')
     expect(files[1].content).toBe('# Memory index\n\n- [Some fact](fact.md)')

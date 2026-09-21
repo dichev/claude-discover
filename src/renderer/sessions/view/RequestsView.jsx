@@ -173,7 +173,7 @@ export default function RequestsView({ filePath, date, granularity = 'day', file
       <ul className="requests-list">
         {records.map((r, i) => {
           const [method, path] = splitUrl(r.url)
-          // r.kind is [cssKind, label] from classifyRequest (RequestParser) — null when unclassifiable
+          // r.kind is [cssKind, label] from classifyRequest (requests/claudeMarkers.js) — null when unclassifiable
           return (
           <li key={i} className={i > 0 && r.kind?.[0] === 'main' ? 'new-turn' : ''}>
             <button type="button" className={i === selected ? 'active' : ''} onClick={() => setSelected(i)}>
