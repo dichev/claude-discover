@@ -112,15 +112,18 @@ export function flatten(items, instructions = []) {
       .filter((b) => !(b.type === 'tool_result' && results[b.tool_use_id]))
   }
   const out = turns.filter((t) => t.blocks.length > 0)
-  // Slot each instruction in backdated 500ms, above the user message whose request carried it.
-  for (const it of instructions) {
+  // All instructions form one turn, slotted backdated 500ms above the user message whose request
+  // carried the first of them — later requests' additions (deferred tools, newly read CLAUDE.md
+  // files) join the same block rather than scattering down the timeline.
+  if (instructions.length) {
+    const first = instructions.find(it => it.timestamp)
     const turn = {
-      uuid: `instr-${it.hash ?? it.file_path}-${it.timestamp}`, // system prompts share a file_path, their hash disambiguates
+      uuid: 'instructions',
       role: 'instruction',
       isMeta: true,
-      ts: it.timestamp ? Date.parse(it.timestamp) - 500 : null,
+      ts: first ? Date.parse(first.timestamp) - 500 : null,
       model: null, usage: null, tokenDelta: null, tokenTotal: null,
-      blocks: [{ type: 'instruction', it }]
+      blocks: instructions.map(it => ({ type: 'instruction', it }))
     }
     const i = out.findIndex(t => t.ts != null && t.ts > turn.ts)
     i === -1 ? out.push(turn) : out.splice(i, 0, turn)
@@ -200,6 +203,15 @@ export function parseCommand(text) {
   }
 }
 
+// The part of the request an instruction strip was read from (its `source`), as shown to the user —
+// in the request's own order (system → tools → messages).
+export const SOURCE_LABELS = { system: 'system prompt', tools: 'tools', message: 'user message' }
+
+// One request's instruction strips split by source: [[label, strips], …], empty groups left out.
+export function groupInstructions(strips) {
+  return Object.entries(SOURCE_LABELS).map(([source, label]) => [label, strips.filter(it => it.source === source)]).filter(([, list]) => list.length)
+}
+
 // Instruction strip title: `name (memory_type)` — the request's model is named only when it
 // differs from the conversation's own (currentModel), i.e. for side-channel requests like title gen.
 export function instructionTitle(it, model) {
@@ -224,12 +236,7 @@ export function groupTurns(turns) {
       else pending.push(t)
     } else if (t.role === 'instruction') {
       flush()
-      // Coalesce a run of instructions (one request's system prompt/tools/memory) into one group —
-      // but only within a single request: instructions carry their request's timestamp, and two
-      // back-to-back calls (title generation, then the main loop) must not have their totals summed.
-      const prev = groups.at(-1)
-      if (prev?.kind === 'instruction' && prev.turns.at(-1).ts === t.ts) prev.turns.push(t)
-      else groups.push({ kind: 'instruction', turns: [t] })
+      groups.push({ kind: 'instruction', turns: [t] })
     } else if (t.role === 'user') {
       flush()
       groups.push({ kind: 'user', turns: [...pending, t] })

@@ -100,11 +100,13 @@ const stripKind = req => {
 }
 
 // Every instruction strip has the same shape: a label the request's kind prefixes for side-channel
-// calls, and a content hash the caller dedups on. The model is kept separate from the label — the
-// frontend names it only when it differs from the conversation's own.
-const toStrip = (rec, file_path, label, content) => {
+// calls, a content hash the caller dedups on, and the part of the request it was read from —
+// `source`: 'system' | 'tools' | 'message' — which the frontend groups a request's strips by. The
+// model is kept separate from the label — the frontend names it only when it differs from the
+// conversation's own.
+const toStrip = (rec, source, file_path, label, content) => {
   const [kind, kindLabel] = stripKind(rec.request)
-  return { file_path, memory_type: [kindLabel, label].filter(Boolean).join(', '),
+  return { source, file_path, memory_type: [kindLabel, label].filter(Boolean).join(', '),
     model: rec.request.model, content, hash: contentHash(content), kind }
 }
 
@@ -159,7 +161,7 @@ export class RequestParser {
     const sys = rec.request?.system
     if (sys == null || sys.$ref) return null // absent, or an unresolvable ref (truncated log)
     const content = typeof sys === 'string' ? stripClaudeMd(sys) : sys.map(b => stripClaudeMd(b?.text ?? '')).join('\n\n')
-    return toStrip(rec, 'System Prompt', '', content)
+    return toStrip(rec, 'system', 'System Prompt', '', content)
   }
 
   // The deferred-tool roster Claude Code announces in the environment block of the first user
@@ -197,7 +199,7 @@ export class RequestParser {
     // Counted per kind, named after the strip each would have joined had it loaded
     const count = (n, what) => n && `${n} deferred ${what} tool${n === 1 ? '' : 's'}`
     const label = [count(names.length - mcp, 'system'), count(mcp, 'MCP')].filter(Boolean).join(', ')
-    return toStrip(rec, 'Deferred Tools', label, '```\n' + names.join('\n') + '\n```')
+    return toStrip(rec, 'message', 'Deferred Tools', label, '```\n' + names.join('\n') + '\n```')
   }
 
   // The request's tool definitions, from a resolveRefs'd record, as a native and an MCP strip —
@@ -216,19 +218,21 @@ export class RequestParser {
       const list = fresh.filter(t => pick(t.name))
       if (!list.length) return null
       const content = list.map(t => [`## ${t.name}`, t.description || '', schema(t)].filter(Boolean).join('\n\n')).join('\n\n')
-      return toStrip(rec, file_path, `${list.length} tool${list.length === 1 ? '' : 's'}`, content)
+      return toStrip(rec, 'tools', file_path, `${list.length} tool${list.length === 1 ? '' : 's'}`, content)
     }
     return [strip('System Tools', n => !isMcp(n)), strip('MCP Tools', isMcp)].filter(Boolean)
   }
 
   // Memory files (CLAUDE.md / MEMORY.md / …) carried by a resolveRefs'd record — one
-  // { file_path, memory_type, content } per file listed. Claude Code ships them in a user message's
-  // system-reminder; an Agent SDK app can append the same section to the system prompt instead.
+  // { source, file_path, memory_type, content } per file listed. Claude Code ships them in a user
+  // message's system-reminder; an Agent SDK app can append the same section to the system prompt.
   memoryFiles(rec) {
     const req = rec.request
     // an unresolvable ref (truncated log) is an object, not text — skipped
     const texts = c => (Array.isArray(c) ? c.map(p => p?.text) : [c]).filter(t => typeof t === 'string')
-    const reminders = (req?.messages || []).flatMap(m => texts(m?.content)).filter(t => t.includes('<system-reminder>'))
-    return [...texts(req?.system), ...reminders].flatMap(parseClaudeMd)
+    // user messages only — an assistant reply quoting the reminder's shape must not parse as files loaded
+    const reminders = (req?.messages || []).filter(m => m?.role === 'user').flatMap(m => texts(m.content)).filter(t => t.includes('<system-reminder>'))
+    const from = (source, list) => list.flatMap(parseClaudeMd).map(f => ({ source, ...f }))
+    return [...from('system', texts(req?.system)), ...from('message', reminders)]
   }
 }

@@ -1,6 +1,6 @@
 import { format } from 'date-fns'
 import { fmtDuration, fmtBytes, fmtNum, fmtUSD, fmtCompact } from '../utils/formatting.js'
-import { flatten, toolSummary, instructionTitle, currentModel, contextWindow } from './view/transcript.js'
+import { flatten, toolSummary, instructionTitle, groupInstructions, currentModel, contextWindow } from './view/transcript.js'
 
 let MAX_LINES = 10
 let MAX_LINE_CHARS = 200
@@ -45,7 +45,11 @@ function renderBlock(b) {
 }
 
 function renderTurn(t) {
-  if (t.role === 'instruction') return `**Instructions loaded:**\n\n${t.blocks.map(renderBlock).join('\n\n')}`
+  if (t.role === 'instruction') {
+    return groupInstructions(t.blocks.map(b => b.it))
+      .map(([label, list]) => `**Instructions loaded (${label}):**\n\n${list.map(it => renderBlock({ type: 'instruction', it })).join('\n\n')}`)
+      .join('\n\n')
+  }
   const role = t.role === 'user' ? (t.queued ? 'User (queued)' : 'User') : `Assistant`
   const tokens = t.tokenTotal > 0 && t.tokenDelta != null
     ? ` (${t.tokenDelta >= 0 ? '+' : ''}${fmtCompact(t.tokenDelta)} / ${fmtCompact(t.tokenTotal)} tokens)`

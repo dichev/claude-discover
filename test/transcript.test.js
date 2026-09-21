@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { parseCommand, flatten, groupTurns, tokenPoints } from '../src/renderer/sessions/view/transcript.js'
+import { parseCommand, flatten, groupTurns, groupInstructions, tokenPoints } from '../src/renderer/sessions/view/transcript.js'
 import { SessionParser } from '../src/main/sessions/SessionParser.js'
 
 describe('parseCommand', () => {
@@ -86,24 +86,31 @@ describe('token totals around a back-dated queued command', () => {
   })
 })
 
-describe('groupTurns — instruction runs', () => {
-  const items = [{ type: 'user', uuid: 'u1', timestamp: '2026-07-24T18:07:31.000Z', message: { role: 'user', content: 'hi' } }]
-  const instr = (timestamp, file_path) => ({ timestamp, file_path, content: 'x' })
+describe('groupTurns — the instruction block', () => {
+  const items = [
+    { type: 'user', uuid: 'u1', timestamp: '2026-07-24T18:07:31.000Z', message: { role: 'user', content: 'hi' } },
+    { type: 'user', uuid: 'u2', timestamp: '2026-07-24T18:08:31.000Z', message: { role: 'user', content: 'more' } },
+  ]
+  const instr = (timestamp, file_path, source) => ({ timestamp, file_path, source, content: 'x' })
 
-  it('groups one request\'s instructions together', () => {
-    const ts = '2026-07-24T18:07:30.336Z'
-    const groups = groupTurns(flatten(items, [instr(ts, 'System Prompt'), instr(ts, 'System Tools'), instr(ts, 'CLAUDE.md')]))
-    expect(groups.map(g => g.kind)).toEqual(['instruction', 'user'])
-    expect(groups[0].turns).toHaveLength(3)
+  it('folds every request\'s instructions into one block above the first message', () => {
+    const groups = groupTurns(flatten(items, [
+      instr('2026-07-24T18:07:30.326Z', 'System Prompt', 'system'), // title generation
+      instr('2026-07-24T18:07:30.336Z', 'System Prompt', 'system'), // the main loop, 10ms later
+      instr('2026-07-24T18:07:30.336Z', 'System Tools', 'tools'),
+      instr('2026-07-24T18:08:30.336Z', 'MCP Tools', 'tools'), // a deferred tool loaded by the second request
+    ]))
+    expect(groups.map(g => g.kind)).toEqual(['instruction', 'user', 'user'])
+    expect(groups[0].turns).toHaveLength(1)
+    expect(groups[0].turns[0].blocks.map(b => b.it.file_path)).toEqual(['System Prompt', 'System Prompt', 'System Tools', 'MCP Tools'])
   })
 
-  it('splits instructions of two back-to-back requests — their totals must not be summed', () => {
-    const groups = groupTurns(flatten(items, [
-      instr('2026-07-24T18:07:30.326Z', 'System Prompt'), // title generation
-      instr('2026-07-24T18:07:30.336Z', 'System Prompt'), // the main loop, 10ms later
-      instr('2026-07-24T18:07:30.336Z', 'System Tools'),
-    ]))
-    expect(groups.map(g => g.kind)).toEqual(['instruction', 'instruction', 'user'])
-    expect(groups.map(g => g.turns.length)).toEqual([1, 2, 1])
+  it('groups the block\'s strips by source, in request order, skipping empty sources', () => {
+    const strips = [instr('t', 'CLAUDE.md', 'message'), instr('t', 'System Tools', 'tools'), instr('t', 'System Prompt', 'system'), instr('t', 'MCP Tools', 'tools')]
+    expect(groupInstructions(strips).map(([label, list]) => [label, list.map(it => it.file_path)])).toEqual([
+      ['system prompt', ['System Prompt']],
+      ['tools', ['System Tools', 'MCP Tools']],
+      ['user message', ['CLAUDE.md']],
+    ])
   })
 })

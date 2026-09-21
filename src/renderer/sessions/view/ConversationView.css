@@ -11,7 +11,7 @@
 }
 
 .conv-row + .conv-row { margin-top: 15px; }
-/* One instruction row per API call (see groupTurns) — the gap keeps two calls' strips apart. */
+/* The session's one instruction row (see flatten) — the gap keeps its strips off the first message. */
 .conv-row-instruction + .conv-row { margin-top: 20px; }
 .conv-row-assistant + .conv-row-user { margin-top: 60px; }
 .conv-row-assistant + .conv-row-assistant { margin-top: 0; }
@@ -342,12 +342,25 @@ button.msg-summary:hover { color: var(--text); background: var(--bg-elev-2); bor
   }
 }
 
-/* Instruction files (system prompt / CLAUDE.md / memory) extracted from the captured API requests. */
-.instruction-file {
+/* Instruction files (system prompt / CLAUDE.md / memory) extracted from the captured API requests,
+   and the label over each group — one unbroken strip down the whole run. */
+.instruction-file,
+.instruction-source {
   border-left: 2px solid #a78bfa;
   padding-left: 8px;
   margin-left: -10px;
 }
+
+/* Group label over the strips read from one part of the request (system prompt / tools / user message). */
+.instruction-source {
+  font-family: var(--font-mono), monospace;
+  font-size: calc(10.5px * var(--font-scale, 1));
+  color: var(--text-faint);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  padding-top: 6px;
+}
+.instruction-source:first-child { padding-top: 0; }
 
 /* Full-width toggle so the estimated token count can sit right-aligned, like msg-header-right. */
 .instruction-file .aux-toggle { display: flex; width: 100%; align-items: center; }

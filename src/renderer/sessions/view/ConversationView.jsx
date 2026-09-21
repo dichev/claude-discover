@@ -2,7 +2,7 @@ import React, { useContext, useEffect, useMemo, useState } from 'react'
 import { format } from 'date-fns'
 import { Terminal } from 'lucide-react'
 import { fmtCompact, fmtDuration } from '../../utils/formatting'
-import { flatten, groupTurns, cycleDurations, tokenPoints, isContextTurn, toolSummary, parseCommand, instructionTitle, currentModel, contextWindow, countTokens } from './transcript.js'
+import { flatten, groupTurns, cycleDurations, tokenPoints, isContextTurn, toolSummary, parseCommand, groupInstructions, instructionTitle, currentModel, contextWindow, countTokens } from './transcript.js'
 import LazyMount from '../../ui/LazyMount.jsx'
 import Markdown from '../../ui/Markdown.jsx'
 import { useFindActive } from '../../ui/useFindActive.js'
@@ -355,15 +355,21 @@ function JsonBlock({ value }) {
   return <Markdown className="block-text" text={'```json\n' + safeJson(value) + '\n```'} />
 }
 
-// A run of instruction files from one request (system prompt / tools / CLAUDE.md / memory),
-// with a summed token total under it once there's more than one file to add up.
+// The session's instruction files, grouped by the part of the request they were read from
+// (system prompt / tools / user message), with a summed token total under them once there's
+// more than one file to add up.
 function InstructionRun({ turns, model }) {
-  const tokens = turns.map(t => countTokens(t.blocks[0].it.content, t.blocks[0].it.model ?? model))
+  const strips = turns.flatMap(t => t.blocks).map(({ it }) => ({ ...it, tokens: countTokens(it.content, it.model ?? model) }))
   return (
     <>
-      {turns.map((t, i) => <InstructionFile key={t.uuid} it={t.blocks[0].it} model={model} tokens={tokens[i]} />)}
-      {turns.length > 1 && (
-        <div className="aux instruction-total"><span className="instruction-tokens">~ {fmtCompact(tokens.reduce((a, b) => a + b, 0))}</span></div>
+      {groupInstructions(strips).map(([label, list]) => (
+        <React.Fragment key={label}>
+          <div className="aux instruction-source">{label}</div>
+          {list.map(it => <InstructionFile key={`${it.hash ?? it.file_path}-${it.timestamp}`} it={it} model={model} tokens={it.tokens} />)}
+        </React.Fragment>
+      ))}
+      {strips.length > 1 && (
+        <div className="aux instruction-total"><span className="instruction-tokens">~ {fmtCompact(strips.reduce((a, it) => a + it.tokens, 0))}</span></div>
       )}
     </>
   )

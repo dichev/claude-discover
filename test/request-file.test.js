@@ -206,7 +206,8 @@ describe('RequestFile.readInstructions', () => {
     expect(files.map(f => f.file_path)).toEqual([
       'System Prompt', 'C:\\Users\\me\\.claude\\CLAUDE.md', 'D:\\proj\\CLAUDE.md', 'C:\\Users\\me\\.claude\\projects\\p\\memory\\MEMORY.md',
     ])
-    expect(files[0]).toMatchObject({ memory_type: '', model: 'claude-sonnet-5', content: 'Be terse' })
+    expect(files[0]).toMatchObject({ source: 'system', memory_type: '', model: 'claude-sonnet-5', content: 'Be terse' })
+    expect(files.slice(1).every(f => f.source === 'message')).toBe(true) // read from the user message's reminder
     expect(files.every(f => f.timestamp === '2026-07-14T10:00:00.000Z')).toBe(true) // first sight wins
   })
 
@@ -220,9 +221,9 @@ describe('RequestFile.readInstructions', () => {
         system: [{ type: 'text', text: 'billing' }, { type: 'text', text: appended }], messages: [userMsg] } }) + '\n')
     const files = await new RequestFile('sess-p', { dir }).readInstructions()
     expect(files).toMatchObject([
-      { file_path: 'System Prompt', content: 'billing\n\nYou are Claude Code' },
-      { file_path: 'D:\\biz\\ROLE.md', name: 'D:\\biz\\ROLE.md', memory_type: 'role instructions', content: '# Customer Support\n\nRole body.' },
-      { file_path: 'D:\\biz\\briefing.md', memory_type: 'role briefing', content: 'Briefing body.' },
+      { source: 'system', file_path: 'System Prompt', content: 'billing\n\nYou are Claude Code' },
+      { source: 'system', file_path: 'D:\\biz\\ROLE.md', name: 'D:\\biz\\ROLE.md', memory_type: 'role instructions', content: '# Customer Support\n\nRole body.' },
+      { source: 'system', file_path: 'D:\\biz\\briefing.md', memory_type: 'role briefing', content: 'Briefing body.' },
     ])
   })
 
@@ -289,10 +290,10 @@ describe('RequestFile.readInstructions', () => {
       status: 200, timestamp: '2026-07-14T10:00:00.000Z', request: { model: 'claude-sonnet-5', tools,
         messages: [{ role: 'user', content: [{ type: 'text', text: env }] }] } }) + '\n')
     const files = await new RequestFile('sess-d', { dir }).readInstructions()
-    expect(files.map(f => [f.file_path, f.memory_type])).toEqual([
-      ['Deferred Tools', '2 deferred system tools, 3 deferred MCP tools'], // the roster's own strip carries the counts
-      ['System Tools', '1 tool'],
-      ['MCP Tools', '1 tool'],
+    expect(files.map(f => [f.source, f.file_path, f.memory_type])).toEqual([
+      ['message', 'Deferred Tools', '2 deferred system tools, 3 deferred MCP tools'], // the roster's own strip carries the counts
+      ['tools', 'System Tools', '1 tool'],
+      ['tools', 'MCP Tools', '1 tool'],
     ])
   })
 
