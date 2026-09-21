@@ -338,6 +338,20 @@ describe('RequestFile.readInstructions', () => {
     expect(files[0]).toMatchObject({ memory_type: 'Auto-mode check', model: 'claude-haiku-4-5', kind: 'security' })
   })
 
+  it('names a side channel it has no matcher for after the prompt\'s own opening line', async () => {
+    const base = { type: 'api-request', url: 'POST /v1/messages', status: 200 }
+    fs.writeFileSync(path.join(dir, 'sess-a.requests.jsonl'), [
+      { ...base, timestamp: '2026-07-14T10:00:00.000Z', request: { model: 'claude-sonnet-5', tools: [], // no roster — not the agent loop
+        system: 'You are Claude Code, Anthropic\'s official CLI for Claude.\n\nGenerate a short kebab-case name for this conversation',
+        messages: [{ role: 'user', content: 'hi' }] } },
+      { ...base, timestamp: '2026-07-14T10:01:00.000Z', request: { model: 'claude-sonnet-5', tools: [{ name: 'Read', description: 'Reads a file' }],
+        system: 'You are Claude Code', messages: [{ role: 'user', content: 'hi' }] } },
+    ].map(r => JSON.stringify(r)).join('\n') + '\n')
+    const files = await new RequestFile('sess-a', { dir }).readInstructions()
+    expect(files.filter(f => f.file_path === 'System Prompt').map(f => f.memory_type))
+      .toEqual(['Generate a short kebab-case name…', '']) // the agent loop itself stays label-less
+  })
+
   it('returns [] when no log exists', async () => {
     expect(await new RequestFile('no-such-session', { dir }).readInstructions()).toEqual([])
   })

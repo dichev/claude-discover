@@ -59,6 +59,15 @@ export function parseClaudeMd(text) {
   })
 }
 
+// Names a side channel we have no matcher for after its own opening line — the boilerplate every
+// Claude Code prompt starts with is skipped, so what's left is the line that says what it is for.
+const promptHeadline = sysText => {
+  const line = sysText.split('\n').map(l => l.trim())
+    .find(l => l && !l.startsWith('x-anthropic-billing-header') && !l.startsWith('You are Claude Code'))
+  if (!line) return 'Side channel'
+  return line.length > 34 ? line.slice(0, 33).trimEnd() + '…' : line
+}
+
 // Classifies a request by url, or on /v1/messages by its system prompt / trailing user message —
 // the body is the only thing that says what such a request is for. Returns [cssKind, label] for
 // RequestsView, or null. Tolerates the log's dedup wrappers, so raw and resolved records both work.
@@ -77,13 +86,15 @@ export const classifyRequest = (req, url) => {
   if (req.max_tokens === 1 || user.trim() === 'quota') return ['quota', 'Quota probe']
   // auto permission mode vets each tool call with a security-monitor prompt before running it
   if (sysText.includes('You are a security monitor') || user.startsWith('<transcript>')) return ['security', 'Auto-mode check']
-  if (sysText.includes('Generate a concise, sentence-case title')) return ['title', 'Session title']
+  if (sysText.includes('Generate a concise, sentence-case title') || sysText.includes('You are naming a coding session')) return ['title', 'Session title']
   if (sysText.includes('performing a web search')) return ['web', 'Web search']
   if (user.startsWith('[SUGGESTION MODE')) return ['suggest', 'Suggestions']
   if (user.startsWith('Web page content')) return ['web', 'Web fetch']
   if (user.startsWith('Describe your most recent action')) return ['status', 'Status blurb']
   if (tail.includes('detailed summary of the conversation')) return ['compact', 'Compact']
   if (sysText.includes("built on Anthropic's Claude Agent SDK")) return ['agent', 'Subagent']
+  const tools = un(req.tools)
+  if (sysText && Array.isArray(tools) && !tools.length) return ['aux', promptHeadline(sysText)]
   if (!sysText.includes('You are Claude Code')) return null // unrecognized request — leave unclassified
   // agentic-loop continuations feed back the previous turn's tool results, so the last
   // user-role message says what this request is: tool results, or a new human message
