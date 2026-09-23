@@ -67,6 +67,14 @@ describe('flatten — skill companion records', () => {
   })
 })
 
+describe('flatten — structured output', () => {
+  it('drops the attachment echoing a StructuredOutput call', () => {
+    const call = { type: 'assistant', uuid: 'a1', timestamp: '2026-09-23T00:00:00.000Z', message: { role: 'assistant', content: [{ type: 'tool_use', id: 'tu1', name: 'StructuredOutput', input: { description: 'x' } }] } }
+    const echo = { type: 'attachment', uuid: 'e1', timestamp: '2026-09-23T00:00:00.001Z', attachment: { type: 'structured_output', data: { description: 'x' }, toolUseID: 'tu1' } }
+    expect(flatten([call, echo])).toHaveLength(1)
+  })
+})
+
 describe('flatten — queued commands', () => {
   const queued = (attachment, uuid = 'q1') => ({ type: 'attachment', uuid, timestamp: '2026-07-30T00:41:09.674Z', attachment: { type: 'queued_command', ...attachment } })
   const assistant = { type: 'assistant', uuid: 'a1', timestamp: '2026-07-30T00:41:00.000Z', message: { role: 'assistant', content: [{ type: 'text', text: 'ok' }] } }

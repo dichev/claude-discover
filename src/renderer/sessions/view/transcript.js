@@ -41,6 +41,8 @@ export function flatten(items, instructions = []) {
       continue
     }
     if (it.type === 'attachment' && it.attachment) {
+      // Echoes the StructuredOutput call's input verbatim — the call already shows it.
+      if (it.attachment.type === 'structured_output' && it.attachment.toolUseID) continue
       const block = { type: 'attachment', attachment: it.attachment }
       const last = turns[turns.length - 1]
       // Coalesce consecutive harness-injected attachments into one meta turn.
