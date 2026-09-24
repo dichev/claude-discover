@@ -307,7 +307,8 @@ describe('RequestFile.readInstructions', () => {
     const files = await new RequestFile('sess-m', { dir }).readInstructions()
     expect(files).toMatchObject([
       { file_path: 'System Tools', memory_type: '1 tool', content: '## Read\n\nReads a file' },
-      { file_path: 'MCP Tools', memory_type: '2 tools', content: '## mcp__pw__click\n\nClicks\n\n## mcp__pw__type\n\nTypes' },
+      { file_path: 'MCP Tools', memory_type: '2 tools', content: '## mcp__pw__click\n\nClicks\n\n## mcp__pw__type\n\nTypes',
+        tools: [{ name: 'mcp__pw__click', content: 'Clicks' }, { name: 'mcp__pw__type', content: 'Types' }] },
     ])
   })
 

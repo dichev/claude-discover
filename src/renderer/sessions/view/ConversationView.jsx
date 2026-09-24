@@ -397,7 +397,9 @@ function InstructionFile({ it, model, tokens }) {
       {open && (
         <div className="aux-body">
           {it.name && it.name !== it.file_path && <div className="instruction-path">{it.file_path}</div>}
-          <Markdown className="block-text" text={it.content || ''} basePath={it.file_path} />
+          {it.tools
+            ? it.tools.map(t => <InstructionFile key={t.name} it={{ file_path: t.name, content: t.content }} model={model} tokens={countTokens(t.content, it.model ?? model)} />)
+            : <Markdown className="block-text" text={it.content || ''} basePath={it.file_path} />}
         </div>
       )}
     </div>

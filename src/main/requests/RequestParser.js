@@ -140,10 +140,11 @@ export class RequestParser {
     // out made the strip's token estimate far too low.
     const schema = t => t.input_schema ? '```json\n' + JSON.stringify(t.input_schema, null, 2) + '\n```' : ''
     const strip = (file_path, pick) => {
-      const list = fresh.filter(t => pick(t.name))
+      const list = fresh.filter(t => pick(t.name)).map(t => ({ name: t.name, content: [t.description || '', schema(t)].filter(Boolean).join('\n\n') }))
       if (!list.length) return null
-      const content = list.map(t => [`## ${t.name}`, t.description || '', schema(t)].filter(Boolean).join('\n\n')).join('\n\n')
-      return toStrip(rec, 'tools', file_path, `${list.length} tool${list.length === 1 ? '' : 's'}`, content)
+      const content = list.map(t => [`## ${t.name}`, t.content].filter(Boolean).join('\n\n')).join('\n\n')
+      // `tools` keeps each definition apart, so the UI can fold them one by one
+      return { ...toStrip(rec, 'tools', file_path, `${list.length} tool${list.length === 1 ? '' : 's'}`, content), tools: list }
     }
     return [strip('System Tools', n => !isMcp(n)), strip('MCP Tools', isMcp)].filter(Boolean)
   }
