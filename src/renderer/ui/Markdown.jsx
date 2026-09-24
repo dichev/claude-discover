@@ -1,5 +1,5 @@
 import React, { useMemo, useRef } from 'react'
-import ReactMarkdown from 'react-markdown'
+import ReactMarkdown, { defaultUrlTransform } from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 import rehypeHighlight from 'rehype-highlight'
 import { fenceBlocks, fenceTags, splitMarkdown } from '../utils/textBlock.js'
@@ -25,10 +25,15 @@ function buildLinkComponents(basePath) {
   }
 }
 
+// react-markdown's default transform blanks `data:` URLs; inline images are safe to keep since
+// an <img> never runs script (and the CSP blocks remote ones anyway).
+const urlTransform = (url, key, node) =>
+  node.tagName === 'img' && /^data:image\//i.test(url) ? url : defaultUrlTransform(url)
+
 // Memoized per chunk: when streaming output grows, earlier chunks keep their exact string,
 // so only the tail chunk re-parses on each update.
 const Chunk = React.memo(({ text, components }) => (
-  <ReactMarkdown remarkPlugins={[remarkGfm]} rehypePlugins={[rehypeHighlight]} components={components}>{text}</ReactMarkdown>
+  <ReactMarkdown remarkPlugins={[remarkGfm]} rehypePlugins={[rehypeHighlight]} components={components} urlTransform={urlTransform}>{text}</ReactMarkdown>
 ))
 
 // Long texts (dumps, pasted logs) render one chunk at a time, each lazy-mounted against the block's
