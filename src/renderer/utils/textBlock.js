@@ -61,7 +61,10 @@ export function fenceTags(text) {
     if (close < 0) continue
     const end = close + m[1].length + 3
     if (end !== text.length && text[end] !== '\n' && text[end] !== '\r') continue
-    out += text.slice(cursor, m.index) + '```xml\n' + text.slice(m.index, end) + '\n```'
+    const gap = text.slice(cursor, m.index)
+    // Pairs separated only by blank lines share the previous fence instead of stacking one block per tag.
+    if (out && !gap.trim()) out = out.slice(0, -4) + gap + text.slice(m.index, end) + '\n```'
+    else out += gap + '```xml\n' + text.slice(m.index, end) + '\n```'
     cursor = startRe.lastIndex = end
   }
   out += text.slice(cursor)

@@ -216,13 +216,18 @@ function Block({ block }) {
     if (cmd) {
       // A tag matched but its body was blank (e.g. a slash command with no stdout) — nothing to show.
       if (!cmd.name && !cmd.args && !cmd.stdout && !cmd.caveat) return null
+      // Multi-line args are a prompt the user wrote (e.g. a skill's brief) — render them like one.
+      const promptArgs = cmd.args.trim().includes('\n')
       return (
-        <div className="block-command">
-          {cmd.name && <span className="cmd-name">{cmd.name}</span>}
-          {cmd.args && <span className="cmd-args"> {cmd.args}</span>}
-          {cmd.stdout && <div className="cmd-stdout">{cmd.stdout}</div>}
-          {cmd.caveat && <div className="cmd-stdout">{cmd.caveat}</div>}
-        </div>
+        <>
+          <div className="block-command">
+            {cmd.name && <span className="cmd-name">{cmd.name}</span>}
+            {cmd.args && !promptArgs && <span className="cmd-args"> {cmd.args}</span>}
+            {cmd.stdout && <div className="cmd-stdout">{cmd.stdout}</div>}
+            {cmd.caveat && <div className="cmd-stdout">{cmd.caveat}</div>}
+          </div>
+          {promptArgs && <Markdown className="block-text" text={cmd.args} autoFence />}
+        </>
       )
     }
     return <Markdown className="block-text" text={block.text} autoFence />

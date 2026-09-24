@@ -61,6 +61,11 @@ describe('fenceTags', () => {
     expect(out).toBe('intro\n```xml\n<a_tag>\nx\n</a_tag>\n```\n\nmiddle\n\n```xml\n<b_tag> y </b_tag>\n```')
   })
 
+  it('fences adjacent pairs (only blank lines between) as one block', () => {
+    expect(fenceTags('<a_tag>x</a_tag>\n\n<b_tag>\ny\n</b_tag>\nafter'))
+      .toBe('```xml\n<a_tag>x</a_tag>\n\n<b_tag>\ny\n</b_tag>\n```\nafter')
+  })
+
   it('wraps stray tags in inline code spans', () => {
     expect(fenceTags('a <br/> b')).toBe('a `<br/>` b')
     expect(fenceTags('mid-sentence <b>bold</b> here')).toBe('mid-sentence `<b>`bold`</b>` here')
