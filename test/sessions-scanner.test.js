@@ -100,7 +100,7 @@ describe('SessionsScanner.scan', () => {
 // The stat cache: walks hit the disk until a full walk completes with the watcher live,
 // after which scans serve from the watcher-fed `stats` map (readdir+stat of every file is
 // the bottleneck on remote dirs). A stubbed truthy watcher suffices — only scan()/stop()
-// semantics are under test, the chokidar wiring isn't.
+// semantics are under test, the watcher wiring isn't.
 describe('SessionsScanner stat cache', () => {
   let cacheRoot, scanner
   const fakeWatcher = { close() {} }
@@ -165,9 +165,9 @@ describe('SessionsScanner stat cache', () => {
   })
 })
 
-// watch() waits for a scan before starting chokidar, and resolves once it is live — chokidar's setup
-// walks the whole projects dir, and on a cold disk racing that against our own walk dominates startup.
-describe('SessionsScanner deferred watcher', () => {
+// The watcher starts at once, so the first walk already runs with it live and fills the stat cache,
+// sparing the second scan its disk walk.
+describe('SessionsScanner watcher', () => {
   let watchRoot, scanner
 
   beforeEach(() => {
@@ -180,46 +180,17 @@ describe('SessionsScanner deferred watcher', () => {
     fs.rmSync(watchRoot, { recursive: true, force: true })
   })
 
-  it('watch() touches nothing until a scan finishes', () => {
+  it('the first walk completes the stat cache', async () => {
     scanner.watch({})
-    expect(scanner.watcher).toBe(null)
+    await scanner.scan(day)
+    expect(scanner.statCache.complete).toBe(true)
   })
 
-  it('starts the watcher once a scan has finished', async () => {
-    const watching = scanner.watch({})
-    await scanner.scan(day)
-    await watching // resolves when the watcher is live
-    expect(scanner.watcher).toBeTruthy()
-  })
-
-  it('a scan without watch() never starts one', async () => {
-    await scanner.scan(day)
-    expect(scanner.watcher).toBe(null)
-  })
-
-  it('later scans leave the watcher alone', async () => {
-    const watching = scanner.watch({})
-    await scanner.scan(day)
-    await watching
-    const started = scanner.watcher
-    await scanner.scan(day)
-    expect(scanner.watcher).toBe(started)
-  })
-
-  it('an aborted scan still releases it — a superseded walk must not strand the watcher', async () => {
-    const watching = scanner.watch({})
-    const ac = new AbortController()
-    ac.abort()
-    await scanner.scan(day, { signal: ac.signal })
-    await watching
-    expect(scanner.watcher).toBeTruthy()
-  })
-
-  it('stop() cancels a watch() still waiting on a scan', async () => {
-    const watching = scanner.watch({})
-    scanner.stop()
-    await scanner.scan(day)
-    await watching
-    expect(scanner.watcher).toBe(null)
+  it('creates a missing root so it can watch it', () => {
+    const root = path.join(watchRoot, 'not-yet', 'projects')
+    scanner = new SessionsScanner({ root })
+    scanner.watch({})
+    expect(fs.existsSync(root)).toBe(true)
+    expect(scanner.watcher.mode).toBe('event')
   })
 })

@@ -38,7 +38,7 @@ Not a hard constraint — restructure when it serves the code, just update this 
 │   │   ├── config/                 the app's own config: ConfigFile (~/.claude-discover/config.json) + pricing seed
 │   │   ├── requests/               captured-request reading & parsing
 │   │   ├── services/               backend services (LoginService = a generic per-OS login service) + the StatusBar switchers
-│   │   ├── sessions/               transcript scanning, caching & parsing
+│   │   ├── sessions/               transcript scanning, caching & parsing (utils/: the file watchers)
 │   │   └── windows/                the app window + the find-bar overlay
 │   ├── preload/                    contextBridge preloads (main window + find overlay)
 │   └── renderer/                   React frontend (functional)
@@ -76,6 +76,8 @@ Paths are centralized in `src/main/paths.js` (Claude side) and `bin/proxy.config
 ### Session scanning pipeline
 
 `SessionsScanner` (walk + watch) → `SessionFile` (stream lines) → `SessionParser` (fold into a meta) → `MetaCache` → `SessionsService` (dedup, pricing, IPC updates).
+
+Watching (`sessions/utils/FileWatcher.js`) is one recursive `fs.watch`, not chokidar, whose per-file handles stalled startup ~20s. Where `fs.watch` refuses the root (`\\wsl.localhost\...`) or fails later, it re-lists the tree on an interval instead.
 
 Invariants — token totals break if any of these are bypassed:
 

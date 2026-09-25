@@ -1,5 +1,5 @@
-// Watcher-fed cache of file stats — a standalone addon in front of SessionsScanner's
-// disk walk; delete this file and the scanner's few statCache lines to remove it.
+// Watcher-fed cache of file stats in front of SessionsScanner's disk walk; also the
+// IntervalFileWatcher's baseline, so interval mode (WSL/UNC roots) depends on it.
 export class StatCache {
   constructor() {
     this.stats = new Map() // filePath -> stat, filled by the walk, kept fresh by watcher events

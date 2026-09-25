@@ -1,8 +1,9 @@
+import fs from 'node:fs'
 import fsp from 'node:fs/promises'
 import path from 'node:path'
-import chokidar from 'chokidar'
 import {CLAUDE_PROJECTS_DIR} from '../paths.js'
 import { StatCache } from './StatCache.js'
+import { FileWatcher, listFiles } from './utils/FileWatcher.js'
 
 const isJsonl = (p) => p.endsWith('.jsonl')
 
@@ -10,21 +11,12 @@ export class SessionsScanner {
   constructor({ root = CLAUDE_PROJECTS_DIR } = {}) {
     this.root = root
     this.watcher = null
-    this.watchWanted = false // a watch() is waiting for the disk — cleared by stop() to cancel it
-    this.walkDone = Promise.withResolvers() // resolved by the first finished walk, awaited by watch()
     this.statCache = new StatCache() // lets warm scans skip the readdir+stat sweep (the bottleneck on remote dirs)
   }
 
   async _listDirs(p) {
     const entries = await fsp.readdir(p, { withFileTypes: true }).catch(() => [])
     return entries.filter(e => e.isDirectory()).map(e => path.join(e.parentPath, e.name))
-  }
-
-  // Every .jsonl under `dir`, at any depth — subagent transcripts nest arbitrarily deep. Subtrees
-  // can't be pruned by directory mtime: on Windows, appending to a transcript doesn't bump its parent dir.
-  async _listJsonl(dir) {
-    const entries = await fsp.readdir(dir, { recursive: true, withFileTypes: true }).catch(() => [])
-    return entries.filter(e => e.isFile() && isJsonl(e.name)).map(e => path.join(e.parentPath, e.name))
   }
 
   // Append-only transcripts span [birthtime, mtime], so files outside the period are skipped
@@ -39,11 +31,10 @@ export class SessionsScanner {
   // `signal` (a superseded scan) stops everything; once complete with the watcher live, the
   // StatCache mirrors disk and serves later scans in memory.
   async scan(day, opts = {}) {
-    if (this.statCache.complete && this.watcher) {
+    if (this.statCache.complete) {
       return this.statCache.scan(stat => this._inPeriod(stat, day), opts)
     }
-    try { await this._walk(day, opts) }
-    finally { this.walkDone.resolve() } // the disk is free — releases a watch() waiting on it
+    return this._walk(day, opts)
   }
 
   async _walk(day, { onFile, onBatchDone, onProgress, signal } = {}) {
@@ -53,7 +44,9 @@ export class SessionsScanner {
     progress()
     await Promise.all(projects.map(async projDir => {
       if (signal?.aborted) return
-      const results = await Promise.all((await this._listJsonl(projDir)).map(async fp => {
+      // Every .jsonl at any depth (subagent transcripts nest); no pruning by dir mtime, which Windows doesn't bump on append
+      const files = await listFiles(projDir, isJsonl).catch(() => [])
+      const results = await Promise.all(files.map(async fp => {
         const stat = signal?.aborted ? null : await fsp.stat(fp).catch(() => null)
         this.statCache.record(fp, stat)
         return stat && this._inPeriod(stat, day) && !signal?.aborted ? onFile?.(fp, stat) : null
@@ -69,39 +62,25 @@ export class SessionsScanner {
     progress() // terminal emit: covers total===0 and guarantees the bar clears
   }
 
-  // Starts chokidar once a scan has finished, and resolves when it's live. Its setup walks the whole
-  // projects dir to register watchers, and on a cold disk those stats are the bulk of startup, so it
-  // waits instead of racing our walk. The gap is self-healing: `ignoreInitial` skips files present at
-  // startup anyway, and a session still being written emits on its next append.
-  async watch({ onChange, onUnlink } = {}) {
-    this.watchWanted = true
-    await this.walkDone.promise
-    if (!this.watchWanted) return // stop() cancelled us while we waited
-    const isUNC = this.root.startsWith('\\\\') || this.root.startsWith('//') // native fs.watch fails on UNC (e.g. \\wsl.localhost\...)
-    this.watcher = chokidar.watch(this.root, {
-      ignoreInitial: true,
-      alwaysStat: true,
-      awaitWriteFinish: { stabilityThreshold: 400, pollInterval: 100 },
-      ignored: (p, stats) => !!stats?.isFile() && !isJsonl(p),
-      ...(isUNC && { usePolling: true, interval: 1000 }),
+  // Starts before the first walk, so that walk already completes the StatCache
+  watch({ onChange, onUnlink }) {
+    try { fs.mkdirSync(this.root, { recursive: true }) } catch {} // Claude Code creates it lazily; fs.watch needs it now
+    this.watcher = new FileWatcher(this.root, {
+      filter: isJsonl,
+      onChange: (p, stat) => {
+        this.statCache.record(p, stat)
+        onChange(p, stat)
+      },
+      onUnlink: p => {
+        this.statCache.remove(p)
+        onUnlink(p)
+      },
+      onDrop: () => this.statCache.clear(),
+      baseline: () => this.statCache.complete ? this.statCache.stats : null, // null until a full walk exists to diff against
     })
-    const changed = (p, stat) => {
-      if (!isJsonl(p)) return
-      this.statCache.record(p, stat)
-      onChange?.(p, stat)
-    }
-    const removed = p => {
-      if (!isJsonl(p)) return
-      this.statCache.remove(p)
-      onUnlink?.(p)
-    }
-    this.watcher.on('add', changed)
-    this.watcher.on('change', changed)
-    this.watcher.on('unlink', removed)
   }
 
   stop() {
-    this.watchWanted = false // a watch() waiting on a scan must not start after stop
     if (this.watcher) {
       this.watcher.close()
       this.watcher = null
