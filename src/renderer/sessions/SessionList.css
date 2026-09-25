@@ -188,6 +188,8 @@
 
 .worktree-tag { color: #34d399; }
 
+.session-tag { color: #4ade80; }
+
 .fork-tag {
   color: var(--accent);
   font-weight: bold;

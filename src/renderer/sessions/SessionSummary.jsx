@@ -111,6 +111,7 @@ export default function SessionSummary({ meta, items, instructions, agent, onOpe
         <Field label="Model" value={modelLabel} mono />
         {meta.serviceTier && <Field label="Service tier" value={meta.serviceTier} />}
         {meta.speed && <Field label="Speed" value={meta.speed === 'fast' ? (meta.fastPricingUnknown ? 'fast (pricing unknown)' : 'fast') : meta.speed} />}
+        {meta.tag && <Field label="Tag" value={meta.tag} mono />}
         <Field label="Git branch" value={meta.gitBranch || '—'} mono />
         <Field label="Source" value={meta.source || meta.entrypoint || '—'} />
         {meta.hasScheduledTask && <Field label="Scheduled" value="yes" />}

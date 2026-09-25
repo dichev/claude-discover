@@ -45,7 +45,7 @@ function freshMeta({ sessionId, parentSessionId, filePath, parentFilePath, fileS
     startedAt: null, lastActivityAt: null,
     entrypoint: null, project: null, worktree: null, worktreePath: null, gitBranch: null, version: null,
     model: null, models: [], serviceTier: null, speed: null, fastPricingUnknown: false, priceUnknown: false,
-    summary: null, aiTitle: null, customTitle: null, agentName: null, firstUserPrompt: null, firstUserCommand: null, forkedFrom: null,
+    summary: null, aiTitle: null, customTitle: null, agentName: null, tag: null, firstUserPrompt: null, firstUserCommand: null, forkedFrom: null,
     messageCount: 0, workflowAgents: 0, toolCalls: 0, skillCalls: 0,
     tokens: emptyBucket(), tokensByModel: {}, tokensByModelFast: {}, lastContextTokens: 0,
     serverToolUse: { webSearch: 0, webFetch: 0 },
@@ -79,6 +79,7 @@ export class SessionParser {
     if (t === 'ai-title' && obj.aiTitle) meta.aiTitle = obj.aiTitle
     if (t === 'custom-title' && obj.customTitle) meta.customTitle = obj.customTitle
     if (t === 'agent-name' && obj.agentName) meta.agentName = obj.agentName
+    if (t === 'tag') meta.tag = obj.tag || null // last one wins; an empty tag clears it
     if (t === 'queue-operation' && obj.content?.includes('<scheduled-task')) meta.hasScheduledTask = true
     if (t === 'started' && obj.key && obj.agentId) meta.workflowAgents += 1 // workflow journal: one `started` record per agent() call
 

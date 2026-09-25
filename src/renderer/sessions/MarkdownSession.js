@@ -108,7 +108,8 @@ export function markdownSession(meta, items, truncated, instructions = []) {
 - Model: ${meta.models.join(', ') || '—'}
 - Service tier: ${meta.serviceTier || '—'}
 - Speed: ${meta.speed ? (meta.speed === 'fast' ? (meta.fastPricingUnknown ? 'fast (pricing unknown)' : 'fast') : meta.speed) : '—'}
-- Git branch: ${meta.gitBranch || '—'}
+${meta.tag ? `- Tag: ${meta.tag}
+` : ''}- Git branch: ${meta.gitBranch || '—'}
 - Source: ${meta.source || meta.entrypoint || '—'}
 - Scheduled: ${meta.hasScheduledTask ? 'yes' : 'no'}
 - CLI version: ${meta.version || '—'}
