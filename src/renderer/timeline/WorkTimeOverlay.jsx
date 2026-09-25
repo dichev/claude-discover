@@ -42,10 +42,6 @@ export default function WorkTimeOverlay({
     return () => clearInterval(id)
   }, [])
 
-  useEffect(() => {
-    if (workTime) window.api.setWorkHours({ work_hours: { start: fmtHM(workTime.startMin), end: fmtHM(workTime.endMin) } })
-  }, [workTime])
-
   const chartRight = chartLeft + chartWidth
   const xForMin = (min) => chartLeft + ((dayStart + min * 60_000 - viewStart) / (viewEnd - viewStart)) * chartWidth
   const xStart = workTime ? xForMin(workTime.startMin) : 0
@@ -55,17 +51,20 @@ export default function WorkTimeOverlay({
     e.stopPropagation()
     e.preventDefault()
     setDragging(which)
+    let next = null
     const onMove = (m) => {
       const rect = containerRef.current.getBoundingClientRect()
       const ratio = clamp((m.clientX - rect.left - chartLeft) / chartWidth, 0, 1)
       const ts = viewStart + ratio * (viewEnd - viewStart)
       const min = clamp(Math.round((ts - dayStart) / 60_000 / SNAP_MIN) * SNAP_MIN, 0, 24 * 60)
-      setWorkTime((wt) => which === 'start'
-        ? { ...wt, startMin: Math.min(min, wt.endMin - SNAP_MIN) }
-        : { ...wt, endMin: Math.max(min, wt.startMin + SNAP_MIN) })
+      next = which === 'start'
+        ? { ...workTime, startMin: Math.min(min, workTime.endMin - SNAP_MIN) }
+        : { ...workTime, endMin: Math.max(min, workTime.startMin + SNAP_MIN) }
+      setWorkTime(next)
     }
     const onUp = () => {
       setDragging(null)
+      if (next) window.api.setWorkHours({ work_hours: { start: fmtHM(next.startMin), end: fmtHM(next.endMin) } })
       document.removeEventListener('mousemove', onMove)
       document.removeEventListener('mouseup', onUp)
     }
