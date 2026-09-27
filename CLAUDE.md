@@ -7,12 +7,13 @@ Developed on Windows; macOS and Linux are also supported.
 ## Commands
 
 ```bash
-npm run dev      # electron-vite dev — hot reload, renderer on :5555, CDP on :9333
-npm run build    # electron-vite build → out/{main,preload,renderer}
-npm start        # run the built app (electron .)
-npm test         # vitest run --reporter=tree
-npm run proxy    # run the capture proxy standalone (bin/proxy.mjs --restart)
-npm run smoke    # npm pack + install-and-launch the tarball
+npm run dev           # electron-vite dev — hot reload, renderer on :5555, CDP on :9333
+npm run build         # electron-vite build → out/{main,preload,renderer}
+npm start             # run the built app (electron .)
+npm test              # vitest run --reporter=tree
+npm run proxy         # run the capture proxy standalone (bin/proxy.mjs --restart)
+npm run smoke:local   # npm pack + launch the tarball via npx (npx cache, no shortcuts)
+npm run smoke:global  # npm pack + npm i -g the tarball and launch it (npm uninstall -g claude-discover after)
 ```
 
 To verify token/cost math against `ccusage` (must match to the cent — pin UTC on both sides):
@@ -95,6 +96,7 @@ Optional features, secondary to the core timeline. The switchable ones are a cla
 - **Statusline** — installs `bin/claude/statusline.mjs` as Claude Code's statusLine command.
 - **Retention** — raises Claude Code's `cleanupPeriodDays` so transcripts aren't swept before this app can browse them.
 - **Claude dir** — switches which Claude data directory the app reads from (relaunches the app on it).
+- **Shortcuts** (not a switcher, @windows) — `Shortcuts` writes Start Menu + Desktop `.lnk`s on the first launch of each install ("Claude Discover" for an installed package, "Claude Discover (local)" for a repo checkout), re-points existing ones on every launch, and recreates a deleted one only after a reinstall — keyed by the package dir's birth time (`shortcuts` in config.json). Skipped under npx and dev.
 - **Deep links** (not a switcher) — `claude-discover://session?id=<sessionId>&date=<yyyy-MM-dd>` opens a session from another app. `DeepLink` does the routing; only the scheme registration is OS-specific — @windows registers on every launch and the link arrives in a second launch's argv; @macOS is not registered (only an `.app` bundle can own a scheme, and npx runs bare Electron), though the `open-url` handler is wired for a future bundle.
 
 ### Dev-only bits

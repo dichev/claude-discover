@@ -1,6 +1,7 @@
 import { app } from 'electron'
 import { DeepLink, findTarget } from './services/DeepLink.js'
 import { Application } from './Application.js'
+import { Shortcuts } from './services/Shortcuts.js'
 
 // The first instance takes control: it owns the window and handles links and restart requests.
 // Later instances forward their argv to it via 'second-instance', then exit.
@@ -10,6 +11,7 @@ if (isFirstInstance) {
   let application
   const deepLink = new DeepLink()
   deepLink.activate()
+  new Shortcuts().activate()
 
   if (import.meta.env.DEV) await import('./debug.js')
   app.whenReady().then(() => {

@@ -24,7 +24,8 @@
     "test": "vitest run --reporter=tree",
     "proxy": "node bin/proxy.mjs --restart",
     "readme": "gh markdown-preview",
-    "smoke": "npm pack && npx -y ./claude-discover-${npm_package_version}.tgz",
+    "smoke:local": "npm pack && npx -y ./claude-discover-${npm_package_version}.tgz",
+    "smoke:global": "npm pack && npm i -g ./claude-discover-${npm_package_version}.tgz && claude-discover",
     "postinstall": "install-electron",
     "prepack": "npm run build",
     "prepublishOnly": "npm whoami && npm test"
