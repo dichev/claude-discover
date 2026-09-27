@@ -8,10 +8,10 @@ import { Shortcuts } from './services/Shortcuts.js'
 const isFirstInstance = app.requestSingleInstanceLock()
 
 if (isFirstInstance) {
-  let application
-  const deepLink = new DeepLink()
-  deepLink.activate()
-  new Shortcuts().activate()
+  let application = null
+  let deepLink = null
+  optional('deep links', () => deepLink = new DeepLink().activate())
+  optional('shortcuts', () => new Shortcuts().activate())
 
   if (import.meta.env.DEV) await import('./debug.js')
   app.whenReady().then(() => {
@@ -24,7 +24,7 @@ if (isFirstInstance) {
     if (argv.includes('--restart')) {
       application?.restart()
     } else if (target) {
-      deepLink.open(target)
+      deepLink?.open(target)
     } else {
       application?.win.focus()
     }
@@ -32,4 +32,9 @@ if (isFirstInstance) {
 }
 else {
   app.exit(0)
+}
+
+// Add-ons that must never block startup
+function optional(label, activate) {
+  try { activate() } catch (err) { console.warn(`[${label}] skipped:`, err.message) }
 }

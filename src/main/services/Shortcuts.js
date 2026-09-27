@@ -32,7 +32,7 @@ export class Shortcuts {
       const path = join(dir, `${name}.lnk`)
       const exists = fs.existsSync(path)
       if (!exists && !newInstall) continue
-      shell.writeShortcutLink(path, exists ? 'replace' : 'create', {
+      const written = shell.writeShortcutLink(path, exists ? 'replace' : 'create', {
         target:         process.execPath,
         args:           `"${app.getAppPath()}"`,
         description:    'Browse your local Claude Code sessions',
@@ -40,6 +40,7 @@ export class Shortcuts {
         iconIndex:      0,
         appUserModelId: APP_ID,
       })
+      if (!written) throw new Error(`cannot write ${path}`) // before the save below, so the next launch retries
     }
     if (newInstall) config.save({ shortcuts: { ...created, [name]: install } })
   }

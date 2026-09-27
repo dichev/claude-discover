@@ -25,7 +25,7 @@ export class Application {
     // main → renderer
     sessionsService.on('update', sessions => win.send('sessions:update', sessions))
     sessionsService.on('progress', p => win.send('sessions:scan-progress', p))
-    deepLink.on('open', target => {
+    deepLink?.on('open', target => {
       win.focus()
       win.send('deeplink:open-session', target)
     })
@@ -42,7 +42,7 @@ export class Application {
     ipcMain.handle('work-hours:set', (_e, data) => workHours.write(data))
     ipcMain.handle('agent:run', (e, text, systemTools, cache) => agentRunner.run(text, e.sender, systemTools, cache))
     ipcMain.handle('shell:open-link', (_e, href, baseFile) => openLinkSafely(href, baseFile))
-    ipcMain.handle('deeplink:take-pending', () => deepLink.takePending())
+    ipcMain.handle('deeplink:take-pending', () => deepLink?.takePending() ?? null)
     ipcMain.on('find:query', (_e, text, options) => win.findBar?.query(text, options))
     ipcMain.on('find:stop', () => win.findBar?.stop())
     ipcMain.on('find:close', () => win.findBar?.hide())

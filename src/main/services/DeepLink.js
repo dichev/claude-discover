@@ -22,6 +22,7 @@ export class DeepLink extends EventEmitter {
     app.on('open-url', (e, url) => { e.preventDefault(); this.#deliver(findTarget([url])) }) // @macOS
     this.#register()
     this.#pending = findTarget(process.argv)
+    return this
   }
 
   open(target) {
