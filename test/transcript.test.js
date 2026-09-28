@@ -65,6 +65,14 @@ describe('flatten — skill companion records', () => {
     for (const l of [cmd, body]) parser.feed(structuredClone(l))
     expect(parser.meta).toMatchObject({ toolCalls: 0, skillCalls: 1, firstUserPrompt: null })
   })
+
+  it('keeps a companion after an assistant turn as its own meta note', () => {
+    const reply = { type: 'assistant', uuid: 'a2', timestamp: '2026-09-28T00:53:26.000Z', message: { role: 'assistant', content: [{ type: 'thinking', thinking: '', signature: 'sig==' }] } }
+    const nudge = { type: 'user', uuid: 'c3', parentUuid: 'a2', timestamp: '2026-09-28T00:53:26.679Z', isMeta: true, turnCompanion: true, message: { role: 'user', content: '[Your previous response had no visible output. Please continue and produce a user-visible response.]' } }
+    const parser = new SessionParser({ sessionId: 's1', filePath: 's1.jsonl' })
+    for (const l of [reply, nudge]) parser.feed(structuredClone(l))
+    expect(parser.meta).toMatchObject({ skillCalls: 0, firstUserPrompt: null })
+  })
 })
 
 describe('flatten — structured output', () => {

@@ -66,6 +66,7 @@ export class SessionParser {
     this.prevMessage = null
     this.tokenTotal = 0
     this.lastSeenTs = null
+    this.commandUuids = new Set()
     // msgId -> the usage bucket we've already folded into the totals, so later
     // snapshots of a streamed reply can contribute only their growth.
     this.appliedById = new Map()
@@ -120,8 +121,9 @@ export class SessionParser {
     }
 
     if (t === 'user') {
-      // A skill run as a slash command has no Skill call — only its body record marks it.
-      if (obj.turnCompanion && !obj.sourceToolUseID) meta.skillCalls += 1
+      // A skill run as a slash command has no Skill call — only its body record marks it. Other
+      // companions (e.g. the "no visible output" nudge) hang off an assistant turn instead.
+      if (obj.turnCompanion && !obj.sourceToolUseID && this.commandUuids.has(obj.parentUuid)) meta.skillCalls += 1
       this._feedUser(obj)
     } else if (t === 'assistant') {
       const msg = obj.message
@@ -152,6 +154,7 @@ export class SessionParser {
     const text = extractText(obj.message?.content)
     if (text.startsWith('<command-name>') || text.startsWith('<command-message>')) {
       if (!meta.firstUserCommand) meta.firstUserCommand = text
+      if (obj.uuid) this.commandUuids.add(obj.uuid)
       obj.isMeta = true
     } else if (text.startsWith('<local-command-stdout>')) {
       // stdout arrives as a separate message after the command-name entry
