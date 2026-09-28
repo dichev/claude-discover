@@ -13,44 +13,21 @@
 .summary-ai {
   display: flex;
   flex-direction: column;
+  align-items: flex-end;
   gap: 8px;
   padding-bottom: 15px;
   border-bottom: 1px solid var(--border);
 }
 
-.summary-ai-row {
-  display: flex;
-  justify-content: flex-end;
-  align-items: center;
-  gap: 4px;
+/* Both labels share one grid cell so the button keeps the wider label's width.
+   Doubled class: styles.css loads later and would re-center the text */
+.button-primary.summary-ai-button {
+  display: inline-grid;
+  text-align: left;
+
+  & > span { grid-area: 1 / 1; }
+  & > .hidden { visibility: hidden; }
 }
-
-.summary-ai-gear {
-  padding: 4px 8px;
-  font-size: 14px;
-  line-height: 1;
-  color: var(--text-faint);
-  background: transparent;
-  cursor: pointer;
-  border: none;
-
-  &:hover { color: var(--text); background: transparent; }
-}
-
-
-.summary-ai-output {
-  max-height: 320px;
-  overflow: auto;
-  background: var(--bg-elev-1, var(--bg));
-  font-size: 12px;
-
-  .agent-prompt-output {
-    padding: 0;
-    border: none;
-    border-radius: 0;
-  }
-}
-
 
 .summary-section {
   display: flex;

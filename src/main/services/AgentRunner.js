@@ -1,6 +1,6 @@
 export class AgentRunner {
 
-  async run(text, sender, systemTools = false, cache = false) {
+  async run(text, sender) {
     const { query } = await import('@anthropic-ai/claude-agent-sdk') // loaded on first run — 50ms off startup
     const send = chunk => {
       if (!sender.isDestroyed()) sender.send('agent:output', chunk)
@@ -10,11 +10,9 @@ export class AgentRunner {
       prompt: text,
       options: {
         includePartialMessages: true,
-        env: cache // @macOS - process.env must be included (for macOS)
-          ? { ...process.env, FORCE_PROMPT_CACHING_5M: '1' }
-          : { ...process.env, DISABLE_PROMPT_CACHING: '1' },
-        tools: systemTools ? undefined : [],
-        settingSources: systemTools ? undefined : [],
+        env: { ...process.env, DISABLE_PROMPT_CACHING: '1' }, // @macOS - process.env must be included
+        tools: [],
+        settingSources: [],
       }
     })
     for await (const message of response) {

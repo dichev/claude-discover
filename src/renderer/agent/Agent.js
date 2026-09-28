@@ -1,22 +1,17 @@
 import { useEffect, useState } from 'react'
-import { TRUNCATE_LINES, TRUNCATE_LINE_CHARS } from '../sessions/MarkdownSession.js'
-import { useLocalStorage } from '../utils/useLocalStorage.js'
+import { MAX_LINES, MAX_LINE_CHARS, markdownSession } from '../sessions/MarkdownSession.js'
 import ANALYZE_PROMPT from './ANALYZE_PROMPT.md?raw'
 
 
-const TRUNCATE_NOTE = `  - Note: long content was truncated for display (lines >${TRUNCATE_LINE_CHARS} chars, blocks >${TRUNCATE_LINES} lines). The original session had the full content — base advice on what was clearly happening, not on the truncation.`
+const TRUNCATE_NOTE = `  - Note: long content was truncated for display (lines >${MAX_LINE_CHARS} chars, blocks >${MAX_LINES} lines). The original session had the full content — base advice on what was clearly happening, not on the truncation.`
+const PROMPT = String(ANALYZE_PROMPT).replace('{{TRUNCATION_NOTE}}', TRUNCATE_NOTE)
 
 
 
 export function useAgent(resetKey) {
-  const [truncated, setTruncated]       = useLocalStorage('agent.truncated', true)
-  const [editedPrompt, setEditedPrompt] = useLocalStorage('agent.prompt', '')
-  const [running, setRunning]           = useState(false)
-  const [output, setOutput]             = useState('')
-  const [error, setError]               = useState('')
-
-  const defaultPrompt = String(ANALYZE_PROMPT).replace('{{TRUNCATION_NOTE}}', truncated ? TRUNCATE_NOTE : '')
-  const prompt = editedPrompt || defaultPrompt
+  const [running, setRunning] = useState(false)
+  const [output, setOutput]   = useState('')
+  const [error, setError]     = useState('')
 
   useEffect(() => window.api.onAgentOutput(chunk => setOutput(p => p + chunk)), [])
 
@@ -26,12 +21,13 @@ export function useAgent(resetKey) {
     setOutput('')
   }, [resetKey])
 
-  const send = async (text) => {
+  const analyze = async (meta, items, instructions) => {
     setError('')
     setOutput('')
     setRunning(true)
     try {
-      const { code } = await window.api.runAgentPrompt(text)
+      const { body } = markdownSession(meta, items, instructions)
+      const { code } = await window.api.runAgentPrompt(`${PROMPT}\n\n---\n${body}`)
       if (code !== 0) setError(`Claude exited with code ${code}`)
     } catch (err) {
       setError(err.message || String(err))
@@ -40,5 +36,5 @@ export function useAgent(resetKey) {
     }
   }
 
-  return { running, error, send, prompt, editedPrompt, setEditedPrompt, output, truncated, setTruncated, defaultPrompt }
+  return { running, error, output, analyze }
 }

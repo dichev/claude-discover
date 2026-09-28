@@ -2,8 +2,8 @@ import { format } from 'date-fns'
 import { fmtDuration, fmtBytes, fmtNum, fmtUSD, fmtCompact, fmtToolCalls } from '../utils/formatting.js'
 import { flatten, toolSummary, instructionTitle, groupInstructions, currentModel, contextWindow } from './view/transcript.js'
 
-let MAX_LINES = 10
-let MAX_LINE_CHARS = 200
+export const MAX_LINES = 10
+export const MAX_LINE_CHARS = 200
 let MODEL = null // the conversation's model, for instructionTitle
 
 function truncateLine(line) {
@@ -58,12 +58,7 @@ function renderTurn(t) {
   return `**${role}${tokens}:**\n\n${t.blocks.map(renderBlock).join('\n\n')}`
 }
 
-export const TRUNCATE_LINES = 10
-export const TRUNCATE_LINE_CHARS = 200
-
-export function markdownSession(meta, items, truncated, instructions = []) {
-  MAX_LINES = truncated ? TRUNCATE_LINES : Infinity
-  MAX_LINE_CHARS = truncated ? TRUNCATE_LINE_CHARS : Infinity
+export function markdownSession(meta, items, instructions = []) {
   const t = meta.tokens
   const stu = meta.serverToolUse
   const wallDuration = meta.lastActivityAt - meta.startedAt

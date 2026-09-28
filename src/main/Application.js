@@ -40,7 +40,7 @@ export class Application {
     ipcMain.handle('switch:keep-active', (_e, name, value) => switchers.setKeepActive(name, value))
     ipcMain.handle('work-hours:get', () => workHours.read())
     ipcMain.handle('work-hours:set', (_e, data) => workHours.write(data))
-    ipcMain.handle('agent:run', (e, text, systemTools, cache) => agentRunner.run(text, e.sender, systemTools, cache))
+    ipcMain.handle('agent:run', (e, text) => agentRunner.run(text, e.sender))
     ipcMain.handle('shell:open-link', (_e, href, baseFile) => openLinkSafely(href, baseFile))
     ipcMain.handle('deeplink:take-pending', () => deepLink?.takePending() ?? null)
     ipcMain.on('find:query', (_e, text, options) => win.findBar?.query(text, options))

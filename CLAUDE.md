@@ -43,10 +43,10 @@ Not a hard constraint — restructure when it serves the code, just update this 
 │   │   └── windows/                the app window + the find-bar overlay
 │   ├── preload/                    contextBridge preloads (main window + find overlay)
 │   └── renderer/                   React frontend (functional)
-│       ├── agent/                  analysis-agent UI + prompt template
+│       ├── agent/                  AI Analyze hook, output + prompt template
 │       ├── assets/                 images imported by the UI
 │       ├── find/                   standalone find-bar page (own renderer entry)
-│       ├── sessions/               session list + detail views (Conversation/JSONL/Requests/Agent tabs)
+│       ├── sessions/               session list + detail views (Conversation/JSONL/Requests tabs)
 │       ├── timeline/               period views (Daily/Weekly/Monthly) + the work-hours band
 │       ├── ui/                     generic primitives + the status bar
 │       └── utils/                  shared hooks & helpers

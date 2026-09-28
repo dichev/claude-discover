@@ -3,7 +3,7 @@ import Markdown from '../ui/Markdown.jsx'
 import { createTypewriter } from '../utils/effects.js'
 import './AgentOutput.css'
 
-export default function AgentOutput({ output, pretty, running, error }) {
+export default function AgentOutput({ output, running, error }) {
   const [displayed, setDisplayed] = useState(output)
   const lastOutputRef = useRef(output)
   const scrollRef     = useRef(null)
@@ -29,9 +29,7 @@ export default function AgentOutput({ output, pretty, running, error }) {
 
   return (
     <div className="agent-prompt-output" ref={scrollRef}>
-      {pretty
-        ? <Markdown text={displayed} />
-        : <pre className="agent-view-raw">{displayed}</pre>}
+      <Markdown text={displayed} />
       {running && (
         <div className="agent-prompt-typing" aria-label="Running">
           <span className="dot" /><span className="dot" /><span className="dot" />

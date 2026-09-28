@@ -4,15 +4,10 @@ import { fmtDuration, fmtBytes, fmtNum, fmtUSD, fmtCompact, fmtToolCalls, tone }
 import { THRESHOLDS as T } from '../utils/thresholds.js'
 import { contextWindow } from './view/transcript.js'
 import AgentOutput from '../agent/AgentOutput.jsx'
-import { markdownSession } from './MarkdownSession.js'
 import './SessionSummary.css'
 
-export default function SessionSummary({ meta, items, instructions, agent, onOpenAgent, granularity = 'day' }) {
+export default function SessionSummary({ meta, items, instructions, agent, granularity = 'day' }) {
   const timeFormat = granularity === 'day' ? 'pp' : 'MMM d, pp'
-  const onAnalyze = () => {
-    const { body } = markdownSession(meta, items, agent.truncated, instructions)
-    agent.send(`${agent.prompt}\n\n---\n${body}`)
-  }
   const t = meta.tokens
   const totalTokens = meta.totalTokens
   const wallDuration = meta.lastActivityAt - meta.startedAt
@@ -28,28 +23,16 @@ export default function SessionSummary({ meta, items, instructions, agent, onOpe
   return (
     <div className="session-summary">
       <div className="summary-ai">
-        <div className="summary-ai-row">
-          <button
-            type="button"
-            className="button-primary"
-            onClick={onAnalyze}
-            disabled={agent.running || !items}
-          >
-            {agent.running ? '⚡︎ Analyzing…' : '⚡︎ AI Analyze'}
-          </button>
-          <button
-            type="button"
-            className="summary-ai-gear"
-            onClick={onOpenAgent}
-            title="Open Agent tab"
-            aria-label="Open Agent tab"
-          >
-            ⚙
-          </button>
-        </div>
-        <div className="summary-ai-output">
-          <AgentOutput output={agent.output} pretty={true} running={agent.running} error={agent.error} />
-        </div>
+        <button
+          type="button"
+          className="button-primary summary-ai-button"
+          onClick={() => agent.analyze(meta, items, instructions)}
+          disabled={agent.running || !items}
+        >
+          <span className={agent.running ? 'hidden' : ''}>⚡︎ AI Analyze</span>
+          <span className={agent.running ? '' : 'hidden'}>⚡︎ Analyzing…</span>
+        </button>
+        <AgentOutput output={agent.output} running={agent.running} error={agent.error} />
       </div>
 
       <Section title="Summary">

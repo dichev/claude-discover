@@ -21,7 +21,7 @@ contextBridge.exposeInMainWorld('api', {
   getWorkHours: () => ipcRenderer.invoke('work-hours:get'),
   setWorkHours: (data) => ipcRenderer.invoke('work-hours:set', data),
 
-  runAgentPrompt: (text, systemTools, cache) => ipcRenderer.invoke('agent:run', text, systemTools, cache),
+  runAgentPrompt: text => ipcRenderer.invoke('agent:run', text),
   onAgentOutput: subscribe('agent:output'),
 
   openLink: (href, baseFile) => ipcRenderer.invoke('shell:open-link', href, baseFile),

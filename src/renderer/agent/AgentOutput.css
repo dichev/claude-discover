@@ -26,10 +26,9 @@
 }
 
 .agent-prompt-output {
-  flex: 1;
-  min-height: 0;
+  align-self: stretch;
+  max-height: 320px;
   overflow: auto;
-  border: 1px solid var(--border);
-  border-radius: 6px;
-  padding: 12px 16px;
+  background: var(--bg-elev-1, var(--bg));
+  font-size: 12px;
 }

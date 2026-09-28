@@ -2,7 +2,6 @@ import { useEffect, useState } from 'react'
 import ConversationView from './view/ConversationView.jsx'
 import JsonlView from './view/JsonlView.jsx'
 import RequestsView from './view/RequestsView.jsx'
-import AgentView from './view/AgentView.jsx'
 import SessionSummary from './SessionSummary.jsx'
 import Toggle from '../ui/Toggle.jsx'
 import { useAgent } from '../agent/Agent.js'
@@ -19,7 +18,6 @@ export default function Session({ meta, missing, date, granularity = 'day' }) {
   const [items, setItems]               = useState(null)
   const [instructions, setInstructions] = useState([])
   const [mode, setMode]                 = useLocalStorage('session.view-mode', 'conversation')
-  const [agentOpen, setAgentOpen]       = useState(false)
   const [expandAll, setExpandAll]       = useState(null)
   const filePath = meta?.filePath // not the session id, which can cover several transcripts
   const fileSize = meta?.fileSize
@@ -59,44 +57,40 @@ export default function Session({ meta, missing, date, granularity = 'day' }) {
     <div className="session-view">
       <div className="view-body">
         <div className="view-conversation">
-          {agentOpen ? (
-            <AgentView meta={meta} items={items} instructions={instructions} agent={agent} onClose={() => setAgentOpen(false)} />
-          ) : (
-            <div className="view-tab-pane">
-              <div className="view-tab-pane-row">
-                <div className="view-tab-pane-main">
-                  <div className="view-tabs-bar">
-                    <div className="view-tabs">
-                      {TABS.map(({ key, label }) => (
-                        <button
-                          key={key}
-                          type="button"
-                          className={`view-tab${mode === key ? ' active' : ''}`}
-                          onClick={() => setMode(key)}
-                        >{label}</button>
-                      ))}
-                    </div>
-                    <Toggle
-                      checked={!!expandAll}
-                      onChange={(v) => setExpandAll(v)}
-                      label={mode === 'conversation' ? 'Expand all' : 'Full text'}
-                    />
+          <div className="view-tab-pane">
+            <div className="view-tab-pane-row">
+              <div className="view-tab-pane-main">
+                <div className="view-tabs-bar">
+                  <div className="view-tabs">
+                    {TABS.map(({ key, label }) => (
+                      <button
+                        key={key}
+                        type="button"
+                        className={`view-tab${mode === key ? ' active' : ''}`}
+                        onClick={() => setMode(key)}
+                      >{label}</button>
+                    ))}
                   </div>
-                  {mode === 'conversation' ? (
-                    <div className="view-tab-pane-content">
-                      {items ? <ConversationView items={items} instructions={instructions} expandAll={expandAll} />
-                             : <div className="empty">Loading conversation…</div>}
-                    </div>
-                  ) : mode === 'jsonl' ? (
-                    <JsonlView items={items} expandAll={expandAll} />
-                  ) : (
-                    <RequestsView filePath={filePath} date={date} granularity={granularity} fileSize={fileSize} expandAll={expandAll} />
-                  )}
+                  <Toggle
+                    checked={!!expandAll}
+                    onChange={(v) => setExpandAll(v)}
+                    label={mode === 'conversation' ? 'Expand all' : 'Full text'}
+                  />
                 </div>
-                <SessionSummary meta={meta} items={items} instructions={instructions} agent={agent} onOpenAgent={() => setAgentOpen(true)} granularity={granularity} />
+                {mode === 'conversation' ? (
+                  <div className="view-tab-pane-content">
+                    {items ? <ConversationView items={items} instructions={instructions} expandAll={expandAll} />
+                           : <div className="empty">Loading conversation…</div>}
+                  </div>
+                ) : mode === 'jsonl' ? (
+                  <JsonlView items={items} expandAll={expandAll} />
+                ) : (
+                  <RequestsView filePath={filePath} date={date} granularity={granularity} fileSize={fileSize} expandAll={expandAll} />
+                )}
               </div>
+              <SessionSummary meta={meta} items={items} instructions={instructions} agent={agent} granularity={granularity} />
             </div>
-          )}
+          </div>
         </div>
       </div>
     </div>
