@@ -127,10 +127,12 @@ export function flatten(items, instructions = []) {
       blocks
     })
   }
+  // A result whose call lies outside the loaded period (e.g. before midnight) has nothing to merge into — it stays its own row.
+  const calls = new Set(turns.flatMap(t => t.blocks.filter(b => b.type === 'tool_use').map(b => b.id)))
   for (const t of turns) {
     t.blocks = t.blocks
       .map((b) => (b.type === 'tool_use' ? { ...b, result: withCompanion(results[b.id], companions[b.id]) } : b))
-      .filter((b) => !(b.type === 'tool_result' && results[b.tool_use_id]))
+      .filter((b) => !(b.type === 'tool_result' && calls.has(b.tool_use_id)))
   }
   const out = turns.filter((t) => t.blocks.length > 0)
   // All instructions form one turn, slotted backdated 500ms above the user message whose request

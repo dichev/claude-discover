@@ -119,6 +119,13 @@ describe('SessionParser — continuesFrom / continuesTo', () => {
   })
 })
 
+describe('flatten — tool results', () => {
+  it('keeps a result whose call lies outside the loaded period', () => {
+    const result = { type: 'user', uuid: 'r1', timestamp: '2026-09-23T00:00:05.000Z', message: { role: 'user', content: [{ type: 'tool_result', tool_use_id: 'tu0', content: 'late' }] } }
+    expect(flatten([result])).toMatchObject([{ role: 'tool', blocks: [{ type: 'tool_result', content: 'late' }] }])
+  })
+})
+
 describe('flatten — structured output', () => {
   it('drops the attachment echoing a StructuredOutput call', () => {
     const call = { type: 'assistant', uuid: 'a1', timestamp: '2026-09-23T00:00:00.000Z', message: { role: 'assistant', content: [{ type: 'tool_use', id: 'tu1', name: 'StructuredOutput', input: { description: 'x' } }] } }
