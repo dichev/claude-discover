@@ -106,6 +106,7 @@ export function markdownSession(meta, items, truncated, instructions = []) {
 
 ## Identity
 - Model: ${meta.models.join(', ') || '—'}
+- Effort: ${meta.efforts.join(', ') || '—'}
 - Service tier: ${meta.serviceTier || '—'}
 - Speed: ${meta.speed ? (meta.speed === 'fast' ? (meta.fastPricingUnknown ? 'fast (pricing unknown)' : 'fast') : meta.speed) : '—'}
 ${meta.tag ? `- Tag: ${meta.tag}

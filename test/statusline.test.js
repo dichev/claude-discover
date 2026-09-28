@@ -19,6 +19,10 @@ describe('statusline.mjs', () => {
     expect(run({ model: { display_name: 'Claude Sonnet 4.6' } }).trim()).toBe('[Sonnet 4.6]')
   })
 
+  it('appends the effort level to the model name', () => {
+    expect(run({ model: { display_name: 'Claude Opus 4.8' }, effort: { level: 'xhigh' } }).trim()).toBe('[Opus 4.8 xhigh]')
+  })
+
   it('renders the context window bar, percentage and cache hit rate', () => {
     const out = run({
       model: { display_name: 'Claude Opus 4.8' },
@@ -52,7 +56,7 @@ describe('statusline.mjs', () => {
         seven_day: { used_percentage: 95, resets_at: now + 400_000 }, // 4d 15h, over threshold so red
       },
     }, {}) // colors on
-    expect(out).toContain('Usage limit: 42% used (resets in 2h 30m)')
+    expect(out).toContain('Daily: 42% used (resets in 2h 30m)')
     expect(out).toContain('\x1b[31m95% used (resets in 4d 15h)\x1b[39m') // red wrap
   })
 
@@ -62,6 +66,6 @@ describe('statusline.mjs', () => {
       rate_limits: { seven_day: { used_percentage: 95, resets_at: Math.floor(Date.now() / 1000) + 400_000 } },
     }, { NO_COLOR: '1' })
     expect(out).not.toMatch(/\x1b\[/)
-    expect(out).toContain('Weekly limit: 95% used')
+    expect(out).toContain('Weekly: 95% used')
   })
 })

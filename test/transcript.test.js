@@ -79,6 +79,21 @@ describe('flatten — skill companion records', () => {
   })
 })
 
+describe('SessionParser — effort', () => {
+  it('collects distinct effort levels, preferring perTurnEffort and falling back to effort', () => {
+    const reply = (id, fields) => ({ type: 'assistant', uuid: id, timestamp: '2026-09-28T00:00:00.000Z', ...fields, message: { id, role: 'assistant', model: 'claude-opus-5-5', content: [] } })
+    const parser = new SessionParser({ sessionId: 's1', filePath: 's1.jsonl' })
+    const lines = [
+      reply('a1', { effort: 'high' }),
+      reply('a2', { effort: 'high', perTurnEffort: null }),
+      reply('a3', { effort: 'high', perTurnEffort: 'xhigh' }),
+      reply('a4', {}),
+    ]
+    for (const l of lines) parser.feed(l)
+    expect(parser.meta.efforts).toEqual(['high', 'xhigh'])
+  })
+})
+
 describe('flatten — structured output', () => {
   it('drops the attachment echoing a StructuredOutput call', () => {
     const call = { type: 'assistant', uuid: 'a1', timestamp: '2026-09-23T00:00:00.000Z', message: { role: 'assistant', content: [{ type: 'tool_use', id: 'tu1', name: 'StructuredOutput', input: { description: 'x' } }] } }

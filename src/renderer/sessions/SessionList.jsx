@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { Hourglass, Gauge, MessageSquare, Clock, Zap, DollarSign } from 'lucide-react'
+import { Hourglass, Gauge, MessageSquare, Clock, Zap, DollarSign, Brain } from 'lucide-react'
 import { SOURCE_COLORS } from '../utils/colors.js'
 import { format } from 'date-fns'
 import { fmtCompact, fmtNum, fmtUSD, fmtDuration, fmtAgo, tone } from '../utils/formatting.js'
@@ -14,7 +14,10 @@ const TIPS = {
   context: `Consider keeping it below ${fmtCompact(T.context.warn)} tokens`,
   messages: `Consider sessions below ${fmtCompact(T.messages.warn)} messages`,
   time: `Consider sessions under ${T.workTime.warn / 60_000}m`,
+  effort: 'Thinks longer and spends more output tokens than high',
 }
+
+const EFFORT_BADGE = { xhigh: 'warn-badge', max: 'danger-badge' }
 
 export default function SessionList({ sessions, selectedId, deepLink, onSelect }) {
   const selectedRef         = useRef(null)
@@ -95,6 +98,7 @@ export default function SessionList({ sessions, selectedId, deepLink, onSelect }
           const linked = !!deepLink && s.filePath === selectedId // opened by a claude-discover:// link, see App.jsx
           const linkTip = linked && `Opened from deep link\nclaude-discover://session?id=${deepLink.id}${deepLink.date ? `&date=${deepLink.date}` : ''}`
           const command = labelCommand(s)
+          const topEffort = ['max', 'xhigh'].find(e => s.efforts?.includes(e))
           const sessionName = s.customTitle && s.agentName && s.customTitle !== s.agentName
             ? `${s.customTitle} [${s.agentName}]`
             : (s.customTitle || s.agentName || '')
@@ -115,6 +119,7 @@ export default function SessionList({ sessions, selectedId, deepLink, onSelect }
                   {s.messageCount > T.messages.warn && s.messageCount <= T.messages.danger && <span className="warn-badge" title={`${fmtNum(s.messageCount)} messages\n${TIPS.messages}`}><MessageSquare size={11} /></span>}
                   {s.activeMs > T.workTime.danger && <span className="danger-badge" title={`Working time: ${fmtDuration(s.activeMs)}\n${TIPS.time}`}><Clock size={11} /></span>}
                   {s.activeMs > T.workTime.warn && s.activeMs <= T.workTime.danger && <span className="warn-badge" title={`Working time: ${fmtDuration(s.activeMs)}\n${TIPS.time}`}><Clock size={11} /></span>}
+                  {topEffort && <span className={EFFORT_BADGE[topEffort]} title={`Effort: ${topEffort}\n${TIPS.effort}`}><Brain size={11} /></span>}
                   {s.speed === 'fast' && <span className={`fast-badge ${s.fastPricingUnknown ? 'fast-badge-unknown' : ''}`} title={s.fastPricingUnknown ? 'Used fast mode — cost is INACCURATE: no fast-mode price multiplier known for this model' : 'Used fast mode (speed: fast)'}><Zap size={11} /></span>}
                   {s.priceUnknown && <span className="danger-badge" title={`No price entry for ${s.models?.join(', ') || 'this model'} — cost is missing or understated`}><DollarSign size={11} /></span>}
                   {isSubagent && <span className="subagent-tag">[subagent]</span>}
@@ -129,7 +134,7 @@ export default function SessionList({ sessions, selectedId, deepLink, onSelect }
                 <div className="session-time-bottom">
                   {s.tag && <span className="session-tag" title="Session tag">#{s.tag}</span>}
                   {s.project && <span className="session-project" title={s.project}>{s.projectShort}</span>}
-                  {s.models?.length > 0 && <span className="session-model">{s.models.map((m) => m.replace(/^claude-/, '')).join(', ')}</span>}
+                  {s.models?.length > 0 && <span className="session-model">{s.models.map((m) => m.replace(/^claude-/, '')).join(', ')}{s.efforts?.length > 0 && ` ${s.efforts.join(', ')}`}</span>}
                   <span title={format(s.lastActivityAt, 'MMM d, HH:mm:ss')}>{fmtAgo(s.lastActivityAt)}</span>
                   {linked && <span className="deeplink-note" data-tippy-content={linkTip} data-tippy-maxWidth={560}>opened from deep link</span>}
                 </div>

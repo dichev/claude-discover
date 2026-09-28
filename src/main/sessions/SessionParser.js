@@ -44,7 +44,7 @@ function freshMeta({ sessionId, parentSessionId, filePath, parentFilePath, fileS
     sessionId, parentSessionId, filePath, parentFilePath, fileSize, mtime,
     startedAt: null, lastActivityAt: null,
     entrypoint: null, project: null, worktree: null, worktreePath: null, gitBranch: null, version: null,
-    model: null, models: [], serviceTier: null, speed: null, fastPricingUnknown: false, priceUnknown: false,
+    model: null, models: [], efforts: [], serviceTier: null, speed: null, fastPricingUnknown: false, priceUnknown: false,
     summary: null, aiTitle: null, customTitle: null, agentName: null, tag: null, firstUserPrompt: null, firstUserCommand: null, forkedFrom: null,
     messageCount: 0, workflowAgents: 0, toolCalls: 0, skillCalls: 0,
     tokens: emptyBucket(), tokensByModel: {}, tokensByModelFast: {}, lastContextTokens: 0,
@@ -133,6 +133,9 @@ export class SessionParser {
         if (!meta.model) meta.model = msg.model
         if (!meta.models.includes(msg.model)) meta.models.push(msg.model)
       }
+      // Older CLIs log only `effort`; newer ones add `perTurnEffort` (sometimes null) for the level actually sent.
+      const effort = obj.perTurnEffort ?? obj.effort
+      if (effort && !meta.efforts.includes(effort)) meta.efforts.push(effort)
       // tool_use blocks stream across a reply's lines without repeating, so a plain per-line sum is exact.
       if (Array.isArray(msg.content)) {
         for (const b of msg.content) {

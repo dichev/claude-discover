@@ -109,6 +109,7 @@ export default function SessionSummary({ meta, items, instructions, agent, onOpe
 
       <Section title="Identity">
         <Field label="Model" value={modelLabel} mono />
+        {meta.efforts.length > 0 && <Field label="Effort" value={meta.efforts.join(', ')} />}
         {meta.serviceTier && <Field label="Service tier" value={meta.serviceTier} />}
         {meta.speed && <Field label="Speed" value={meta.speed === 'fast' ? (meta.fastPricingUnknown ? 'fast (pricing unknown)' : 'fast') : meta.speed} />}
         {meta.tag && <Field label="Tag" value={meta.tag} mono />}

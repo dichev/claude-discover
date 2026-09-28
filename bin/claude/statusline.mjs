@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 // Claude Code status line, installed by StatuslineSwitch. Reads the hook JSON from stdin and
-// prints one colored line — model, context usage, token totals, rate-limit windows:
-//   [Opus 4.8] Context: ▓▓▓░░░░░░░ 32% used (45.2k, 87% cached)  |  Tokens: 1.2M total (+45.2k, 3 turns)  |  Usage limit: 42% used (resets in 2h 30m)
+// prints one colored line — model and effort, context usage, token totals, rate-limit windows:
+//   [Opus 4.8 high] Context: ▓▓▓░░░░░░░ 32% used (45.2k, 87% cached)  |  Tokens: 1.2M total (+45.2k, 3 turns)  |  Daily: 42% used (resets in 2h 30m)
 
 import { readFileSync } from 'node:fs'
 import { styleText } from 'node:util'
@@ -33,6 +33,7 @@ function colorize(kind, text, value = 0) {
 // Collect stdin data
 const data = JSON.parse(readFileSync(0, 'utf-8')) // fd 0 = stdin
 const modelName = data.model?.display_name?.replace('Claude ', '') || '?'
+const effort    = data.effort?.level // absent when the model doesn't support effort
 const parts = []
 
 
@@ -111,7 +112,7 @@ function fmtReset(resetsAt) { // Format remaining time until a unix-epoch reset,
 }
 
 const rl = data.rate_limits || {}
-for (const [label, window] of [['Usage limit', rl.five_hour], ['Weekly limit', rl.seven_day]]) {
+for (const [label, window] of [['Daily', rl.five_hour], ['Weekly', rl.seven_day]]) {
   if (!window) continue
   const pct      = Math.floor(window.used_percentage || 0)
   const reset    = fmtReset(window.resets_at)
@@ -121,4 +122,4 @@ for (const [label, window] of [['Usage limit', rl.five_hour], ['Weekly limit', r
 
 
 // Status line
-process.stdout.write(`[${modelName}] ` + parts.join('  |  ') + '\n')
+process.stdout.write(`[${modelName}${effort ? ` ${effort}` : ''}] ` + parts.join('  |  ') + '\n')
