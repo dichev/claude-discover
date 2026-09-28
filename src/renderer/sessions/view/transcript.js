@@ -91,9 +91,10 @@ export function flatten(items, instructions = []) {
       continue
     }
     // A skill run as a slash command has no Skill call — its body folds into the command turn it follows.
+    // Other companions (e.g. the "no visible output" nudge after an assistant turn) stay meta notes.
     const command = it.turnCompanion && turns.findLast(t => t.uuid === it.parentUuid)
-    if (command) {
-      const name = command.blocks.map(b => parseCommand(b.text)?.name).find(Boolean)?.replace(/^\//, '')
+    const name = command && command.blocks.map(b => parseCommand(b.text)?.name).find(Boolean)?.replace(/^\//, '')
+    if (name) {
       command.blocks.push({ type: 'skill', name, text: companionText(it) })
       continue
     }
