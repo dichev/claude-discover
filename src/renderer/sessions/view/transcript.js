@@ -19,8 +19,17 @@ const queuedPrompt = it =>
   && it.attachment.commandMode === 'prompt' && (it.attachment.origin?.kind ?? 'human') === 'human'
   && it.attachment.prompt?.trim() ? it.attachment.prompt : null
 
-// After an assistant or tool turn (between tool cycles) a meta turn is part of the assistant's side
-const sideAfter = last => (last?.role === 'assistant' || last?.role === 'tool') ? 'assistant' : 'user'
+// Context the user brought in themselves (IDE state, @-mentions) — every other attachment is Claude Code's own
+const USER_ATTACHMENTS = new Set(['opened_file_in_ide', 'selected_lines_in_ide', 'selected_lines_in_diff', 'file', 'already_read_file'])
+
+// Who a message or attachment record is from: You (`user`), Claude (`assistant`) or Claude Code itself (`system`)
+function speaker(it, blocks = []) {
+  if (it.type === 'attachment') return USER_ATTACHMENTS.has(it.attachment.type) ? 'user' : 'system'
+  // What Claude Code writes in the model's name — an API error, or "No response requested." closing a turn a hook stopped
+  if (it.type === 'assistant') return it.message?.model === '<synthetic>' ? 'system' : 'assistant'
+  // Meta user records are Claude Code's own prompts (caveats, nudges, command output) — except the slash command itself
+  return it.isMeta && !blocks.some(b => parseCommand(b.text)?.name) ? 'system' : 'user'
+}
 
 // "stop_hook_summary" → "Stop hook summary"
 export const humanize = type => type.replace(/_/g, ' ').replace(/^./, c => c.toUpperCase())
@@ -57,12 +66,11 @@ function stateNote(it, state) {
 const metaTurn = (it, role, blocks, uuid = it.uuid) => ({
   uuid,
   role,
-  isMeta: true,
   ts: it.timestamp ? Date.parse(it.timestamp) : null,
   model: null, usage: null, tokenDelta: null, tokenTotal: null,
   blocks
 })
-const noteTurn = (it, note, last, uuid) => metaTurn(it, sideAfter(last), [{ type: 'system', ...note }], uuid)
+const noteTurn = (it, note, uuid) => metaTurn(it, 'system', [{ type: 'system', ...note }], uuid)
 
 // `instructions` are the system prompts / memory files captured by the request proxy
 // (readSession's separate `instructions` list) — not transcript items, merged in by timestamp.
@@ -76,7 +84,7 @@ export function flatten(items, instructions = []) {
     if (it._relogged) continue // the original already shows
     // Rendered just before the record carrying the change, under its own key (state records have no uuid)
     const change = stateNote(it, state)
-    if (change) turns.push(noteTurn(it, change, turns.at(-1), `state-${turns.length}`))
+    if (change) turns.push(noteTurn(it, change, `state-${turns.length}`))
     // The summary is parented to its boundary but timestamped just before it — either order joins one `compact` turn
     if (it.subtype === 'compact_boundary' || it.isCompactSummary) {
       const key = it.isCompactSummary ? it.parentUuid ?? it.uuid : it.uuid
@@ -99,7 +107,7 @@ export function flatten(items, instructions = []) {
       it = { ...it, type: 'user', isMeta: true, message: { role: 'user', content: it.content } }
     } else if (it.type === 'system') {
       const note = systemNote(it)
-      if (note) turns.push(noteTurn(it, note, turns.at(-1)))
+      if (note) turns.push(noteTurn(it, note))
       continue
     }
     const queued = queuedPrompt(it)
@@ -107,7 +115,6 @@ export function flatten(items, instructions = []) {
       turns.push({
         uuid: it.uuid,
         role: 'user',
-        isMeta: false,
         queued: true,
         ts: it.timestamp ? Date.parse(it.timestamp) : null,
         model: null, msgId: null, usage: null,
@@ -121,16 +128,17 @@ export function flatten(items, instructions = []) {
       // Echoes the StructuredOutput call's input verbatim — the call already shows it.
       if (it.attachment.type === 'structured_output' && it.attachment.toolUseID) continue
       const block = { type: 'attachment', attachment: it.attachment }
+      const role = speaker(it)
       const last = turns[turns.length - 1]
-      // Coalesce consecutive harness-injected attachments into one meta turn.
+      // Coalesce consecutive attachments of one side into one meta turn.
       // Never merge into a real user/assistant turn — that would pull tool_result
       // turns out of their tool-group bucket and render them as user bubbles.
-      if (last && last.isMeta && last.blocks.every(b => b.type === 'attachment')) {
+      if (last && isContextTurn(last) && last.role === role) {
         last.blocks.push(block)
         if (it._tokenDelta != null) last.tokenDelta = (last.tokenDelta ?? 0) + it._tokenDelta
         if (it._tokenTotal != null) last.tokenTotal = it._tokenTotal
       } else {
-        turns.push({ ...metaTurn(it, sideAfter(last), [block]), tokenDelta: it._tokenDelta ?? null, tokenTotal: it._tokenTotal ?? null })
+        turns.push({ ...metaTurn(it, role, [block]), tokenDelta: it._tokenDelta ?? null, tokenTotal: it._tokenTotal ?? null })
       }
       continue
     }
@@ -142,7 +150,6 @@ export function flatten(items, instructions = []) {
       turns.push({
         uuid: `wf-${it.agentId}`,
         role: 'assistant',
-        isMeta: false,
         ts: null,
         model: null, usage: null, tokenDelta: null, tokenTotal: null,
         blocks: [{ type: 'text', text: `**agent ${it.agentId}**\n\n${text}` }]
@@ -164,25 +171,25 @@ export function flatten(items, instructions = []) {
       continue
     }
     if (it.type !== 'user' && it.type !== 'assistant') continue
-    // What Claude Code writes in the model's name — an API error, or "No response requested." closing a turn
-    // a hook stopped once the session resumes — is its notice, not Claude's reply
-    if (it.type === 'assistant' && it.message?.model === '<synthetic>') {
-      turns.push(noteTurn(it, { title: messageText(it), level: it.isApiErrorMessage ? 'error' : null }, turns.at(-1)))
-      continue
-    }
     const msg = it.message || {}
     const blocks = collapseRedactedThinking(normalizeContent(msg.content))
     if (blocks.length === 0) continue
+    // Anthropic's API has no `tool` role — tool_result blocks ride inside user messages.
+    // Re-tag those turns as `tool` so they group with the assistant's tool calls, not the user.
+    const role = it.type === 'user' && blocks.every(b => b.type === 'tool_result') ? 'tool' : speaker(it, blocks)
+    // System speaking in Claude's name is its notice, not a reply
+    if (it.type === 'assistant' && role === 'system') {
+      turns.push(noteTurn(it, { title: messageText(it), level: it.isApiErrorMessage ? 'error' : null }))
+      continue
+    }
     for (const b of blocks) {
       if (b.type === 'tool_result' && b.tool_use_id) results[b.tool_use_id] = b
     }
-    // Anthropic's API has no `tool` role — tool_result blocks ride inside user messages.
-    // Re-tag those turns as `tool` so they group with the assistant's tool calls, not the user.
-    const role = it.type === 'user' && blocks.every(b => b.type === 'tool_result') ? 'tool' : it.type
     turns.push({
       uuid: it.uuid,
       role,
-      isMeta: !!it.isMeta,
+      // System prompting Claude itself (e.g. "Continue from where you left off.") — companions only annotate the turn before
+      prompt: role === 'system' && !it.turnCompanion,
       ts: it.timestamp ? Date.parse(it.timestamp) : null,
       model: msg.model || null,
       msgId: msg.id || null,
@@ -208,7 +215,6 @@ export function flatten(items, instructions = []) {
     const turn = {
       uuid: 'instructions',
       role: 'instruction',
-      isMeta: true,
       ts: first ? Date.parse(first.timestamp) - 500 : null,
       model: null, usage: null, tokenDelta: null, tokenTotal: null,
       blocks: instructions.map(it => ({ type: 'instruction', it }))
@@ -341,38 +347,38 @@ export function compactTitle({ trigger, preTokens }) {
   return detail ? `Conversation compacted (${detail})` : 'Conversation compacted'
 }
 
-// Harness-injected context is a meta turn whose blocks are all attachments (the "attachments · N items" payload).
-export const isContextTurn = t => t.isMeta && t.blocks.every(b => b.type === 'attachment')
-export const isNoteTurn    = t => t.blocks.every(b => b.type === 'system')
+// Injected context is a turn whose blocks are all attachments (the "N attachments" payload).
+export const isContextTurn = t => t.blocks.every(b => b.type === 'attachment')
 
 export function groupTurns(turns) {
   const groups = []
   let cycle = null  // open assistant card, closed by its next text message
-  let pending = []  // held context turns, claimed by the next group
+  let pending = []  // held user context turns, claimed by the next group
   const flush = () => { if (cycle) { groups.push(cycle); cycle = null } }
   for (const t of turns) {
-    // Context between cycles belongs to a user message (shown as a summary in its header):
-    // fold it into the one just above, or hold it for the next one — IDE selections land
-    // in the transcript *before* the message they accompany.
-    if (isContextTurn(t) && !cycle) {
-      if (groups.at(-1)?.kind === 'user') groups.at(-1).turns.push(t)
+    if (t.role === 'system' && (!cycle || t.prompt)) {
+      flush()
+      if (groups.at(-1)?.kind === 'system') groups.at(-1).turns.push(t)
+      else groups.push({ kind: 'system', turns: [t] })
+    } else if (isContextTurn(t) && !cycle) {
+      // The user's context belongs to their message (shown as a summary in its header): fold it into
+      // the one just above, or hold it for the next one — IDE selections land *before* their message.
+      const above = groups.findLast(g => g.kind !== 'system')
+      if (above?.kind === 'user') above.turns.push(t)
       else pending.push(t)
     } else if (t.role === 'instruction' || t.role === 'compact') {
       flush()
       groups.push({ kind: t.role, turns: [t] })
-    } else if (isNoteTurn(t) && !cycle && groups.at(-1)?.kind === 'assistant') {
-      // A notice right after a finished reply (stop hooks, errors) closes out its card rather than opening an empty one
-      groups.at(-1).turns.push(t)
     } else if (t.role === 'user') {
       flush()
       groups.push({ kind: 'user', turns: [...pending, t] })
       pending = []
     } else {
-      // Tool calls/results, thinking and assistant-side meta accumulate into an assistant
+      // Tool calls/results, thinking and what Claude Code injects mid-cycle accumulate into an assistant
       // card that closes at its next text message, so each message groups with its tool work.
       cycle ??= { kind: 'assistant', turns: pending.splice(0) }
       cycle.turns.push(t)
-      if (t.blocks.some(b => b.type === 'text')) flush()
+      if (t.role === 'assistant' && t.blocks.some(b => b.type === 'text')) flush()
     }
   }
   flush()
@@ -432,6 +438,6 @@ export function tokenPoints(groups) {
     // (see SessionParser#_stampRunningTotals).
     if (ctx == null && g.kind !== 'assistant') ctx = delta
     const ts = turns.find(t => t.ts != null)?.ts ?? null
-    return { delta, total, ts, ctx, usage, role: g.kind === 'assistant' ? 'assistant' : turns[0].role }
+    return { delta, total, ts, ctx, usage, role: g.kind }
   })
 }

@@ -66,12 +66,12 @@ describe('flatten — skill companion records', () => {
     expect(parser.meta).toMatchObject({ toolCalls: 0, skillCalls: 1, firstUserPrompt: null })
   })
 
-  it('keeps a companion after an assistant turn as its own meta note', () => {
+  it('keeps a companion after an assistant turn as a System note', () => {
     const reply = { type: 'assistant', uuid: 'a2', timestamp: '2026-09-28T00:53:26.000Z', message: { role: 'assistant', content: [{ type: 'thinking', thinking: '', signature: 'sig==' }] } }
     const nudge = { type: 'user', uuid: 'c3', parentUuid: 'a2', timestamp: '2026-09-28T00:53:26.679Z', isMeta: true, turnCompanion: true, message: { role: 'user', content: '[Your previous response had no visible output. Please continue and produce a user-visible response.]' } }
     const turns = flatten([reply, nudge])
     expect(turns).toHaveLength(2)
-    expect(turns[1]).toMatchObject({ role: 'user', isMeta: true, blocks: [{ type: 'text', text: nudge.message.content }] })
+    expect(turns[1]).toMatchObject({ role: 'system', blocks: [{ type: 'text', text: nudge.message.content }] })
 
     const parser = new SessionParser({ sessionId: 's1', filePath: 's1.jsonl' })
     for (const l of [reply, nudge]) parser.feed(structuredClone(l))
@@ -82,11 +82,11 @@ describe('flatten — skill companion records', () => {
 describe('flatten — what Claude Code writes in the model\'s name', () => {
   const synthetic = (uuid, text, extra) => ({ type: 'assistant', uuid, timestamp: '2026-09-28T20:51:19.685Z', ...extra, message: { role: 'assistant', model: '<synthetic>', content: [{ type: 'text', text }] } })
 
-  it('shows the line closing a turn a hook stopped as a notice beside the meta prompt, not a Claude reply', () => {
+  it('shows the line closing a turn a hook stopped as a System notice beside its meta prompt, not a Claude reply', () => {
     const resume = { type: 'user', uuid: 'm1', timestamp: '2026-09-28T20:51:19.685Z', isMeta: true, message: { role: 'user', content: 'Continue from where you left off.' } }
     const groups = groupTurns(flatten([resume, synthetic('s1', 'No response requested.')]))
-    expect(groups.map(g => g.kind)).toEqual(['user', 'user'])
-    expect(groups[1].turns).toMatchObject([{ isMeta: true, blocks: [{ type: 'system', title: 'No response requested.', level: null }] }])
+    expect(groups.map(g => g.kind)).toEqual(['system'])
+    expect(groups[0].turns[1]).toMatchObject({ role: 'system', blocks: [{ type: 'system', title: 'No response requested.', level: null }] })
   })
 
   it('shows an API error as an error notice', () => {
@@ -156,11 +156,9 @@ describe('flatten — system records', () => {
     expect(flatten([err])[0].blocks).toEqual([{ type: 'system', title: 'API error', body: JSON.stringify({ error: err.error, retryAttempt: 1 }, null, 2), level: 'error' }])
   })
 
-  it('closes out the finished reply\'s card instead of opening an empty one', () => {
+  it('shows a notice after a finished reply as a System row', () => {
     const hooks = { type: 'system', subtype: 'stop_hook_summary', uuid: 's1', timestamp: ts, hookCount: 0 }
-    const groups = groupTurns(flatten([reply, hooks]))
-    expect(groups).toHaveLength(1)
-    expect(groups[0].turns.map(t => t.uuid)).toEqual(['a1', 's1'])
+    expect(groupTurns(flatten([reply, hooks])).map(g => g.kind)).toEqual(['assistant', 'system'])
   })
 
   it('skips the CLI\'s turn timing', () => {
@@ -170,6 +168,34 @@ describe('flatten — system records', () => {
   it('keeps a tagless local command as a plain note', () => {
     const exit = { type: 'system', subtype: 'local_command', uuid: 's1', timestamp: ts, content: '/exit' }
     expect(flatten([exit])[0].blocks[0]).toMatchObject({ type: 'system', title: 'Local command', body: '/exit' })
+  })
+})
+
+describe('groupTurns — System rows', () => {
+  const at = s => `2026-09-28T10:00:${String(s).padStart(2, '0')}.000Z`
+  const att = (uuid, s, type) => ({ type: 'attachment', uuid, timestamp: at(s), attachment: { type } })
+  const prompt = { type: 'user', uuid: 'u1', timestamp: at(1), message: { role: 'user', content: 'fix it' } }
+  const call   = { type: 'assistant', uuid: 'a1', timestamp: at(3), message: { role: 'assistant', content: [{ type: 'tool_use', id: 'tu1', name: 'Bash', input: {} }] } }
+  const result = { type: 'user', uuid: 'r1', timestamp: at(4), message: { role: 'user', content: [{ type: 'tool_result', tool_use_id: 'tu1', content: 'ok' }] } }
+  const reply  = { type: 'assistant', uuid: 'a2', timestamp: at(6), message: { role: 'assistant', content: [{ type: 'text', text: 'Fixed.' }] } }
+
+  it('splits Claude Code\'s context off the prompt, keeping the user\'s own with it', () => {
+    const groups = groupTurns(flatten([att('i1', 0, 'selected_lines_in_ide'), prompt, att('d1', 2, 'date'), att('f1', 2, 'file'), att('e1', 2, 'environment')]))
+    expect(groups.map(g => [g.kind, g.turns.flatMap(t => t.blocks.map(b => b.attachment?.type ?? b.text))])).toEqual([
+      ['user', ['selected_lines_in_ide', 'fix it', 'file']],
+      ['system', ['date', 'environment']],
+    ])
+  })
+
+  it('folds what Claude Code injects mid-cycle into Claude\'s card rather than splitting it', () => {
+    const groups = groupTurns(flatten([prompt, call, result, att('t1', 5, 'total_tokens_reminder'), reply]))
+    expect(groups.map(g => g.kind)).toEqual(['user', 'assistant'])
+    expect(groups[1].turns.map(t => t.role)).toEqual(['assistant', 'system', 'assistant'])
+  })
+
+  it('gives System prompting Claude its own row, even mid-cycle', () => {
+    const resume = { type: 'user', uuid: 'm1', timestamp: at(5), isMeta: true, message: { role: 'user', content: 'Continue from where you left off.' } }
+    expect(groupTurns(flatten([prompt, call, result, resume, reply])).map(g => g.kind)).toEqual(['user', 'assistant', 'system', 'assistant'])
   })
 })
 
@@ -255,7 +281,7 @@ describe('flatten — queued commands', () => {
 
   it('renders a human-queued prompt as a user turn, not an attachment', () => {
     const turns = flatten([assistant, queued({ prompt: 'exclude the mcp test', commandMode: 'prompt', origin: { kind: 'human' } })])
-    expect(turns[1]).toMatchObject({ role: 'user', isMeta: false, queued: true, blocks: [{ type: 'text', text: 'exclude the mcp test' }] })
+    expect(turns[1]).toMatchObject({ role: 'user', queued: true, blocks: [{ type: 'text', text: 'exclude the mcp test' }] })
     expect(groupTurns(turns).map(g => g.kind)).toEqual(['assistant', 'user'])
   })
 
@@ -270,7 +296,7 @@ describe('flatten — queued commands', () => {
     ]
     const turns = flatten(items)
     expect(turns).toHaveLength(1) // consecutive attachments coalesce into one meta turn
-    expect(turns[0].isMeta).toBe(true)
+    expect(turns[0].role).toBe('system')
     expect(turns[0].blocks.map(b => b.type)).toEqual(['attachment', 'attachment'])
   })
 })

@@ -1,6 +1,6 @@
 import React, { useContext, useEffect, useMemo, useState } from 'react'
 import { format } from 'date-fns'
-import { Terminal } from 'lucide-react'
+import { LaptopMinimal, Terminal } from 'lucide-react'
 import { fmtCompact, fmtDuration } from '../../utils/formatting'
 import { flatten, groupTurns, cycleDurations, tokenPoints, isContextTurn, toolSummary, parseCommand, groupInstructions, instructionTitle, currentModel, contextWindow, countTokens, compactTitle, persistedOutput, humanize } from './transcript.js'
 import Divider from '../../ui/Divider.jsx'
@@ -57,7 +57,7 @@ export default function ConversationView({ items, instructions = [], filePath = 
             {i === branch?.index && branchDivider}
             <div className={`conv-row conv-row-${g.kind}`}>
               <LazyMount eager={i < 8} forceMount={findOpen} placeholderMinHeight={80}>
-                {g.kind === 'user'      ? <UserRow turns={g.turns} point={points[i]} ctxLimit={ctxLimit} />
+                {g.kind === 'user' || g.kind === 'system' ? <InputRow kind={g.kind} turns={g.turns} point={points[i]} ctxLimit={ctxLimit} />
                  : g.kind === 'assistant' ? <AssistantCard turns={g.turns} point={points[i]} ctxLimit={ctxLimit} duration={durations[i]} showAuthor={groups[i - 1]?.kind !== 'assistant'} />
                  : g.kind === 'compact'   ? <Compaction block={g.turns[0].blocks[0]} />
                  :                        <InstructionRun turns={g.turns} model={model} />}
@@ -148,30 +148,33 @@ function TokenStats({ point, ctxLimit }) {
   )
 }
 
-function UserRow({ turns, point, ctxLimit }) {
+const AUTHORS = {
+  user:   { Icon: Terminal, name: 'You' },
+  system: { Icon: LaptopMinimal, name: 'System' },
+}
+
+// A You or System row: its messages, with the context that came along folded behind the header
+function InputRow({ kind, turns, point, ctxLimit }) {
   const [open, setOpen] = useCollapsed(false)
-  const msg             = turns.find(t => !isContextTurn(t))
+  const msgs            = turns.filter(t => !isContextTurn(t))
   const ctxItems        = turns.filter(isContextTurn).flatMap(t => t.blocks)
-
-  // Slash commands are meta (CLI-injected records) but keep the header; other meta notes or
-  // orphan context with no real message render plainly, without a header (as before).
-  if (!msg || (msg.isMeta && !isCommandTurn(msg))) return <>{turns.map(t => <TurnRow key={t.uuid} turn={t} />)}</>
-
+  const ts              = (msgs[0] ?? turns[0]).ts
+  const { Icon, name }  = AUTHORS[kind]
   return (
-    <div className="msg-user">
+    <div className={`msg-${kind}`}>
       <div className="msg-header">
-        <Terminal className="msg-icon" />
-        <span className="msg-author">You</span>
-        {msg.queued && <span className="msg-summary">queued during the previous turn</span>}
+        <Icon className="msg-icon" />
+        <span className="msg-author">{name}</span>
+        {msgs.some(t => t.queued) && <span className="msg-summary">queued during the previous turn</span>}
         {ctxItems.length > 0 && (
           <button className="msg-summary" onClick={() => setOpen(v => !v)}>
             <span className="aux-chevron">{open ? '▾' : '▸'}</span>
-            <span>attachments · {ctxItems.length} item{ctxItems.length === 1 ? '' : 's'}</span>
+            <span>{ctxItems.length} attachment{ctxItems.length === 1 ? '' : 's'}</span>
           </button>
         )}
         <span className="msg-header-right">
           <TokenStats point={point} ctxLimit={ctxLimit} />
-          {msg.ts != null && <span className="msg-time">{format(msg.ts, 'HH:mm:ss')}</span>}
+          {ts != null && <span className="msg-time">{format(ts, 'HH:mm:ss')}</span>}
         </span>
       </div>
       {open && ctxItems.length > 0 && (
@@ -179,7 +182,7 @@ function UserRow({ turns, point, ctxLimit }) {
           {ctxItems.map((b, i) => <Attachment key={i} att={b.attachment} />)}
         </div>
       )}
-      <TurnRow turn={msg} />
+      {msgs.map(t => <TurnRow key={t.uuid} turn={t} />)}
     </div>
   )
 }
@@ -189,8 +192,8 @@ function AssistantCard({ turns, point, ctxLimit, duration, showAuthor = true }) 
   const toolBlocks = turns.flatMap(t => t.blocks.filter(b => b.type === 'tool_use'))
   const errorCount = toolBlocks.filter(b => b.result?.is_error).length
   const skillCount = toolBlocks.filter(b => b.name === 'Skill').length
-  const isAux      = t => !t.blocks.some(b => b.type === 'text' || (b.type === 'system' && b.level))
-  // Aux turns (tool calls, thinking, meta — not warning/error notes) fold behind the chevron, but only if there are tool calls
+  const isAux      = t => t.role === 'system' ? !t.blocks.some(b => b.level) : !t.blocks.some(b => b.type === 'text')
+  // Aux turns (tool calls, thinking, System's injections — not its warning/error notes) fold behind the chevron, but only if there are tool calls
   const foldable   = toolBlocks.length > 0 && turns.some(isAux)
   const end        = turns.findLast(t => t.ts != null)?.ts ?? null
   // Once opened, keep aux turns mounted while folded (hidden via CSS) so each tool's expanded state
@@ -227,14 +230,15 @@ function AssistantCard({ turns, point, ctxLimit, duration, showAuthor = true }) 
       </div>
       {(anyVisible || everOpen) && (
         <div className={`assistant-card-body${anyVisible ? '' : ' turn-hidden'}`}>
-          {turns.map(t => <TurnRow key={t.uuid} turn={t} hidden={hidden(t)} />)}
+          {/* Mid-cycle, no System header names its injections — prefix them, telling them apart from Claude's tool calls */}
+          {turns.map(t => <TurnRow key={t.uuid} turn={t} hidden={hidden(t)} speaker={t.role === 'system' ? 'System' : null} />)}
         </div>
       )}
     </div>
   )
 }
 
-function TurnRow({ turn, hidden = false }) {
+function TurnRow({ turn, hidden = false, speaker = null }) {
   const contextBlocks = [], otherBlocks = []
   const groupAttachments = turn.role === 'user'
   for (const b of turn.blocks) {
@@ -242,20 +246,21 @@ function TurnRow({ turn, hidden = false }) {
   }
   const hasError = turn.blocks.some(b => b.type === 'tool_use' && b.result?.is_error)
   return (
-    <div className={`turn turn-${turn.role} ${turn.isMeta ? 'turn-meta-note' : ''} ${hasError ? 'turn-error' : ''} ${hidden ? 'turn-hidden' : ''}`}>
+    <div className={`turn turn-${turn.role} ${hasError ? 'turn-error' : ''} ${hidden ? 'turn-hidden' : ''}`}>
       <div className="turn-blocks">
         {contextBlocks.length > 0 && (
-          <Collapsible className="attachment" defaultOpen={false} title={`attachments · ${contextBlocks.length} item${contextBlocks.length === 1 ? '' : 's'}`}>
+          <Collapsible className="attachment" defaultOpen={false} title={`${contextBlocks.length} attachment${contextBlocks.length === 1 ? '' : 's'}`}>
             {contextBlocks.map((b, i) => <Attachment key={i} att={b.attachment} />)}
           </Collapsible>
         )}
-        {otherBlocks.map((b, i) => <Block key={i} block={b} />)}
+        {otherBlocks.map((b, i) => <Block key={i} block={b} speaker={speaker} />)}
       </div>
     </div>
   )
 }
 
-function Block({ block }) {
+// `speaker` prefixes the titles of top-level notes and attachments
+function Block({ block, speaker = null }) {
   if (block.type === 'text') {
     const cmd = parseCommand(block.text)
     if (cmd) {
@@ -305,12 +310,12 @@ function Block({ block }) {
     )
   }
   if (block.type === 'attachment') {
-    return <Attachment att={block.attachment} />
+    return <Attachment att={block.attachment} speaker={speaker} />
   }
   if (block.type === 'system') {
     const className = `system-note ${block.level ?? ''} ${block.kind ?? ''}`
-    if (!block.body) return <Label title={block.url ? <OpenLink href={block.url}>{block.title}</OpenLink> : block.title} className={className} />
-    return <Collapsible title={block.title} className={className} defaultOpen={!!block.level}><pre>{block.body}</pre></Collapsible>
+    if (!block.body) return <Label title={said(speaker, block.url ? <OpenLink href={block.url}>{block.title}</OpenLink> : block.title)} className={className} />
+    return <Collapsible title={said(speaker, block.title)} className={className} defaultOpen={!!block.level}><pre>{block.body}</pre></Collapsible>
   }
   if (block.type === 'image') {
     const src = block.source
@@ -346,6 +351,10 @@ const ATTACHMENT_RENDERERS = {
     body: safeJson({ added: a.addedNames, removed: a.removedNames }),
     defaultOpen: false,
   }),
+  prompt_snapshot: a => ({
+    title: `Prompt snapshot: system prompt, ${a.tools?.length ?? 0} tools`,
+    body: [...(a.systemPrompt ?? []), `Tools: ${(a.tools ?? []).map(t => t.name).join(', ')}`].join('\n\n'),
+  }),
   // The one nested shape the fallback below can't flatten: files → diagnostics → range.
   diagnostics: (a) => {
     const lines = (a.files || []).flatMap(f => (f.diagnostics || [])
@@ -380,16 +389,18 @@ function genericAttachment(att) {
   }
 }
 
-function Attachment({ att }) {
+function Attachment({ att, speaker = null }) {
   const render = ATTACHMENT_RENDERERS[att?.type]
   const { title, body, defaultOpen = false } = render ? render(att) : genericAttachment(att)
-  if (body == null) return <Label title={title} className="attachment" />
+  if (body == null) return <Label title={said(speaker, title)} className="attachment" />
   return (
-    <Collapsible title={title} className="attachment" defaultOpen={defaultOpen}>
+    <Collapsible title={said(speaker, title)} className="attachment" defaultOpen={defaultOpen}>
       <pre>{body}</pre>
     </Collapsible>
   )
 }
+
+const said = (speaker, title) => speaker ? <><span className="aux-speaker">{speaker}: </span>{title}</> : title
 
 function Label({ title, className }) {
   return (

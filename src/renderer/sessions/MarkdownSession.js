@@ -1,6 +1,6 @@
 import { format } from 'date-fns'
 import { fmtDuration, fmtBytes, fmtNum, fmtUSD, fmtCompact, fmtToolCalls } from '../utils/formatting.js'
-import { flatten, toolSummary, instructionTitle, groupInstructions, currentModel, contextWindow, isNoteTurn, compactTitle } from './view/transcript.js'
+import { flatten, toolSummary, instructionTitle, groupInstructions, currentModel, contextWindow, compactTitle } from './view/transcript.js'
 
 export const MAX_LINES = 10
 export const MAX_LINE_CHARS = 200
@@ -56,7 +56,7 @@ function renderTurn(t) {
     const b = t.blocks[0]
     return `**${compactTitle(b)}**${b.summary ? `\n\nSummary:\n${fence(b.summary)}` : ''}`
   }
-  const role = isNoteTurn(t) ? 'Claude Code' : t.role === 'user' ? (t.queued ? 'User (queued)' : 'User') : `Assistant`
+  const role = t.role === 'system' ? 'System' : t.role === 'user' ? (t.queued ? 'User (queued)' : 'User') : `Assistant`
   const tokens = t.tokenTotal > 0 && t.tokenDelta != null
     ? ` (${t.tokenDelta >= 0 ? '+' : ''}${fmtCompact(t.tokenDelta)} / ${fmtCompact(t.tokenTotal)} tokens)`
     : ''
