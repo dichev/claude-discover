@@ -4,23 +4,21 @@ import remarkGfm from 'remark-gfm'
 import rehypeHighlight from 'rehype-highlight'
 import { fenceBlocks, fenceTags, splitMarkdown } from '../utils/textBlock.js'
 import LazyMount from './LazyMount.jsx'
+import OpenLink from './OpenLink.jsx'
 import { useFindActive } from './useFindActive.js'
 import './Markdown.css'
 
 // The single markdown renderer: GFM + syntax highlighting, safe link handling, and chunked
 // lazy mounting for huge texts. Every markdown surface should render through this component.
 
-// Intercept link clicks (no navigation guard in the renderer) and let main open them:
-// external in the browser, relative paths against basePath. Local links without a known
-// basePath aren't resolvable, so render them as plain text.
+// Local links without a known basePath aren't resolvable, so render them as plain text.
 const isExternal = href => /^(https?:|mailto:)/i.test(href || '')
 function buildLinkComponents(basePath) {
   return {
     a: ({ href, children, ...props }) => {
       const clickable = href && (isExternal(href) || basePath)
       if (!clickable) return <>{children}</>
-      const onClick = e => { e.preventDefault(); e.stopPropagation(); void window.api.openLink(href, basePath) }
-      return <a href={href} onClick={onClick} {...props}>{children}</a>
+      return <OpenLink href={href} basePath={basePath} {...props}>{children}</OpenLink>
     },
   }
 }

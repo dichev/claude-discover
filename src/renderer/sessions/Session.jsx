@@ -87,7 +87,7 @@ export default function Session({ meta, missing, date, granularity = 'day', onSh
                 </div>
                 {mode === 'conversation' ? (
                   <div className="view-tab-pane-content">
-                    {items ? <ConversationView items={items} instructions={instructions} expandAll={expandAll} continuesFrom={meta.continuesFrom} continuesTo={meta.continuesTo} onShowPeriodOf={onShowPeriodOf} />
+                    {items ? <ConversationView items={items} instructions={instructions} filePath={meta.parentFilePath ?? meta.filePath} expandAll={expandAll} continuesFrom={meta.continuesFrom} continuesTo={meta.continuesTo} onShowPeriodOf={onShowPeriodOf} />
                            : loadError || <div className="empty">Loading conversation…</div>}
                   </div>
                 ) : mode === 'jsonl' ? (

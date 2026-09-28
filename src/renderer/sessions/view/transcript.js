@@ -1,4 +1,5 @@
 import { encode } from 'gpt-tokenizer/model/gpt-4o'
+import { fmtCompact } from '../../utils/formatting.js'
 
 // Pure transcript model, shared by ConversationView (rendering) and MarkdownSession (agent
 // payload): raw session items → turns (flatten) → row groups (groupTurns) → per-group stats.
@@ -18,18 +19,88 @@ const queuedPrompt = it =>
   && it.attachment.commandMode === 'prompt' && (it.attachment.origin?.kind ?? 'human') === 'human'
   && it.attachment.prompt?.trim() ? it.attachment.prompt : null
 
+// After an assistant or tool turn (between tool cycles) a meta turn is part of the assistant's side
+const sideAfter = last => (last?.role === 'assistant' || last?.role === 'tool') ? 'assistant' : 'user'
+
+// "stop_hook_summary" → "Stop hook summary"
+export const humanize = type => type.replace(/_/g, ' ').replace(/^./, c => c.toUpperCase())
+
+// Fields every record carries — what's left of a system record is its own payload
+const ENVELOPE = new Set(['type', 'subtype', 'level', 'content', 'uuid', 'parentUuid', 'logicalParentUuid', 'isSidechain', 'isMeta', 'userType', 'entrypoint', 'cwd', 'sessionId', 'session_id', 'version', 'gitBranch', 'slug', 'timestamp'])
+
+// The CLI's inline notices: the text it printed, else its payload. Only warnings and errors keep a `level`.
+function systemNote(it) {
+  if (it.subtype === 'turn_duration') return null // the CLI's own timing; cycleDurations derives it from the turns
+  const title   = humanize(String(it.subtype)).replace(/^Api\b/, 'API')
+  const payload = Object.fromEntries(Object.entries(it).filter(([k]) => !ENVELOPE.has(k)))
+  const body    = it.content || (Object.keys(payload).length ? JSON.stringify(payload, null, 2) : null)
+  return { title, body, level: ['warning', 'error'].includes(it.level) ? it.level : null }
+}
+
+const changed = (state, key, value) => { const prev = state[key]; state[key] = value; return prev && prev !== value }
+
+// Claude Code re-logs permission mode, cwd and artifacts over and over — note only an actual change
+function stateNote(it, state) {
+  if (it.type === 'permission-mode') {
+    return changed(state, 'mode', it.permissionMode) ? { title: `Permission mode → ${it.permissionMode}`, kind: 'mode' } : null
+  }
+  if ((it.type === 'user' || it.type === 'assistant') && it.cwd) {
+    return changed(state, 'cwd', it.cwd) ? { title: `Working directory → ${it.cwd}` } : null
+  }
+  if (it.type === 'frame-link' && it.frameUrl && !state.artifacts.has(it.frameUrl)) {
+    state.artifacts.add(it.frameUrl)
+    return { title: `Artifact: ${it.title || it.frameUrl}`, url: it.frameUrl }
+  }
+  return null
+}
+
+const metaTurn = (it, role, blocks, uuid = it.uuid) => ({
+  uuid,
+  role,
+  isMeta: true,
+  ts: it.timestamp ? Date.parse(it.timestamp) : null,
+  model: null, usage: null, tokenDelta: null, tokenTotal: null,
+  blocks
+})
+const noteTurn = (it, note, last, uuid) => metaTurn(it, sideAfter(last), [{ type: 'system', ...note }], uuid)
+
 // `instructions` are the system prompts / memory files captured by the request proxy
 // (readSession's separate `instructions` list) — not transcript items, merged in by timestamp.
 export function flatten(items, instructions = []) {
   const turns = []
   const results = {}
   const companions = {}
+  const compactions = {}
+  const state = { mode: null, cwd: null, artifacts: new Set() }
   for (let it of items) {
-    // Newer CLIs log some local commands (/branch, /context, …) and their output as system records
-    if (it.type === 'system' && it.subtype === 'local_command') {
-      const cmd = parseCommand(it.content)
-      if (!cmd?.name && !cmd?.stdout) continue
+    if (it._relogged) continue // the original already shows
+    // Rendered just before the record carrying the change, under its own key (state records have no uuid)
+    const change = stateNote(it, state)
+    if (change) turns.push(noteTurn(it, change, turns.at(-1), `state-${turns.length}`))
+    // The summary is parented to its boundary but timestamped just before it — either order joins one `compact` turn
+    if (it.subtype === 'compact_boundary' || it.isCompactSummary) {
+      const key = it.isCompactSummary ? it.parentUuid ?? it.uuid : it.uuid
+      let turn = compactions[key]
+      if (!turn) turns.push(turn = compactions[key] = metaTurn(it, 'compact', [{ type: 'compact' }]))
+      if (it.isCompactSummary) {
+        turn.blocks[0].summary = messageText(it)
+        turn.tokenDelta = it._tokenDelta ?? null
+        turn.tokenTotal = it._tokenTotal ?? null
+      } else {
+        turn.blocks[0].trigger = it.compactMetadata?.trigger
+        turn.blocks[0].preTokens = it.compactMetadata?.preTokens
+      }
+      continue
+    }
+    // Newer CLIs log local commands (/branch, /context, …) as system records; tagless ones (SDK's bare `/exit`) stay notes
+    const cmd = it.type === 'system' && it.subtype === 'local_command' && parseCommand(it.content)
+    if (cmd) {
+      if (!cmd.name && !cmd.stdout) continue
       it = { ...it, type: 'user', isMeta: true, message: { role: 'user', content: it.content } }
+    } else if (it.type === 'system') {
+      const note = systemNote(it)
+      if (note) turns.push(noteTurn(it, note, turns.at(-1)))
+      continue
     }
     const queued = queuedPrompt(it)
     if (queued) {
@@ -59,19 +130,7 @@ export function flatten(items, instructions = []) {
         if (it._tokenDelta != null) last.tokenDelta = (last.tokenDelta ?? 0) + it._tokenDelta
         if (it._tokenTotal != null) last.tokenTotal = it._tokenTotal
       } else {
-        // Side the meta belongs to: attachments after an assistant or tool turn (between tool cycles)
-        // are part of what the assistant just produced/received; otherwise they sit with the user.
-        turns.push({
-          uuid: it.uuid,
-          role: (last?.role === 'assistant' || last?.role === 'tool') ? 'assistant' : 'user',
-          isMeta: true,
-          ts: it.timestamp ? Date.parse(it.timestamp) : null,
-          model: null,
-          usage: null,
-          tokenDelta: it._tokenDelta ?? null,
-          tokenTotal: it._tokenTotal ?? null,
-          blocks: [block]
-        })
+        turns.push({ ...metaTurn(it, sideAfter(last), [block]), tokenDelta: it._tokenDelta ?? null, tokenTotal: it._tokenTotal ?? null })
       }
       continue
     }
@@ -93,7 +152,7 @@ export function flatten(items, instructions = []) {
     // Since Claude Code 2.1.263 a skill's body is its own meta user record pointing at the Skill
     // call that launched it — fold it into that call's result instead of a floating note.
     if (it.turnCompanion && it.sourceToolUseID) {
-      companions[it.sourceToolUseID] = companionText(it)
+      companions[it.sourceToolUseID] = messageText(it)
       continue
     }
     // A skill run as a slash command has no Skill call — its body folds into the command turn it follows.
@@ -101,7 +160,7 @@ export function flatten(items, instructions = []) {
     const command = it.turnCompanion && turns.findLast(t => t.uuid === it.parentUuid)
     const name = command && command.blocks.map(b => parseCommand(b.text)?.name).find(Boolean)?.replace(/^\//, '')
     if (name) {
-      command.blocks.push({ type: 'skill', name, text: companionText(it) })
+      command.blocks.push({ type: 'skill', name, text: messageText(it) })
       continue
     }
     if (it.type !== 'user' && it.type !== 'assistant') continue
@@ -127,10 +186,12 @@ export function flatten(items, instructions = []) {
       blocks
     })
   }
+  // A result whose call lies outside the loaded period (e.g. before midnight) has nothing to merge into — it stays its own row.
+  const calls = new Set(turns.flatMap(t => t.blocks.filter(b => b.type === 'tool_use').map(b => b.id)))
   for (const t of turns) {
     t.blocks = t.blocks
       .map((b) => (b.type === 'tool_use' ? { ...b, result: withCompanion(results[b.id], companions[b.id]) } : b))
-      .filter((b) => !(b.type === 'tool_result' && results[b.tool_use_id]))
+      .filter((b) => !(b.type === 'tool_result' && calls.has(b.tool_use_id)))
   }
   const out = turns.filter((t) => t.blocks.length > 0)
   // All instructions form one turn, slotted backdated 500ms above the user message whose request
@@ -182,7 +243,7 @@ function collapseRedactedThinking(blocks) {
   return out
 }
 
-const companionText = it => normalizeContent(it.message?.content).filter(b => b.type === 'text').map(b => b.text).join('\n')
+const messageText = it => normalizeContent(it.message?.content).filter(b => b.type === 'text').map(b => b.text).join('\n')
 
 const withCompanion = (result, text) => text
   ? { ...(result ?? { type: 'tool_result' }), content: [...normalizeContent(result?.content), { type: 'text', text }] }
@@ -244,6 +305,14 @@ export function parseCommand(text) {
   }
 }
 
+// Saved as `<sessionId>/tool-results/<file>` beside the top-level transcript (subagents save into their parent's) —
+// linked relative to it so WSL paths resolve
+export function persistedOutput(text) {
+  if (typeof text !== 'string' || !text.trimStart().startsWith('<persisted-output>')) return null
+  const saved = text.match(/Full output saved to: (.+)/)?.[1].trim()
+  return saved ? { path: saved, href: saved.split(/[\\/]/).slice(-3).map(encodeURIComponent).join('/') } : null
+}
+
 // The part of the request an instruction strip was read from (its `source`), as shown to the user —
 // in the request's own order (system → tools → messages).
 export const SOURCE_LABELS = { system: 'system prompt', tools: 'tools', message: 'user message' }
@@ -260,8 +329,15 @@ export function instructionTitle(it, model) {
   return parts ? `${it.name ?? it.file_path} (${parts})` : (it.name ?? it.file_path)
 }
 
+// "Conversation compacted (manual · 188.4k tokens before)" for a `compact` block
+export function compactTitle({ trigger, preTokens }) {
+  const detail = [trigger, preTokens && `${fmtCompact(preTokens)} tokens before`].filter(Boolean).join(' · ')
+  return detail ? `Conversation compacted (${detail})` : 'Conversation compacted'
+}
+
 // Harness-injected context is a meta turn whose blocks are all attachments (the "attachments · N items" payload).
 export const isContextTurn = t => t.isMeta && t.blocks.every(b => b.type === 'attachment')
+export const isNoteTurn    = t => t.blocks.every(b => b.type === 'system')
 
 export function groupTurns(turns) {
   const groups = []
@@ -275,9 +351,12 @@ export function groupTurns(turns) {
     if (isContextTurn(t) && !cycle) {
       if (groups.at(-1)?.kind === 'user') groups.at(-1).turns.push(t)
       else pending.push(t)
-    } else if (t.role === 'instruction') {
+    } else if (t.role === 'instruction' || t.role === 'compact') {
       flush()
-      groups.push({ kind: 'instruction', turns: [t] })
+      groups.push({ kind: t.role, turns: [t] })
+    } else if (isNoteTurn(t) && !cycle && groups.at(-1)?.kind === 'assistant') {
+      // A notice right after a finished reply (stop hooks, errors) closes out its card rather than opening an empty one
+      groups.at(-1).turns.push(t)
     } else if (t.role === 'user') {
       flush()
       groups.push({ kind: 'user', turns: [...pending, t] })

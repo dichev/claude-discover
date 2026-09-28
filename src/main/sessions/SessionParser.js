@@ -67,6 +67,7 @@ export class SessionParser {
     this.tokenTotal = 0
     this.lastSeenTs = null
     this.commandUuids = new Set()
+    this.seenUuids = new Set()
     // msgId -> the usage bucket we've already folded into the totals, so later
     // snapshots of a streamed reply can contribute only their growth.
     this.appliedById = new Map()
@@ -104,6 +105,14 @@ export class SessionParser {
     if (inherited != null) {
       if (meta.startedAt == null || inherited < meta.startedAt) meta.startedAt = inherited
       if (inherited > meta.lastActivityAt) meta.lastActivityAt = inherited
+    }
+    // Partial compaction re-logs records under their original uuids — count once, but keep the copy for the JSONL view
+    if (obj.uuid) {
+      if (this.seenUuids.has(obj.uuid)) {
+        obj._relogged = true
+        return true
+      }
+      this.seenUuids.add(obj.uuid)
     }
 
     // Standalone attachment entries are harness-injected context
@@ -173,7 +182,7 @@ export class SessionParser {
       obj.isMeta = true
     } else if (text.startsWith('<scheduled-task')) {
       meta.hasScheduledTask = true
-    } else if (text && !obj.isMeta) { // meta records (e.g. a slash-command skill's body) aren't typed by the user
+    } else if (text && !obj.isMeta && !obj.isCompactSummary) { // meta records (e.g. a slash-command skill's body) and compaction summaries aren't typed by the user
       if (!meta.firstUserPrompt) meta.firstUserPrompt = text.slice(0, 300)
     }
   }

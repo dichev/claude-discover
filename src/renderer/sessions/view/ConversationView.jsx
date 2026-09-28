@@ -2,10 +2,11 @@ import React, { useContext, useEffect, useMemo, useState } from 'react'
 import { format } from 'date-fns'
 import { Terminal } from 'lucide-react'
 import { fmtCompact, fmtDuration } from '../../utils/formatting'
-import { flatten, groupTurns, cycleDurations, tokenPoints, isContextTurn, toolSummary, parseCommand, groupInstructions, instructionTitle, currentModel, contextWindow, countTokens } from './transcript.js'
+import { flatten, groupTurns, cycleDurations, tokenPoints, isContextTurn, toolSummary, parseCommand, groupInstructions, instructionTitle, currentModel, contextWindow, countTokens, compactTitle, persistedOutput, humanize } from './transcript.js'
 import Divider from '../../ui/Divider.jsx'
 import LazyMount from '../../ui/LazyMount.jsx'
 import Markdown from '../../ui/Markdown.jsx'
+import OpenLink from '../../ui/OpenLink.jsx'
 import { useFindActive } from '../../ui/useFindActive.js'
 import { useMouseFontScale } from '../../utils/useMouse.js'
 import './ConversationView.css'
@@ -14,6 +15,8 @@ import claudeIcon from '../../assets/claude-icon.svg'
 // Global expand/collapse signal: null = leave each collapsible on its own state,
 // true/false = force open/closed. Changing it re-applies to every collapsible.
 const ExpandAllContext = React.createContext(null)
+// The top-level transcript's path — saved tool outputs resolve against it (see persistedOutput)
+const TranscriptFileContext = React.createContext(null)
 
 function useCollapsed(defaultOpen) {
   const [open, setOpen] = useState(defaultOpen)
@@ -27,7 +30,7 @@ const isCommandTurn = t => t.blocks.some(b => b.type === 'text' && parseCommand(
 const isClearTurn   = t => t.blocks.some(b => b.type === 'text' && parseCommand(b.text)?.name === '/clear')
 
 
-export default function ConversationView({ items, instructions = [], expandAll = null, continuesFrom = null, continuesTo = null, onShowPeriodOf }) {
+export default function ConversationView({ items, instructions = [], filePath = null, expandAll = null, continuesFrom = null, continuesTo = null, onShowPeriodOf }) {
   const turns            = useMemo(() => flatten(items, instructions), [items, instructions])
   const groups           = useMemo(() => groupTurns(turns), [turns])
   const points           = useMemo(() => tokenPoints(groups), [groups])
@@ -42,6 +45,7 @@ export default function ConversationView({ items, instructions = [], expandAll =
   const branchDivider = branch && <Divider className="conv-divider" title={branch.from}>Branched from session {branch.from.slice(0, 8)}</Divider>
   return (
     <ExpandAllContext.Provider value={expandAll}>
+    <TranscriptFileContext.Provider value={filePath}>
       <div ref={zoomRef} className={`conversation${hasTimeline ? ' has-token-timeline' : ''}`} style={{ '--font-scale': scale }}>
         {continuesFrom != null && (
           <Divider className="conv-continues-from" onClick={() => onShowPeriodOf(continuesFrom)} title="Show the earlier period">
@@ -55,6 +59,7 @@ export default function ConversationView({ items, instructions = [], expandAll =
               <LazyMount eager={i < 8} forceMount={findOpen} placeholderMinHeight={80}>
                 {g.kind === 'user'      ? <UserRow turns={g.turns} point={points[i]} ctxLimit={ctxLimit} />
                  : g.kind === 'assistant' ? <AssistantCard turns={g.turns} point={points[i]} ctxLimit={ctxLimit} duration={durations[i]} showAuthor={groups[i - 1]?.kind !== 'assistant'} />
+                 : g.kind === 'compact'   ? <Compaction block={g.turns[0].blocks[0]} />
                  :                        <InstructionRun turns={g.turns} model={model} />}
               </LazyMount>
               {points[i] ? <TokenPoint point={points[i]} />
@@ -71,6 +76,7 @@ export default function ConversationView({ items, instructions = [], expandAll =
           </Divider>
         )}
       </div>
+    </TranscriptFileContext.Provider>
     </ExpandAllContext.Provider>
   )
 }
@@ -84,6 +90,16 @@ function branchPoint(items, groups) {
   const ts = Date.parse(first.timestamp)
   const i = groups.findIndex(g => g.turns.some(t => t.ts >= ts))
   return { from, index: i === -1 ? groups.length : i }
+}
+
+// From here on the history was replaced by a summary — folded under the divider.
+function Compaction({ block }) {
+  return (
+    <>
+      <Divider className="conv-divider">{compactTitle(block)}</Divider>
+      {block.summary && <Collapsible title="Summary" defaultOpen={false}><Markdown className="block-text" text={block.summary} autoFence /></Collapsible>}
+    </>
+  )
 }
 
 // Anthropic's official Claude sunburst mark, in the brand's clay-orange.
@@ -173,9 +189,8 @@ function AssistantCard({ turns, point, ctxLimit, duration, showAuthor = true }) 
   const toolBlocks = turns.flatMap(t => t.blocks.filter(b => b.type === 'tool_use'))
   const errorCount = toolBlocks.filter(b => b.result?.is_error).length
   const skillCount = toolBlocks.filter(b => b.name === 'Skill').length
-  const isAux      = t => !t.blocks.some(b => b.type === 'text')
-  // Aux turns (tool calls, thinking-only, meta) fold behind the header chevron; without
-  // any tool calls there is nothing worth hiding, so everything stays visible.
+  const isAux      = t => !t.blocks.some(b => b.type === 'text' || (b.type === 'system' && b.level))
+  // Aux turns (tool calls, thinking, meta — not warning/error notes) fold behind the chevron, but only if there are tool calls
   const foldable   = toolBlocks.length > 0 && turns.some(isAux)
   const end        = turns.findLast(t => t.ts != null)?.ts ?? null
   // Once opened, keep aux turns mounted while folded (hidden via CSS) so each tool's expanded state
@@ -284,13 +299,18 @@ function Block({ block }) {
       <div className={`tool-result ${block.is_error ? 'error' : ''}`}>
         <div className="tool-result-label">{block.is_error ? 'Error:' : 'Result:'}</div>
         {parts.map((p, i) => p.type === 'text'
-          ? <pre key={i}>{p.text}</pre>
+          ? <React.Fragment key={i}><SavedOutputLink text={p.text} /><pre>{p.text}</pre></React.Fragment>
           : <Block key={i} block={p} />)}
       </div>
     )
   }
   if (block.type === 'attachment') {
     return <Attachment att={block.attachment} />
+  }
+  if (block.type === 'system') {
+    const className = `system-note ${block.level ?? ''} ${block.kind ?? ''}`
+    if (!block.body) return <Label title={block.url ? <OpenLink href={block.url}>{block.title}</OpenLink> : block.title} className={className} />
+    return <Collapsible title={block.title} className={className} defaultOpen={!!block.level}><pre>{block.body}</pre></Collapsible>
   }
   if (block.type === 'image') {
     const src = block.source
@@ -300,6 +320,13 @@ function Block({ block }) {
     return <div className="block-aux">[image]</div>
   }
   return <Collapsible title={block.type || 'block'}><pre>{safeJson(block)}</pre></Collapsible>
+}
+
+function SavedOutputLink({ text }) {
+  const baseFile = useContext(TranscriptFileContext)
+  const saved    = persistedOutput(text)
+  if (!saved || !baseFile) return null
+  return <div className="tool-result-label saved-output">Full output: <OpenLink href={saved.href} basePath={baseFile}>{saved.path}</OpenLink></div>
 }
 
 const ATTACHMENT_RENDERERS = {
@@ -346,7 +373,7 @@ function genericAttachment(att) {
   }
   for (const [k, v] of Object.entries(att || {})) { if (k !== 'type') collect(v, k) }
   const detail = short.find(([k]) => /path|file|name|dir|uri|url|date/i.test(k))?.[1] // what the attachment is about
-  const label = (att?.type || 'attachment').replace(/_/g, ' ').replace(/^./, c => c.toUpperCase())
+  const label = humanize(att?.type || 'attachment')
   return {
     title: detail ? `${label}: ${detail}` : label,
     body: long.length ? long.map(([, v]) => v).join('\n\n') : short.length > 1 ? safeJson(att) : null,

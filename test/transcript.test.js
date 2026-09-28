@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { parseCommand, flatten, groupTurns, groupInstructions, tokenPoints } from '../src/renderer/sessions/view/transcript.js'
+import { parseCommand, flatten, groupTurns, groupInstructions, tokenPoints, compactTitle, persistedOutput } from '../src/renderer/sessions/view/transcript.js'
 import { SessionParser } from '../src/main/sessions/SessionParser.js'
 
 describe('parseCommand', () => {
@@ -116,6 +116,112 @@ describe('SessionParser — continuesFrom / continuesTo', () => {
     for (const l of lines) parser.feed(l)
     expect(parser.meta.continuesFrom).toBeNull()
     expect(parser.meta.continuesTo).toBeNull()
+  })
+})
+
+describe('flatten — tool results', () => {
+  it('keeps a result whose call lies outside the loaded period', () => {
+    const result = { type: 'user', uuid: 'r1', timestamp: '2026-09-23T00:00:05.000Z', message: { role: 'user', content: [{ type: 'tool_result', tool_use_id: 'tu0', content: 'late' }] } }
+    expect(flatten([result])).toMatchObject([{ role: 'tool', blocks: [{ type: 'tool_result', content: 'late' }] }])
+  })
+})
+
+describe('flatten — system records', () => {
+  const ts = '2026-09-23T00:00:00.000Z'
+  const reply = { type: 'assistant', uuid: 'a1', timestamp: ts, message: { role: 'assistant', content: [{ type: 'text', text: 'Done.' }] } }
+
+  it('shows the printed text as the note body', () => {
+    const recap = { type: 'system', subtype: 'away_summary', uuid: 's1', timestamp: ts, level: 'info', content: 'You asked to…' }
+    expect(flatten([recap])[0].blocks).toEqual([{ type: 'system', title: 'Away summary', body: 'You asked to…', level: null }])
+  })
+
+  it('shows a notice with no text as its payload, without the envelope', () => {
+    const err = { type: 'system', subtype: 'api_error', uuid: 's1', cwd: 'D:\\app', timestamp: ts, level: 'error', error: { formatted: 'Unable to connect to API (ECONNRESET)' }, retryAttempt: 1 }
+    expect(flatten([err])[0].blocks).toEqual([{ type: 'system', title: 'API error', body: JSON.stringify({ error: err.error, retryAttempt: 1 }, null, 2), level: 'error' }])
+  })
+
+  it('closes out the finished reply\'s card instead of opening an empty one', () => {
+    const hooks = { type: 'system', subtype: 'stop_hook_summary', uuid: 's1', timestamp: ts, hookCount: 0 }
+    const groups = groupTurns(flatten([reply, hooks]))
+    expect(groups).toHaveLength(1)
+    expect(groups[0].turns.map(t => t.uuid)).toEqual(['a1', 's1'])
+  })
+
+  it('skips the CLI\'s turn timing', () => {
+    expect(flatten([{ type: 'system', subtype: 'turn_duration', uuid: 's1', timestamp: ts, durationMs: 3550 }])).toEqual([])
+  })
+
+  it('keeps a tagless local command as a plain note', () => {
+    const exit = { type: 'system', subtype: 'local_command', uuid: 's1', timestamp: ts, content: '/exit' }
+    expect(flatten([exit])[0].blocks[0]).toMatchObject({ type: 'system', title: 'Local command', body: '/exit' })
+  })
+})
+
+describe('flatten — state changes', () => {
+  const msg = (uuid, cwd) => ({ type: 'user', uuid, cwd, timestamp: '2026-07-24T00:48:55.000Z', message: { role: 'user', content: 'hi' } })
+  const titles = items => flatten(items).flatMap(t => t.blocks).filter(b => b.type === 'system').map(b => b.title)
+
+  it('notes a permission mode only when it changes', () => {
+    const mode = m => ({ type: 'permission-mode', permissionMode: m })
+    expect(titles([mode('default'), msg('u1'), mode('default'), mode('auto'), mode('auto')])).toEqual(['Permission mode → auto'])
+  })
+
+  it('notes a working directory change before the record that made it', () => {
+    const turns = flatten([msg('u1', 'D:\\app'), msg('u2', 'D:\\app'), msg('u3', 'D:\\app\\.claude\\worktrees\\x')])
+    expect(turns.map(t => t.uuid)).toEqual(['u1', 'u2', 'state-2', 'u3'])
+    expect(turns[2].blocks[0].title).toBe('Working directory → D:\\app\\.claude\\worktrees\\x')
+  })
+
+  it('links a published artifact once', () => {
+    const link = { type: 'frame-link', frameUrl: 'https://claude.ai/artifact/a1', title: 'Notes', timestamp: '2026-09-16T19:06:42.109Z' }
+    const notes = flatten([link, { ...link }]).flatMap(t => t.blocks)
+    expect(notes).toEqual([{ type: 'system', title: 'Artifact: Notes', url: 'https://claude.ai/artifact/a1' }])
+  })
+})
+
+describe('flatten — compaction', () => {
+  // As readSession delivers them: sorted by timestamp, so the summary lands just before its boundary
+  const summary  = { type: 'user', uuid: 'u1', parentUuid: 'b1', timestamp: '2026-06-12T02:58:34.764Z', isCompactSummary: true, _tokenDelta: 9000, _tokenTotal: 200000, message: { role: 'user', content: 'This session is being continued…' } }
+  const boundary = { type: 'system', subtype: 'compact_boundary', uuid: 'b1', timestamp: '2026-06-12T02:58:34.773Z', content: 'Conversation compacted', compactMetadata: { trigger: 'manual', preTokens: 188391 } }
+
+  it('joins the boundary and its summary into one compact group, not a user message', () => {
+    const turns = flatten([summary, boundary])
+    expect(turns).toMatchObject([{ role: 'compact', tokenTotal: 200000, blocks: [{ type: 'compact', trigger: 'manual', preTokens: 188391, summary: 'This session is being continued…' }] }])
+    expect(groupTurns(turns).map(g => g.kind)).toEqual(['compact'])
+    expect(compactTitle(turns[0].blocks[0])).toBe('Conversation compacted (manual · 188.4k tokens before)')
+  })
+
+  it('never takes the summary as the first prompt', () => {
+    const prompt = { type: 'user', uuid: 'u2', timestamp: '2026-06-12T02:59:00.000Z', message: { role: 'user', content: 'next task' } }
+    const parser = new SessionParser({ sessionId: 's1', filePath: 's1.jsonl' })
+    for (const l of [summary, boundary, prompt]) parser.feed(structuredClone(l))
+    expect(parser.meta.firstUserPrompt).toBe('next task')
+  })
+})
+
+describe('partial compaction re-logging the preserved messages', () => {
+  const call = { type: 'assistant', uuid: 'a1', timestamp: '2026-07-16T02:03:10.542Z', message: { id: 'm1', role: 'assistant', model: 'claude-opus-5', content: [{ type: 'tool_use', id: 'tu1', name: 'Bash', input: {} }], usage: { input_tokens: 131, output_tokens: 814 } } }
+  const copy = { ...call, parentUuid: 'x', message: { ...call.message, usage: { input_tokens: 0, output_tokens: 0 } } }
+
+  it('counts and shows each record once, but still hands the copy to readSession', () => {
+    const parser = new SessionParser({ sessionId: 's1', filePath: 's1.jsonl' })
+    const items  = [call, copy].map(l => structuredClone(l))
+    expect(items.map(l => parser.feed(l))).toEqual([true, true])
+    expect(parser.meta).toMatchObject({ messageCount: 1, toolCalls: 1, tokens: { input: 131, output: 814 } })
+    expect(flatten(items)).toMatchObject([{ uuid: 'a1', usage: { output_tokens: 814 } }])
+  })
+})
+
+describe('persistedOutput', () => {
+  it('links a saved output relative to the transcript dir, whatever OS wrote it', () => {
+    const win = '<persisted-output>\nOutput too large (34.4KB). Full output saved to: C:\\Users\\me\\.claude\\projects\\D--app\\s1\\tool-results\\b3.txt\n\nPreview (first 2KB):\n…'
+    const wsl = '<persisted-output>\nOutput too large (41.5KB). Full output saved to: /home/me/.claude/projects/-home-app/s1/tool-results/toolu_1.txt\n\nPreview'
+    expect(persistedOutput(win)).toEqual({ path: 'C:\\Users\\me\\.claude\\projects\\D--app\\s1\\tool-results\\b3.txt', href: 's1/tool-results/b3.txt' })
+    expect(persistedOutput(wsl).href).toBe('s1/tool-results/toolu_1.txt')
+  })
+
+  it('ignores output that merely mentions the phrase', () => {
+    expect(persistedOutput('grep hit: Full output saved to: /etc/passwd')).toBeNull()
   })
 })
 
