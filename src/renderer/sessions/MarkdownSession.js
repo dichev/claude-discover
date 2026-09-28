@@ -1,6 +1,7 @@
 import { format } from 'date-fns'
 import { fmtDuration, fmtBytes, fmtNum, fmtUSD, fmtCompact, fmtToolCalls } from '../utils/formatting.js'
-import { flatten, toolSummary, instructionTitle, groupInstructions, currentModel, contextWindow, compactTitle } from './view/transcript.js'
+import { flatten, currentModel, contextWindow } from './view/transcript.js'
+import { toolSummary, instructionTitle, groupInstructions, compactTitle } from './view/labels.js'
 
 export const MAX_LINES = 10
 export const MAX_LINE_CHARS = 200

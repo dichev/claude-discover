@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest'
-import { parseCommand, flatten, groupTurns, groupInstructions, tokenPoints, compactTitle, persistedOutput } from '../src/renderer/sessions/view/transcript.js'
+import { flatten, groupTurns, tokenPoints } from '../src/renderer/sessions/view/transcript.js'
+import { parseCommand, groupInstructions, compactTitle, persistedOutput } from '../src/renderer/sessions/view/labels.js'
 import { SessionParser } from '../src/main/sessions/SessionParser.js'
 
 describe('parseCommand', () => {
