@@ -24,6 +24,8 @@ contextBridge.exposeInMainWorld('api', {
   runAgentPrompt: text => ipcRenderer.invoke('agent:run', text),
   onAgentOutput: subscribe('agent:output'),
 
+  checkUpdate: () => ipcRenderer.invoke('auto-update:check'),
+
   openLink: (href, baseFile) => ipcRenderer.invoke('shell:open-link', href, baseFile),
 
   onFindActive: subscribe('find:active'),

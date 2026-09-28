@@ -1,3 +1,5 @@
+import { useEffect, useState } from 'react'
+import { ArrowDownToLine } from 'lucide-react'
 import StatusSwitch, { useSwitch } from './StatusSwitch'
 import './StatusBar.css'
 
@@ -47,6 +49,8 @@ export default function StatusBar({ progress, sessionCount = 0 }) {
   const statusline = useSwitch({ name: 'statusline', isOn: s => s?.installed })
   const retention  = useSwitch({ name: 'retention',  isOn: s => s?.raised })
   const claudedir  = useSwitch({ name: 'claudedir' }) // action-style: its button always activates (opens the folder picker)
+  const [update, setUpdate] = useState(null) // { current, latest } when an npm-global install is outdated
+  useEffect(() => { window.api.checkUpdate().then(setUpdate) }, [])
   const proxyRunning = proxy.status?.running
   const proxyDown = proxy.status?.configured && proxyRunning === false // Claude Code is pointed at a dead proxy — it can't reach the API
   const retentionRaised = retention.status?.raised
@@ -66,6 +70,11 @@ export default function StatusBar({ progress, sessionCount = 0 }) {
               <span className="progress-bar-fill" style={{ width: `${pct}%` }} />
             </span>
           )}
+        </span>
+      )}
+      {update && (
+        <span className="statusbar-update" title={`Update from v${update.current}:\nnpm i -g claude-discover@latest`}>
+          <ArrowDownToLine size={12} /> Update available: v{update.latest}
         </span>
       )}
       <StatusSwitch service={retention} on={retentionRaised} warn={!!(retention.status && !retentionRaised)} tooltip={retentionTooltip} changes={retentionChanges}>
