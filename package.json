@@ -52,6 +52,7 @@
     "lucide-react": "^1.43.0",
     "react": "^19.3.0",
     "react-dom": "^19.3.0",
+    "react-error-boundary": "^6.1.6",
     "react-markdown": "^10.1.0",
     "react-resizable-panels": "^4.12.4",
     "rehype-highlight": "^7.0.2",

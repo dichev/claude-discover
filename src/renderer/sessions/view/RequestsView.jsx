@@ -2,6 +2,7 @@ import React, { useDeferredValue, useEffect, useRef, useState } from 'react'
 import JsonView from '@uiw/react-json-view'
 import { vscodeTheme } from '@uiw/react-json-view/vscode'
 import LazyMount from '../../ui/LazyMount.jsx'
+import { ErrorMessage } from '../../ui/Errors.jsx'
 import { useFindActive } from '../../ui/useFindActive.js'
 import { renderShortened } from '../../ui/ShortText.jsx'
 import { useMouseFontScale } from '../../utils/useMouse.js'
@@ -136,6 +137,7 @@ export default function RequestsView({ filePath, date, granularity = 'day', file
   const [records, setRecords]   = useState(null)
   const [selected, setSelected] = useState(0)
   const [tab, setTab]           = useState('request')
+  const [error, setError]       = useState(null)
   // Records without a captured body (old logs, unparsable payloads) — show the raw record instead.
   const rec     = records?.[selected]
   const body    = useDeferredValue(tab === 'request' ? (rec?.request ?? rec) : rec?.response)
@@ -147,6 +149,7 @@ export default function RequestsView({ filePath, date, granularity = 'day', file
   useEffect(() => {
     setRecords(null)
     setSelected(0)
+    setError(null)
   }, [filePath, date, granularity])
 
   // fileSize is the transcript's size — a growth signal for the request log too, since
@@ -154,12 +157,22 @@ export default function RequestsView({ filePath, date, granularity = 'day', file
   useEffect(() => {
     let cancelled = false
     window.api.readRequests(filePath, date || null, granularity).then(res => {
-      if (!cancelled) setRecords(res)
+      if (cancelled) return
+      setRecords(res)
+      setError(null)
+    }, err => {
+      if (!cancelled) setError(err)
     })
     return () => { cancelled = true }
   }, [filePath, date, granularity, fileSize])
 
-  if (!records) return <div className="requests-view"><div className="requests-empty">Loading…</div></div>
+  if (!records) {
+    return (
+      <div className="requests-view">
+        {error ? <ErrorMessage title="Couldn't load the captured requests" error={error} /> : <div className="requests-empty">Loading…</div>}
+      </div>
+    )
+  }
   if (!records.length) {
     return (
       <div className="requests-view">

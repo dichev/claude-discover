@@ -4,6 +4,7 @@ import JsonlView from './view/JsonlView.jsx'
 import RequestsView from './view/RequestsView.jsx'
 import SessionSummary from './SessionSummary.jsx'
 import Toggle from '../ui/Toggle.jsx'
+import { ErrorMessage } from '../ui/Errors.jsx'
 import { useAgent } from '../agent/Agent.js'
 import { useLocalStorage } from '../utils/useLocalStorage.js'
 import './Session.css'
@@ -17,7 +18,8 @@ const TABS = [
 export default function Session({ meta, missing, date, granularity = 'day', onShowPeriodOf }) {
   const [items, setItems]               = useState(null)
   const [instructions, setInstructions] = useState([])
-  const [mode, setMode]                 = useLocalStorage('session.view-mode', 'conversation')
+  const [error, setError]               = useState(null)
+  const [mode, setMode]               = useLocalStorage('session.view-mode', 'conversation')
   const [expandAll, setExpandAll]       = useState(null)
   const filePath = meta?.filePath // not the session id, which can cover several transcripts
   const fileSize = meta?.fileSize
@@ -28,6 +30,7 @@ export default function Session({ meta, missing, date, granularity = 'day', onSh
   useEffect(() => {
     setItems(null)
     setInstructions([])
+    setError(null)
   }, [filePath, date, granularity])
 
   // Re-read the whole session whenever it grows: rows are keyed by turn uuid, so
@@ -39,19 +42,24 @@ export default function Session({ meta, missing, date, granularity = 'day', onSh
       if (cancelled || !res) return
       setItems(res.items)
       setInstructions(res.instructions || [])
+      setError(null)
+    }, err => {
+      if (!cancelled) setError(err)
     })
     return () => { cancelled = true }
   }, [filePath, date, granularity, fileSize])
 
-  if (!meta) { // `missing` explains an empty pane (unknown session / empty period); see App.jsx
+  if (!meta) { // `missing` explains an empty pane (unknown session / empty period / failed list); see App.jsx
     return (
       <div className="session-view empty">
-        {missing?.warn
-          ? <div className="session-missing">⚠ {missing.text}</div>
+        {missing?.error ? <ErrorMessage title={missing.text} error={missing.error} />
+          : missing?.warn ? <div className="session-missing">⚠ {missing.text}</div>
           : <div>{missing?.text || 'Select a session to inspect.'}</div>}
       </div>
     )
   }
+
+  const loadError = error && <ErrorMessage title="Couldn't load this session" error={error} />
 
   return (
     <div className="session-view">
@@ -80,10 +88,10 @@ export default function Session({ meta, missing, date, granularity = 'day', onSh
                 {mode === 'conversation' ? (
                   <div className="view-tab-pane-content">
                     {items ? <ConversationView items={items} instructions={instructions} expandAll={expandAll} continuesFrom={meta.continuesFrom} continuesTo={meta.continuesTo} onShowPeriodOf={onShowPeriodOf} />
-                           : <div className="empty">Loading conversation…</div>}
+                           : loadError || <div className="empty">Loading conversation…</div>}
                   </div>
                 ) : mode === 'jsonl' ? (
-                  <JsonlView items={items} expandAll={expandAll} />
+                  (!items && loadError) || <JsonlView items={items} expandAll={expandAll} />
                 ) : (
                   <RequestsView filePath={filePath} date={date} granularity={granularity} fileSize={fileSize} expandAll={expandAll} />
                 )}

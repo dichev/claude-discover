@@ -2,6 +2,7 @@ import React from 'react'
 import { createRoot } from 'react-dom/client'
 import { delegate } from 'tippy.js'
 import App from './App.jsx'
+import { AppErrorBoundary, ErrorBanner } from './ui/Errors.jsx'
 import { clearOutdatedLocalStorage } from './utils/useLocalStorage.js'
 import '@fontsource/inter/latin-400.css'
 import '@fontsource/inter/latin-700.css'
@@ -44,6 +45,9 @@ delegate('body', {
 
 createRoot(document.getElementById('root')).render(
   <React.StrictMode>
-    <App />
+    <AppErrorBoundary>
+      <App />
+    </AppErrorBoundary>
+    <ErrorBanner />
   </React.StrictMode>
 )

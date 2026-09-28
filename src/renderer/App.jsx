@@ -6,6 +6,7 @@ import PeriodSummary from './timeline/PeriodSummary.jsx'
 import SessionList from './sessions/SessionList.jsx'
 import Session from './sessions/Session.jsx'
 import StatusBar from './ui/StatusBar.jsx'
+import { PaneErrorBoundary } from './ui/Errors.jsx'
 import { closeFind } from './ui/useFindActive.js'
 import { format, parse } from 'date-fns'
 import { startOfPeriod, endOfPeriod, addPeriod } from './utils/period.js'
@@ -15,6 +16,7 @@ import './App.css'
 export default function App() {
   const [sessions, setSessions] = useState([])
   const [loading, setLoading] = useState(true)
+  const [listError, setListError] = useState(null)
   const [scanProgress, setScanProgress] = useState(null)
   const [granularity, setGranularity] = useLocalStorage('gantt.granularity', 'day')
   const [anchor, setAnchor] = useState(() => startOfPeriod(Date.now(), granularity))
@@ -49,7 +51,9 @@ export default function App() {
     const timer = setTimeout(() => {
       window.api.listSessions(format(anchor, 'yyyy-MM-dd'), granularity)
         .then((s) => {
-          if (!cancelled) { setSessions(s || []); setLoading(false) }
+          if (!cancelled) { setSessions(s || []); setListError(null); setLoading(false) }
+        }, (err) => { // clear the list too — the previous period's sessions would pass for this one's
+          if (!cancelled) { setSessions([]); setListError(err); setLoading(false) }
         })
     }, loading ? 0 : 120) // the 120ms debounce is for arrowing through periods — don't make the first scan wait for it
     const off = window.api.onSessionsUpdate((s) => { if (!cancelled) setSessions(s || [])
@@ -77,7 +81,8 @@ export default function App() {
 
   // Say why the detail pane is empty instead of just showing nothing
   let missing = null
-  if (!selected && scanProgress?.scanning === false) { // only once the scan is done, or it flashes "not found"
+  if (listError) missing = { text: "Couldn't load sessions", error: listError }
+  else if (!selected && scanProgress?.scanning === false) { // only once the scan is done, or it flashes "not found"
     const when = granularity === 'day' ? `on ${format(anchor, 'MMM d, yyyy')}` : `in this ${granularity}`
     if (!sessions.length) missing = { text: `No sessions recorded ${when}.` }
     // Only a deep link explains itself — a hand-picked session missing from another date is just deselected
@@ -174,7 +179,10 @@ export default function App() {
         </Panel>
         <Separator className="resize-handle resize-handle-v" />
         <Panel id="detail" minSize={30} className="body-pane">
-          <Session meta={selected} missing={missing} date={format(anchor, 'yyyy-MM-dd')} granularity={granularity} onShowPeriodOf={ts => setAnchor(startOfPeriod(ts, granularity))} />
+          {/* one transcript that fails to render must not take the timeline down with it */}
+          <PaneErrorBoundary title="Couldn't render this session" resetKeys={[selected?.filePath, anchor, granularity]}>
+            <Session meta={selected} missing={missing} date={format(anchor, 'yyyy-MM-dd')} granularity={granularity} onShowPeriodOf={ts => setAnchor(startOfPeriod(ts, granularity))} />
+          </PaneErrorBoundary>
         </Panel>
         </Group>
       </Panel>
