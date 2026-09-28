@@ -9,11 +9,11 @@ import { styleText } from 'node:util'
 
 // Formatting
 const THRESHOLDS = { // (white, yellow, red)
-  context: [0, 100_000, 160_000],
+  context: [0, 100_000, 250_000],
   limit:   [0, 60, 90],
   cache:   [90, 60, 0],
   tokens:  [0, 250_000, 1_000_000],
-  session: [0, 5_000_000, 20_000_000],
+  session: [0, 3_000_000, 8_000_000],
   turns:   [0, 10, 25],
 }
 

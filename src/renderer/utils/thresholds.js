@@ -1,7 +1,7 @@
 const HOUR = 60 * 60 * 1000
 
 export const THRESHOLDS = {
-  context:  { warn: 100_000,       danger: 200_000 },
+  context:  { warn: 100_000,       danger: 250_000 },
   messages: { warn: 250,           danger: 500 },
   workTime: { warn: 0.5 * HOUR,    danger: 2 * HOUR },
   cost:     { warn: 3,             danger: 8 },
