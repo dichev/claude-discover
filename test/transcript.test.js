@@ -168,6 +168,21 @@ describe('flatten — compaction', () => {
   })
 })
 
+describe('partial compaction re-logging the preserved messages', () => {
+  const call = { type: 'assistant', uuid: 'a1', timestamp: '2026-07-16T02:03:10.542Z', message: { id: 'm1', role: 'assistant', model: 'claude-opus-5', content: [{ type: 'tool_use', id: 'tu1', name: 'Bash', input: {} }], usage: { input_tokens: 131, output_tokens: 814 } } }
+  const copy = { ...call, parentUuid: 'x', message: { ...call.message, usage: { input_tokens: 0, output_tokens: 0 } } }
+
+  it('shows each record once, keeping the original', () => {
+    expect(flatten([call, copy])).toMatchObject([{ uuid: 'a1', usage: { output_tokens: 814 } }])
+  })
+
+  it('counts each record once but still hands the copy to readSession', () => {
+    const parser = new SessionParser({ sessionId: 's1', filePath: 's1.jsonl' })
+    expect([call, copy].map(l => parser.feed(structuredClone(l)))).toEqual([true, true])
+    expect(parser.meta).toMatchObject({ messageCount: 1, toolCalls: 1, tokens: { input: 131, output: 814 } })
+  })
+})
+
 describe('persistedOutput', () => {
   it('links a saved output relative to the transcript dir, whatever OS wrote it', () => {
     const win = '<persisted-output>\nOutput too large (34.4KB). Full output saved to: C:\\Users\\me\\.claude\\projects\\D--app\\s1\\tool-results\\b3.txt\n\nPreview (first 2KB):\n…'

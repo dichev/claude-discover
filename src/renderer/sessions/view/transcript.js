@@ -61,7 +61,11 @@ export function flatten(items, instructions = []) {
   const companions = {}
   const compactions = {}
   const state = { mode: null, cwd: null, artifacts: new Set() }
+  const seen = new Set()
   for (let it of items) {
+    // Partial compaction re-logs the preserved messages under their original uuids — the originals already show
+    if (it.uuid && seen.has(it.uuid)) continue
+    if (it.uuid) seen.add(it.uuid)
     // Rendered just before the record carrying the change, under its own key (state records have no uuid)
     const change = stateNote(it, state)
     if (change) turns.push(noteTurn(it, change, turns.at(-1), `state-${turns.length}`))

@@ -67,6 +67,7 @@ export class SessionParser {
     this.tokenTotal = 0
     this.lastSeenTs = null
     this.commandUuids = new Set()
+    this.seenUuids = new Set()
     // msgId -> the usage bucket we've already folded into the totals, so later
     // snapshots of a streamed reply can contribute only their growth.
     this.appliedById = new Map()
@@ -104,6 +105,12 @@ export class SessionParser {
     if (inherited != null) {
       if (meta.startedAt == null || inherited < meta.startedAt) meta.startedAt = inherited
       if (inherited > meta.lastActivityAt) meta.lastActivityAt = inherited
+    }
+    // A partial compaction re-logs the preserved messages under their original uuids (usage zeroed) — count them
+    // once, but still hand the copies to readSession for the raw JSONL view.
+    if (obj.uuid) {
+      if (this.seenUuids.has(obj.uuid)) return true
+      this.seenUuids.add(obj.uuid)
     }
 
     // Standalone attachment entries are harness-injected context
