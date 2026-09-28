@@ -1,4 +1,5 @@
 import { encode } from 'gpt-tokenizer/model/gpt-4o'
+import { fmtCompact } from '../../utils/formatting.js'
 
 // Pure transcript model, shared by ConversationView (rendering) and MarkdownSession (agent
 // payload): raw session items → turns (flatten) → row groups (groupTurns) → per-group stats.
@@ -24,7 +25,31 @@ export function flatten(items, instructions = []) {
   const turns = []
   const results = {}
   const companions = {}
+  const compactions = {}
   for (let it of items) {
+    // Compaction logs a boundary plus the summary replacing the history, parented to the boundary but
+    // timestamped just before it — they meet here in either order as one `compact` turn.
+    if (it.subtype === 'compact_boundary' || it.isCompactSummary) {
+      const key = it.isCompactSummary ? it.parentUuid ?? it.uuid : it.uuid
+      let turn = compactions[key]
+      if (!turn) turns.push(turn = compactions[key] = {
+        uuid: it.uuid,
+        role: 'compact',
+        isMeta: true,
+        ts: it.timestamp ? Date.parse(it.timestamp) : null,
+        model: null, usage: null, tokenDelta: null, tokenTotal: null,
+        blocks: [{ type: 'compact' }]
+      })
+      if (it.isCompactSummary) {
+        turn.blocks[0].summary = messageText(it)
+        turn.tokenDelta = it._tokenDelta ?? null
+        turn.tokenTotal = it._tokenTotal ?? null
+      } else {
+        turn.blocks[0].trigger = it.compactMetadata?.trigger
+        turn.blocks[0].preTokens = it.compactMetadata?.preTokens
+      }
+      continue
+    }
     // Newer CLIs log some local commands (/branch, /context, …) and their output as system records
     if (it.type === 'system' && it.subtype === 'local_command') {
       const cmd = parseCommand(it.content)
@@ -93,7 +118,7 @@ export function flatten(items, instructions = []) {
     // Since Claude Code 2.1.263 a skill's body is its own meta user record pointing at the Skill
     // call that launched it — fold it into that call's result instead of a floating note.
     if (it.turnCompanion && it.sourceToolUseID) {
-      companions[it.sourceToolUseID] = companionText(it)
+      companions[it.sourceToolUseID] = messageText(it)
       continue
     }
     // A skill run as a slash command has no Skill call — its body folds into the command turn it follows.
@@ -101,7 +126,7 @@ export function flatten(items, instructions = []) {
     const command = it.turnCompanion && turns.findLast(t => t.uuid === it.parentUuid)
     const name = command && command.blocks.map(b => parseCommand(b.text)?.name).find(Boolean)?.replace(/^\//, '')
     if (name) {
-      command.blocks.push({ type: 'skill', name, text: companionText(it) })
+      command.blocks.push({ type: 'skill', name, text: messageText(it) })
       continue
     }
     if (it.type !== 'user' && it.type !== 'assistant') continue
@@ -184,7 +209,7 @@ function collapseRedactedThinking(blocks) {
   return out
 }
 
-const companionText = it => normalizeContent(it.message?.content).filter(b => b.type === 'text').map(b => b.text).join('\n')
+const messageText = it => normalizeContent(it.message?.content).filter(b => b.type === 'text').map(b => b.text).join('\n')
 
 const withCompanion = (result, text) => text
   ? { ...(result ?? { type: 'tool_result' }), content: [...normalizeContent(result?.content), { type: 'text', text }] }
@@ -262,6 +287,12 @@ export function instructionTitle(it, model) {
   return parts ? `${it.name ?? it.file_path} (${parts})` : (it.name ?? it.file_path)
 }
 
+// "Conversation compacted (manual · 188.4k tokens before)" for a `compact` block
+export function compactTitle({ trigger, preTokens }) {
+  const detail = [trigger, preTokens && `${fmtCompact(preTokens)} tokens before`].filter(Boolean).join(' · ')
+  return detail ? `Conversation compacted (${detail})` : 'Conversation compacted'
+}
+
 // Harness-injected context is a meta turn whose blocks are all attachments (the "attachments · N items" payload).
 export const isContextTurn = t => t.isMeta && t.blocks.every(b => b.type === 'attachment')
 
@@ -277,9 +308,9 @@ export function groupTurns(turns) {
     if (isContextTurn(t) && !cycle) {
       if (groups.at(-1)?.kind === 'user') groups.at(-1).turns.push(t)
       else pending.push(t)
-    } else if (t.role === 'instruction') {
+    } else if (t.role === 'instruction' || t.role === 'compact') {
       flush()
-      groups.push({ kind: 'instruction', turns: [t] })
+      groups.push({ kind: t.role, turns: [t] })
     } else if (t.role === 'user') {
       flush()
       groups.push({ kind: 'user', turns: [...pending, t] })

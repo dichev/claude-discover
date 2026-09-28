@@ -2,7 +2,7 @@ import React, { useContext, useEffect, useMemo, useState } from 'react'
 import { format } from 'date-fns'
 import { Terminal } from 'lucide-react'
 import { fmtCompact, fmtDuration } from '../../utils/formatting'
-import { flatten, groupTurns, cycleDurations, tokenPoints, isContextTurn, toolSummary, parseCommand, groupInstructions, instructionTitle, currentModel, contextWindow, countTokens } from './transcript.js'
+import { flatten, groupTurns, cycleDurations, tokenPoints, isContextTurn, toolSummary, parseCommand, groupInstructions, instructionTitle, currentModel, contextWindow, countTokens, compactTitle } from './transcript.js'
 import Divider from '../../ui/Divider.jsx'
 import LazyMount from '../../ui/LazyMount.jsx'
 import Markdown from '../../ui/Markdown.jsx'
@@ -55,6 +55,7 @@ export default function ConversationView({ items, instructions = [], expandAll =
               <LazyMount eager={i < 8} forceMount={findOpen} placeholderMinHeight={80}>
                 {g.kind === 'user'      ? <UserRow turns={g.turns} point={points[i]} ctxLimit={ctxLimit} />
                  : g.kind === 'assistant' ? <AssistantCard turns={g.turns} point={points[i]} ctxLimit={ctxLimit} duration={durations[i]} showAuthor={groups[i - 1]?.kind !== 'assistant'} />
+                 : g.kind === 'compact'   ? <Compaction block={g.turns[0].blocks[0]} />
                  :                        <InstructionRun turns={g.turns} model={model} />}
               </LazyMount>
               {points[i] ? <TokenPoint point={points[i]} />
@@ -84,6 +85,16 @@ function branchPoint(items, groups) {
   const ts = Date.parse(first.timestamp)
   const i = groups.findIndex(g => g.turns.some(t => t.ts >= ts))
   return { from, index: i === -1 ? groups.length : i }
+}
+
+// From here on the history was replaced by a summary — folded under the divider.
+function Compaction({ block }) {
+  return (
+    <>
+      <Divider className="conv-divider">{compactTitle(block)}</Divider>
+      {block.summary && <Collapsible title="Summary" defaultOpen={false}><Markdown className="block-text" text={block.summary} autoFence /></Collapsible>}
+    </>
+  )
 }
 
 // Anthropic's official Claude sunburst mark, in the brand's clay-orange.

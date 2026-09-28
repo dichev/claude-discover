@@ -54,7 +54,8 @@
   border-radius: 50%;
 }
 
-.token-point-user      .token-point-dot { background: #5da9c9; }
+.token-point-user      .token-point-dot,
+.token-point-compact   .token-point-dot { background: #5da9c9; } /* the summary is input, like a user message */
 .token-point-assistant .token-point-dot { background: #9aa3b2; }
 .token-point-command   .token-point-dot { background: var(--accent); } /* slash commands: no tokens, just a marker */
 .token-point.negative  .token-point-dot { background: #63a76b; } /* compaction shrank the context — good news, so green */

@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { parseCommand, flatten, groupTurns, groupInstructions, tokenPoints } from '../src/renderer/sessions/view/transcript.js'
+import { parseCommand, flatten, groupTurns, groupInstructions, tokenPoints, compactTitle } from '../src/renderer/sessions/view/transcript.js'
 import { SessionParser } from '../src/main/sessions/SessionParser.js'
 
 describe('parseCommand', () => {
@@ -123,6 +123,19 @@ describe('flatten — tool results', () => {
   it('keeps a result whose call lies outside the loaded period', () => {
     const result = { type: 'user', uuid: 'r1', timestamp: '2026-09-23T00:00:05.000Z', message: { role: 'user', content: [{ type: 'tool_result', tool_use_id: 'tu0', content: 'late' }] } }
     expect(flatten([result])).toMatchObject([{ role: 'tool', blocks: [{ type: 'tool_result', content: 'late' }] }])
+  })
+})
+
+describe('flatten — compaction', () => {
+  // As readSession delivers them: sorted by timestamp, so the summary lands just before its boundary
+  const summary  = { type: 'user', uuid: 'u1', parentUuid: 'b1', timestamp: '2026-06-12T02:58:34.764Z', isCompactSummary: true, _tokenDelta: 9000, _tokenTotal: 200000, message: { role: 'user', content: 'This session is being continued…' } }
+  const boundary = { type: 'system', subtype: 'compact_boundary', uuid: 'b1', timestamp: '2026-06-12T02:58:34.773Z', content: 'Conversation compacted', compactMetadata: { trigger: 'manual', preTokens: 188391 } }
+
+  it('joins the boundary and its summary into one compact group, not a user message', () => {
+    const turns = flatten([summary, boundary])
+    expect(turns).toMatchObject([{ role: 'compact', tokenTotal: 200000, blocks: [{ type: 'compact', trigger: 'manual', preTokens: 188391, summary: 'This session is being continued…' }] }])
+    expect(groupTurns(turns).map(g => g.kind)).toEqual(['compact'])
+    expect(compactTitle(turns[0].blocks[0])).toBe('Conversation compacted (manual · 188.4k tokens before)')
   })
 })
 
