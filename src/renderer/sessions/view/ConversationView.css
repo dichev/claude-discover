@@ -252,6 +252,13 @@ button.msg-summary:hover { color: var(--text); background: var(--bg-elev-2); bor
     overflow: auto;
   }
 
+  & .saved-output a {
+    color: var(--accent);
+    text-decoration: none;
+    word-break: break-all;
+    &:hover { text-decoration: underline; }
+  }
+
   &.error {
     & .tool-result-label { color: var(--danger); }
     & pre { border-left-color: var(--danger); color: var(--danger); }

@@ -2,7 +2,7 @@ import React, { useContext, useEffect, useMemo, useState } from 'react'
 import { format } from 'date-fns'
 import { Terminal } from 'lucide-react'
 import { fmtCompact, fmtDuration } from '../../utils/formatting'
-import { flatten, groupTurns, cycleDurations, tokenPoints, isContextTurn, toolSummary, parseCommand, groupInstructions, instructionTitle, currentModel, contextWindow, countTokens, compactTitle } from './transcript.js'
+import { flatten, groupTurns, cycleDurations, tokenPoints, isContextTurn, toolSummary, parseCommand, groupInstructions, instructionTitle, currentModel, contextWindow, countTokens, compactTitle, persistedOutput } from './transcript.js'
 import Divider from '../../ui/Divider.jsx'
 import LazyMount from '../../ui/LazyMount.jsx'
 import Markdown from '../../ui/Markdown.jsx'
@@ -14,6 +14,8 @@ import claudeIcon from '../../assets/claude-icon.svg'
 // Global expand/collapse signal: null = leave each collapsible on its own state,
 // true/false = force open/closed. Changing it re-applies to every collapsible.
 const ExpandAllContext = React.createContext(null)
+// The top-level transcript's path — saved tool outputs resolve against it (see persistedOutput)
+const TranscriptFileContext = React.createContext(null)
 
 function useCollapsed(defaultOpen) {
   const [open, setOpen] = useState(defaultOpen)
@@ -27,7 +29,7 @@ const isCommandTurn = t => t.blocks.some(b => b.type === 'text' && parseCommand(
 const isClearTurn   = t => t.blocks.some(b => b.type === 'text' && parseCommand(b.text)?.name === '/clear')
 
 
-export default function ConversationView({ items, instructions = [], expandAll = null, continuesFrom = null, continuesTo = null, onShowPeriodOf }) {
+export default function ConversationView({ items, instructions = [], filePath = null, expandAll = null, continuesFrom = null, continuesTo = null, onShowPeriodOf }) {
   const turns            = useMemo(() => flatten(items, instructions), [items, instructions])
   const groups           = useMemo(() => groupTurns(turns), [turns])
   const points           = useMemo(() => tokenPoints(groups), [groups])
@@ -42,6 +44,7 @@ export default function ConversationView({ items, instructions = [], expandAll =
   const branchDivider = branch && <Divider className="conv-divider" title={branch.from}>Branched from session {branch.from.slice(0, 8)}</Divider>
   return (
     <ExpandAllContext.Provider value={expandAll}>
+    <TranscriptFileContext.Provider value={filePath}>
       <div ref={zoomRef} className={`conversation${hasTimeline ? ' has-token-timeline' : ''}`} style={{ '--font-scale': scale }}>
         {continuesFrom != null && (
           <Divider className="conv-continues-from" onClick={() => onShowPeriodOf(continuesFrom)} title="Show the earlier period">
@@ -72,6 +75,7 @@ export default function ConversationView({ items, instructions = [], expandAll =
           </Divider>
         )}
       </div>
+    </TranscriptFileContext.Provider>
     </ExpandAllContext.Provider>
   )
 }
@@ -295,7 +299,7 @@ function Block({ block }) {
       <div className={`tool-result ${block.is_error ? 'error' : ''}`}>
         <div className="tool-result-label">{block.is_error ? 'Error:' : 'Result:'}</div>
         {parts.map((p, i) => p.type === 'text'
-          ? <pre key={i}>{p.text}</pre>
+          ? <React.Fragment key={i}><SavedOutputLink text={p.text} /><pre>{p.text}</pre></React.Fragment>
           : <Block key={i} block={p} />)}
       </div>
     )
@@ -317,6 +321,14 @@ function Block({ block }) {
     return <div className="block-aux">[image]</div>
   }
   return <Collapsible title={block.type || 'block'}><pre>{safeJson(block)}</pre></Collapsible>
+}
+
+function SavedOutputLink({ text }) {
+  const baseFile = useContext(TranscriptFileContext)
+  const saved    = persistedOutput(text)
+  if (!saved || !baseFile) return null
+  const open = e => { e.preventDefault(); void window.api.openLink(saved.href, baseFile) }
+  return <div className="tool-result-label saved-output">Full output: <a href={saved.href} onClick={open}>{saved.path}</a></div>
 }
 
 const ATTACHMENT_RENDERERS = {

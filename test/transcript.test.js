@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { parseCommand, flatten, groupTurns, groupInstructions, tokenPoints, compactTitle } from '../src/renderer/sessions/view/transcript.js'
+import { parseCommand, flatten, groupTurns, groupInstructions, tokenPoints, compactTitle, persistedOutput } from '../src/renderer/sessions/view/transcript.js'
 import { SessionParser } from '../src/main/sessions/SessionParser.js'
 
 describe('parseCommand', () => {
@@ -165,6 +165,19 @@ describe('flatten — compaction', () => {
     const parser = new SessionParser({ sessionId: 's1', filePath: 's1.jsonl' })
     for (const l of [summary, boundary, prompt]) parser.feed(structuredClone(l))
     expect(parser.meta.firstUserPrompt).toBe('next task')
+  })
+})
+
+describe('persistedOutput', () => {
+  it('links a saved output relative to the transcript dir, whatever OS wrote it', () => {
+    const win = '<persisted-output>\nOutput too large (34.4KB). Full output saved to: C:\\Users\\me\\.claude\\projects\\D--app\\s1\\tool-results\\b3.txt\n\nPreview (first 2KB):\n…'
+    const wsl = '<persisted-output>\nOutput too large (41.5KB). Full output saved to: /home/me/.claude/projects/-home-app/s1/tool-results/toolu_1.txt\n\nPreview'
+    expect(persistedOutput(win)).toEqual({ path: 'C:\\Users\\me\\.claude\\projects\\D--app\\s1\\tool-results\\b3.txt', href: 's1/tool-results/b3.txt' })
+    expect(persistedOutput(wsl).href).toBe('s1/tool-results/toolu_1.txt')
+  })
+
+  it('ignores output that merely mentions the phrase', () => {
+    expect(persistedOutput('grep hit: Full output saved to: /etc/passwd')).toBeNull()
   })
 })
 

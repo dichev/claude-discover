@@ -307,6 +307,15 @@ export function parseCommand(text) {
   }
 }
 
+// A tool output too large for the transcript is saved to `<sessionId>/tool-results/<file>` beside the top-level
+// transcript (subagents save into their parent's). The link is relative to it, so it still resolves when the
+// transcript was written on another OS (WSL paths).
+export function persistedOutput(text) {
+  if (typeof text !== 'string' || !text.trimStart().startsWith('<persisted-output>')) return null
+  const saved = text.match(/Full output saved to: (.+)/)?.[1].trim()
+  return saved ? { path: saved, href: saved.split(/[\\/]/).slice(-3).map(encodeURIComponent).join('/') } : null
+}
+
 // The part of the request an instruction strip was read from (its `source`), as shown to the user —
 // in the request's own order (system → tools → messages).
 export const SOURCE_LABELS = { system: 'system prompt', tools: 'tools', message: 'user message' }
