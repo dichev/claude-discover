@@ -24,7 +24,13 @@ export function flatten(items, instructions = []) {
   const turns = []
   const results = {}
   const companions = {}
-  for (const it of items) {
+  for (let it of items) {
+    // Newer CLIs log some local commands (/branch, /context, …) and their output as system records
+    if (it.type === 'system' && it.subtype === 'local_command') {
+      const cmd = parseCommand(it.content)
+      if (!cmd?.name && !cmd?.stdout) continue
+      it = { ...it, type: 'user', isMeta: true, message: { role: 'user', content: it.content } }
+    }
     const queued = queuedPrompt(it)
     if (queued) {
       turns.push({
