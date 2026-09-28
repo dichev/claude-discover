@@ -10,7 +10,7 @@ vi.mock('electron', () => ({ app: {
   setAsDefaultProtocolClient: vi.fn(),
   getAppPath: () => 'C:\\repo',
 } }))
-vi.mock('../src/main/paths.js', () => ({ IS_EPHEMERAL: false }))
+vi.mock('../src/main/paths.js', () => ({ LAUNCH_MODES: { NPX_TEMP: 'npx-temp' }, LAUNCH_MODE: 'npm-start' }))
 const restart = vi.fn()
 vi.mock('../src/main/Application.js', () => ({ Application: class {
   start() {}

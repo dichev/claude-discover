@@ -8,10 +8,10 @@ vi.mock('electron', () => ({ app: {
   setAsDefaultProtocolClient: vi.fn(),
   getAppPath: () => 'C:\\repo', // an opaque token — only ever echoed back in an assertion
 } }))
-// stands in for IS_EPHEMERAL, flipped per launch — a getter, so it reads this at call time, long
+// stands in for LAUNCH_MODE, flipped per launch — a getter, so it reads this at call time, long
 // after the hoisted mock factory has run
 const paths = { ephemeral: false }
-vi.mock('../src/main/paths.js', () => ({ get IS_EPHEMERAL() { return paths.ephemeral } }))
+vi.mock('../src/main/paths.js', () => ({ LAUNCH_MODES: { NPX_TEMP: 'npx-temp' }, get LAUNCH_MODE() { return paths.ephemeral ? 'npx-temp' : 'npm-start' } }))
 
 import { app } from 'electron'
 import { DeepLink, findTarget } from '../src/main/services/DeepLink.js'

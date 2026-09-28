@@ -8,7 +8,7 @@
 
 import { EventEmitter } from 'node:events'
 import { app } from 'electron'
-import { IS_EPHEMERAL } from '../paths.js'
+import { LAUNCH_MODE, LAUNCH_MODES } from '../paths.js'
 
 
 const SCHEME = 'claude-discover'
@@ -47,7 +47,7 @@ export class DeepLink extends EventEmitter {
   // @windows Rewritten on every launch — idempotent, and the last launched checkout wins.
   #register() {
     if (process.platform !== 'win32') return
-    if (IS_EPHEMERAL) return // an npx cache dir is deleted later — registering it leaves a dead handler
+    if (LAUNCH_MODE === LAUNCH_MODES.NPX_TEMP) return // an npx cache dir is deleted later — registering it leaves a dead handler
     app.setAsDefaultProtocolClient(SCHEME, process.execPath, [app.getAppPath()])
   }
 }

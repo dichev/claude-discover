@@ -5,7 +5,7 @@ import { ProxySwitch } from './ProxySwitch.js'
 import { StatuslineSwitch } from './StatuslineSwitch.js'
 import { RetentionSwitch } from './RetentionSwitch.js'
 import { ClaudeDirSwitch } from './ClaudeDirSwitch.js'
-import { IS_EPHEMERAL } from '../../paths.js'
+import { LAUNCH_MODE, LAUNCH_MODES } from '../../paths.js'
 export class Switchers {
   #switches
   #keepActive = { proxy: true, statusline: true } // toggle feature persisting on app quit — starts on, so a switch this run didn't activate is never undone by it
@@ -21,10 +21,10 @@ export class Switchers {
 
   async status(name) {
     const s = await this.#get(name).status()
-    return name in this.#keepActive ? { ...s, keepActive: this.#keepActive[name], ephemeral: IS_EPHEMERAL } : s
+    return name in this.#keepActive ? { ...s, keepActive: this.#keepActive[name], ephemeral: LAUNCH_MODE === LAUNCH_MODES.NPX_TEMP } : s
   }
 
-  activate(name, ...args) { return this.#attempt(name, async s => { await s.activate(...args); this.#keepActive[name] &&= !IS_EPHEMERAL }) } // an npx-cache run undoes what it activated
+  activate(name, ...args) { return this.#attempt(name, async s => { await s.activate(...args); this.#keepActive[name] &&= LAUNCH_MODE !== LAUNCH_MODES.NPX_TEMP }) } // an npx-cache run undoes what it activated
   deactivate(name)        { return this.#attempt(name, s => s.deactivate()) }
   setKeepActive(name, value) { return this.#attempt(name, () => this.#keepActive[name] = !!value) }
 
