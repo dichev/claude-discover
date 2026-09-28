@@ -303,6 +303,12 @@ function Block({ block }) {
   if (block.type === 'attachment') {
     return <Attachment att={block.attachment} />
   }
+  if (block.type === 'system') {
+    const className = `system-note ${block.level ?? ''} ${block.kind ?? ''}`
+    const openUrl = e => { e.preventDefault(); void window.api.openLink(block.url) }
+    if (!block.body) return <Label title={block.url ? <a href={block.url} onClick={openUrl}>{block.title}</a> : block.title} className={className} />
+    return <Collapsible title={block.title} className={className} defaultOpen={!!block.level}><pre>{block.body}</pre></Collapsible>
+  }
   if (block.type === 'image') {
     const src = block.source
     if (src && src.type === 'base64') {

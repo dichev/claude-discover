@@ -19,6 +19,40 @@ const queuedPrompt = it =>
   && it.attachment.commandMode === 'prompt' && (it.attachment.origin?.kind ?? 'human') === 'human'
   && it.attachment.prompt?.trim() ? it.attachment.prompt : null
 
+// Side a harness-injected meta turn belongs to: after an assistant or tool turn (between tool cycles) it is part
+// of what the assistant just produced/received; otherwise it sits with the user.
+const sideAfter = last => (last?.role === 'assistant' || last?.role === 'tool') ? 'assistant' : 'user'
+
+// Session state that changes mid-conversation outside the messages: permission mode (Shift+Tab, plan exits),
+// working directory (worktrees) and published artifacts. Claude Code re-logs the current state over and over,
+// so a note comes only on an actual change.
+function stateNote(it, state) {
+  if (it.type === 'permission-mode') {
+    const prev = state.mode
+    state.mode = it.permissionMode
+    return prev && prev !== it.permissionMode ? { title: `Permission mode → ${it.permissionMode}`, body: null, level: null, kind: 'mode' } : null
+  }
+  if ((it.type === 'user' || it.type === 'assistant') && it.cwd) {
+    const prev = state.cwd
+    state.cwd = it.cwd
+    return prev && prev !== it.cwd ? { title: `Working directory → ${it.cwd}`, body: null, level: null } : null
+  }
+  if (it.type === 'frame-link' && it.frameUrl && !state.artifacts.has(it.frameUrl)) {
+    state.artifacts.add(it.frameUrl)
+    return { title: `Artifact: ${it.title || it.frameUrl}`, url: it.frameUrl, body: null, level: null }
+  }
+  return null
+}
+
+const noteTurn = (it, note, last, uuid = it.uuid) => ({
+  uuid,
+  role: sideAfter(last),
+  isMeta: true,
+  ts: it.timestamp ? Date.parse(it.timestamp) : null,
+  model: null, usage: null, tokenDelta: null, tokenTotal: null,
+  blocks: [{ type: 'system', ...note }]
+})
+
 // `instructions` are the system prompts / memory files captured by the request proxy
 // (readSession's separate `instructions` list) — not transcript items, merged in by timestamp.
 export function flatten(items, instructions = []) {
@@ -26,7 +60,11 @@ export function flatten(items, instructions = []) {
   const results = {}
   const companions = {}
   const compactions = {}
+  const state = { mode: null, cwd: null, artifacts: new Set() }
   for (let it of items) {
+    // Rendered just before the record carrying the change, under its own key (state records have no uuid)
+    const change = stateNote(it, state)
+    if (change) turns.push(noteTurn(it, change, turns.at(-1), `state-${turns.length}`))
     // Compaction logs a boundary plus the summary replacing the history, parented to the boundary but
     // timestamped just before it — they meet here in either order as one `compact` turn.
     if (it.subtype === 'compact_boundary' || it.isCompactSummary) {
@@ -84,11 +122,9 @@ export function flatten(items, instructions = []) {
         if (it._tokenDelta != null) last.tokenDelta = (last.tokenDelta ?? 0) + it._tokenDelta
         if (it._tokenTotal != null) last.tokenTotal = it._tokenTotal
       } else {
-        // Side the meta belongs to: attachments after an assistant or tool turn (between tool cycles)
-        // are part of what the assistant just produced/received; otherwise they sit with the user.
         turns.push({
           uuid: it.uuid,
-          role: (last?.role === 'assistant' || last?.role === 'tool') ? 'assistant' : 'user',
+          role: sideAfter(last),
           isMeta: true,
           ts: it.timestamp ? Date.parse(it.timestamp) : null,
           model: null,
@@ -295,6 +331,7 @@ export function compactTitle({ trigger, preTokens }) {
 
 // Harness-injected context is a meta turn whose blocks are all attachments (the "attachments · N items" payload).
 export const isContextTurn = t => t.isMeta && t.blocks.every(b => b.type === 'attachment')
+export const isNoteTurn    = t => t.blocks.every(b => b.type === 'system')
 
 export function groupTurns(turns) {
   const groups = []
@@ -311,6 +348,9 @@ export function groupTurns(turns) {
     } else if (t.role === 'instruction' || t.role === 'compact') {
       flush()
       groups.push({ kind: t.role, turns: [t] })
+    } else if (isNoteTurn(t) && !cycle && groups.at(-1)?.kind === 'assistant') {
+      // A note right after a finished reply closes out its card rather than opening an empty one
+      groups.at(-1).turns.push(t)
     } else if (t.role === 'user') {
       flush()
       groups.push({ kind: 'user', turns: [...pending, t] })

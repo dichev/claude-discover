@@ -126,6 +126,28 @@ describe('flatten — tool results', () => {
   })
 })
 
+describe('flatten — state changes', () => {
+  const msg = (uuid, cwd) => ({ type: 'user', uuid, cwd, timestamp: '2026-07-24T00:48:55.000Z', message: { role: 'user', content: 'hi' } })
+  const titles = items => flatten(items).flatMap(t => t.blocks).filter(b => b.type === 'system').map(b => b.title)
+
+  it('notes a permission mode only when it changes', () => {
+    const mode = m => ({ type: 'permission-mode', permissionMode: m })
+    expect(titles([mode('default'), msg('u1'), mode('default'), mode('auto'), mode('auto')])).toEqual(['Permission mode → auto'])
+  })
+
+  it('notes a working directory change before the record that made it', () => {
+    const turns = flatten([msg('u1', 'D:\\app'), msg('u2', 'D:\\app'), msg('u3', 'D:\\app\\.claude\\worktrees\\x')])
+    expect(turns.map(t => t.uuid)).toEqual(['u1', 'u2', 'state-2', 'u3'])
+    expect(turns[2].blocks[0].title).toBe('Working directory → D:\\app\\.claude\\worktrees\\x')
+  })
+
+  it('links a published artifact once', () => {
+    const link = { type: 'frame-link', frameUrl: 'https://claude.ai/artifact/a1', title: 'Notes', timestamp: '2026-09-16T19:06:42.109Z' }
+    const notes = flatten([link, { ...link }]).flatMap(t => t.blocks)
+    expect(notes).toEqual([{ type: 'system', title: 'Artifact: Notes', url: 'https://claude.ai/artifact/a1', body: null, level: null }])
+  })
+})
+
 describe('flatten — compaction', () => {
   // As readSession delivers them: sorted by timestamp, so the summary lands just before its boundary
   const summary  = { type: 'user', uuid: 'u1', parentUuid: 'b1', timestamp: '2026-06-12T02:58:34.764Z', isCompactSummary: true, _tokenDelta: 9000, _tokenTotal: 200000, message: { role: 'user', content: 'This session is being continued…' } }

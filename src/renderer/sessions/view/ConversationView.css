@@ -307,6 +307,10 @@ button.msg-summary:hover { color: var(--text); background: var(--bg-elev-2); bor
   &.error .aux-toggle { color: var(--danger); }
 }
 
+.system-note {
+  &.mode .aux-label { color: var(--accent); font-weight: 600; }
+}
+
 .aux-toggle {
   background: transparent;
   border: none;
