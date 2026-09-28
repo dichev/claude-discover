@@ -173,7 +173,7 @@ export class SessionParser {
       obj.isMeta = true
     } else if (text.startsWith('<scheduled-task')) {
       meta.hasScheduledTask = true
-    } else if (text && !obj.isMeta) { // meta records (e.g. a slash-command skill's body) aren't typed by the user
+    } else if (text && !obj.isMeta && !obj.isCompactSummary) { // meta records (e.g. a slash-command skill's body) and compaction summaries aren't typed by the user
       if (!meta.firstUserPrompt) meta.firstUserPrompt = text.slice(0, 300)
     }
   }

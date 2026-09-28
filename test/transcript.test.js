@@ -137,6 +137,13 @@ describe('flatten — compaction', () => {
     expect(groupTurns(turns).map(g => g.kind)).toEqual(['compact'])
     expect(compactTitle(turns[0].blocks[0])).toBe('Conversation compacted (manual · 188.4k tokens before)')
   })
+
+  it('never takes the summary as the first prompt', () => {
+    const prompt = { type: 'user', uuid: 'u2', timestamp: '2026-06-12T02:59:00.000Z', message: { role: 'user', content: 'next task' } }
+    const parser = new SessionParser({ sessionId: 's1', filePath: 's1.jsonl' })
+    for (const l of [summary, boundary, prompt]) parser.feed(structuredClone(l))
+    expect(parser.meta.firstUserPrompt).toBe('next task')
+  })
 })
 
 describe('flatten — structured output', () => {
