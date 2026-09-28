@@ -315,6 +315,8 @@ button.msg-summary:hover { color: var(--text); background: var(--bg-elev-2); bor
 }
 
 .system-note {
+  &.warning :is(.aux-toggle, .aux-label) { color: var(--warn); }
+  &.error .aux-label { color: var(--danger); }
   &.mode .aux-label { color: var(--accent); font-weight: 600; }
 }
 

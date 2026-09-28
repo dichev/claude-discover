@@ -23,6 +23,18 @@ const queuedPrompt = it =>
 // of what the assistant just produced/received; otherwise it sits with the user.
 const sideAfter = last => (last?.role === 'assistant' || last?.role === 'tool') ? 'assistant' : 'user'
 
+// Fields every record carries — what's left of a system record is its own payload
+const ENVELOPE = new Set(['type', 'subtype', 'level', 'content', 'uuid', 'parentUuid', 'logicalParentUuid', 'isSidechain', 'isMeta', 'userType', 'entrypoint', 'cwd', 'sessionId', 'session_id', 'version', 'gitBranch', 'slug', 'timestamp'])
+
+// The CLI's own inline notices (API errors, recaps, model fallbacks, hook runs, …): the text it printed,
+// or its payload when it printed none. Only warnings and errors keep a `level`.
+function systemNote(it) {
+  const title   = String(it.subtype).replace(/_/g, ' ').replace(/^api\b/, 'API').replace(/^./, c => c.toUpperCase())
+  const payload = Object.fromEntries(Object.entries(it).filter(([k]) => !ENVELOPE.has(k)))
+  const body    = it.content || (Object.keys(payload).length ? JSON.stringify(payload, null, 2) : null)
+  return { title, body, level: ['warning', 'error'].includes(it.level) ? it.level : null }
+}
+
 // Session state that changes mid-conversation outside the messages: permission mode (Shift+Tab, plan exits),
 // working directory (worktrees) and published artifacts. Claude Code re-logs the current state over and over,
 // so a note comes only on an actual change.
@@ -92,11 +104,16 @@ export function flatten(items, instructions = []) {
       }
       continue
     }
-    // Newer CLIs log some local commands (/branch, /context, …) and their output as system records
-    if (it.type === 'system' && it.subtype === 'local_command') {
-      const cmd = parseCommand(it.content)
-      if (!cmd?.name && !cmd?.stdout) continue
+    // Newer CLIs log some local commands (/branch, /context, …) and their output as system records;
+    // tagless ones (SDK sessions' bare `/exit`) stay plain notes
+    const cmd = it.type === 'system' && it.subtype === 'local_command' && parseCommand(it.content)
+    if (cmd) {
+      if (!cmd.name && !cmd.stdout) continue
       it = { ...it, type: 'user', isMeta: true, message: { role: 'user', content: it.content } }
+    } else if (it.type === 'system') {
+      const note = systemNote(it)
+      if (note) turns.push(noteTurn(it, note, turns.at(-1)))
+      continue
     }
     const queued = queuedPrompt(it)
     if (queued) {
@@ -362,7 +379,7 @@ export function groupTurns(turns) {
       flush()
       groups.push({ kind: t.role, turns: [t] })
     } else if (isNoteTurn(t) && !cycle && groups.at(-1)?.kind === 'assistant') {
-      // A note right after a finished reply closes out its card rather than opening an empty one
+      // A notice right after a finished reply (stop hooks, errors) closes out its card rather than opening an empty one
       groups.at(-1).turns.push(t)
     } else if (t.role === 'user') {
       flush()

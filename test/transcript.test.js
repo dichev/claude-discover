@@ -126,6 +126,33 @@ describe('flatten — tool results', () => {
   })
 })
 
+describe('flatten — system records', () => {
+  const ts = '2026-09-23T00:00:00.000Z'
+  const reply = { type: 'assistant', uuid: 'a1', timestamp: ts, message: { role: 'assistant', content: [{ type: 'text', text: 'Done.' }] } }
+
+  it('shows the printed text as the note body', () => {
+    const recap = { type: 'system', subtype: 'away_summary', uuid: 's1', timestamp: ts, level: 'info', content: 'You asked to…' }
+    expect(flatten([recap])[0].blocks).toEqual([{ type: 'system', title: 'Away summary', body: 'You asked to…', level: null }])
+  })
+
+  it('shows a notice with no text as its payload, without the envelope', () => {
+    const err = { type: 'system', subtype: 'api_error', uuid: 's1', cwd: 'D:\\app', timestamp: ts, level: 'error', error: { formatted: 'Unable to connect to API (ECONNRESET)' }, retryAttempt: 1 }
+    expect(flatten([err])[0].blocks).toEqual([{ type: 'system', title: 'API error', body: JSON.stringify({ error: err.error, retryAttempt: 1 }, null, 2), level: 'error' }])
+  })
+
+  it('closes out the finished reply\'s card instead of opening an empty one', () => {
+    const hooks = { type: 'system', subtype: 'stop_hook_summary', uuid: 's1', timestamp: ts, hookCount: 0 }
+    const groups = groupTurns(flatten([reply, hooks]))
+    expect(groups).toHaveLength(1)
+    expect(groups[0].turns.map(t => t.uuid)).toEqual(['a1', 's1'])
+  })
+
+  it('keeps a tagless local command as a plain note', () => {
+    const exit = { type: 'system', subtype: 'local_command', uuid: 's1', timestamp: ts, content: '/exit' }
+    expect(flatten([exit])[0].blocks[0]).toMatchObject({ type: 'system', title: 'Local command', body: '/exit' })
+  })
+})
+
 describe('flatten — state changes', () => {
   const msg = (uuid, cwd) => ({ type: 'user', uuid, cwd, timestamp: '2026-07-24T00:48:55.000Z', message: { role: 'user', content: 'hi' } })
   const titles = items => flatten(items).flatMap(t => t.blocks).filter(b => b.type === 'system').map(b => b.title)

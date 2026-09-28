@@ -188,9 +188,9 @@ function AssistantCard({ turns, point, ctxLimit, duration, showAuthor = true }) 
   const toolBlocks = turns.flatMap(t => t.blocks.filter(b => b.type === 'tool_use'))
   const errorCount = toolBlocks.filter(b => b.result?.is_error).length
   const skillCount = toolBlocks.filter(b => b.name === 'Skill').length
-  const isAux      = t => !t.blocks.some(b => b.type === 'text')
-  // Aux turns (tool calls, thinking-only, meta) fold behind the header chevron; without
-  // any tool calls there is nothing worth hiding, so everything stays visible.
+  const isAux      = t => !t.blocks.some(b => b.type === 'text' || (b.type === 'system' && b.level))
+  // Aux turns (tool calls, thinking-only, meta, but not warning/error notes) fold behind the header chevron;
+  // without any tool calls there is nothing worth hiding, so everything stays visible.
   const foldable   = toolBlocks.length > 0 && turns.some(isAux)
   const end        = turns.findLast(t => t.ts != null)?.ts ?? null
   // Once opened, keep aux turns mounted while folded (hidden via CSS) so each tool's expanded state
