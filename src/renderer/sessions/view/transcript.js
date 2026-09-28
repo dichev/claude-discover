@@ -19,52 +19,50 @@ const queuedPrompt = it =>
   && it.attachment.commandMode === 'prompt' && (it.attachment.origin?.kind ?? 'human') === 'human'
   && it.attachment.prompt?.trim() ? it.attachment.prompt : null
 
-// Side a harness-injected meta turn belongs to: after an assistant or tool turn (between tool cycles) it is part
-// of what the assistant just produced/received; otherwise it sits with the user.
+// After an assistant or tool turn (between tool cycles) a meta turn is part of the assistant's side
 const sideAfter = last => (last?.role === 'assistant' || last?.role === 'tool') ? 'assistant' : 'user'
+
+// "stop_hook_summary" → "Stop hook summary"
+export const humanize = type => type.replace(/_/g, ' ').replace(/^./, c => c.toUpperCase())
 
 // Fields every record carries — what's left of a system record is its own payload
 const ENVELOPE = new Set(['type', 'subtype', 'level', 'content', 'uuid', 'parentUuid', 'logicalParentUuid', 'isSidechain', 'isMeta', 'userType', 'entrypoint', 'cwd', 'sessionId', 'session_id', 'version', 'gitBranch', 'slug', 'timestamp'])
 
-// The CLI's own inline notices (API errors, recaps, model fallbacks, hook runs, …): the text it printed,
-// or its payload when it printed none. Only warnings and errors keep a `level`.
+// The CLI's inline notices: the text it printed, else its payload. Only warnings and errors keep a `level`.
 function systemNote(it) {
   if (it.subtype === 'turn_duration') return null // the CLI's own timing; cycleDurations derives it from the turns
-  const title   = String(it.subtype).replace(/_/g, ' ').replace(/^api\b/, 'API').replace(/^./, c => c.toUpperCase())
+  const title   = humanize(String(it.subtype)).replace(/^Api\b/, 'API')
   const payload = Object.fromEntries(Object.entries(it).filter(([k]) => !ENVELOPE.has(k)))
   const body    = it.content || (Object.keys(payload).length ? JSON.stringify(payload, null, 2) : null)
   return { title, body, level: ['warning', 'error'].includes(it.level) ? it.level : null }
 }
 
-// Session state that changes mid-conversation outside the messages: permission mode (Shift+Tab, plan exits),
-// working directory (worktrees) and published artifacts. Claude Code re-logs the current state over and over,
-// so a note comes only on an actual change.
+const changed = (state, key, value) => { const prev = state[key]; state[key] = value; return prev && prev !== value }
+
+// Claude Code re-logs permission mode, cwd and artifacts over and over — note only an actual change
 function stateNote(it, state) {
   if (it.type === 'permission-mode') {
-    const prev = state.mode
-    state.mode = it.permissionMode
-    return prev && prev !== it.permissionMode ? { title: `Permission mode → ${it.permissionMode}`, body: null, level: null, kind: 'mode' } : null
+    return changed(state, 'mode', it.permissionMode) ? { title: `Permission mode → ${it.permissionMode}`, kind: 'mode' } : null
   }
   if ((it.type === 'user' || it.type === 'assistant') && it.cwd) {
-    const prev = state.cwd
-    state.cwd = it.cwd
-    return prev && prev !== it.cwd ? { title: `Working directory → ${it.cwd}`, body: null, level: null } : null
+    return changed(state, 'cwd', it.cwd) ? { title: `Working directory → ${it.cwd}` } : null
   }
   if (it.type === 'frame-link' && it.frameUrl && !state.artifacts.has(it.frameUrl)) {
     state.artifacts.add(it.frameUrl)
-    return { title: `Artifact: ${it.title || it.frameUrl}`, url: it.frameUrl, body: null, level: null }
+    return { title: `Artifact: ${it.title || it.frameUrl}`, url: it.frameUrl }
   }
   return null
 }
 
-const noteTurn = (it, note, last, uuid = it.uuid) => ({
+const metaTurn = (it, role, blocks, uuid = it.uuid) => ({
   uuid,
-  role: sideAfter(last),
+  role,
   isMeta: true,
   ts: it.timestamp ? Date.parse(it.timestamp) : null,
   model: null, usage: null, tokenDelta: null, tokenTotal: null,
-  blocks: [{ type: 'system', ...note }]
+  blocks
 })
+const noteTurn = (it, note, last, uuid) => metaTurn(it, sideAfter(last), [{ type: 'system', ...note }], uuid)
 
 // `instructions` are the system prompts / memory files captured by the request proxy
 // (readSession's separate `instructions` list) — not transcript items, merged in by timestamp.
@@ -74,27 +72,16 @@ export function flatten(items, instructions = []) {
   const companions = {}
   const compactions = {}
   const state = { mode: null, cwd: null, artifacts: new Set() }
-  const seen = new Set()
   for (let it of items) {
-    // Partial compaction re-logs the preserved messages under their original uuids — the originals already show
-    if (it.uuid && seen.has(it.uuid)) continue
-    if (it.uuid) seen.add(it.uuid)
+    if (it._relogged) continue // the original already shows
     // Rendered just before the record carrying the change, under its own key (state records have no uuid)
     const change = stateNote(it, state)
     if (change) turns.push(noteTurn(it, change, turns.at(-1), `state-${turns.length}`))
-    // Compaction logs a boundary plus the summary replacing the history, parented to the boundary but
-    // timestamped just before it — they meet here in either order as one `compact` turn.
+    // The summary is parented to its boundary but timestamped just before it — either order joins one `compact` turn
     if (it.subtype === 'compact_boundary' || it.isCompactSummary) {
       const key = it.isCompactSummary ? it.parentUuid ?? it.uuid : it.uuid
       let turn = compactions[key]
-      if (!turn) turns.push(turn = compactions[key] = {
-        uuid: it.uuid,
-        role: 'compact',
-        isMeta: true,
-        ts: it.timestamp ? Date.parse(it.timestamp) : null,
-        model: null, usage: null, tokenDelta: null, tokenTotal: null,
-        blocks: [{ type: 'compact' }]
-      })
+      if (!turn) turns.push(turn = compactions[key] = metaTurn(it, 'compact', [{ type: 'compact' }]))
       if (it.isCompactSummary) {
         turn.blocks[0].summary = messageText(it)
         turn.tokenDelta = it._tokenDelta ?? null
@@ -105,8 +92,7 @@ export function flatten(items, instructions = []) {
       }
       continue
     }
-    // Newer CLIs log some local commands (/branch, /context, …) and their output as system records;
-    // tagless ones (SDK sessions' bare `/exit`) stay plain notes
+    // Newer CLIs log local commands (/branch, /context, …) as system records; tagless ones (SDK's bare `/exit`) stay notes
     const cmd = it.type === 'system' && it.subtype === 'local_command' && parseCommand(it.content)
     if (cmd) {
       if (!cmd.name && !cmd.stdout) continue
@@ -144,17 +130,7 @@ export function flatten(items, instructions = []) {
         if (it._tokenDelta != null) last.tokenDelta = (last.tokenDelta ?? 0) + it._tokenDelta
         if (it._tokenTotal != null) last.tokenTotal = it._tokenTotal
       } else {
-        turns.push({
-          uuid: it.uuid,
-          role: sideAfter(last),
-          isMeta: true,
-          ts: it.timestamp ? Date.parse(it.timestamp) : null,
-          model: null,
-          usage: null,
-          tokenDelta: it._tokenDelta ?? null,
-          tokenTotal: it._tokenTotal ?? null,
-          blocks: [block]
-        })
+        turns.push({ ...metaTurn(it, sideAfter(last), [block]), tokenDelta: it._tokenDelta ?? null, tokenTotal: it._tokenTotal ?? null })
       }
       continue
     }
@@ -329,9 +305,8 @@ export function parseCommand(text) {
   }
 }
 
-// A tool output too large for the transcript is saved to `<sessionId>/tool-results/<file>` beside the top-level
-// transcript (subagents save into their parent's). The link is relative to it, so it still resolves when the
-// transcript was written on another OS (WSL paths).
+// Saved as `<sessionId>/tool-results/<file>` beside the top-level transcript (subagents save into their parent's) —
+// linked relative to it so WSL paths resolve
 export function persistedOutput(text) {
   if (typeof text !== 'string' || !text.trimStart().startsWith('<persisted-output>')) return null
   const saved = text.match(/Full output saved to: (.+)/)?.[1].trim()

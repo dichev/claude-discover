@@ -175,7 +175,7 @@ describe('flatten — state changes', () => {
   it('links a published artifact once', () => {
     const link = { type: 'frame-link', frameUrl: 'https://claude.ai/artifact/a1', title: 'Notes', timestamp: '2026-09-16T19:06:42.109Z' }
     const notes = flatten([link, { ...link }]).flatMap(t => t.blocks)
-    expect(notes).toEqual([{ type: 'system', title: 'Artifact: Notes', url: 'https://claude.ai/artifact/a1', body: null, level: null }])
+    expect(notes).toEqual([{ type: 'system', title: 'Artifact: Notes', url: 'https://claude.ai/artifact/a1' }])
   })
 })
 
@@ -203,14 +203,12 @@ describe('partial compaction re-logging the preserved messages', () => {
   const call = { type: 'assistant', uuid: 'a1', timestamp: '2026-07-16T02:03:10.542Z', message: { id: 'm1', role: 'assistant', model: 'claude-opus-5', content: [{ type: 'tool_use', id: 'tu1', name: 'Bash', input: {} }], usage: { input_tokens: 131, output_tokens: 814 } } }
   const copy = { ...call, parentUuid: 'x', message: { ...call.message, usage: { input_tokens: 0, output_tokens: 0 } } }
 
-  it('shows each record once, keeping the original', () => {
-    expect(flatten([call, copy])).toMatchObject([{ uuid: 'a1', usage: { output_tokens: 814 } }])
-  })
-
-  it('counts each record once but still hands the copy to readSession', () => {
+  it('counts and shows each record once, but still hands the copy to readSession', () => {
     const parser = new SessionParser({ sessionId: 's1', filePath: 's1.jsonl' })
-    expect([call, copy].map(l => parser.feed(structuredClone(l)))).toEqual([true, true])
+    const items  = [call, copy].map(l => structuredClone(l))
+    expect(items.map(l => parser.feed(l))).toEqual([true, true])
     expect(parser.meta).toMatchObject({ messageCount: 1, toolCalls: 1, tokens: { input: 131, output: 814 } })
+    expect(flatten(items)).toMatchObject([{ uuid: 'a1', usage: { output_tokens: 814 } }])
   })
 })
 

@@ -83,7 +83,7 @@ Watching (`sessions/utils/FileWatcher.js`) is one recursive `fs.watch`, not chok
 Invariants — token totals break if any of these are bypassed:
 
 - Resume/fork duplicates message ids verbatim; `SessionsService._dedupSessions` excludes the overlap.
-- A partial compaction re-logs the preserved records under their original uuids, with zeroed usage; `SessionParser` and `flatten` keep only the first.
+- A partial compaction re-logs the preserved records under their original uuids, with zeroed usage; `SessionParser` counts only the first and flags the copies `_relogged`, which `flatten` skips.
 - A streamed reply spans several jsonl lines sharing `message.id` with growing `output_tokens`; the parser counts only the growth per line, clamped at 0 (rewinds re-append zeroed usage that was still billed).
 - Sessions are always parsed from byte 0, never resumed at an offset.
 - The walk can't prune by directory mtime (Windows doesn't bump it on append), and subagent transcripts nest arbitrarily deep.

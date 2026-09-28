@@ -2,10 +2,11 @@ import React, { useContext, useEffect, useMemo, useState } from 'react'
 import { format } from 'date-fns'
 import { Terminal } from 'lucide-react'
 import { fmtCompact, fmtDuration } from '../../utils/formatting'
-import { flatten, groupTurns, cycleDurations, tokenPoints, isContextTurn, toolSummary, parseCommand, groupInstructions, instructionTitle, currentModel, contextWindow, countTokens, compactTitle, persistedOutput } from './transcript.js'
+import { flatten, groupTurns, cycleDurations, tokenPoints, isContextTurn, toolSummary, parseCommand, groupInstructions, instructionTitle, currentModel, contextWindow, countTokens, compactTitle, persistedOutput, humanize } from './transcript.js'
 import Divider from '../../ui/Divider.jsx'
 import LazyMount from '../../ui/LazyMount.jsx'
 import Markdown from '../../ui/Markdown.jsx'
+import OpenLink from '../../ui/OpenLink.jsx'
 import { useFindActive } from '../../ui/useFindActive.js'
 import { useMouseFontScale } from '../../utils/useMouse.js'
 import './ConversationView.css'
@@ -189,8 +190,7 @@ function AssistantCard({ turns, point, ctxLimit, duration, showAuthor = true }) 
   const errorCount = toolBlocks.filter(b => b.result?.is_error).length
   const skillCount = toolBlocks.filter(b => b.name === 'Skill').length
   const isAux      = t => !t.blocks.some(b => b.type === 'text' || (b.type === 'system' && b.level))
-  // Aux turns (tool calls, thinking-only, meta, but not warning/error notes) fold behind the header chevron;
-  // without any tool calls there is nothing worth hiding, so everything stays visible.
+  // Aux turns (tool calls, thinking, meta — not warning/error notes) fold behind the chevron, but only if there are tool calls
   const foldable   = toolBlocks.length > 0 && turns.some(isAux)
   const end        = turns.findLast(t => t.ts != null)?.ts ?? null
   // Once opened, keep aux turns mounted while folded (hidden via CSS) so each tool's expanded state
@@ -309,8 +309,7 @@ function Block({ block }) {
   }
   if (block.type === 'system') {
     const className = `system-note ${block.level ?? ''} ${block.kind ?? ''}`
-    const openUrl = e => { e.preventDefault(); void window.api.openLink(block.url) }
-    if (!block.body) return <Label title={block.url ? <a href={block.url} onClick={openUrl}>{block.title}</a> : block.title} className={className} />
+    if (!block.body) return <Label title={block.url ? <OpenLink href={block.url}>{block.title}</OpenLink> : block.title} className={className} />
     return <Collapsible title={block.title} className={className} defaultOpen={!!block.level}><pre>{block.body}</pre></Collapsible>
   }
   if (block.type === 'image') {
@@ -327,8 +326,7 @@ function SavedOutputLink({ text }) {
   const baseFile = useContext(TranscriptFileContext)
   const saved    = persistedOutput(text)
   if (!saved || !baseFile) return null
-  const open = e => { e.preventDefault(); void window.api.openLink(saved.href, baseFile) }
-  return <div className="tool-result-label saved-output">Full output: <a href={saved.href} onClick={open}>{saved.path}</a></div>
+  return <div className="tool-result-label saved-output">Full output: <OpenLink href={saved.href} basePath={baseFile}>{saved.path}</OpenLink></div>
 }
 
 const ATTACHMENT_RENDERERS = {
@@ -375,7 +373,7 @@ function genericAttachment(att) {
   }
   for (const [k, v] of Object.entries(att || {})) { if (k !== 'type') collect(v, k) }
   const detail = short.find(([k]) => /path|file|name|dir|uri|url|date/i.test(k))?.[1] // what the attachment is about
-  const label = (att?.type || 'attachment').replace(/_/g, ' ').replace(/^./, c => c.toUpperCase())
+  const label = humanize(att?.type || 'attachment')
   return {
     title: detail ? `${label}: ${detail}` : label,
     body: long.length ? long.map(([, v]) => v).join('\n\n') : short.length > 1 ? safeJson(att) : null,

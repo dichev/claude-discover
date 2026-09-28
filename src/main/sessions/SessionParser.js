@@ -106,10 +106,12 @@ export class SessionParser {
       if (meta.startedAt == null || inherited < meta.startedAt) meta.startedAt = inherited
       if (inherited > meta.lastActivityAt) meta.lastActivityAt = inherited
     }
-    // A partial compaction re-logs the preserved messages under their original uuids (usage zeroed) — count them
-    // once, but still hand the copies to readSession for the raw JSONL view.
+    // Partial compaction re-logs records under their original uuids — count once, but keep the copy for the JSONL view
     if (obj.uuid) {
-      if (this.seenUuids.has(obj.uuid)) return true
+      if (this.seenUuids.has(obj.uuid)) {
+        obj._relogged = true
+        return true
+      }
       this.seenUuids.add(obj.uuid)
     }
 
