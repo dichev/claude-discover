@@ -1,4 +1,3 @@
-import { useEffect, useRef, useState } from 'react'
 import { format } from 'date-fns'
 import { endOfPeriod, isSamePeriod } from '../utils/period.js'
 import { SOURCE_COLORS, SOURCE_LABELS, SOURCE_ORDER } from '../utils/colors.js'
@@ -23,20 +22,6 @@ export default function Toolbar({
   sourceFilter, availableSources, onToggleSourceFilter,
 }) {
   const onToday = isSamePeriod(dayAnchor, Date.now(), granularity)
-  const [menuOpen, setMenuOpen] = useState(false)
-  const menuRef = useRef(null)
-
-  useEffect(() => {
-    if (!menuOpen) return
-    const onDocClick = e => { if (menuRef.current && !menuRef.current.contains(e.target)) setMenuOpen(false) }
-    const onKeyDown = e => { if (e.key === 'Escape') setMenuOpen(false) }
-    document.addEventListener('mousedown', onDocClick)
-    document.addEventListener('keydown', onKeyDown)
-    return () => {
-      document.removeEventListener('mousedown', onDocClick)
-      document.removeEventListener('keydown', onKeyDown)
-    }
-  }, [menuOpen])
 
   return (
     <div className="gantt-toolbar">
@@ -57,33 +42,7 @@ export default function Toolbar({
       </div>
       <div className="gantt-toolbar-nav">
         <button className="gantt-nav-arrow" onClick={() => onShiftDay?.(-1)} title="Previous period" aria-label="Previous period">‹</button>
-        <div className="gantt-period" ref={menuRef}>
-          <button
-            type="button"
-            className="gantt-toolbar-title"
-            onClick={() => setMenuOpen(o => !o)}
-            aria-haspopup="listbox"
-            aria-expanded={menuOpen}
-            title="Change period granularity"
-          >
-            {periodTitle(dayAnchor, granularity)}
-            <span className="gantt-granularity-caret">▾</span>
-          </button>
-          {menuOpen && (
-            <div className="gantt-granularity-menu" role="listbox">
-              {GRANULARITIES.map(({ key, label }) => (
-                <button
-                  key={key}
-                  type="button"
-                  role="option"
-                  aria-selected={granularity === key}
-                  className={`gantt-granularity-option${granularity === key ? ' active' : ''}`}
-                  onClick={() => { onSetGranularity?.(key); setMenuOpen(false) }}
-                >{label}</button>
-              ))}
-            </div>
-          )}
-        </div>
+        <h2 className="gantt-toolbar-title">{periodTitle(dayAnchor, granularity)}</h2>
         <button
           className="gantt-nav-arrow"
           onClick={() => onShiftDay?.(1)}
@@ -97,7 +56,18 @@ export default function Toolbar({
           style={{ visibility: onToday ? 'hidden' : 'visible' }}
         >{RESET_LABELS[granularity]}</button>
       </div>
-      <div />
+      <div className="gantt-granularity" role="tablist">
+        {GRANULARITIES.map(({ key, label }) => (
+          <button
+            key={key}
+            type="button"
+            role="tab"
+            aria-selected={granularity === key}
+            className={granularity === key ? 'active' : ''}
+            onClick={() => onSetGranularity?.(key)}
+          >{label}</button>
+        ))}
+      </div>
     </div>
   )
 }

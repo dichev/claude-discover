@@ -22,6 +22,7 @@
 }
 
 .gantt-pane {
+  --gantt-side-width: 247px;
   display: flex;
   flex-direction: column;
   min-height: 0;
@@ -36,7 +37,7 @@
 
   & > * { min-width: 0; min-height: 0; }
   & > .gantt-wrap { flex: 1; }
-  & > .gantt-side { flex: 0 0 247px; }
+  & > .gantt-side { flex: 0 0 var(--gantt-side-width); }
 }
 
 .body-outer {
