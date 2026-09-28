@@ -24,6 +24,7 @@ function useCollapsed(defaultOpen) {
 
 // Slash-command invocation (`<command-name>…`): meta for most purposes, but still a user action.
 const isCommandTurn = t => t.blocks.some(b => b.type === 'text' && parseCommand(b.text)?.name)
+const isClearTurn   = t => t.blocks.some(b => b.type === 'text' && parseCommand(b.text)?.name === '/clear')
 
 
 export default function ConversationView({ items, instructions = [], expandAll = null, continuesFrom = null, continuesTo = null, onShowPeriodOf }) {
@@ -37,6 +38,8 @@ export default function ConversationView({ items, instructions = [], expandAll =
   const model = currentModel(turns)
   const ctxLimit = contextWindow([model]) // bar scale: fraction of this model's context window
   const hasTimeline = points.some(Boolean)
+  const branch = branchPoint(items, groups)
+  const branchDivider = branch && <Divider className="conv-divider" title={branch.from}>Branched from session {branch.from.slice(0, 8)}</Divider>
   return (
     <ExpandAllContext.Provider value={expandAll}>
       <div ref={zoomRef} className={`conversation${hasTimeline ? ' has-token-timeline' : ''}`} style={{ '--font-scale': scale }}>
@@ -46,17 +49,22 @@ export default function ConversationView({ items, instructions = [], expandAll =
           </Divider>
         )}
         {groups.map((g, i) => (
-          <div className={`conv-row conv-row-${g.kind}`} key={g.turns[0].uuid}>
-            <LazyMount eager={i < 8} forceMount={findOpen} placeholderMinHeight={80}>
-              {g.kind === 'user'      ? <UserRow turns={g.turns} point={points[i]} ctxLimit={ctxLimit} />
-               : g.kind === 'assistant' ? <AssistantCard turns={g.turns} point={points[i]} ctxLimit={ctxLimit} duration={durations[i]} showAuthor={groups[i - 1]?.kind !== 'assistant'} />
-               :                        <InstructionRun turns={g.turns} model={model} />}
-            </LazyMount>
-            {points[i] ? <TokenPoint point={points[i]} />
-             // Commands consume no tokens so they never get a real point — mark them with a plain dot.
-             : hasTimeline && g.kind === 'user' && g.turns.some(isCommandTurn) && <TokenPoint point={{ role: 'command', delta: 0 }} />}
-          </div>
+          <React.Fragment key={g.turns[0].uuid}>
+            {i === branch?.index && branchDivider}
+            <div className={`conv-row conv-row-${g.kind}`}>
+              <LazyMount eager={i < 8} forceMount={findOpen} placeholderMinHeight={80}>
+                {g.kind === 'user'      ? <UserRow turns={g.turns} point={points[i]} ctxLimit={ctxLimit} />
+                 : g.kind === 'assistant' ? <AssistantCard turns={g.turns} point={points[i]} ctxLimit={ctxLimit} duration={durations[i]} showAuthor={groups[i - 1]?.kind !== 'assistant'} />
+                 :                        <InstructionRun turns={g.turns} model={model} />}
+              </LazyMount>
+              {points[i] ? <TokenPoint point={points[i]} />
+               // Commands consume no tokens so they never get a real point — mark them with a plain dot.
+               : hasTimeline && g.kind === 'user' && g.turns.some(isCommandTurn) && <TokenPoint point={{ role: 'command', delta: 0 }} />}
+            </div>
+            {g.kind === 'user' && g.turns.some(isClearTurn) && <Divider className="conv-divider">Context cleared</Divider>}
+          </React.Fragment>
         ))}
+        {branch?.index === groups.length && branchDivider}
         {continuesTo != null && (
           <Divider className="conv-continues-to" onClick={() => onShowPeriodOf(continuesTo)} title="Show the later period">
             Continues on {format(continuesTo, 'MMM d, yyyy HH:mm')}
@@ -65,6 +73,17 @@ export default function ConversationView({ items, instructions = [], expandAll =
       </div>
     </ExpandAllContext.Provider>
   )
+}
+
+// A branch (/branch, --fork-session) opens with the source's records copied over, each stamped `forkedFrom` —
+// returns the source session and the index of the first group after them (groups.length when none yet).
+function branchPoint(items, groups) {
+  const from = items.find(it => it.forkedFrom)?.forkedFrom.sessionId
+  const first = from && items.find(it => it.timestamp && !it.forkedFrom)
+  if (!first) return null
+  const ts = Date.parse(first.timestamp)
+  const i = groups.findIndex(g => g.turns.some(t => t.ts >= ts))
+  return { from, index: i === -1 ? groups.length : i }
 }
 
 // Anthropic's official Claude sunburst mark, in the brand's clay-orange.

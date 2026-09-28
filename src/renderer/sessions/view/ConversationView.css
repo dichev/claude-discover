@@ -38,6 +38,7 @@
 
 .conv-continues-from { margin-bottom: 20px; }
 .conv-continues-to { margin-top: 20px; }
+.conv-divider { margin: 20px 0; }
 
 .token-point {
   position: absolute;
