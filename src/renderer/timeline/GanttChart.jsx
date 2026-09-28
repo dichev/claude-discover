@@ -11,8 +11,8 @@ import './GanttChart.css'
 const HEADER_HEIGHT  = 28
 const PROJECTS_WIDTH = 220
 const BARS = {
-  day:   { height: 22, min_width: 4, row_gap: 4, group_gap: 8, radius: 3 },
-  week:  { height: 15, min_width: 3, row_gap: 3, group_gap: 4, radius: 2 },
+  day:   { height: 16, min_width: 4, row_gap: 2, group_gap: 6, radius: 3 },
+  week:  { height: 12, min_width: 3, row_gap: 2, group_gap: 3, radius: 2 },
   month: { height: 10, min_width: 2, row_gap: 2, group_gap: 2, radius: 1 },
 }
 
@@ -183,7 +183,8 @@ export default function GanttChart({
                 />
               )}
               <text
-                x={8} y={g.yOffset + 14}
+                x={8} y={g.yOffset + bar.height / 2}
+                dominantBaseline="central"
                 className={`gantt-project gantt-project-clickable${projectFilter === g.key ? ' gantt-project-active' : ''}`}
                 onClick={(e) => { e.stopPropagation(); onToggleProjectFilter?.(g.key) }}
               >
