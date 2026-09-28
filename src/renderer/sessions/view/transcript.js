@@ -164,6 +164,12 @@ export function flatten(items, instructions = []) {
       continue
     }
     if (it.type !== 'user' && it.type !== 'assistant') continue
+    // What Claude Code writes in the model's name — an API error, or "No response requested." closing a turn
+    // a hook stopped once the session resumes — is its notice, not Claude's reply
+    if (it.type === 'assistant' && it.message?.model === '<synthetic>') {
+      turns.push(noteTurn(it, { title: messageText(it), level: it.isApiErrorMessage ? 'error' : null }, turns.at(-1)))
+      continue
+    }
     const msg = it.message || {}
     const blocks = collapseRedactedThinking(normalizeContent(msg.content))
     if (blocks.length === 0) continue

@@ -79,6 +79,22 @@ describe('flatten — skill companion records', () => {
   })
 })
 
+describe('flatten — what Claude Code writes in the model\'s name', () => {
+  const synthetic = (uuid, text, extra) => ({ type: 'assistant', uuid, timestamp: '2026-09-28T20:51:19.685Z', ...extra, message: { role: 'assistant', model: '<synthetic>', content: [{ type: 'text', text }] } })
+
+  it('shows the line closing a turn a hook stopped as a notice beside the meta prompt, not a Claude reply', () => {
+    const resume = { type: 'user', uuid: 'm1', timestamp: '2026-09-28T20:51:19.685Z', isMeta: true, message: { role: 'user', content: 'Continue from where you left off.' } }
+    const groups = groupTurns(flatten([resume, synthetic('s1', 'No response requested.')]))
+    expect(groups.map(g => g.kind)).toEqual(['user', 'user'])
+    expect(groups[1].turns).toMatchObject([{ isMeta: true, blocks: [{ type: 'system', title: 'No response requested.', level: null }] }])
+  })
+
+  it('shows an API error as an error notice', () => {
+    const [turn] = flatten([synthetic('s2', 'API Error: 529 Overloaded', { isApiErrorMessage: true })])
+    expect(turn.blocks).toEqual([{ type: 'system', title: 'API Error: 529 Overloaded', level: 'error' }])
+  })
+})
+
 describe('SessionParser — effort', () => {
   it('collects distinct effort levels, preferring perTurnEffort and falling back to effort', () => {
     const reply = (id, fields) => ({ type: 'assistant', uuid: id, timestamp: '2026-09-28T00:00:00.000Z', ...fields, message: { id, role: 'assistant', model: 'claude-opus-5-5', content: [] } })
