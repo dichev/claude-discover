@@ -341,6 +341,17 @@ describe('RequestFile.readInstructions', () => {
     ])
   })
 
+  it('skips a body-less record logged after the deferred roster', async () => {
+    const env = 'The following deferred tools are now available via ToolSearch, before calling them:\nWebFetch\n'
+    fs.writeFileSync(path.join(dir, 'sess-nb.requests.jsonl'), [
+      { type: 'api-request', url: 'POST /v1/messages', status: 200, timestamp: '2026-07-14T10:00:00.000Z',
+        request: { model: 'claude-sonnet-5', messages: [{ role: 'user', content: [{ type: 'text', text: env }] }] } },
+      { type: 'api-request', url: 'POST /v1/messages/count_tokens', status: 200, timestamp: '2026-07-14T10:01:00.000Z', model: 'claude-sonnet-5', size: 42 },
+    ].map(r => JSON.stringify(r)).join('\n') + '\n')
+    const files = await new RequestFile('sess-nb', { dir }).readInstructions()
+    expect(files.map(f => f.file_path)).toEqual(['Deferred Tools'])
+  })
+
   it('emits only the MCP strip when a later request adds nothing but MCP tools', async () => {
     const base = { type: 'api-request', url: 'POST /v1/messages', status: 200 }
     const read = { name: 'Read', description: 'Reads a file' }

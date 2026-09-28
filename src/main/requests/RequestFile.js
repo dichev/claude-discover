@@ -54,6 +54,7 @@ export class RequestFile {
     const parser = new RequestParser() // holds the per-tool dedup state
     const files = new Map() // dedup key → record, first sight wins
     for (const rec of await this.read()) {
+      if (!rec.request) continue // body-less (older proxy's count_tokens, unparsable body) — would re-emit the cached roster
       const record = f => ({ timestamp: rec.timestamp, ...f })
       const sys = parser.systemPrompt(rec)
       if (sys && !files.has(sys.hash)) files.set(sys.hash, record(sys))
