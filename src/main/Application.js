@@ -43,6 +43,7 @@ export class Application {
     ipcMain.handle('work-hours:get', () => workHours.read())
     ipcMain.handle('work-hours:set', (_e, data) => workHours.write(data))
     ipcMain.handle('auto-update:check', () => autoUpdate.check())
+    ipcMain.handle('auto-update:install', () => autoUpdate.install())
     ipcMain.handle('agent:run', (e, text) => agentRunner.run(text, e.sender))
     ipcMain.handle('shell:open-link', (_e, href, baseFile) => openLinkSafely(href, baseFile))
     ipcMain.handle('deeplink:take-pending', () => deepLink?.takePending() ?? null)

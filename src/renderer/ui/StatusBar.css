@@ -25,19 +25,16 @@
   white-space: nowrap;
 }
 
-/* Full-height blue segment, like a .statusbar-seg: the negative margin eats the flex gap so the fill reaches the next separator */
-.statusbar-update {
-  align-self: stretch;
+/* A blue-tinted .statusbar-seg (StatusSwitch lays out the full-height fill and the tooltip) */
+.statusbar-update { background: rgb(96 165 250 / 0.14); }
+.statusbar-seg.statusbar-update:hover { background: rgb(96 165 250 / 0.24); }
+.statusbar-update .statusbar-msg {
   display: inline-flex;
   align-items: center;
   gap: 4px;
-  margin-right: -8px;
-  padding-right: 8px;
-  background: rgb(96 165 250 / 0.14);
   color: var(--accent);
   font-weight: 700;
   white-space: nowrap;
-  cursor: default;
 }
 
 /* Session-loading indicator (compact progress bar, mirrors SessionSummary's .progress-bar) */
