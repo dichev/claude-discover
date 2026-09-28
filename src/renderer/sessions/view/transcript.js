@@ -29,6 +29,7 @@ const ENVELOPE = new Set(['type', 'subtype', 'level', 'content', 'uuid', 'parent
 // The CLI's own inline notices (API errors, recaps, model fallbacks, hook runs, …): the text it printed,
 // or its payload when it printed none. Only warnings and errors keep a `level`.
 function systemNote(it) {
+  if (it.subtype === 'turn_duration') return null // the CLI's own timing; cycleDurations derives it from the turns
   const title   = String(it.subtype).replace(/_/g, ' ').replace(/^api\b/, 'API').replace(/^./, c => c.toUpperCase())
   const payload = Object.fromEntries(Object.entries(it).filter(([k]) => !ENVELOPE.has(k)))
   const body    = it.content || (Object.keys(payload).length ? JSON.stringify(payload, null, 2) : null)

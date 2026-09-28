@@ -147,6 +147,10 @@ describe('flatten — system records', () => {
     expect(groups[0].turns.map(t => t.uuid)).toEqual(['a1', 's1'])
   })
 
+  it('skips the CLI\'s turn timing', () => {
+    expect(flatten([{ type: 'system', subtype: 'turn_duration', uuid: 's1', timestamp: ts, durationMs: 3550 }])).toEqual([])
+  })
+
   it('keeps a tagless local command as a plain note', () => {
     const exit = { type: 'system', subtype: 'local_command', uuid: 's1', timestamp: ts, content: '/exit' }
     expect(flatten([exit])[0].blocks[0]).toMatchObject({ type: 'system', title: 'Local command', body: '/exit' })
