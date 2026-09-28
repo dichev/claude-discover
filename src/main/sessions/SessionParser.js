@@ -42,7 +42,7 @@ function classifySource(meta) {
 function freshMeta({ sessionId, parentSessionId, filePath, parentFilePath, fileSize, mtime }) {
   return {
     sessionId, parentSessionId, filePath, parentFilePath, fileSize, mtime,
-    startedAt: null, lastActivityAt: null,
+    startedAt: null, lastActivityAt: null, continuesFrom: null, continuesTo: null,
     entrypoint: null, project: null, worktree: null, worktreePath: null, gitBranch: null, version: null,
     model: null, models: [], efforts: [], serviceTier: null, speed: null, fastPricingUnknown: false, priceUnknown: false,
     summary: null, aiTitle: null, customTitle: null, agentName: null, tag: null, firstUserPrompt: null, firstUserCommand: null, forkedFrom: null,
@@ -94,7 +94,12 @@ export class SessionParser {
     const inherited = parsed > 0 ? parsed : this.lastSeenTs
     const ts = inherited ?? meta.mtime
     if (parsed > 0) this.lastSeenTs = parsed
-    if (this.range && (ts < this.range.start || ts > this.range.end)) return false
+    if (this.range && (ts < this.range.start || ts > this.range.end)) {
+      // Nearest activity outside the period on either side — the view marks where the shown part picks up and where it goes on
+      if (inherited != null && ts < this.range.start && ts > meta.continuesFrom) meta.continuesFrom = ts
+      if (inherited != null && ts > this.range.end && (meta.continuesTo == null || ts < meta.continuesTo)) meta.continuesTo = ts
+      return false
+    }
     obj._ts = ts
     if (inherited != null) {
       if (meta.startedAt == null || inherited < meta.startedAt) meta.startedAt = inherited

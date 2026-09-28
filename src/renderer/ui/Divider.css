@@ -1,0 +1,27 @@
+.divider {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--text-faint);
+  font: inherit;
+  white-space: nowrap;
+
+  /* Wavy rules (~~~ label ~~~): a repeating sine stroke masked over the text color */
+  &::before, &::after {
+    content: '';
+    flex: 1;
+    height: 8px;
+    background: currentColor;
+    opacity: 0.6;
+    mask: url("../assets/wave.svg") repeat-x center / 20px 8px;
+  }
+}
+
+button.divider {
+  cursor: pointer;
+  &:hover { color: var(--text-dim); }
+}

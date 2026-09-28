@@ -92,9 +92,11 @@ export function markdownSession(meta, items, instructions = []) {
 - Server tools (search / fetch): ${fmtNum(stu.webSearch)} / ${fmtNum(stu.webFetch)}
 
 ## Activity
-- Started: ${format(meta.startedAt, 'pp')}
+${meta.continuesFrom ? `- Continues from: ${format(meta.continuesFrom, 'PPpp')} (earlier messages not included)
+` : ''}- Started: ${format(meta.startedAt, 'pp')}
 - Last activity: ${format(meta.lastActivityAt, 'pp')}
-- Wall duration: ${fmtDuration(wallDuration)}
+${meta.continuesTo ? `- Continues on: ${format(meta.continuesTo, 'PPpp')} (later messages not included)
+` : ''}- Wall duration: ${fmtDuration(wallDuration)}
 - Active periods: ${fmtNum(meta.activityPeriods.length)}
 - Messages: ${fmtNum(meta.messageCount)}
 - Tool calls: ${fmtToolCalls(meta)}

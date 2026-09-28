@@ -14,7 +14,7 @@ const TABS = [
   { key: 'requests', label: 'API Requests' },
 ]
 
-export default function Session({ meta, missing, date, granularity = 'day' }) {
+export default function Session({ meta, missing, date, granularity = 'day', onShowPeriodOf }) {
   const [items, setItems]               = useState(null)
   const [instructions, setInstructions] = useState([])
   const [mode, setMode]                 = useLocalStorage('session.view-mode', 'conversation')
@@ -79,7 +79,7 @@ export default function Session({ meta, missing, date, granularity = 'day' }) {
                 </div>
                 {mode === 'conversation' ? (
                   <div className="view-tab-pane-content">
-                    {items ? <ConversationView items={items} instructions={instructions} expandAll={expandAll} />
+                    {items ? <ConversationView items={items} instructions={instructions} expandAll={expandAll} continuesFrom={meta.continuesFrom} continuesTo={meta.continuesTo} onShowPeriodOf={onShowPeriodOf} />
                            : <div className="empty">Loading conversation…</div>}
                   </div>
                 ) : mode === 'jsonl' ? (

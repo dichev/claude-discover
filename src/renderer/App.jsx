@@ -174,7 +174,7 @@ export default function App() {
         </Panel>
         <Separator className="resize-handle resize-handle-v" />
         <Panel id="detail" minSize={30} className="body-pane">
-          <Session meta={selected} missing={missing} date={format(anchor, 'yyyy-MM-dd')} granularity={granularity} />
+          <Session meta={selected} missing={missing} date={format(anchor, 'yyyy-MM-dd')} granularity={granularity} onShowPeriodOf={ts => setAnchor(startOfPeriod(ts, granularity))} />
         </Panel>
         </Group>
       </Panel>

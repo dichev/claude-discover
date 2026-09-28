@@ -3,6 +3,7 @@ import { format } from 'date-fns'
 import { Terminal } from 'lucide-react'
 import { fmtCompact, fmtDuration } from '../../utils/formatting'
 import { flatten, groupTurns, cycleDurations, tokenPoints, isContextTurn, toolSummary, parseCommand, groupInstructions, instructionTitle, currentModel, contextWindow, countTokens } from './transcript.js'
+import Divider from '../../ui/Divider.jsx'
 import LazyMount from '../../ui/LazyMount.jsx'
 import Markdown from '../../ui/Markdown.jsx'
 import { useFindActive } from '../../ui/useFindActive.js'
@@ -25,7 +26,7 @@ function useCollapsed(defaultOpen) {
 const isCommandTurn = t => t.blocks.some(b => b.type === 'text' && parseCommand(b.text)?.name)
 
 
-export default function ConversationView({ items, instructions = [], expandAll = null }) {
+export default function ConversationView({ items, instructions = [], expandAll = null, continuesFrom = null, continuesTo = null, onShowPeriodOf }) {
   const turns            = useMemo(() => flatten(items, instructions), [items, instructions])
   const groups           = useMemo(() => groupTurns(turns), [turns])
   const points           = useMemo(() => tokenPoints(groups), [groups])
@@ -39,6 +40,11 @@ export default function ConversationView({ items, instructions = [], expandAll =
   return (
     <ExpandAllContext.Provider value={expandAll}>
       <div ref={zoomRef} className={`conversation${hasTimeline ? ' has-token-timeline' : ''}`} style={{ '--font-scale': scale }}>
+        {continuesFrom != null && (
+          <Divider className="conv-continues-from" onClick={() => onShowPeriodOf(continuesFrom)} title="Show the earlier period">
+            Continues from {format(continuesFrom, 'MMM d, yyyy HH:mm')}
+          </Divider>
+        )}
         {groups.map((g, i) => (
           <div className={`conv-row conv-row-${g.kind}`} key={g.turns[0].uuid}>
             <LazyMount eager={i < 8} forceMount={findOpen} placeholderMinHeight={80}>
@@ -51,6 +57,11 @@ export default function ConversationView({ items, instructions = [], expandAll =
              : hasTimeline && g.kind === 'user' && g.turns.some(isCommandTurn) && <TokenPoint point={{ role: 'command', delta: 0 }} />}
           </div>
         ))}
+        {continuesTo != null && (
+          <Divider className="conv-continues-to" onClick={() => onShowPeriodOf(continuesTo)} title="Show the later period">
+            Continues on {format(continuesTo, 'MMM d, yyyy HH:mm')}
+          </Divider>
+        )}
       </div>
     </ExpandAllContext.Provider>
   )

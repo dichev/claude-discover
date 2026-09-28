@@ -36,6 +36,9 @@
 
 .conv-row { position: relative; }
 
+.conv-continues-from { margin-bottom: 20px; }
+.conv-continues-to { margin-top: 20px; }
+
 .token-point {
   position: absolute;
   right: -18px; /* dot centered on the line: gutter 28 − line offset 13 + dot radius 2.5 ≈ 18 */

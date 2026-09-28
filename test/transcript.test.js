@@ -94,6 +94,31 @@ describe('SessionParser — effort', () => {
   })
 })
 
+describe('SessionParser — continuesFrom / continuesTo', () => {
+  const user = (uuid, timestamp) => ({ type: 'user', uuid, timestamp, message: { role: 'user', content: 'hi' } })
+  const lines = [user('u1', '2026-09-25T10:00:00.000Z'), user('u2', '2026-09-26T14:32:00.000Z'), user('u3', '2026-09-28T09:00:00.000Z')]
+  const range = { start: Date.parse('2026-09-28T00:00:00.000Z'), end: Date.parse('2026-09-28T23:59:59.999Z') }
+
+  it('records the latest activity before the period', () => {
+    const parser = new SessionParser({ sessionId: 's1', filePath: 's1.jsonl', range })
+    for (const l of lines) parser.feed(l)
+    expect(parser.meta.continuesFrom).toBe(Date.parse('2026-09-26T14:32:00.000Z'))
+  })
+
+  it('records the earliest activity after the period', () => {
+    const parser = new SessionParser({ sessionId: 's1', filePath: 's1.jsonl', range: { start: Date.parse('2026-09-25T00:00:00.000Z'), end: Date.parse('2026-09-25T23:59:59.999Z') } })
+    for (const l of lines) parser.feed(l)
+    expect(parser.meta.continuesTo).toBe(Date.parse('2026-09-26T14:32:00.000Z'))
+  })
+
+  it('stays null for a whole-file parse', () => {
+    const parser = new SessionParser({ sessionId: 's1', filePath: 's1.jsonl' })
+    for (const l of lines) parser.feed(l)
+    expect(parser.meta.continuesFrom).toBeNull()
+    expect(parser.meta.continuesTo).toBeNull()
+  })
+})
+
 describe('flatten — structured output', () => {
   it('drops the attachment echoing a StructuredOutput call', () => {
     const call = { type: 'assistant', uuid: 'a1', timestamp: '2026-09-23T00:00:00.000Z', message: { role: 'assistant', content: [{ type: 'tool_use', id: 'tu1', name: 'StructuredOutput', input: { description: 'x' } }] } }
