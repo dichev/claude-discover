@@ -152,6 +152,15 @@ describe('SessionsScanner stat cache', () => {
     expect(scanner.statCache.complete).toBe(false)
   })
 
+  it('a watcher overflow mid-walk keeps the cache incomplete', async () => {
+    const fp1 = addFile('projA/s1.jsonl')
+    const fp2 = addFile('projB/s2.jsonl')
+    scanner.watcher = fakeWatcher
+    await scanPaths({ onFile: fp => { if (fp === fp1) scanner.statCache.clear() } }) // the onDrop handler
+    expect(scanner.statCache.complete).toBe(false)
+    expect(await scanPaths()).toEqual([fp1, fp2].sort()) // re-walked, not served from the wiped cache
+  })
+
   it('stop() drops the cache so the next scan re-walks', async () => {
     const fp = addFile('projA/s1.jsonl')
     scanner.watcher = fakeWatcher

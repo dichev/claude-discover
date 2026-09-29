@@ -4,6 +4,7 @@ export class StatCache {
   constructor() {
     this.stats = new Map() // filePath -> stat, filled by the walk, kept fresh by watcher events
     this.complete = false  // set after a full walk with the watcher live — the map then mirrors the disk
+    this.generation = 0    // bumped by clear(), so a walk spanning a clear knows its stats were wiped
   }
 
   record(filePath, stat) {
@@ -18,6 +19,7 @@ export class StatCache {
   clear() {
     this.stats.clear()
     this.complete = false
+    this.generation++
   }
 
   // In-memory disk walk: one batch over the cached stats, same callbacks as SessionsScanner.scan.

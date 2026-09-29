@@ -38,6 +38,7 @@ export class SessionsScanner {
   }
 
   async _walk(day, { onFile, onBatchDone, onProgress, signal } = {}) {
+    const generation = this.statCache.generation
     const projects = await this._listDirs(this.root)
     let done = 0
     const progress = () => onProgress?.({ done, total: projects.length, scanning: done < projects.length }) // project count is the known denominator for the UI progress bar
@@ -57,7 +58,9 @@ export class SessionsScanner {
       progress()
     }))
     if (signal?.aborted) return // partial walk — don't mark the cache complete
-    if (this.watcher) this.statCache.markComplete()
+    // A watcher overflow mid-walk (the parsing starves the event loop) wiped the stats recorded so far —
+    // marking the cache complete now would hide those files from every later scan until restart
+    if (this.watcher && this.statCache.generation === generation) this.statCache.markComplete()
     if (onBatchDone) await onBatchDone() // Callers get a final flush over the fully-scanned state even for empty periods (where no per-project batch fired).
     progress() // terminal emit: covers total===0 and guarantees the bar clears
   }
