@@ -16,8 +16,6 @@ npm run smoke:local   # npm pack + launch the tarball via npx (npx cache, no sho
 npm run smoke:global  # npm pack + npm i -g the tarball and launch it (npm uninstall -g claude-discover after)
 ```
 
-`postinstall: install-electron` downloads Electron during `npm i` rather than lazily on first launch (if npm starts blocking it, add `--allow-scripts=claude-discover` to the README and `bin/update.mjs`).
-
 To verify token/cost math against `ccusage` (must match to the cent — pin UTC on both sides):
 ```bash
 node test/scripts/usage.mjs monthly --timezone UTC
