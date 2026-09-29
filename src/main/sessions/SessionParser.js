@@ -24,6 +24,14 @@ function shortProject(dir, depth = 2) {
   return parts.slice(-depth).join('/') || dir
 }
 
+const TEMP_ROOT = /^(.*?\/AppData\/Local\/Temp|\/(?:private\/)?(?:tmp|var\/folders\/[^/]+\/[^/]+\/T))\/(.+)/i
+
+// Temp dirs are fresh per run, so they all fold into one project (the temp root) instead of one each
+export function tempProject(dir) {
+  const m = dir?.replace(/\\/g, '/').match(TEMP_ROOT)
+  return m ? { project: dir.slice(0, m[1].length), tag: m[2] } : null
+}
+
 // Suffix labels for a set of dirs: the last `depth` segments of each, one segment more where that
 // collides (tmp-1/app/run vs tmp-2/app/run, while /users/dev/app stays dev/app).
 export function suffixLabels(dirs, depth = 2) {
@@ -43,7 +51,7 @@ function freshMeta({ sessionId, parentSessionId, filePath, parentFilePath, fileS
   return {
     sessionId, parentSessionId, filePath, parentFilePath, fileSize, mtime,
     startedAt: null, lastActivityAt: null, continuesFrom: null, continuesTo: null,
-    entrypoint: null, project: null, worktree: null, worktreePath: null, gitBranch: null, version: null,
+    entrypoint: null, project: null, worktree: null, worktreePath: null, tempPath: null, tempTag: null, gitBranch: null, version: null,
     model: null, models: [], efforts: [], serviceTier: null, speed: null, fastPricingUnknown: false, priceUnknown: false,
     summary: null, aiTitle: null, customTitle: null, agentName: null, tag: null, firstUserPrompt: null, firstUserCommand: null, forkedFrom: null,
     messageCount: 0, workflowAgents: 0, toolCalls: 0, skillCalls: 0,
@@ -274,6 +282,12 @@ export class SessionParser {
       meta.worktree = wt[1]
       meta.worktreePath = meta.project.slice(0, wt.index + wt[0].length)
       meta.project = meta.project.slice(0, wt.index)
+    }
+    const tmp = tempProject(meta.project)
+    if (tmp) {
+      meta.tempPath = meta.project
+      meta.tempTag = tmp.tag
+      meta.project = tmp.project
     }
     meta.projectShort = shortProject(meta.project)
     meta.activeMs = meta.activityPeriods.reduce((sum, p) => sum + Math.max(0, p.end - p.start), 0)

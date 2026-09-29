@@ -45,7 +45,7 @@ export default function SessionList({ sessions, selectedId, deepLink, onSelect }
 
   const q = filter.trim().toLowerCase()
   const filtered = q ? sessions.filter((s) => [
-    s.customTitle, s.agentName, s.tag, s.aiTitle, s.summary, s.firstUserPrompt, s.firstUserCommand, s.project, s.worktree, s.sessionId, s.model, s.gitBranch
+    s.customTitle, s.agentName, s.tag, s.aiTitle, s.summary, s.firstUserPrompt, s.firstUserCommand, s.project, s.worktree, s.tempPath, s.sessionId, s.model, s.gitBranch
   ].filter(Boolean).join(' ').toLowerCase().includes(q)) : sessions
 
   const sorted = sortBy === 'cost'   ? [...filtered].sort((a, b) => (b.cost || 0) - (a.cost || 0))
@@ -125,6 +125,7 @@ export default function SessionList({ sessions, selectedId, deepLink, onSelect }
                   {isSubagent && <span className="subagent-tag">[subagent]</span>}
                   {journal && <span className="subagent-tag">[journal: {s.workflowAgents} subagent{s.workflowAgents === 1 ? '' : 's'}]</span>}
                   {s.worktree && <span className="worktree-tag" title={`Worktree of ${s.projectShort}`}>[{s.worktree}]</span>}
+                  {s.tempTag && <span className="temp-tag" title={s.tempPath}>[{s.tempTag}]</span>}
                   {isFork && <span className="fork-tag" title={`Forked from session ${s.forkedFrom.sessionId}`}>↳</span>}
                   {sessionName && <span className="session-name">{sessionName}</span>}
                   <span className="session-label-text">

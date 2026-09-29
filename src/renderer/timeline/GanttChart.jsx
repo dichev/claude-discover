@@ -69,7 +69,8 @@ export default function GanttChart({
     const addItem = (s, item, cost) => {
       const key = s.project || '(no project)'
       let group = byKey.get(key)
-      if (!group) byKey.set(key, group = { projectShort: s.projectShort, items: [], cost: 0 })
+      if (!group) byKey.set(key, group = { projectShort: s.projectShort, tempDirs: new Set(), items: [], cost: 0 })
+      if (s.tempPath) group.tempDirs.add(s.tempPath)
       group.items.push(item)
       group.cost += cost || 0
     }
@@ -98,11 +99,11 @@ export default function GanttChart({
         subCount: subs.filter(c => !isJournal(c)).length, // journals are workflow logs, not subagents
       }, subs.reduce((sum, c) => sum + (c.cost || 0), 0))
     }
-    const arr = [...byKey.entries()].map(([key, { projectShort, items, cost }]) => {
+    const arr = [...byKey.entries()].map(([key, { projectShort, tempDirs, items, cost }]) => {
       const { placed, laneCount } = packLanes(items)
-      return { key, projectShort, placed, laneCount, cost }
+      return { key, projectShort, tempDirs: tempDirs.size, placed, laneCount, cost }
     })
-    arr.sort((a, b) => b.cost - a.cost)
+    arr.sort((a, b) => (a.tempDirs > 0) - (b.tempDirs > 0) || b.cost - a.cost)
     let y = HEADER_HEIGHT
     for (const g of arr) {
       g.yOffset = y
@@ -189,7 +190,7 @@ export default function GanttChart({
                 onClick={(e) => { e.stopPropagation(); onToggleProjectFilter?.(g.key) }}
               >
                 <title>{g.key}</title>
-                {g.projectShort}
+                {g.projectShort}{g.tempDirs > 0 && ` (${g.tempDirs} dir${g.tempDirs === 1 ? '' : 's'} grouped)`}
               </text>
               {g.placed.map(({ item, lane }) => {
                 const y = g.yOffset + lane * (bar.height + bar.row_gap)
