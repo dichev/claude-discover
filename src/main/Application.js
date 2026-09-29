@@ -25,7 +25,7 @@ export class Application {
     Menu.setApplicationMenu(this.#buildMenu())
 
     // main → renderer
-    sessionsService.on('update', sessions => win.send('sessions:update', sessions))
+    sessionsService.on('update', update => win.send('sessions:update', update))
     sessionsService.on('progress', p => win.send('sessions:scan-progress', p))
     deepLink?.on('open', target => {
       win.focus()

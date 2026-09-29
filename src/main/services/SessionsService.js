@@ -39,6 +39,8 @@ export class SessionsService extends EventEmitter {
     this.scanAbort = null
     this.updateTimer = null
     this.lastUpdateAt = 0
+    this.updateSeq = 0
+    this.emittedSeq = 0
   }
 
   // Always parses the whole file from 0: the parser's running token totals only stamp
@@ -102,7 +104,7 @@ export class SessionsService extends EventEmitter {
   // IPC/UI entry: build the period from date+granularity and watch it.
   list(date, granularity = 'day') {
     const key = `${granularity}|${date}`
-    return this.scan({ ...periodBounds(date, granularity), date, key }, { watch: true })
+    return this.scan({ ...periodBounds(date, granularity), date, granularity, key }, { watch: true })
   }
 
   start() {
@@ -204,14 +206,23 @@ export class SessionsService extends EventEmitter {
 
   // Leading+trailing throttle: the first call emits immediately, calls within throttleMs
   // coalesce into one trailing emit — so scans paint fast but bursts cost one update.
+  // Updates are tagged with their period: one still deduping when the user navigates lands after the switch.
   _scheduleUpdate() {
     if (this.updateTimer) return // trailing emit already scheduled
     const emit = async () => {
       this.updateTimer = null
       this.lastUpdateAt = Date.now()
       const day = this.activeDay
-      try { if (day) this.emit('update', await this._dedupedDay(day)) } // fire-and-forget — a failed re-scan must not become an unhandled rejection
-      catch (err) { console.error('sessions update emit failed:', err) }
+      const seq = ++this.updateSeq
+      try {
+        if (!day) return
+        const sessions = await this._dedupedDay(day)
+        // Dedup rescans can finish out of order — never send an older snapshot after a newer one.
+        // Checked against the last *sent*, not the last started, or steady writes with slow dedup would starve every emit.
+        if (seq < this.emittedSeq) return
+        this.emittedSeq = seq
+        this.emit('update', { date: day.date, granularity: day.granularity, sessions })
+      } catch (err) { console.error('sessions update emit failed:', err) } // fire-and-forget — a failed re-scan must not become an unhandled rejection
     }
     const wait = this.lastUpdateAt + this.throttleMs - Date.now()
     if (wait <= 0) emit()

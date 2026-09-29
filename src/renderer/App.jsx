@@ -45,19 +45,21 @@ export default function App() {
   }, [anchor, granularity])
 
   useEffect(() => {
+    const date = format(anchor, 'yyyy-MM-dd')
     let cancelled = false
     setScanProgress(null) // fresh scan for this period
     const offP = window.api.onScanProgress((p) => { if (!cancelled) setScanProgress(p) }) // before listSessions so the initial done:0 isn't missed
     const timer = setTimeout(() => {
-      window.api.listSessions(format(anchor, 'yyyy-MM-dd'), granularity)
+      window.api.listSessions(date, granularity)
         .then((s) => {
           if (!cancelled) { setSessions(s || []); setListError(null); setLoading(false) }
         }, (err) => { // clear the list too — the previous period's sessions would pass for this one's
           if (!cancelled) { setSessions([]); setListError(err); setLoading(false) }
         })
     }, loading ? 0 : 120) // the 120ms debounce is for arrowing through periods — don't make the first scan wait for it
-    const off = window.api.onSessionsUpdate((s) => { if (!cancelled) setSessions(s || [])
-     })
+    const off = window.api.onSessionsUpdate((u) => { // a previous period's update can land after the switch
+      if (!cancelled && u.date === date && u.granularity === granularity) setSessions(u.sessions)
+    })
     return () => { cancelled = true
      clearTimeout(timer)
      off()
