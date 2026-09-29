@@ -37,6 +37,12 @@ const updateTooltip = ({ current, latest }) => <>
   <p>The app will restart to install it - this takes about a minute.</p>
 </>
 
+const npxTooltip = <>
+  <p>This copy runs from the npx cache, which npm clears from time to time.</p>
+  <p>Install it globally to keep it, with in-app updates and settings that stay active after closing.</p>
+  <p>The app will restart from the global install - this takes about a minute.</p>
+</>
+
 const ONE_YEAR_DAYS = 365
 
 // Humanize a day count for the status bar: years once past a year, otherwise raw days.
@@ -54,7 +60,7 @@ export default function StatusBar({ progress, sessionCount = 0 }) {
   const statusline = useSwitch({ name: 'statusline', isOn: s => s?.installed })
   const retention  = useSwitch({ name: 'retention',  isOn: s => s?.raised })
   const claudedir  = useSwitch({ name: 'claudedir' }) // action-style: its button always activates (opens the folder picker)
-  const [update, setUpdate]     = useState(null) // { current, latest } when an npm-global install is outdated
+  const [update, setUpdate]     = useState(null) // { current, latest } when an npm-global install is outdated, plus fromNpx for an npx run
   const [updating, setUpdating] = useState(false)
   useEffect(() => { window.api.checkUpdate().then(setUpdate) }, [])
   const updater = { status: update, busy: updating, toggle: async () => { // the StatusSwitch service shape, for an action that always runs
@@ -83,7 +89,12 @@ export default function StatusBar({ progress, sessionCount = 0 }) {
           )}
         </span>
       )}
-      {update && (
+      {update?.fromNpx && (
+        <StatusSwitch service={updater} button="Install globally" className="statusbar-update" tooltip={npxTooltip} changes={<pre>{`npm i -g claude-discover@${update.latest}`}</pre>} changesTitle="Runs after the app closes">
+          <ArrowDownToLine size={12} /> Install this app
+        </StatusSwitch>
+      )}
+      {update && !update.fromNpx && (
         <StatusSwitch service={updater} button={`Update to v${update.latest}`} className="statusbar-update" tooltip={updateTooltip(update)} changes={<pre>{`npm i -g claude-discover@${update.latest}`}</pre>} changesTitle="Runs after the app closes">
           <ArrowDownToLine size={12} /> Update available
         </StatusSwitch>

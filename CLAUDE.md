@@ -16,6 +16,8 @@ npm run smoke:local   # npm pack + launch the tarball via npx (npx cache, no sho
 npm run smoke:global  # npm pack + npm i -g the tarball and launch it (npm uninstall -g claude-discover after)
 ```
 
+`postinstall: install-electron` downloads Electron during `npm i` rather than lazily on first launch (if npm starts blocking it, add `--allow-scripts=claude-discover` to the README and `bin/update.mjs`).
+
 To verify token/cost math against `ccusage` (must match to the cent — pin UTC on both sides):
 ```bash
 node test/scripts/usage.mjs monthly --timezone UTC
@@ -34,7 +36,7 @@ Not a hard constraint — restructure when it serves the code, just update this 
 │   │   └── statusline.mjs          the installed statusLine command
 │   ├── proxy.config.js             proxy config (port, routes, ping body, log paths) — imported by bin/ and src/main/
 │   ├── proxy.mjs                   API request-capture logging proxy
-│   └── update.mjs                  AutoUpdate's helper: waits for the app to exit, runs `npm i -g`, relaunches
+│   └── update.mjs                  AutoUpdate's helper: waits for the app to exit, runs `npm i -g`, reopens the global install
 ├── src/
 │   ├── main/                       main process (OOP): entry point, app wiring & menu (Application), path/config resolution
 │   │   ├── config/                 the app's own config: ConfigFile (~/.claude-discover/config.json) + pricing seed
@@ -100,7 +102,7 @@ Optional features, secondary to the core timeline. The switchable ones are a cla
 - **Claude dir** — switches which Claude data directory the app reads from (relaunches the app on it).
 - **Shortcuts** (not a switcher, @windows) — `Shortcuts` writes Start Menu + Desktop `.lnk`s on the first launch of each install ("Claude Discover" for an installed package, "Claude Discover (local)" for a repo checkout), re-points existing ones on every launch, and recreates a deleted one only after a reinstall — keyed by the package dir's birth time (`shortcuts` in config.json). Skipped under npx and dev.
 - **Deep links** (not a switcher) — `claude-discover://session?id=<sessionId>&date=<yyyy-MM-dd>` opens a session from another app. `DeepLink` does the routing; only the scheme registration is OS-specific — @windows registers on every launch and the link arrives in a second launch's argv; @macOS is not registered (only an `.app` bundle can own a scheme, and npx runs bare Electron), though the `open-url` handler is wired for a future bundle.
-- **Auto update** (not a switcher, `NPM_GLOBAL` only; dev runs it too, updating the global install without reopening) — `AutoUpdate` asks the npm registry once per launch and the StatusBar shows the hint. Clicking it starts `bin/update.mjs` on the system node, detached, and quits, since Windows locks the running `electron.exe` inside the package npm must replace.
+- **Auto update** (not a switcher, `NPM_GLOBAL`; dev runs it too, updating the global install without reopening; `NPX_TEMP` gets "Install this app", the same flow creating the global install) — `AutoUpdate` asks the npm registry once per launch and the StatusBar shows the hint. Clicking it starts `bin/update.mjs` on the system node, detached, and quits, since Windows locks the running `electron.exe` inside the package npm must replace.
 
 ### Dev-only bits
 

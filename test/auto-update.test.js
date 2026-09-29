@@ -11,7 +11,7 @@ vi.mock('electron', () => ({
 const paths = { mode: 'npm-global' }
 vi.mock('../src/main/paths.js', () => ({
   UPDATE_PATH: '/npm/node_modules/claude-discover/bin/update.mjs',
-  LAUNCH_MODES: { NPM_GLOBAL: 'npm-global', NPM_DEV: 'npm-dev' },
+  LAUNCH_MODES: { NPM_GLOBAL: 'npm-global', NPM_DEV: 'npm-dev', NPX_TEMP: 'npx-temp', NPM_START: 'npm-start' },
   get LAUNCH_MODE() { return paths.mode },
 }))
 vi.mock('latest-version', () => ({ default: vi.fn() }))
@@ -51,11 +51,17 @@ describe('check', () => {
     expect(await new AutoUpdate().check()).toBeNull()
   })
 
-  it.each(['npm-start', 'npx-temp'])('never asks the registry for a %s launch', async mode => {
-    paths.mode = mode
+  it('never asks the registry for an npm-start launch', async () => {
+    paths.mode = 'npm-start'
     const registry = publish('9.9.9')
     expect(await new AutoUpdate().check()).toBeNull()
     expect(registry).not.toHaveBeenCalled()
+  })
+
+  it('offers an npx run the global install, even on the latest version', async () => {
+    paths.mode = 'npx-temp'
+    publish('1.10.1')
+    expect(await new AutoUpdate().check()).toEqual({ current: '1.10.1', latest: '1.10.1', fromNpx: true })
   })
 
   it('stays quiet when the registry fails', async () => {
@@ -77,13 +83,11 @@ describe('install', () => {
     publish('1.11.0')
     await new AutoUpdate().install()
     const [command, args, options] = spawn.mock.calls[0]
-    expect([command, ...args].slice(-6)).toEqual([ // @windows behind `cmd /c start <title>`
+    expect([command, ...args].slice(-4)).toEqual([ // @windows behind `cmd /c start <title>`
       'node',
       '/npm/node_modules/claude-discover/bin/update.mjs',
       String(process.pid),
       '1.11.0',
-      process.execPath,
-      '/npm/node_modules/claude-discover',
     ])
     expect(options).toMatchObject({ detached: true })
     expect(app.quit).not.toHaveBeenCalled()
@@ -104,7 +108,15 @@ describe('install', () => {
     publish('1.11.0')
     await new AutoUpdate().install()
     const [command, args] = spawn.mock.calls[0]
-    expect([command, ...args].slice(-4)).toEqual(['node', '/npm/node_modules/claude-discover/bin/update.mjs', String(process.pid), '1.11.0'])
+    expect([command, ...args].slice(-3)).toEqual([String(process.pid), '1.11.0', '--no-reopen'])
+  })
+
+  it('installs the global version from an npx run', async () => {
+    paths.mode = 'npx-temp'
+    publish('1.10.1')
+    await new AutoUpdate().install()
+    const [command, args] = spawn.mock.calls[0]
+    expect([command, ...args].slice(-2)).toEqual([String(process.pid), '1.10.1'])
   })
 
   it('does nothing without a newer version', async () => {

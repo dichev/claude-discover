@@ -1,12 +1,13 @@
 // Updates an `npm i -g` install from outside it. AutoUpdate starts it detached as the app quits:
 // Windows locks the app's running electron.exe, so npm can only replace the package once the app is gone.
 //
-// Usage: node bin/update.mjs <pid> <version> [<electron> <appDir>]   (without them nothing reopens, as from dev)
+// Usage: node bin/update.mjs <pid> <version> [--no-reopen]   (dev passes --no-reopen)
 
 import { spawn, spawnSync } from 'node:child_process'
+import path from 'node:path'
 import { setTimeout as sleep } from 'node:timers/promises'
 
-const [pid, version, electron, appDir] = process.argv.slice(2)
+const [pid, version, noReopen] = process.argv.slice(2)
 
 while (isRunning(pid)) await sleep(200)
 
@@ -15,8 +16,11 @@ try {
   const { status } = spawnSync(`npm i -g claude-discover@${version} --loglevel=http`, { shell: true, stdio: 'inherit' })
   if (status !== 0) await sleep(5_000) // leaves npm's error readable before the window closes
 } finally {
-  // Reopen even when the update failed, so the user is never left without the app
-  if (electron) spawn(electron, [appDir], { detached: true, stdio: 'ignore' }).unref()
+  // Reopen the global install (the one just updated, or just created from an npx run), even when the update failed
+  if (!noReopen) {
+    const root = spawnSync('npm root -g', { shell: true, encoding: 'utf8' }).stdout.trim()
+    spawn(process.execPath, [path.join(root, 'claude-discover/bin/claude-discover.mjs')], { detached: true, stdio: 'ignore' }).unref()
+  }
 }
 
 function isRunning(pid) {

@@ -1,6 +1,6 @@
-// Tells an `npm i -g` install that a newer version is published, and installs it. npx and `npm start` aren't
-// updated through `npm i -g`, so they never hit the registry; dev does, so the flow can be debugged there
-// (it updates the global install, not the dev checkout).
+// Tells an `npm i -g` install that a newer version is published, and installs it; an npx run is offered the
+// global install instead. `npm start` isn't updated through npm, so it never hits the registry; dev does, so
+// the flow can be debugged there (it updates the global install, not the dev checkout).
 import { spawn } from 'node:child_process'
 import { homedir } from 'node:os'
 import { app, dialog } from 'electron'
@@ -23,8 +23,7 @@ export class AutoUpdate {
     const update = await this.check()
     if (!update) return
     // Dev isn't reopened: its renderer lives on the Vite dev server, which dies with the app
-    const reopen = LAUNCH_MODE === LAUNCH_MODES.NPM_DEV ? [] : [process.execPath, app.getAppPath()]
-    const args = [UPDATE_PATH, process.pid, update.latest, ...reopen].map(String)
+    const args = [UPDATE_PATH, process.pid, update.latest, ...LAUNCH_MODE === LAUNCH_MODES.NPM_DEV ? ['--no-reopen'] : []].map(String)
     // The system node from home, not our electron.exe: npm can't replace the package while anything runs inside it.
     // @windows `start` gives it a console window of its own, so the update's progress stays visible while the app is closed
     const [command, commandArgs] = process.platform === 'win32' ? ['cmd', ['/c', 'start', 'Updating Claude Discover', 'node', ...args]] : ['node', args]
@@ -34,9 +33,10 @@ export class AutoUpdate {
   }
 
   async #fetchNewer() {
-    if (LAUNCH_MODE !== LAUNCH_MODES.NPM_GLOBAL && LAUNCH_MODE !== LAUNCH_MODES.NPM_DEV) return null
+    if (LAUNCH_MODE === LAUNCH_MODES.NPM_START) return null
     const latest = await latestVersion('claude-discover')
     const current = app.getVersion()
+    if (LAUNCH_MODE === LAUNCH_MODES.NPX_TEMP) return { current, latest, fromNpx: true } // not updated in place: the StatusBar offers a global install instead
     return semver.gt(latest, current) ? { current, latest } : null
   }
 }
