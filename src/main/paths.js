@@ -11,6 +11,7 @@ export const CLAUDE_SETTINGS      = join(CLAUDE_DIR, 'settings.json')
 // bin paths assume this file sits two levels below the repo root (true for both src/main and out/main bundle)
 export const STATUSLINE_PATH      = join(import.meta.dirname, '../../bin/claude/statusline.mjs')
 export const PROXY_PATH           = join(import.meta.dirname, '../../bin/proxy.mjs')
+export const UPDATE_PATH          = join(import.meta.dirname, '../../bin/update.mjs')
 
 
 export const LAUNCH_MODES         = { NPM_DEV: 'npm-dev', NPM_START: 'npm-start', NPX_TEMP: 'npx-temp', NPM_GLOBAL: 'npm-global' }
