@@ -5,6 +5,7 @@
 //           reg delete "HKCU\Software\Classes\claude-discover" /f   # unregister
 // @macOS    not registered — only an .app bundle can own a scheme, and npx runs bare Electron;
 //           the `open-url` handler is wired so a packaged bundle would work as is
+//           (not the Shortcuts stub: its shell script would get the URL event, not Electron)
 
 import { EventEmitter } from 'node:events'
 import { app } from 'electron'
