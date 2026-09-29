@@ -146,6 +146,7 @@
 .msg-author { color: var(--text); font-weight: 600; font-size: calc(12px * var(--font-scale, 1)); }
 .msg-user .msg-author { color: rgb(113, 183, 214); }
 .msg-system .msg-author { color: var(--text-dim); }
+.msg-proxy .msg-author, .msg-proxy .msg-icon { color: #a78bfa; }
 
 .msg-summary {
   background: transparent;
@@ -385,7 +386,7 @@ button.msg-summary:hover { color: var(--text); background: var(--bg-elev-2); bor
   letter-spacing: 0.04em;
   padding-top: 6px;
 }
-.instruction-source:first-child { padding-top: 0; }
+.msg-header + .instruction-source { padding-top: 0; }
 
 /* Full-width toggle so the estimated token count can sit right-aligned, like msg-header-right. */
 /* Nested tool rows cancel the aux-body's right padding so their counts line up with the strips'. */

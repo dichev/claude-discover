@@ -16,13 +16,6 @@ export function fmtAgo(date) {
   return `${Math.floor(min / (24 * 60))}d ago`
 }
 
-export function fmtBytes(n) {
-  if (n == null) return '—'
-  if (n < 1024) return `${n} B`
-  if (n < 1024 * 1024) return `${(n / 1024).toFixed(1)} KB`
-  return `${(n / 1024 / 1024).toFixed(2)} MB`
-}
-
 export function fmtNum(n) {
   if (n == null) return '—'
   return n.toLocaleString()

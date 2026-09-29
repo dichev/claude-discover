@@ -1,5 +1,5 @@
 import { format } from 'date-fns'
-import { fmtDuration, fmtBytes, fmtNum, fmtUSD, fmtCompact, fmtToolCalls } from '../utils/formatting.js'
+import { fmtDuration, fmtNum, fmtUSD, fmtCompact, fmtToolCalls } from '../utils/formatting.js'
 import { flatten, currentModel, contextWindow } from './view/transcript.js'
 import { toolSummary, instructionTitle, groupInstructions, compactTitle } from './view/labels.js'
 
@@ -49,7 +49,7 @@ function renderBlock(b) {
 
 function renderTurn(t) {
   if (t.role === 'instruction') {
-    return groupInstructions(t.blocks.map(b => b.it))
+    return '**Proxy:**\n\n' + groupInstructions(t.blocks.map(b => b.it))
       .map(([label, list]) => `**Instructions loaded (${label}):**\n\n${list.map(it => renderBlock({ type: 'instruction', it })).join('\n\n')}`)
       .join('\n\n')
   }
@@ -108,6 +108,7 @@ ${meta.continuesTo ? `- Continues on: ${format(meta.continuesTo, 'PPpp')} (later
 - Tool calls: ${fmtToolCalls(meta)}
 
 ## Identity
+- Session ID: ${meta.sessionId}
 - Model: ${meta.models.join(', ') || '—'}
 - Effort: ${meta.efforts.join(', ') || '—'}
 - Service tier: ${meta.serviceTier || '—'}
@@ -119,7 +120,6 @@ ${meta.tag ? `- Tag: ${meta.tag}
 - CLI version: ${meta.version || '—'}
 - Project: ${meta.project || '—'}
 ${meta.worktreePath ? `- Worktree: ${meta.worktreePath}\n` : ''}- Log file: ${meta.filePath}
-- File size: ${fmtBytes(meta.fileSize)}
 `
 
   const body = `

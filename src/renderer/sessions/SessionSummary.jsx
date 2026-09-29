@@ -1,6 +1,6 @@
 import { DollarSign } from 'lucide-react'
 import { format } from 'date-fns'
-import { fmtDuration, fmtBytes, fmtNum, fmtUSD, fmtCompact, fmtToolCalls, tone } from '../utils/formatting.js'
+import { fmtDuration, fmtNum, fmtUSD, fmtCompact, fmtToolCalls, tone } from '../utils/formatting.js'
 import { THRESHOLDS as T } from '../utils/thresholds.js'
 import { contextWindow } from './view/transcript.js'
 import AgentOutput from '../agent/AgentOutput.jsx'
@@ -91,7 +91,7 @@ export default function SessionSummary({ meta, items, instructions, agent, granu
       </Section>
 
       <Section title="Identity">
-        <Field label="Model" value={modelLabel} mono />
+        <Field label="Session ID" value={<span className="session-id">{meta.sessionId}</span>} mono full autoselect />        <Field label="Model" value={modelLabel} mono />
         {meta.efforts.length > 0 && <Field label="Effort" value={meta.efforts.join(', ')} />}
         {meta.serviceTier && <Field label="Service tier" value={meta.serviceTier} />}
         {meta.speed && <Field label="Speed" value={meta.speed === 'fast' ? (meta.fastPricingUnknown ? 'fast (pricing unknown)' : 'fast') : meta.speed} />}
@@ -100,12 +100,9 @@ export default function SessionSummary({ meta, items, instructions, agent, granu
         <Field label="Source" value={meta.source || meta.entrypoint || '—'} />
         {meta.hasScheduledTask && <Field label="Scheduled" value="yes" />}
         <Field label="CLI version" value={meta.version || '—'} mono />
-        <Field label="Session ID" value={meta.sessionId} mono full autoselect />
         <Field label="Project" value={meta.project || '—'} mono full autoselect />
         {meta.worktreePath && <Field label="Worktree" value={meta.worktreePath} mono full autoselect />}
-        <Field label="Log file" value={meta.filePath} mono full autoselect />
-        <Field label="File size" value={fmtBytes(meta.fileSize)} />
-      </Section>
+        <Field label="Log file" value={meta.filePath} mono full autoselect />      </Section>
     </div>
   )
 }

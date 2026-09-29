@@ -1,6 +1,6 @@
 import React, { useContext, useEffect, useMemo, useState } from 'react'
 import { format } from 'date-fns'
-import { LaptopMinimal, Terminal } from 'lucide-react'
+import { Globe, LaptopMinimal, Terminal } from 'lucide-react'
 import { fmtCompact, fmtDuration } from '../../utils/formatting'
 import { flatten, groupTurns, cycleDurations, tokenPoints, isContextTurn, currentModel, contextWindow, countTokens } from './transcript.js'
 import { toolSummary, parseCommand, groupInstructions, instructionTitle, compactTitle, persistedOutput, humanize } from './labels.js'
@@ -441,6 +441,10 @@ function InstructionRun({ turns, model }) {
   const strips = turns.flatMap(t => t.blocks).map(({ it }) => ({ ...it, tokens: countTokens(it.content, it.model ?? model) }))
   return (
     <>
+      <div className="msg-header msg-proxy">
+        <Globe className="msg-icon" />
+        <span className="msg-author">Proxy</span>
+      </div>
       {groupInstructions(strips).map(([label, list]) => (
         <React.Fragment key={label}>
           <div className="aux instruction-source">{label}</div>

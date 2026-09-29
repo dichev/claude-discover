@@ -97,6 +97,8 @@
 
   &.mono { font-family: var(--font-mono), monospace; }
 
+  /* A 36-char UUID fits the 248px column on one line, even with a scrollbar */
+  & .session-id { font-size: 11.2px; }
   & .warn { color: var(--warn); }
   & .danger { color: var(--danger); }
 }
