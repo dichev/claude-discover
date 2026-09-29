@@ -80,9 +80,9 @@ const MEMORY_LABELS = {
   "user's auto-memory, persists across conversations": 'Auto',
 }
 
-// The standard file each memory type lives in — matching paths display as just the basename
-// (`name`); anything off-pattern keeps its full path.
-const MEMORY_FILES = { User: 'CLAUDE.md', Project: 'CLAUDE.md', Local: 'CLAUDE.local.md', Auto: 'MEMORY.md' }
+// The standard files each memory type lives in — matching paths display as just the basename
+// (`name`); anything off-pattern keeps its full path. AGENTS.md is Claude Code's fallback when a project has no CLAUDE.md.
+const MEMORY_FILES = { User: ['CLAUDE.md'], Project: ['CLAUDE.md', 'AGENTS.md'], Local: ['CLAUDE.local.md'], Auto: ['MEMORY.md'] }
 
 // Splits a text around its CLAUDE.md section: `files` is one { file_path, name, memory_type,
 // content } per file listed there, `rest` the text with the whole section cut out — what a system
@@ -108,7 +108,7 @@ export function splitClaudeMd(text) {
     const base = h[1].split(/[\\/]/).pop()
     return {
       file_path: h[1],
-      name: base === MEMORY_FILES[memory_type] ? base : h[1],
+      name: MEMORY_FILES[memory_type]?.includes(base) ? base : h[1],
       memory_type,
       content: region.slice(h.index + h[0].length, heads[i + 1]?.index ?? region.length).trim(),
     }

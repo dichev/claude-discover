@@ -164,6 +164,8 @@ describe('splitClaudeMd', () => {
     expect(splitClaudeMd(reminder).files.map(f => f.name)).toEqual(['CLAUDE.md', 'CLAUDE.md', 'MEMORY.md'])
     const offPattern = splitClaudeMd('\n# claudeMd\nContents of D:\\proj\\NOTES.md (project instructions, checked into the codebase):\n\nhi\n').files
     expect(offPattern[0].name).toBe('D:\\proj\\NOTES.md') // not the file the Project rule loads — keep the full path
+    const agents = splitClaudeMd('\n# claudeMd\nContents of D:\\proj\\AGENTS.md (project instructions, checked into the codebase):\n\nhi\n').files
+    expect(agents[0].name).toBe('AGENTS.md')
   })
 
   it('returns [] when there is no claudeMd section', () => {
