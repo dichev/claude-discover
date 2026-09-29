@@ -21,22 +21,6 @@ export class ClaudeSettings {
     }
   }
 
-  // Removes every hook (any event) whose command matches `pattern`, dropping groups and events
-  // left empty. Returns the removed commands.
-  removeHooks(pattern) {
-    const matches = h => pattern.test(h.command ?? '')
-    const removed = []
-    for (const [event, groups] of Object.entries(this.cfg.hooks ?? {})) {
-      const hit = groups.flatMap(g => (g.hooks ?? []).filter(matches).map(h => h.command))
-      if (!hit.length) continue
-      removed.push(...hit)
-      for (const g of groups) g.hooks = (g.hooks ?? []).filter(h => !matches(h))
-      this.cfg.hooks[event] = groups.filter(g => g.hooks.length)
-      if (!this.cfg.hooks[event].length) delete this.cfg.hooks[event]
-    }
-    return removed
-  }
-
   // Days Claude Code keeps transcripts before auto-deleting them; undefined when unset (its default is 30).
   get cleanupPeriodDays() {
     return this.cfg.cleanupPeriodDays

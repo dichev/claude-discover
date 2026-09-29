@@ -13,13 +13,6 @@ const NODE = await which('node', { nothrow: true }) ?? 'node'
 export class ProxySwitch {
   #service = new LoginService({ name: 'claude-discover-proxy', command: [NODE, PROXY_PATH] })
 
-  constructor() {
-    try { // remove the SessionStart hook of ≤1.9.3 — its script no longer ships and would fail on every session start
-      const settings = new ClaudeSettings()
-      if (settings.removeHooks(/claude-discover/).length) settings.save()
-    } catch {}
-  }
-
   async status() {
     return {
       running: await this.#running(),
