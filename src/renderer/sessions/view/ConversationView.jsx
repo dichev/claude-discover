@@ -460,11 +460,12 @@ function InstructionRun({ turns, model }) {
 
 function InstructionFile({ it, model, tokens }) {
   const [open, setOpen] = useCollapsed(false)
+  const title           = instructionTitle(it, model)
   return (
     <div className="aux instruction-file">
       <button className="aux-toggle" onClick={() => setOpen(v => !v)}>
         <span className="aux-chevron">{open ? '▾' : '▸'}</span>
-        <span>{instructionTitle(it, model)}</span>
+        <span className="instruction-title" title={title}>{title}</span>
         {tokens > 0 && <span className="instruction-tokens" title="Approx. tokens">~ {fmtCompact(tokens)}</span>}
       </button>
       {open && (

@@ -393,8 +393,9 @@ button.msg-summary:hover { color: var(--text); background: var(--bg-elev-2); bor
 .instruction-file .instruction-file { border-left-color: var(--border); margin-right: -8px; }
 /* A rule under the strip's count marks it as the sum of the tool counts below. */
 .aux-body > .instruction-file:first-child .instruction-tokens { border-top: 1px solid var(--border); padding-top: 2px; }
-.instruction-file .aux-toggle { display: flex; width: 100%; align-items: center; }
-.instruction-tokens { margin-left: auto; color: var(--text-faint); }
+.instruction-file .aux-toggle { display: flex; width: 100%; align-items: center; text-align: left; }
+.instruction-title { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.instruction-tokens { margin-left: auto; color: var(--text-faint); white-space: nowrap; }
 
 /* Summed token total under a run of instruction files: a rule over the right-aligned figure. */
 .instruction-total { display: flex; font-size: calc(11px * var(--font-scale, 1)); }
