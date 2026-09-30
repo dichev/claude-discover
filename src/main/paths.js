@@ -19,7 +19,7 @@ export const LAUNCH_MODE          = detectLaunchMode()
 
 function detectLaunchMode() {
   const dirs = import.meta.dirname.split(/[\\/]/)
-  if (import.meta.env.DEV) return LAUNCH_MODES.NPM_DEV              // `npm run dev` from a repo checkout
+  if (import.meta.env?.DEV) return LAUNCH_MODES.NPM_DEV             // `npm run dev` from a repo checkout; env is Vite-only, undefined under plain node (test/scripts)
   if (dirs.includes('_npx')) return LAUNCH_MODES.NPX_TEMP          // `npx claude-discover`, run out of a cache dir (~/.npm/_npx/<hash>) that is deleted later
   if (dirs.includes('node_modules')) return LAUNCH_MODES.NPM_GLOBAL // `npm i -g claude-discover`
   return LAUNCH_MODES.NPM_START                                     // `npm start` — a built repo checkout (also the "(local)" shortcut)
