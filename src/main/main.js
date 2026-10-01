@@ -3,6 +3,8 @@ import { DeepLink, findTarget } from './services/DeepLink.js'
 import { Application } from './Application.js'
 import { Shortcuts } from './services/Shortcuts.js'
 
+if (import.meta.env.DEV) await import('./debug.js')  // note dev uses a separate userData profile
+
 // The first instance takes control: it owns the window and handles links and restart requests.
 // Later instances forward their argv to it via 'second-instance', then exit.
 const isFirstInstance = app.requestSingleInstanceLock()
@@ -13,7 +15,6 @@ if (isFirstInstance) {
   optional('deep links', () => deepLink = new DeepLink().activate())
   optional('shortcuts', () => new Shortcuts().activate())
 
-  if (import.meta.env.DEV) await import('./debug.js')
   app.whenReady().then(() => {
     application = new Application({ deepLink })
     application.start()
