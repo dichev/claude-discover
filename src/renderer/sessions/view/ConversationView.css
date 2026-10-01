@@ -371,10 +371,17 @@ button.msg-summary:hover { color: var(--text); background: var(--bg-elev-2); bor
 /* Instruction files (system prompt / CLAUDE.md / memory) extracted from the captured API requests,
    and the label over each group — one unbroken strip down the whole run. */
 .instruction-file,
-.instruction-source {
+.instruction-source,
+.instruction-missing {
   border-left: 2px solid #a78bfa;
   padding-left: 8px;
   margin-left: -10px;
+}
+
+/* Stands in for the strips when nothing was captured (see InstructionsMissing). */
+.instruction-missing {
+  color: var(--text-faint);
+  font-size: calc(11px * var(--font-scale, 1));
 }
 
 /* Group label over the strips read from one part of the request (system prompt / tools / user message). */

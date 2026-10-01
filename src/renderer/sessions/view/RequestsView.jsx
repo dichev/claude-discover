@@ -1,6 +1,7 @@
 import React, { useDeferredValue, useEffect, useRef, useState } from 'react'
 import JsonView from '@uiw/react-json-view'
 import { vscodeTheme } from '@uiw/react-json-view/vscode'
+import { Globe } from 'lucide-react'
 import LazyMount from '../../ui/LazyMount.jsx'
 import { ErrorMessage } from '../../ui/Errors.jsx'
 import { useFindActive } from '../../ui/useFindActive.js'
@@ -176,7 +177,11 @@ export default function RequestsView({ filePath, date, granularity = 'day', file
   if (!records.length) {
     return (
       <div className="requests-view">
-        <div className="requests-empty">No captured requests for this session. Requests are recorded only while the capture proxy is running.</div>
+        <div className="requests-pitch">
+          <h3><Globe className="requests-pitch-icon" />No API requests captured</h3>
+          <p>See the system prompt, tools and hidden calls behind every reply.</p>
+          <p className="requests-pitch-hint">Turn on <b>Capture proxy</b> in the status bar.</p>
+        </div>
       </div>
     )
   }

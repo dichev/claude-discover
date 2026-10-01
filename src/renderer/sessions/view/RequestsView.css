@@ -215,3 +215,22 @@
 .requests-empty {
   padding: 10px 20px;
 }
+
+/* Empty state: sells the Capture proxy instead of just saying nothing was recorded. */
+.requests-pitch {
+  margin: 60px auto auto;
+  max-width: 480px;
+  text-align: center;
+  padding: 24px 28px;
+  border: 1px solid rgba(167, 139, 250, 0.35);
+  border-radius: 8px;
+  background: rgba(167, 139, 250, 0.06);
+  color: var(--text-dim);
+  line-height: 1.6;
+
+  & h3 { display: flex; align-items: center; justify-content: center; gap: 8px; margin: 0 0 8px; color: var(--text); font-size: 17px; }
+  & p { margin: 0 0 6px; }
+  & b { color: #a78bfa; }
+}
+.requests-pitch-icon { width: 22px; height: 22px; color: #a78bfa; }
+.requests-pitch-hint { color: var(--text); }

@@ -53,6 +53,7 @@ export default function ConversationView({ items, instructions = [], filePath = 
             Continues from {format(continuesFrom, 'MMM d, yyyy HH:mm')}
           </Divider>
         )}
+        {instructions.length === 0 && <div className="conv-row conv-row-instruction"><InstructionsMissing /></div>}
         {groups.map((g, i) => (
           <React.Fragment key={g.turns[0].uuid}>
             {i === branch?.index && branchDivider}
@@ -434,6 +435,24 @@ function JsonBlock({ value }) {
   return <Markdown className="block-text" text={'```json\n' + safeJson(value) + '\n```'} />
 }
 
+const ProxyHeader = ({ children }) => (
+  <div className="msg-header msg-proxy">
+    <Globe className="msg-icon" />
+    <span className="msg-author">Proxy</span>
+    {children}
+  </div>
+)
+
+// Stands in for InstructionRun when no requests were captured, so it's clear what the proxy would add
+function InstructionsMissing() {
+  return (
+    <div className="instruction-missing">
+      <ProxyHeader><span className="msg-summary">not captured</span></ProxyHeader>
+      Turn on the Capture proxy to see the system prompt, tools and memory files.
+    </div>
+  )
+}
+
 // The session's instruction files, grouped by the part of the request they were read from
 // (system prompt / tools / user message), with a summed token total under them once there's
 // more than one file to add up.
@@ -441,10 +460,7 @@ function InstructionRun({ turns, model }) {
   const strips = turns.flatMap(t => t.blocks).map(({ it }) => ({ ...it, tokens: countTokens(it.content, it.model ?? model) }))
   return (
     <>
-      <div className="msg-header msg-proxy">
-        <Globe className="msg-icon" />
-        <span className="msg-author">Proxy</span>
-      </div>
+      <ProxyHeader />
       {groupInstructions(strips).map(([label, list]) => (
         <React.Fragment key={label}>
           <div className="aux instruction-source">{label}</div>
