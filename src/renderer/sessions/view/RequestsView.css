@@ -24,6 +24,20 @@
   padding-top: 6px;
 }
 
+.requests-list li.requests-missed {
+  margin: 18px 0;
+  padding: 6px 10px;
+  background: var(--bg-elev);
+  border-radius: 4px;
+}
+
+/* the wavy divider already separates the turns */
+.requests-list li.requests-missed + li.new-turn {
+  border-top: 0;
+  margin-top: 0;
+  padding-top: 0;
+}
+
 .requests-list button {
   display: flex;
   align-items: center;

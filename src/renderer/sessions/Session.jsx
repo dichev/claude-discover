@@ -93,7 +93,7 @@ export default function Session({ meta, missing, date, granularity = 'day', onSh
                 ) : mode === 'jsonl' ? (
                   (!items && loadError) || <JsonlView items={items} expandAll={expandAll} />
                 ) : (
-                  <RequestsView filePath={filePath} date={date} granularity={granularity} fileSize={fileSize} expandAll={expandAll} />
+                  <RequestsView filePath={filePath} items={items} date={date} granularity={granularity} fileSize={fileSize} expandAll={expandAll} />
                 )}
               </div>
               <SessionSummary meta={meta} items={items} instructions={instructions} agent={agent} granularity={granularity} />

@@ -3,6 +3,7 @@ import JsonView from '@uiw/react-json-view'
 import { vscodeTheme } from '@uiw/react-json-view/vscode'
 import { Globe } from 'lucide-react'
 import LazyMount from '../../ui/LazyMount.jsx'
+import Divider from '../../ui/Divider.jsx'
 import { ErrorMessage } from '../../ui/Errors.jsx'
 import { useFindActive } from '../../ui/useFindActive.js'
 import { renderShortened } from '../../ui/ShortText.jsx'
@@ -134,7 +135,7 @@ const Pane = React.memo(function Pane({ value, headers, seen, expandAll }) {
 
 // Postman-like inspector for the API request logs captured by bin/proxy.mjs:
 // a list of the session's requests on the left, the selected request/response JSON on the right.
-export default function RequestsView({ filePath, date, granularity = 'day', fileSize = 0, expandAll = null }) {
+export default function RequestsView({ filePath, items, date, granularity = 'day', fileSize = 0, expandAll = null }) {
   const [records, setRecords]   = useState(null)
   const [selected, setSelected] = useState(0)
   const [tab, setTab]           = useState('request')
@@ -186,6 +187,14 @@ export default function RequestsView({ filePath, date, granularity = 'day', file
     )
   }
 
+  // Transcript replies with no captured request (requestId ↔ the response's request-id header), counted per gap between records
+  const captured = new Set(records.map(r => r.responseHeaders?.['request-id']))
+  const missed   = items?.filter(o => o.requestId && !captured.has(o.requestId)) ?? []
+  const gapRow   = (from = '', to) => {
+    const n = new Set(missed.filter(o => o.timestamp >= from && (!to || o.timestamp < to)).map(o => o.requestId)).size
+    return n > 0 && <li className="requests-missed"><Divider>{n} {n === 1 ? 'reply' : 'replies'} not captured (proxy was off)</Divider></li>
+  }
+
   return (
     <div className="requests-view">
       <ul className="requests-list">
@@ -193,7 +202,9 @@ export default function RequestsView({ filePath, date, granularity = 'day', file
           const [method, path] = splitUrl(r.url)
           // r.kind is [cssKind, label] from classifyRequest (requests/claudeMarkers.js) — null when unclassifiable
           return (
-          <li key={i} className={i > 0 && r.kind?.[0] === 'main' ? 'new-turn' : ''}>
+          <React.Fragment key={i}>
+          {gapRow(records[i - 1]?.timestamp, r.timestamp)}
+          <li className={i > 0 && r.kind?.[0] === 'main' ? 'new-turn' : ''}>
             <button type="button" className={i === selected ? 'active' : ''} onClick={() => setSelected(i)}>
               <span className={`requests-method ${method.toLowerCase()}`}>{method}</span>
               <span className="requests-url">{path}</span>
@@ -204,8 +215,10 @@ export default function RequestsView({ filePath, date, granularity = 'day', file
               <span className="requests-meta requests-tokens" title="total tokens (input + output + cache)">{tokens(totalTokens(r))}</span>
             </button>
           </li>
+          </React.Fragment>
           )
         })}
+        {gapRow(records.at(-1).timestamp)}
       </ul>
       <div className="requests-detail">
         <div className="requests-tabs">
