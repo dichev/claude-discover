@@ -7,7 +7,7 @@ Developed on Windows; macOS and Linux are also supported.
 ## Commands
 
 ```bash
-npm run dev           # electron-vite dev — hot reload, renderer on :5555, CDP on :9333
+npm run dev           # electron-vite dev — hot reload, renderer on :5555, CDP on :9333 (kills a dev already holding them)
 npm run build         # electron-vite build → out/{main,preload,renderer}
 npm start             # run the built app (electron .)
 npm test              # vitest run --reporter=tree
