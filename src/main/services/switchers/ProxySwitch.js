@@ -10,6 +10,9 @@ import { PROXY_URL, UPSTREAM, PING_ROUTE, PING_RESPONSE, EXIT_ROUTE, ERROR_LOG_P
 // PATH has it, whichever way the app was launched
 const NODE = await which('node', { nothrow: true }) ?? 'node'
 
+// Running sessions pick up a settings.json env change ~1 request late, so keep serving that request
+const SETTINGS_RELOAD_GRACE_MS = 3000
+
 export class ProxySwitch {
   #service = new LoginService({ name: 'claude-discover-proxy', command: [NODE, PROXY_PATH] })
 
@@ -44,16 +47,19 @@ export class ProxySwitch {
     settings.save()
   }
 
-  // Stop the proxy, remove the service and our env keys — a foreign base URL is left alone
+  // Remove our env keys, then stop the proxy and remove the service — a foreign base URL is left alone
   async deactivate() {
-    await this.#exit()
-    await this.#service.uninstall()
     const settings = new ClaudeSettings()
     if (settings.env?.ANTHROPIC_BASE_URL === PROXY_URL) {
-      settings.deleteEnv('ANTHROPIC_BASE_URL')
+      // Blank, not delete: running sessions apply changed env values live but keep removed ones,
+      // so a deleted key would leave them on the dead port. "" counts as unset (default endpoint)
+      settings.setEnv('ANTHROPIC_BASE_URL', '')
       settings.deleteEnv('ENABLE_TOOL_SEARCH')
       settings.save()
+      await new Promise(r => setTimeout(r, SETTINGS_RELOAD_GRACE_MS))
     }
+    await this.#exit()
+    await this.#service.uninstall()
   }
 
   // Ask a running instance to exit via its control route and wait for the port to free up

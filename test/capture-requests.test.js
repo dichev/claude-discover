@@ -191,14 +191,16 @@ describe('proxy end-to-end', () => {
       req.on('end', () => {
         received.push({ url: req.url, headers: req.headers, body: Buffer.concat(chunks).toString() })
         if ('x-test-hold' in req.headers) return // never answer — lets a test abort the client side mid-flight
-        if (req.url.startsWith('/v1/messages') && !req.url.includes('count_tokens')) {
-          const gzip = 'x-test-gzip' in req.headers // opt-in per test — exercises the proxy's tee-side decompression
-          res.writeHead(200, { 'content-type': 'text/event-stream', ...(gzip && { 'content-encoding': 'gzip' }) })
-          res.end(gzip ? zlib.gzipSync(sse(streamEvents)) : sse(streamEvents))
-        } else {
-          res.writeHead(200, { 'content-type': 'application/json' })
-          res.end(JSON.stringify({ ok: true }))
-        }
+        setTimeout(() => { // x-test-delay keeps the response in flight, e.g. across the proxy's exit
+          if (req.url.startsWith('/v1/messages') && !req.url.includes('count_tokens')) {
+            const gzip = 'x-test-gzip' in req.headers // opt-in per test — exercises the proxy's tee-side decompression
+            res.writeHead(200, { 'content-type': 'text/event-stream', ...(gzip && { 'content-encoding': 'gzip' }) })
+            res.end(gzip ? zlib.gzipSync(sse(streamEvents)) : sse(streamEvents))
+          } else {
+            res.writeHead(200, { 'content-type': 'application/json' })
+            res.end(JSON.stringify({ ok: true }))
+          }
+        }, Number(req.headers['x-test-delay'] ?? 0))
       })
     })
     upstreamPort = await freePort()
@@ -354,5 +356,18 @@ describe('proxy end-to-end', () => {
     expect(last.status).toBeUndefined()
     expect(last.response).toBeUndefined()
     expect(errorLog()).toBe(errorsBefore) // tearing down our own upstream request is not an error
+  })
+
+  // Last: leaves no proxy running
+  it('exit frees the port at once but finishes in-flight responses before exiting', async () => {
+    const exited = new Promise(r => proxy.once('exit', r))
+    const pending = post({ 'x-test-delay': '500' })
+    while (!received.at(-1)?.headers['x-test-delay']) await new Promise(r => setTimeout(r, 10)) // wait until it's in flight upstream
+    await fetch(`http://${HOST}:${proxyPort}/claude-discover/exit`, { method: 'POST' })
+    await expect(fetch(`http://${HOST}:${proxyPort}/claude-discover/ping`)).rejects.toThrow()
+    const res = await pending
+    expect(res.status).toBe(200)
+    expect(await res.text()).toBe(sse(streamEvents))
+    expect(await exited).toBe(0)
   })
 })

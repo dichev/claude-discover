@@ -16,20 +16,25 @@ import { parseArgs } from 'node:util'
 
 import { HOST, PORT, PROXY_URL, UPSTREAM, EXIT_ROUTE, PING_ROUTE, PING_RESPONSE, REQUESTS_DIR, ERROR_LOG_PATH } from './proxy.config.js'
 
+// How long an exiting proxy keeps serving in-flight responses — long replies stream for minutes
+const DRAIN_TIMEOUT_MS = 10 * 60_000
+
 
 // ── 1. Generic tee proxy — knows nothing about Claude ────────────────────────
 // Forwards verbatim to `upstream` and pipes the response back while buffering both bodies.
 // `onExchange(exchange)` fires exactly once per request, after piping (its response fields are
-// undefined when upstream never responded); `errorBody(err)` shapes the 502 when it's unreachable.
+// undefined when upstream never responded); `errorBody(err)` shapes the 502 when it's unreachable;
+// `onExit()` runs once the exit route has answered.
 
-function createProxy({ upstream, onExchange, onError, errorBody }) {
+function createProxy({ upstream, onExchange, onError, errorBody, onExit }) {
   const mod = upstream.protocol === 'http:' ? http : https
 
   return http.createServer(async (req, res) => {
     if (req.method === 'POST' && req.url === EXIT_ROUTE) {
       // Loopback-only control route. The restart client is a bare Node request; reject anything carrying browser fetch metadata so a web page can't CSRF the proxy into exiting.
       if (req.headers.origin || req.headers.referer || req.headers['sec-fetch-site']) return res.writeHead(403).end('forbidden')
-      return res.end('bye', () => process.exit(0))
+      res.setHeader('connection', 'close')
+      return res.end('bye', onExit)
     }
     if (req.url === PING_ROUTE) return res.end(PING_RESPONSE)
     const started = Date.now()
@@ -246,7 +251,17 @@ if (isMain) {
     onExchange: logRequest,
     onError: logError,
     errorBody: err => JSON.stringify({ type: 'error', error: { type: 'api_error', message: `claude-discover proxy: upstream unreachable (${err.code || err.message})` } }),
+    onExit: () => drain(),
   })
+  // Stop listening at once (frees the port for a successor) but let in-flight responses finish — exiting outright would cut a reply mid-stream
+  let draining = false
+  const drain = () => {
+    if (draining) return
+    draining = true
+    server.close(() => process.exit(0))
+    setTimeout(() => process.exit(0), DRAIN_TIMEOUT_MS)
+  }
+  process.on('SIGTERM', drain) // @macOS @linux launchd/systemd stop the service this way, right after ProxySwitch's exit request
   if (args.values.restart) {
     // Ask a previous instance (the port is loopback-only and assumed ours) to exit before listening.
     const replaced = await new Promise(resolve => http.request(`${PROXY_URL}${EXIT_ROUTE}`, { method: 'POST' }, () => resolve(true)).on('error', () => resolve(false)).end())
