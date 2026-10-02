@@ -41,12 +41,11 @@ Not a hard constraint — restructure when it serves the code, just update this 
 │   │   ├── requests/               captured-request reading & parsing
 │   │   ├── services/               backend services (LoginService = a generic per-OS login service) + the StatusBar switchers
 │   │   ├── sessions/               transcript scanning, caching & parsing (utils/: the file watchers)
-│   │   └── windows/                the app window + the find-bar overlay
-│   ├── preload/                    contextBridge preloads (main window + find overlay)
+│   │   └── windows/                the app window (find bar: electron-find-overlay)
+│   ├── preload/                    contextBridge preload (main window)
 │   └── renderer/                   React frontend (functional)
 │       ├── agent/                  AI Analyze hook, output + prompt template
 │       ├── assets/                 images imported by the UI
-│       ├── find/                   standalone find-bar page (own renderer entry)
 │       ├── sessions/               session list + detail views (Conversation/JSONL/Requests tabs)
 │       ├── timeline/               period views (Daily/Weekly/Monthly) + the work-hours band
 │       ├── ui/                     generic primitives + the status bar
@@ -54,7 +53,7 @@ Not a hard constraint — restructure when it serves the code, just update this 
 ├── test/                           Vitest suites + fixtures
 │   └── scripts/                    repo-only CLIs, never shipped in the npm tarball
 │       └── usage.mjs               per-period token usage/cost table (imports src/)
-└── electron.vite.config.js         build config: main, two preloads, two renderer entries
+└── electron.vite.config.js         build config: main, preload, renderer
 ```
 
 ## Architecture
@@ -62,7 +61,7 @@ Not a hard constraint — restructure when it serves the code, just update this 
 Three-process Electron split:
 
 - **`src/main/`** — all disk and network access. Node ESM.
-- **`src/preload/`** — renderers↔main API surface (`window.api`); every IPC channel is registered in `src/main/Application.js`. Preloads are sandboxed, so each must stay a single self-contained CommonJS file — no cross-file imports (the shared `subscribe` helper is inlined in each by hand).
+- **`src/preload/`** — renderers↔main API surface (`window.api`); every IPC channel is registered in `src/main/Application.js`. The preload is sandboxed, so it must stay a single self-contained CommonJS file — no cross-file imports.
 - **`src/renderer/`** — React 19+. Runs under a strict CSP, so anything that would need a remote fetch or an inline script will break the app.
 
 Three independent data sources feed the UI:

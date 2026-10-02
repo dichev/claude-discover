@@ -39,8 +39,7 @@ export default defineConfig({
       // Sandboxed renderers require CommonJS, single-file preloads (no ESM, no shared chunks to require).
       rollupOptions: {
         input: {
-          preload:     resolve('src/preload/preload.js'),
-          findPreload: resolve('src/preload/findPreload.js')
+          preload: resolve('src/preload/preload.js')
         },
         output: {
           format: 'cjs',
@@ -57,8 +56,7 @@ export default defineConfig({
       assetsInlineLimit: 0, // export all assets as files (instead of inlining them as data URIs)
       rollupOptions: {
         input: {
-          index: resolve('src/renderer/index.html'),
-          find:  resolve('src/renderer/find/find.html')
+          index: resolve('src/renderer/index.html')
         },
         output: { // Split deps into a shared vendors.js/css
           manualChunks: id => id.includes('node_modules') ? 'vendors' : undefined

@@ -1,9 +1,9 @@
-import { app, BrowserWindow } from 'electron'
+import { app, BrowserWindow, nativeTheme } from 'electron'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import windowStateKeeper from 'electron-window-state'
 import contextMenu from 'electron-context-menu'
-import { FindBar } from './FindBar.js'
+import { FindOverlay } from 'electron-find-overlay'
 import { lockNavigation } from '../utils.js'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
@@ -15,6 +15,7 @@ export class MainWindow {
   }
 
   create() {
+    nativeTheme.themeSource = 'dark' // the UI is dark-only; keeps the find bar and native menus dark under a light OS theme
     const state = windowStateKeeper({ defaultWidth: 1500, defaultHeight: 900 })
     this.win = new BrowserWindow({
       x: state.x,
@@ -43,7 +44,10 @@ export class MainWindow {
       this.win.loadFile(path.join(__dirname, '../renderer/index.html'))
     }
 
-    this.findBar = new FindBar(this.win)
+    this.findBar = new FindOverlay(this.win)
+    // let the app mount all entries while open so findInPage can match off-screen content
+    this.findBar.on('show', () => this.send('find:active', true))
+    this.findBar.on('hide', () => this.send('find:active', false))
     return this.win
   }
 

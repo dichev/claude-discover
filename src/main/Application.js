@@ -47,8 +47,6 @@ export class Application {
     ipcMain.handle('agent:run', (e, text) => agentRunner.run(text, e.sender))
     ipcMain.handle('shell:open-link', (_e, href, baseFile) => openLinkSafely(href, baseFile))
     ipcMain.handle('deeplink:take-pending', () => deepLink?.takePending() ?? null)
-    ipcMain.on('find:query', (_e, text, options) => win.findBar?.query(text, options))
-    ipcMain.on('find:stop', () => win.findBar?.stop())
     ipcMain.on('find:close', () => win.findBar?.hide())
     ipcMain.on('claude-settings:get', e => e.returnValue = { claudeDir: CLAUDE_DIR })
 
