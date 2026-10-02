@@ -80,8 +80,8 @@ export function instructionTitle(it, model) {
   return parts ? `${it.name ?? it.file_path} (${parts})` : (it.name ?? it.file_path)
 }
 
-// "Conversation compacted (manual · 188.4k tokens before)" for a `compact` block
+// "Conversation compacted (manual · 188.4k context tokens before)" for a `compact` block
 export function compactTitle({ trigger, preTokens }) {
-  const detail = [trigger, preTokens && `${fmtCompact(preTokens)} tokens before`].filter(Boolean).join(' · ')
+  const detail = [trigger, preTokens && `${fmtCompact(preTokens)} context tokens before`].filter(Boolean).join(' · ')
   return detail ? `Conversation compacted (${detail})` : 'Conversation compacted'
 }

@@ -231,7 +231,14 @@ describe('flatten — compaction', () => {
     const turns = flatten([summary, boundary])
     expect(turns).toMatchObject([{ role: 'compact', tokenTotal: 200000, blocks: [{ type: 'compact', trigger: 'manual', preTokens: 188391, summary: 'This session is being continued…' }] }])
     expect(groupTurns(turns).map(g => g.kind)).toEqual(['compact'])
-    expect(compactTitle(turns[0].blocks[0])).toBe('Conversation compacted (manual · 188.4k tokens before)')
+    expect(compactTitle(turns[0].blocks[0])).toBe('Conversation compacted (manual · 188.4k context tokens before)')
+  })
+
+  it('joins a summary parented to attachments logged after the boundary', () => {
+    const ctx   = { type: 'attachment', uuid: 'a1', parentUuid: 'b1', timestamp: '2026-06-12T02:58:34.770Z', attachment: { type: 'session_context' } }
+    const date  = { type: 'attachment', uuid: 'a2', parentUuid: 'a1', timestamp: '2026-06-12T02:58:34.770Z', attachment: { type: 'date' } }
+    const turns = flatten([{ ...summary, parentUuid: 'a2' }, ctx, date, boundary])
+    expect(turns.filter(t => t.role === 'compact')).toMatchObject([{ blocks: [{ trigger: 'manual', summary: 'This session is being continued…' }] }])
   })
 
   it('never takes the summary as the first prompt', () => {

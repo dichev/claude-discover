@@ -77,6 +77,13 @@ export function flatten(items, instructions = []) {
   const companions = {}
   const compactions = {}
   const state = { mode: null, cwd: null, artifacts: new Set() }
+  const byUuid = new Map(items.map(it => [it.uuid, it]))
+  // Newer CLIs log context attachments between a boundary and its summary — walk up past them
+  const boundaryOf = it => {
+    let p = it.parentUuid
+    while (byUuid.get(p)?.type === 'attachment') p = byUuid.get(p).parentUuid
+    return p ?? it.uuid
+  }
   for (let it of items) {
     if (it._relogged) continue // the original already shows
     // Rendered just before the record carrying the change, under its own key (state records have no uuid)
@@ -84,7 +91,7 @@ export function flatten(items, instructions = []) {
     if (change) turns.push(noteTurn(it, change, `state-${turns.length}`))
     // The summary is parented to its boundary but timestamped just before it — either order joins one `compact` turn
     if (it.subtype === 'compact_boundary' || it.isCompactSummary) {
-      const key = it.isCompactSummary ? it.parentUuid ?? it.uuid : it.uuid
+      const key = it.isCompactSummary ? boundaryOf(it) : it.uuid
       let turn = compactions[key]
       if (!turn) turns.push(turn = compactions[key] = metaTurn(it, 'compact', [{ type: 'compact' }]))
       if (it.isCompactSummary) {
