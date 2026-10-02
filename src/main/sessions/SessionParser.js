@@ -74,6 +74,7 @@ export class SessionParser {
     this.prevMessage = null
     this.tokenTotal = 0
     this.lastSeenTs = null
+    this.modelId = null
     this.commandUuids = new Set()
     this.seenUuids = new Set()
     // msgId -> the usage bucket we've already folded into the totals, so later
@@ -92,6 +93,7 @@ export class SessionParser {
     if (t === 'tag') meta.tag = obj.tag || null // last one wins; an empty tag clears it
     if (t === 'queue-operation' && obj.content?.includes('<scheduled-task')) meta.hasScheduledTask = true
     if (t === 'started' && obj.key && obj.agentId) meta.workflowAgents += 1 // workflow journal: one `started` record per agent() call
+    if (t === 'attachment' && obj.attachment?.type === 'model') this.modelId = obj.attachment.identity?.modelId
 
     if (obj.cwd && !meta.project) meta.project = obj.cwd
     if (obj.gitBranch && !meta.gitBranch) meta.gitBranch = obj.gitBranch
@@ -151,9 +153,12 @@ export class SessionParser {
       const msg = obj.message
       // Skip local error/limit notices (e.g. "limit reached") — not real model calls.
       if (!msg || msg.model === '<synthetic>') return true
-      if (msg.model) {
-        if (!meta.model) meta.model = msg.model
-        if (!meta.models.includes(msg.model)) meta.models.push(msg.model)
+      // The API echoes the bare id; a variant like claude-opus-5-5[1m] is named only in Claude Code's `model` attachment.
+      // Display only — pricing keeps msg.model.
+      const model = this.modelId?.replace(/\[.*\]$/, '') === msg.model ? this.modelId : msg.model
+      if (model) {
+        if (!meta.model) meta.model = model
+        if (!meta.models.includes(model)) meta.models.push(model)
       }
       // Older CLIs log only `effort`; newer ones add `perTurnEffort` (sometimes null) for the level actually sent.
       const effort = obj.perTurnEffort ?? obj.effort
