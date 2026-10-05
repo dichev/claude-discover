@@ -28,7 +28,7 @@
     "smoke:local": "npm pack && npx -y ./claude-discover-${npm_package_version}.tgz",
     "smoke:global": "npm pack && npm i -g ./claude-discover-${npm_package_version}.tgz && claude-discover",
     "prepack": "npm run build",
-    "publish:patch": "npm version patch && git push --follow-tags"
+    "publish:patch": "npm test && npm version patch && git push --follow-tags && echo Approve once CI is green: https://www.npmjs.com/settings/g.dichev/staged-packages"
   },
   "dependencies": {
     "@anthropic-ai/claude-agent-sdk": "^0.3.284",

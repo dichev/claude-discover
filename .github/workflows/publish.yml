@@ -20,4 +20,4 @@ jobs:
           cache: npm
       - run: npm ci
       - run: npm test
-      - run: npm stage publish # goes live once you approve it on npmjs.com
+      - run: npm stage publish # goes live once approved on npmjs.com
