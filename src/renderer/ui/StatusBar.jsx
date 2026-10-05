@@ -1,6 +1,9 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { ArrowDownToLine } from 'lucide-react'
+import { format, isToday } from 'date-fns'
 import StatusSwitch, { useSwitch } from './StatusSwitch'
+import { tone } from '../utils/formatting'
+import { THRESHOLDS } from '../utils/thresholds'
 import './StatusBar.css'
 
 // Tooltip prose for each switch; StatusSwitch appends the live Activate/Deactivate button below it.
@@ -43,6 +46,91 @@ const npxTooltip = <>
   <p>The app will restart from the global install - this takes about a minute.</p>
 </>
 
+// Server-supplied labels (model and product names) go into an HTML tooltip
+const esc = s => String(s).replace(/[&<>"]/g, c => `&#${c.charCodeAt(0)};`)
+
+// "4:30 PM" today, "Wed 1:00 PM" later
+const fmtTime = ts => format(ts, isToday(ts) ? 'h:mm a' : 'EEE h:mm a')
+
+const tipBar = (pct, pctTone) => `<span class="progress-bar tone-${pctTone}"><span class="progress-bar-fill" style="width: ${Math.min(pct, 100)}%"></span></span>`
+
+// One tooltip row per limit: label, bar, used %, and when it resets
+const limitRow = (label, w) => {
+  const pct     = Math.floor(w.utilization)
+  const pctTone = tone(pct, THRESHOLDS.limit)
+  const resets  = w.resetsAt > Date.now() ? `resets ${isToday(w.resetsAt) ? 'at ' : ''}${fmtTime(w.resetsAt)}` : ''
+  return `<span>${label}</span>${tipBar(pct, pctTone)}<span class="tip-pct ${pctTone}">${pct}%</span><span class="tip-faint">${resets}</span>`
+}
+
+// `limit` is missing while loading or when usage isn't available; the bar then stays empty
+function UsageBar({ label, limit, placeholder }) {
+  const pct     = limit ? Math.floor(limit.utilization) : null
+  const pctTone = tone(pct, THRESHOLDS.limit)
+  return (
+    <span className={`statusbar-group statusbar-limit ${pctTone}`}>
+      <span>{label}</span>
+      <span className={`progress-bar tone-${pctTone}`}><span className="progress-bar-fill" style={{ width: `${pct ?? 0}%` }} /></span>
+      <span className="statusbar-num">{pct != null ? `${pct}%` : placeholder}</span>
+    </span>
+  )
+}
+
+// Everything /usage reported, as the bars' HTML tooltip
+function usageTip({ at, plan, fiveHour, sevenDay, models, sources, extra }) {
+  const money     = n => new Intl.NumberFormat(undefined, { style: 'currency', currency: extra.currency || 'USD' }).format(n / 10 ** extra.decimals)
+  const userOff   = extra && !extra.on && !extra.reason
+  const extraPct  = extra?.limit ? Math.floor((extra.used ?? 0) / extra.limit * 100) : 0
+  const extraRow  = extra && [
+    '<span class="tip-sep"></span><span>Extra usage</span>',
+    userOff ? '<span></span>' : tipBar(extraPct, tone(extraPct, THRESHOLDS.limit)),
+    `<span class="tip-pct">${userOff ? 'off' : money(extra.used ?? 0)}</span>`,
+    `<span class="tip-faint">${userOff ? '' : extra.limit != null ? `of ${money(extra.limit)} this month` : 'this month'}</span>`,
+  ].join('')
+  const tip = [
+    `<div class="tip-head"><b>Claude Usage${plan ? ` (${esc(plan[0].toUpperCase() + plan.slice(1))})` : ''}</b></div>`,
+    '<div class="tip-limits">',
+    fiveHour && limitRow('Daily', fiveHour),
+    sevenDay && limitRow('Weekly', sevenDay),
+    ...models.map(m => limitRow(`Weekly (${esc(m.name)})`, m)),
+    extraRow,
+    '</div>',
+    `<div class="tip-foot">`,
+    sources.length && `<div>This week's usage by product: ${sources.map(s => `${esc(s.name)} ${s.pct}%`).join(', ')}</div>`,
+    `<div>Last updated ${fmtTime(at)}</div>`,
+    '</div>',
+  ].filter(Boolean).join('')
+  return `<div class="statusbar-tooltip statusbar-limit-tip">${tip}</div>`
+}
+
+// The daily and weekly bars, sharing one tooltip
+// The bars show from startup on, so they don't pop in later: `limits` is undefined while loading, null when unavailable
+function UsageLimits({ limits }) {
+  const ref         = useRef(null)
+  const placeholder = limits === undefined ? '…' : '—'
+  const tip         = limits ? usageTip(limits) : limits === undefined ? 'Loading Claude usage…' : "Claude usage isn't available - it needs Claude Code logged in with a Claude subscription"
+  useEffect(() => { ref.current._tippy?.setContent(tip) }, [tip]) // the tooltip delegate re-reads data-tippy-html only on show, so update one already open
+  return (
+    <span ref={ref} className="statusbar-limits" data-tippy-interactive="true" data-tippy-maxwidth="none" data-tippy-html={tip}>
+      <UsageBar label="Daily" limit={limits?.fiveHour} placeholder={placeholder} />
+      <UsageBar label="Weekly" limit={limits?.sevenDay} placeholder={placeholder} />
+    </span>
+  )
+}
+
+// Asked at mount, on refocus, and every minute in case Claude Code was used meanwhile (schedule atop RateLimits.js)
+function useRateLimits() {
+  const [limits, setLimits] = useState() // undefined until the first answer; null without plan limits (API key logins) or if the SDK call fails
+  useEffect(() => {
+    const check = opts => document.hidden || window.api.getRateLimits(opts).then(setLimits)
+    const onFocus = () => check()
+    check()
+    const timer = setInterval(() => check({ ifActive: true }), 60_000)
+    window.addEventListener('focus', onFocus)
+    return () => { clearInterval(timer); window.removeEventListener('focus', onFocus) }
+  }, [])
+  return limits
+}
+
 const ONE_YEAR_DAYS = 365
 
 // Humanize a day count for the status bar: years once past a year, otherwise raw days.
@@ -62,6 +150,7 @@ export default function StatusBar({ progress, sessionCount = 0 }) {
   const claudedir  = useSwitch({ name: 'claudedir' }) // action-style: its button always activates (opens the folder picker)
   const [update, setUpdate]     = useState(null) // { current, latest } when an npm-global install is outdated, plus fromNpx for an npx run
   const [updating, setUpdating] = useState(false)
+  const limits                  = useRateLimits()
   useEffect(() => { window.api.checkUpdate().then(setUpdate) }, [])
   const updater = { status: update, busy: updating, toggle: async () => { // the StatusSwitch service shape, for an action that always runs
     setUpdating(true)
@@ -80,7 +169,7 @@ export default function StatusBar({ progress, sessionCount = 0 }) {
       {(scanning || finished) && (
         <span className="statusbar-loading">
           <span className="statusbar-loading-text">
-            {scanning ? 'Loading' : 'Loaded'} <span className="statusbar-loading-num">{sessionCount}</span> sessions{scanning ? '…' : ''}
+            {scanning ? 'Loading' : 'Loaded'} <span className="statusbar-num">{sessionCount}</span> sessions{scanning ? '…' : ''}
           </span>
           {scanning && (
             <span className="progress-bar">
@@ -99,6 +188,7 @@ export default function StatusBar({ progress, sessionCount = 0 }) {
           <ArrowDownToLine size={12} /> Update available
         </StatusSwitch>
       )}
+      <UsageLimits limits={limits} />
       <StatusSwitch service={retention} on={retentionRaised} warn={!!(retention.status && !retentionRaised)} tooltip={retentionTooltip} changes={retentionChanges}>
         Session logs <span className="statusbar-state">{retention.status ? humanizeDays(retention.status.days) : '…'}</span>
       </StatusSwitch>

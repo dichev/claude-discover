@@ -43,3 +43,16 @@ export function lockNavigation(contents) {
   contents.on('will-navigate', block)
   contents.on('will-redirect', block)
 }
+
+
+// `cleanup` runs once it settles either way — a timeout stops the wait, not the work behind it
+export async function withTimeout(promise, ms, cleanup) {
+  const { promise: timeout, reject } = Promise.withResolvers()
+  const timer = setTimeout(reject, ms, new Error(`timed out after ${ms / 1000}s`))
+  try {
+    return await Promise.race([promise, timeout])
+  } finally {
+    clearTimeout(timer)
+    cleanup?.()
+  }
+}

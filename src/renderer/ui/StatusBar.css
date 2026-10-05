@@ -25,6 +25,57 @@
   white-space: nowrap;
 }
 
+/* The daily and weekly bars as one segment under one tooltip, hover-tinted like the switches */
+.statusbar-limits {
+  display: inline-flex;
+  align-self: stretch;
+  gap: 14px;
+  margin-right: -8px; /* eat the flex gap so the hover tint reaches the next separator, as .statusbar-seg does */
+  padding-right: 8px;
+  cursor: default;
+  &:hover { background: rgb(255 255 255 / 0.07); }
+}
+.statusbar-limit {
+  gap: 6px;
+  white-space: nowrap;
+  & .progress-bar { width: 48px; }
+  & .statusbar-num { min-width: 3.5ch; color: var(--text-dim); }
+  &.warn .statusbar-num { color: var(--warn); }
+  &.danger .statusbar-num { color: var(--danger); }
+}
+.statusbar-limit-tip {
+  min-width: 280px;
+  padding: 8px 10px;
+  & .tip-faint { color: var(--text-faint); }
+  & .tip-head {
+    margin-bottom: 10px;
+    padding-bottom: 8px;
+    border-bottom: 1px solid var(--border);
+  }
+  /* Label, bar, right-aligned % or amount, faint note */
+  & .tip-limits {
+    display: grid;
+    grid-template-columns: auto auto auto 1fr;
+    align-items: center;
+    gap: 7px 12px;
+    white-space: nowrap;
+  }
+  & .progress-bar { width: 80px; }
+  & .tip-pct { text-align: right; font-variant-numeric: tabular-nums; }
+  & .warn { color: var(--warn); }
+  & .danger { color: var(--danger); }
+  & .tip-sep { grid-column: 1 / -1; margin: 2px 0; border-top: 1px solid var(--border); } /* a full-width divider row inside the grid */
+  & .tip-foot {
+    display: grid;
+    gap: 2px;
+    margin-top: 10px;
+    padding-top: 8px;
+    border-top: 1px solid var(--border);
+    font-size: 11px;
+    color: var(--text-faint);
+  }
+}
+
 /* A blue-tinted .statusbar-seg (StatusSwitch lays out the full-height fill and the tooltip) */
 .statusbar-update { background: rgb(96 165 250 / 0.14); }
 .statusbar-seg.statusbar-update:hover { background: rgb(96 165 250 / 0.24); }
@@ -37,7 +88,7 @@
   white-space: nowrap;
 }
 
-/* Session-loading indicator (compact progress bar, mirrors SessionSummary's .progress-bar) */
+/* Session-loading indicator */
 /* Pinned to the left; the auto margin pushes everything else right.
    Fixed width + tabular-nums keep the layout from shifting as the count changes. */
 .statusbar-loading {
@@ -48,7 +99,8 @@
   margin-right: auto;
 }
 .statusbar-loading-text { white-space: nowrap; }
-.statusbar-loading-num {
+/* Fixed width: a growing count or "100%" never shifts its neighbours */
+.statusbar-num {
   display: inline-block;
   min-width: 4ch;
   text-align: right;
@@ -58,15 +110,4 @@
   margin-left: auto; /* pin the bar to the right edge so the count never nudges it */
   flex: none;
   width: 100px;
-  height: 6px;
-  border-radius: 3px;
-  background: var(--bg-elev-2);
-  border: 1px solid var(--border);
-  overflow: hidden;
-}
-.statusbar-loading .progress-bar-fill {
-  display: block;
-  height: 100%;
-  background: var(--accent);
-  transition: width 120ms ease;
 }

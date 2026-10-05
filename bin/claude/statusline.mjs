@@ -10,7 +10,7 @@ import { styleText } from 'node:util'
 // Formatting
 const THRESHOLDS = { // (white, yellow, red)
   context: [0, 100_000, 250_000],
-  limit:   [0, 60, 90],
+  limit:   [0, 60, 90], // keep in sync with src/renderer/utils/thresholds.js
   cache:   [90, 60, 0],
   tokens:  [0, 250_000, 1_000_000],
   session: [0, 3_000_000, 8_000_000],

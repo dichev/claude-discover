@@ -111,7 +111,10 @@ export class SessionsService extends EventEmitter {
     // wired here, not in the constructor — repricing is for the watched UI mode, not CLI scans
     this.pricing.on('update', () => this._reprice())
     this.scanner.watch({
-      onChange: (p, stat) => this._refresh(p, stat),
+      onChange: (p, stat) => {
+        this.emit('activity') // any transcript, not just the watched period's
+        this._refresh(p, stat)
+      },
       onUnlink: p => this._evict(p)
     })
     return this

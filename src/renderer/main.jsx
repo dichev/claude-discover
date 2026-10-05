@@ -32,11 +32,12 @@ delegate('body', {
 })
 
 // HTML tooltips, opt-in via data-tippy-html. Only ever set from trusted, numeric content
-// (the token-usage breakdown) — never from transcript data. Keep it that way.
+// (the token-usage breakdown, plan limits) — never from transcript data. Keep it that way.
 delegate('body', {
   target: '[data-tippy-html]',
   delay: [0, 0],
   allowHTML: true,
+  appendTo: () => document.body, // explicit, or a data-tippy-interactive one lands in the reference's parent and picks up its styles
   content: reference => reference.getAttribute('data-tippy-html'),
   onShow(instance) {
     instance.setContent(instance.reference.getAttribute('data-tippy-html'))
