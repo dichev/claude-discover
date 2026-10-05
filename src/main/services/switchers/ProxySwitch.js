@@ -1,5 +1,7 @@
 // Start/stop the request-capture proxy (bin/proxy.mjs) and the settings.json env keys pointing
 // Claude Code at it. Backs the StatusBar's status + Activate/Deactivate button; sole owner of that config.
+// The desktop app's Code tab isn't covered: it injects its own ANTHROPIC_BASE_URL, which beats settings.json —
+// waiting on https://github.com/anthropics/claude-code/issues/97574
 import which from 'which'
 import { ClaudeSettings } from '../ClaudeSettings.js'
 import { LoginService } from '../LoginService.js'

@@ -135,7 +135,7 @@ const Pane = React.memo(function Pane({ value, headers, seen, expandAll }) {
 
 // Postman-like inspector for the API request logs captured by bin/proxy.mjs:
 // a list of the session's requests on the left, the selected request/response JSON on the right.
-export default function RequestsView({ filePath, items, date, granularity = 'day', fileSize = 0, expandAll = null }) {
+export default function RequestsView({ filePath, items, date, granularity = 'day', fileSize = 0, desktop = false, expandAll = null }) {
   const [records, setRecords]   = useState(null)
   const [selected, setSelected] = useState(0)
   const [tab, setTab]           = useState('request')
@@ -181,7 +181,9 @@ export default function RequestsView({ filePath, items, date, granularity = 'day
         <div className="requests-pitch">
           <h3><Globe className="requests-pitch-icon" />No API requests captured</h3>
           <p>See the system prompt, tools and hidden calls behind every reply.</p>
-          <p className="requests-pitch-hint">Turn on <b>Capture proxy</b> in the status bar.</p>
+          <p className="requests-pitch-hint">
+            {desktop ? 'Not yet supported for Claude desktop app sessions.' : <>Turn on <b>Capture proxy</b> in the status bar.</>}
+          </p>
         </div>
       </div>
     )

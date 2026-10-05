@@ -31,7 +31,7 @@ const isCommandTurn = t => t.blocks.some(b => b.type === 'text' && parseCommand(
 const isClearTurn   = t => t.blocks.some(b => b.type === 'text' && parseCommand(b.text)?.name === '/clear')
 
 
-export default function ConversationView({ items, instructions = [], filePath = null, expandAll = null, continuesFrom = null, continuesTo = null, onShowPeriodOf }) {
+export default function ConversationView({ items, instructions = [], desktop = false, filePath = null, expandAll = null, continuesFrom = null, continuesTo = null, onShowPeriodOf }) {
   const turns            = useMemo(() => flatten(items, instructions), [items, instructions])
   const groups           = useMemo(() => groupTurns(turns), [turns])
   const points           = useMemo(() => tokenPoints(groups), [groups])
@@ -53,7 +53,7 @@ export default function ConversationView({ items, instructions = [], filePath = 
             Continues from {format(continuesFrom, 'MMM d, yyyy HH:mm')}
           </Divider>
         )}
-        {instructions.length === 0 && <div className="conv-row conv-row-instruction"><InstructionsMissing /></div>}
+        {instructions.length === 0 && <div className="conv-row conv-row-instruction"><InstructionsMissing desktop={desktop} /></div>}
         {groups.map((g, i) => (
           <React.Fragment key={g.turns[0].uuid}>
             {i === branch?.index && branchDivider}
@@ -444,11 +444,12 @@ const ProxyHeader = ({ children }) => (
 )
 
 // Stands in for InstructionRun when no requests were captured, so it's clear what the proxy would add
-function InstructionsMissing() {
+function InstructionsMissing({ desktop }) {
   return (
     <div className="instruction-missing">
       <ProxyHeader><span className="msg-summary">not captured</span></ProxyHeader>
-      Turn on the Capture proxy to see the system prompt, tools and memory files.
+      {desktop ? 'Not yet supported for Claude desktop app sessions.'
+               : 'Turn on the Capture proxy to see the system prompt, tools and memory files.'}
     </div>
   )
 }

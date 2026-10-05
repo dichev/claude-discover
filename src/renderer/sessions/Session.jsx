@@ -23,6 +23,7 @@ export default function Session({ meta, missing, date, granularity = 'day', onSh
   const [expandAll, setExpandAll]       = useState(null)
   const filePath = meta?.filePath // not the session id, which can cover several transcripts
   const fileSize = meta?.fileSize
+  const desktop  = meta?.entrypoint === 'claude-desktop' // the capture proxy can't reach desktop sessions yet (see ProxySwitch)
   const agent = useAgent(`${filePath}|${date}`)
 
   // Clear only when the session identity changes — live growth (fileSize) swaps
@@ -87,13 +88,13 @@ export default function Session({ meta, missing, date, granularity = 'day', onSh
                 </div>
                 {mode === 'conversation' ? (
                   <div className="view-tab-pane-content">
-                    {items ? <ConversationView items={items} instructions={instructions} filePath={meta.parentFilePath ?? meta.filePath} expandAll={expandAll} continuesFrom={meta.continuesFrom} continuesTo={meta.continuesTo} onShowPeriodOf={onShowPeriodOf} />
+                    {items ? <ConversationView items={items} instructions={instructions} desktop={desktop} filePath={meta.parentFilePath ?? meta.filePath} expandAll={expandAll} continuesFrom={meta.continuesFrom} continuesTo={meta.continuesTo} onShowPeriodOf={onShowPeriodOf} />
                            : loadError || <div className="empty">Loading conversation…</div>}
                   </div>
                 ) : mode === 'jsonl' ? (
                   (!items && loadError) || <JsonlView items={items} expandAll={expandAll} />
                 ) : (
-                  <RequestsView filePath={filePath} items={items} date={date} granularity={granularity} fileSize={fileSize} expandAll={expandAll} />
+                  <RequestsView filePath={filePath} items={items} date={date} granularity={granularity} fileSize={fileSize} desktop={desktop} expandAll={expandAll} />
                 )}
               </div>
               <SessionSummary meta={meta} items={items} instructions={instructions} agent={agent} granularity={granularity} />
