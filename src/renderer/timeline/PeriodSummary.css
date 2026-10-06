@@ -85,3 +85,10 @@
     color: var(--warn);
   }
 }
+
+/* A subfolder of the project row above, shown while that project is expanded in the timeline */
+.gantt-side-subrow {
+  padding-left: 12px;
+
+  & b { color: var(--text-dim); }
+}

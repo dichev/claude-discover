@@ -24,6 +24,7 @@ export default function App() {
   const [deepLink, setDeepLink] = useState(null) // the link the current selection came from, if any
   const [sourceFilter, setSourceFilter] = useState(null)
   const [projectFilter, setProjectFilter] = useState(null)
+  const [expandedProjects, setExpandedProjects] = useLocalStorage('gantt-chart.expanded', [])
   const { defaultLayout, onLayoutChanged } = useDefaultLayout({ id: 'app.body', panelIds: ['list', 'detail'], storage: localStorage })
   const { defaultLayout: rootLayout, onLayoutChanged: onRootLayoutChanged } = useDefaultLayout({ id: 'app.root', panelIds: ['gantt', 'body'], storage: localStorage })
 
@@ -159,8 +160,10 @@ export default function App() {
             granularity={granularity}
             projectFilter={projectFilter}
             onToggleProjectFilter={(project) => setProjectFilter((cur) => (cur === project ? null : project))}
+            expanded={expandedProjects}
+            onToggleExpanded={key => setExpandedProjects(cur => cur.includes(key) ? cur.filter(k => k !== key) : [...cur, key])}
           />
-          <PeriodSummary sessions={dayItems.past} dayAnchor={anchor} granularity={granularity} />
+          <PeriodSummary sessions={dayItems.past} dayAnchor={anchor} granularity={granularity} expanded={expandedProjects} />
         </div>
       </Panel>
       <Separator className="resize-handle resize-handle-h" />
