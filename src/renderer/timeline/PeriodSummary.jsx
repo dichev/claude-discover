@@ -3,7 +3,7 @@ import { fmtUSD, fmtCompact, fmtDuration } from '../utils/formatting.js'
 import CostBreakdownChart from './CostBreakdownChart.jsx'
 import './PeriodSummary.css'
 
-export default function PeriodSummary({ sessions, dayAnchor, granularity = 'day', expanded = [] }) {
+export default function PeriodSummary({ sessions, dayAnchor, granularity = 'day', expanded }) {
   const totals = useMemo(() => {
     const t = sessions.reduce((acc, s) => {
       acc.cost += s.cost || 0
@@ -78,7 +78,7 @@ export default function PeriodSummary({ sessions, dayAnchor, granularity = 'day'
                 <span>{g.projectShort}</span>
                 <b>{projectStat === 'cost' ? fmtUSD(g.cost) : fmtCompact(g.totalTokens)}</b>
               </div>
-              {expanded.includes(g.key) && [...g.byDir.keys()].some(Boolean) && [...g.byDir.values()].sort(byStat).map(d => (
+              {expanded.includes(g.key) && g.byDir.size - g.byDir.has('') > 0 && [...g.byDir.values()].sort(byStat).map(d => (
                 <div key={d.dir} className="gantt-side-row gantt-side-subrow">
                   <span title={d.dir || undefined}>{d.dir || '(root)'}</span>
                   <b>{projectStat === 'cost' ? fmtUSD(d.cost) : fmtCompact(d.totalTokens)}</b>

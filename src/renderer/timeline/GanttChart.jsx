@@ -41,7 +41,7 @@ function packLanes(items) {
 
 export default function GanttChart({
   dayRange, sessions, onSelect, selectedId, dayAnchor,
-  granularity = 'day', projectFilter, onToggleProjectFilter, expanded, onToggleExpanded,
+  granularity = 'day', expanded, onToggleExpanded, otherProjects, onShowAllProjects,
 }) {
   const bar = BARS[granularity] ?? BARS.day
   const containerRef = useRef(null)
@@ -192,8 +192,18 @@ export default function GanttChart({
             ))}
             <TimeAxis viewStart={view.start} viewEnd={view.end} width={chartWidth} span={span} headerHeight={HEADER_HEIGHT} />
           </g>
+          {otherProjects > 0 && ( // the project picker hides the rest — point back to them from the axis row
+            <text
+              x={LABEL_X} y={HEADER_HEIGHT / 2}
+              dominantBaseline="central"
+              className="gantt-project-more"
+              onClick={e => { e.stopPropagation(); onShowAllProjects() }}
+            >
+              ({otherProjects} hidden project{otherProjects === 1 ? '' : 's'})
+            </text>
+          )}
           {groups.map((g, gi) => (
-            <g key={g.key} style={projectFilter && projectFilter !== g.key ? { opacity: 0.25 } : undefined}>
+            <g key={g.key}>
               {gi > 0 && (
                 <line
                   x1={0} x2={width}
@@ -202,25 +212,20 @@ export default function GanttChart({
                   className="gantt-group-sep"
                 />
               )}
-              {g.dirs > 0 && (
-                <text
-                  x={6} y={g.yOffset + bar.height / 2}
-                  dominantBaseline="central"
-                  className="gantt-project-toggle"
-                  onClick={e => { e.stopPropagation(); onToggleExpanded(g.key) }}
-                >
-                  {g.expanded ? '▾' : '▸'}
-                </text>
-              )}
-              <text
-                x={LABEL_X} y={g.yOffset + bar.height / 2}
-                dominantBaseline="central"
-                className={`gantt-project gantt-project-clickable${projectFilter === g.key ? ' gantt-project-active' : ''}`}
-                onClick={(e) => { e.stopPropagation(); onToggleProjectFilter?.(g.key) }}
+              <g
+                className={g.dirs > 0 ? 'gantt-project-clickable' : undefined}
+                onClick={g.dirs > 0 ? e => { e.stopPropagation(); onToggleExpanded(g.key) } : undefined}
               >
-                <title>{g.key}</title>
-                {g.projectShort}
-              </text>
+                {g.dirs > 0 && (
+                  <text x={6} y={g.yOffset + bar.height / 2} dominantBaseline="central" className="gantt-project-toggle">
+                    {g.expanded ? '▾' : '▸'}
+                  </text>
+                )}
+                <text x={LABEL_X} y={g.yOffset + bar.height / 2} dominantBaseline="central" className="gantt-project">
+                  <title>{g.key}</title>
+                  {g.projectShort}
+                </text>
+              </g>
               {g.labels.map(l => (
                 <text key={l.y} x={l.x} y={l.y} dominantBaseline="central" className="gantt-project-dir">
                   {l.title && <title>{l.title}</title>}

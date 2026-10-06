@@ -40,11 +40,18 @@
 .gantt-divider { stroke: #232936; }
 .gantt-group-sep { stroke: #1b212c; }
 .gantt-project { fill: #cbd1dc; font-size: 11px;}
-.gantt-project-clickable { cursor: pointer; }
-.gantt-project-clickable:hover { fill: #ffffff; }
-.gantt-project-active { fill: #7aa2f7; font-weight: 600; }
-.gantt-project-toggle { fill: #aab3c5; font-size: 15px; cursor: pointer; }
-.gantt-project-toggle:hover { fill: #7aa2f7; }
+.gantt-project-toggle { fill: #aab3c5; font-size: 15px; }
+.gantt-project-clickable {
+  cursor: pointer;
+  &:hover .gantt-project { fill: #ffffff; }
+  &:hover .gantt-project-toggle { fill: #7aa2f7; }
+}
+.gantt-project-more {
+  fill: #7aa2f7;
+  font-size: 11px;
+  cursor: pointer;
+  &:hover { fill: #ffffff; }
+}
 .gantt-project-dir { fill: #8f97a8; font-size: 11px; }
 
 /* Full-height grid lines, positioned from TimeAxis's computeTicks. */
