@@ -119,7 +119,7 @@ ${meta.tag ? `- Tag: ${meta.tag}
 - Scheduled: ${meta.hasScheduledTask ? 'yes' : 'no'}
 - CLI version: ${meta.version || '—'}
 - Project: ${meta.project || '—'}
-${meta.subdir ? `- Subfolder: ${meta.subdir}\n` : ''}${meta.worktreePath ? `- Worktree: ${meta.worktreePath}\n` : ''}${meta.tempPath ? `- Temp dir: ${meta.tempPath}\n` : ''}- Log file: ${meta.filePath}
+${meta.subdir ? `- Subfolder: ${meta.subdir}\n` : ''}${meta.worktreePath ? `- Worktree: ${meta.worktreePath}\n` : ''}- Log file: ${meta.filePath}
 `
 
   const body = `

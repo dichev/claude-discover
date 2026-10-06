@@ -32,7 +32,7 @@ export default function PeriodSummary({ sessions, dayAnchor, granularity = 'day'
         g = { key, projectShort: s.projectShort, cost: 0, totalTokens: 0, byDir: new Map() }
         map.set(key, g)
       }
-      const dir = s.tempTag ?? s.subdir ?? ''
+      const dir = s.subdir ?? ''
       let d = g.byDir.get(dir)
       if (!d) g.byDir.set(dir, d = { dir, cost: 0, totalTokens: 0 })
       for (const t of [g, d]) {

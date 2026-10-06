@@ -24,14 +24,6 @@ function shortProject(dir, depth) {
   return parts.slice(-depth).join('/') || dir
 }
 
-const TEMP_ROOT = /^(.*?\/AppData\/Local\/Temp|\/(?:private\/)?(?:tmp|var\/folders\/[^/]+\/[^/]+\/T))\/(.+)/i
-
-// Temp dirs are fresh per run, so they all fold into one project (the temp root) instead of one each
-export function tempProject(dir) {
-  const m = dir?.replace(/\\/g, '/').match(TEMP_ROOT)
-  return m ? { project: dir.slice(0, m[1].length), tag: m[2] } : null
-}
-
 // Labels a set of dirs by their folder name, with the parent folder added where two share one
 // (work/forge vs pesho/forge, while /users/dev/app stays app).
 export function suffixLabels(dirs) {
@@ -51,7 +43,7 @@ function freshMeta({ sessionId, parentSessionId, filePath, parentFilePath, fileS
   return {
     sessionId, parentSessionId, filePath, parentFilePath, fileSize, mtime,
     startedAt: null, lastActivityAt: null, continuesFrom: null, continuesTo: null,
-    entrypoint: null, project: null, worktree: null, worktreePath: null, tempPath: null, tempTag: null, gitBranch: null, version: null,
+    entrypoint: null, project: null, gitBranch: null, version: null,
     model: null, models: [], efforts: [], serviceTier: null, speed: null, fastPricingUnknown: false, priceUnknown: false,
     summary: null, aiTitle: null, customTitle: null, agentName: null, tag: null, firstUserPrompt: null, firstUserCommand: null, forkedFrom: null,
     messageCount: 0, workflowAgents: 0, toolCalls: 0, skillCalls: 0,
@@ -281,19 +273,6 @@ export class SessionParser {
     if (meta.startedAt == null) meta.startedAt = mtimeFallback
     if (meta.lastActivityAt == null) meta.lastActivityAt = mtimeFallback
     meta.source = classifySource(meta)
-    // Worktree sessions (cwd under <repo>/.claude/worktrees/<name>) belong to the parent repo, not a project of their own
-    const wt = meta.project && meta.project.replace(/\\/g, '/').match(/\/\.claude\/worktrees\/([^/]+)/)
-    if (wt) {
-      meta.worktree = wt[1]
-      meta.worktreePath = meta.project.slice(0, wt.index + wt[0].length)
-      meta.project = meta.project.slice(0, wt.index)
-    }
-    const tmp = tempProject(meta.project)
-    if (tmp) {
-      meta.tempPath = meta.project
-      meta.tempTag = tmp.tag
-      meta.project = tmp.project
-    }
     meta.activeMs = meta.activityPeriods.reduce((sum, p) => sum + Math.max(0, p.end - p.start), 0)
     const t = meta.tokens
     meta.totalTokens = t.input + t.output + t.cacheRead + t.cacheCreation

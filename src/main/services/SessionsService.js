@@ -1,12 +1,11 @@
 import { EventEmitter } from 'node:events'
-import path from 'node:path'
 import { startOfDay, endOfDay, startOfWeek, endOfWeek, startOfMonth, endOfMonth, parseISO } from 'date-fns'
 import { SessionFile } from '../sessions/SessionFile.js'
 import { RequestFile } from '../requests/RequestFile.js'
 import { SessionParser, suffixLabels } from '../sessions/SessionParser.js'
 import { SessionsScanner } from '../sessions/SessionsScanner.js'
 import { MetaCache } from '../sessions/MetaCache.js'
-import { RepoRoots } from '../sessions/RepoRoots.js'
+import { ProjectResolver } from '../sessions/ProjectResolver.js'
 import { Pricing } from './Pricing.js'
 
 // Week-scoped views start on Monday — keep in sync with src/renderer/utils/period.js.
@@ -37,7 +36,7 @@ export class SessionsService extends EventEmitter {
     this.pricing = new Pricing()
     this.throttleMs = throttleMs
     this.metaCache = new MetaCache()
-    this.repoRoots = new RepoRoots()
+    this.projects = new ProjectResolver()
     this.activeDay = null
     this.scanAbort = null
     this.updateTimer = null
@@ -150,13 +149,8 @@ export class SessionsService extends EventEmitter {
     })
     await reader.stream(obj => parser.feed(obj))
     const meta = parser.finalize(stat.mtimeMs)
-    // Like worktrees and temp dirs in finalize, but needs disk access, which the parser stays free of
-    const root = !meta.tempPath && await this.repoRoots.resolve(meta.project)
-    if (root && root !== meta.project) {
-      meta.subdir = path.relative(root, meta.project).replaceAll('\\', '/')
-      meta.project = root
-    }
-    return meta
+    // The parser keeps the raw cwd as project; grouping it needs disk access, which the parser stays free of
+    return Object.assign(meta, await this.projects.resolve(meta.project))
   }
 
   // Resume/fork copies prior message.ids verbatim. Walk earliest-first; if a

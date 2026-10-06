@@ -74,7 +74,7 @@ export default function GanttChart({
       let group = byKey.get(key)
       if (!group) byKey.set(key, group = { key, projectShort: s.projectShort, temp: false, byDir: new Map(), cost: 0 })
       group.temp ||= !!s.tempPath
-      item.dir = s.tempTag ?? s.subdir ?? ''
+      item.dir = s.subdir ?? ''
       let row = group.byDir.get(item.dir)
       if (!row) group.byDir.set(item.dir, row = { dir: item.dir, items: [], cost: 0 })
       row.items.push(item)

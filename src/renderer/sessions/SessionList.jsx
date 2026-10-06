@@ -125,7 +125,6 @@ export default function SessionList({ sessions, selectedId, deepLink, onSelect }
                   {isSubagent && <span className="subagent-tag">[subagent]</span>}
                   {journal && <span className="subagent-tag">[journal: {s.workflowAgents} subagent{s.workflowAgents === 1 ? '' : 's'}]</span>}
                   {s.worktree && <span className="worktree-tag" title={`Worktree of ${s.projectShort}`}>[{s.worktree}]</span>}
-                  {s.tempTag && <span className="temp-tag" title={s.tempPath}>[{s.tempTag}]</span>}
                   {isFork && <span className="fork-tag" title={`Forked from session ${s.forkedFrom.sessionId}`}>↳</span>}
                   {sessionName && <span className="session-name">{sessionName}</span>}
                   <span className="session-label-text">
