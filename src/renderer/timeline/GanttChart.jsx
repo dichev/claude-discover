@@ -10,6 +10,7 @@ import './GanttChart.css'
 
 const HEADER_HEIGHT  = 28
 const PROJECTS_WIDTH = 220
+const LABEL_LINE     = 12 // second label line ("N dirs grouped") sits this far below the first
 const BARS = {
   day:   { height: 16, min_width: 4, row_gap: 2, group_gap: 6, radius: 3 },
   week:  { height: 12, min_width: 3, row_gap: 2, group_gap: 3, radius: 2 },
@@ -69,8 +70,9 @@ export default function GanttChart({
     const addItem = (s, item, cost) => {
       const key = s.project || '(no project)'
       let group = byKey.get(key)
-      if (!group) byKey.set(key, group = { projectShort: s.projectShort, tempDirs: new Set(), items: [], cost: 0 })
-      if (s.tempPath) group.tempDirs.add(s.tempPath)
+      if (!group) byKey.set(key, group = { projectShort: s.projectShort, temp: false, dirs: new Set(), items: [], cost: 0 })
+      group.temp ||= !!s.tempPath
+      if (s.tempPath || s.subdir) group.dirs.add(s.tempPath || s.subdir)
       group.items.push(item)
       group.cost += cost || 0
     }
@@ -83,6 +85,7 @@ export default function GanttChart({
         start: s.startedAt,
         end: endOf(s),
         source: s.source,
+        subdir: s.subdir,
         activityPeriods: s.activityPeriods,
       }, s.cost)
     }
@@ -94,20 +97,21 @@ export default function GanttChart({
         start: periods[0].start,
         end: Math.max(...periods.map((p) => p.end)),
         source: subs[0].source,
+        subdir: subs[0].subdir,
         activityPeriods: periods,
         subs,
         subCount: subs.filter(c => !isJournal(c)).length, // journals are workflow logs, not subagents
       }, subs.reduce((sum, c) => sum + (c.cost || 0), 0))
     }
-    const arr = [...byKey.entries()].map(([key, { projectShort, tempDirs, items, cost }]) => {
+    const arr = [...byKey.entries()].map(([key, { projectShort, temp, dirs, items, cost }]) => {
       const { placed, laneCount } = packLanes(items)
-      return { key, projectShort, tempDirs: tempDirs.size, placed, laneCount, cost }
+      return { key, projectShort, temp, dirs: dirs.size, placed, laneCount, cost }
     })
-    arr.sort((a, b) => (a.tempDirs > 0) - (b.tempDirs > 0) || b.cost - a.cost)
+    arr.sort((a, b) => a.temp - b.temp || b.cost - a.cost)
     let y = HEADER_HEIGHT
     for (const g of arr) {
       g.yOffset = y
-      g.height = g.laneCount * (bar.height + bar.row_gap)
+      g.height = Math.max(g.laneCount * (bar.height + bar.row_gap), g.dirs > 0 ? bar.height / 2 + LABEL_LINE + 6 : 0)
       y += g.height + bar.group_gap
     }
     return { groups: arr, totalHeight: Math.max(HEADER_HEIGHT + bar.height + 12, y + 4) }
@@ -190,7 +194,8 @@ export default function GanttChart({
                 onClick={(e) => { e.stopPropagation(); onToggleProjectFilter?.(g.key) }}
               >
                 <title>{g.key}</title>
-                {g.projectShort}{g.tempDirs > 0 && ` (${g.tempDirs} dir${g.tempDirs === 1 ? '' : 's'} grouped)`}
+                {g.projectShort}
+                {g.dirs > 0 && <tspan x={8} dy={LABEL_LINE} className="gantt-project-dirs">{g.dirs} dir{g.dirs === 1 ? '' : 's'} grouped</tspan>}
               </text>
               {g.placed.map(({ item, lane }) => {
                 const y = g.yOffset + lane * (bar.height + bar.row_gap)
@@ -227,7 +232,7 @@ export default function GanttChart({
                     {isSelected && (
                       <rect x={x} y={y} width={w} height={bar.height} rx={bar.radius} className="bar-outline" />
                     )}
-                    <title>{`${item.subs ? `${item.subCount} subagents` : `${SOURCE_LABELS[item.source] || item.source} · ${item.label}`}\n${g.key}\n${new Date(item.start).toLocaleString()} → ${new Date(item.end).toLocaleString()}`}</title>
+                    <title>{`${item.subs ? `${item.subCount} subagents` : `${SOURCE_LABELS[item.source] || item.source} · ${item.label}`}\n${item.subdir ? `${g.key} › ${item.subdir}` : g.key}\n${new Date(item.start).toLocaleString()} → ${new Date(item.end).toLocaleString()}`}</title>
                   </g>
                 )
               })}

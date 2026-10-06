@@ -43,6 +43,7 @@
 .gantt-project-clickable { cursor: pointer; }
 .gantt-project-clickable:hover { fill: #ffffff; }
 .gantt-project-active { fill: #7aa2f7; font-weight: 600; }
+.gantt-project-dirs { fill: #6b7385; font-size: 10px; font-weight: normal; }
 
 /* Full-height grid lines, positioned from TimeAxis's computeTicks. */
 .tick-vline {

@@ -45,7 +45,7 @@ export default function SessionList({ sessions, selectedId, deepLink, onSelect }
 
   const q = filter.trim().toLowerCase()
   const filtered = q ? sessions.filter((s) => [
-    s.customTitle, s.agentName, s.tag, s.aiTitle, s.summary, s.firstUserPrompt, s.firstUserCommand, s.project, s.worktree, s.tempPath, s.sessionId, s.model, s.gitBranch
+    s.customTitle, s.agentName, s.tag, s.aiTitle, s.summary, s.firstUserPrompt, s.firstUserCommand, s.project, s.subdir, s.worktree, s.tempPath, s.sessionId, s.model, s.gitBranch
   ].filter(Boolean).join(' ').toLowerCase().includes(q)) : sessions
 
   const sorted = sortBy === 'cost'   ? [...filtered].sort((a, b) => (b.cost || 0) - (a.cost || 0))
@@ -134,7 +134,7 @@ export default function SessionList({ sessions, selectedId, deepLink, onSelect }
                 </div>
                 <div className="session-time-bottom">
                   {s.tag && <span className="session-tag" title="Session tag">#{s.tag}</span>}
-                  {s.project && <span className="session-project" title={s.project}>{s.projectShort}</span>}
+                  {s.project && <span className="session-project" title={s.project}>{s.projectShort}{s.subdir && ` › ${s.subdir}`}</span>}
                   {s.models?.length > 0 && <span className="session-model">{s.models.map((m) => m.replace(/^claude-/, '')).join(', ')}{s.efforts?.length > 0 && ` ${s.efforts.join(', ')}`}</span>}
                   <span title={format(s.lastActivityAt, 'MMM d, HH:mm:ss')}>{fmtAgo(s.lastActivityAt)}</span>
                   {linked && <span className="deeplink-note" data-tippy-content={linkTip} data-tippy-maxWidth={560}>opened from deep link</span>}

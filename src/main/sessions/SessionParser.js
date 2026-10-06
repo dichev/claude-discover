@@ -18,7 +18,7 @@ function extractText(content) {
     .join('\n')
 }
 
-function shortProject(dir, depth = 2) {
+function shortProject(dir, depth) {
   if (!dir) return '(no project)'
   const parts = dir.replace(/\\/g, '/').split('/').filter(Boolean)
   return parts.slice(-depth).join('/') || dir
@@ -32,13 +32,13 @@ export function tempProject(dir) {
   return m ? { project: dir.slice(0, m[1].length), tag: m[2] } : null
 }
 
-// Suffix labels for a set of dirs: the last `depth` segments of each, one segment more where that
-// collides (tmp-1/app/run vs tmp-2/app/run, while /users/dev/app stays dev/app).
-export function suffixLabels(dirs, depth = 2) {
-  const labels = new Map([...new Set(dirs)].map(dir => [dir, shortProject(dir, depth)]))
+// Labels a set of dirs by their folder name, with the parent folder added where two share one
+// (work/forge vs pesho/forge, while /users/dev/app stays app).
+export function suffixLabels(dirs) {
+  const labels = new Map([...new Set(dirs)].map(dir => [dir, shortProject(dir, 1)]))
   const counts = new Map()
   for (const label of labels.values()) counts.set(label, (counts.get(label) ?? 0) + 1)
-  for (const [dir, label] of labels) if (counts.get(label) > 1) labels.set(dir, shortProject(dir, depth + 1))
+  for (const [dir, label] of labels) if (counts.get(label) > 1) labels.set(dir, shortProject(dir, 2))
   return labels
 }
 
@@ -294,7 +294,6 @@ export class SessionParser {
       meta.tempTag = tmp.tag
       meta.project = tmp.project
     }
-    meta.projectShort = shortProject(meta.project)
     meta.activeMs = meta.activityPeriods.reduce((sum, p) => sum + Math.max(0, p.end - p.start), 0)
     const t = meta.tokens
     meta.totalTokens = t.input + t.output + t.cacheRead + t.cacheCreation
