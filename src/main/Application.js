@@ -109,6 +109,8 @@ export class Application {
           { role: 'paste' },
           { role: 'selectAll' },
           { label: 'Find…', accelerator: 'CmdOrCtrl+F', click: () => win.findBar?.show() },
+          { label: 'Find Next', accelerator: 'CmdOrCtrl+G', click: () => win.findBar?.next() },
+          { label: 'Find Previous', accelerator: 'CmdOrCtrl+Shift+G', click: () => win.findBar?.prev() },
           { label: 'Deselect', accelerator: 'Escape', click: (_i, w) => win.findBar?.visible ? win.findBar.hide() : w?.webContents.unselect() },
         ],
       },

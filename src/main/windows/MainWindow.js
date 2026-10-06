@@ -48,6 +48,7 @@ export class MainWindow {
     // let the app mount all entries while open so findInPage can match off-screen content
     this.findBar.on('show', () => this.send('find:active', true))
     this.findBar.on('hide', () => this.send('find:active', false))
+    this.win.on('closed', () => this.findBar = null) // @macOS the menu outlives the window, so its find accelerators must not reach a destroyed one
     return this.win
   }
 

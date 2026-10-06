@@ -34,7 +34,7 @@
     "@anthropic-ai/claude-agent-sdk": "^0.3.284",
     "electron": "44.4.5",
     "electron-context-menu": "^4.1.2",
-    "electron-find-overlay": "^1.0.0",
+    "electron-find-overlay": "^1.0.1",
     "electron-window-state": "^5.0.3",
     "latest-version": "^9.0.0",
     "semver": "^7.8.5",
