@@ -5,6 +5,7 @@ import { RequestFile } from '../requests/RequestFile.js'
 import { SessionParser, suffixLabels } from '../sessions/SessionParser.js'
 import { SessionsScanner } from '../sessions/SessionsScanner.js'
 import { MetaCache } from '../sessions/MetaCache.js'
+import { ProjectResolver } from '../sessions/ProjectResolver.js'
 import { Pricing } from './Pricing.js'
 
 // Week-scoped views start on Monday — keep in sync with src/renderer/utils/period.js.
@@ -35,6 +36,7 @@ export class SessionsService extends EventEmitter {
     this.pricing = new Pricing()
     this.throttleMs = throttleMs
     this.metaCache = new MetaCache()
+    this.projects = new ProjectResolver()
     this.activeDay = null
     this.scanAbort = null
     this.updateTimer = null
@@ -146,7 +148,9 @@ export class SessionsService extends EventEmitter {
       pricing: this.pricing,
     })
     await reader.stream(obj => parser.feed(obj))
-    return parser.finalize(stat.mtimeMs)
+    const meta = parser.finalize(stat.mtimeMs)
+    // The parser keeps the raw cwd as project; grouping it needs disk access, which the parser stays free of
+    return Object.assign(meta, await this.projects.resolve(meta.project))
   }
 
   // Resume/fork copies prior message.ids verbatim. Walk earliest-first; if a
@@ -168,9 +172,9 @@ export class SessionsService extends EventEmitter {
       const rescanned = await rescans.get(m.filePath)
       return stripInternal(rescanned ? { ...m, ...rescanned } : m)
     }))
-    // Different project dirs can share a "last two segments" label (pytest tmp dirs) — relabel per snapshot
+    // Labels depend on which other projects are in the snapshot (same-named folders), so they're set here
     const labels = suffixLabels(sessions.map(m => m.project))
-    for (const m of sessions) m.projectShort = labels.get(m.project)
+    for (const m of sessions) m.projectShort = m.tempPath ? 'Temp' : labels.get(m.project) // the macOS temp root is just "T"
     return sessions
   }
 

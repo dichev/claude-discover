@@ -180,8 +180,7 @@
 .session-command { color: var(--accent); }
 
 .subagent-tag,
-.worktree-tag,
-.temp-tag {
+.worktree-tag {
   font-family: var(--font-mono), monospace;
   font-size: 11px;
   color: var(--accent, #4ea1ff);

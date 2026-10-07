@@ -1,9 +1,9 @@
-import { useMemo, useState } from 'react'
+import { Fragment, useMemo, useState } from 'react'
 import { fmtUSD, fmtCompact, fmtDuration } from '../utils/formatting.js'
 import CostBreakdownChart from './CostBreakdownChart.jsx'
 import './PeriodSummary.css'
 
-export default function PeriodSummary({ sessions, dayAnchor, granularity = 'day' }) {
+export default function PeriodSummary({ sessions, dayAnchor, granularity = 'day', expanded }) {
   const totals = useMemo(() => {
     const t = sessions.reduce((acc, s) => {
       acc.cost += s.cost || 0
@@ -29,21 +29,24 @@ export default function PeriodSummary({ sessions, dayAnchor, granularity = 'day'
       const key = s.project || '(no project)'
       let g = map.get(key)
       if (!g) {
-        g = { key, projectShort: s.projectShort, cost: 0, totalTokens: 0 }
+        g = { key, projectShort: s.projectShort, cost: 0, totalTokens: 0, byDir: new Map() }
         map.set(key, g)
       }
-      g.cost += s.cost || 0
-      g.totalTokens += s.totalTokens || 0
+      const dir = s.subdir ?? ''
+      let d = g.byDir.get(dir)
+      if (!d) g.byDir.set(dir, d = { dir, cost: 0, totalTokens: 0 })
+      for (const t of [g, d]) {
+        t.cost += s.cost || 0
+        t.totalTokens += s.totalTokens || 0
+      }
     }
     return [...map.values()]
   }, [sessions])
 
   const [projectStat, setProjectStat] = useState('cost')
 
-  const sortedByProject = useMemo(() =>
-    [...byProject].sort((a, b) => projectStat === 'cost' ? b.cost - a.cost : b.totalTokens - a.totalTokens),
-    [byProject, projectStat]
-  )
+  const byStat = (a, b) => projectStat === 'cost' ? b.cost - a.cost : b.totalTokens - a.totalTokens
+  const sortedByProject = useMemo(() => [...byProject].sort(byStat), [byProject, projectStat])
 
   return (
     <aside className="gantt-side">
@@ -70,10 +73,18 @@ export default function PeriodSummary({ sessions, dayAnchor, granularity = 'day'
             >{projectStat === 'cost' ? 'T' : '$'}</button>
           </div>
           {sortedByProject.map((g) => (
-            <div key={g.key} className="gantt-side-row">
-              <span>{g.projectShort}</span>
-              <b>{projectStat === 'cost' ? fmtUSD(g.cost) : fmtCompact(g.totalTokens)}</b>
-            </div>
+            <Fragment key={g.key}>
+              <div className="gantt-side-row">
+                <span>{g.projectShort}</span>
+                <b>{projectStat === 'cost' ? fmtUSD(g.cost) : fmtCompact(g.totalTokens)}</b>
+              </div>
+              {expanded.includes(g.key) && g.byDir.size - g.byDir.has('') > 0 && [...g.byDir.values()].sort(byStat).map(d => (
+                <div key={d.dir} className="gantt-side-row gantt-side-subrow">
+                  <span title={d.dir || undefined}>{d.dir || '(root)'}</span>
+                  <b>{projectStat === 'cost' ? fmtUSD(d.cost) : fmtCompact(d.totalTokens)}</b>
+                </div>
+              ))}
+            </Fragment>
           ))}
         </div>
       )}

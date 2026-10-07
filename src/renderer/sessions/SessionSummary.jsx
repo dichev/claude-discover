@@ -101,8 +101,8 @@ export default function SessionSummary({ meta, items, instructions, agent, granu
         {meta.hasScheduledTask && <Field label="Scheduled" value="yes" />}
         <Field label="CLI version" value={meta.version || '—'} mono />
         <Field label="Project" value={meta.project || '—'} mono full autoselect />
+        {meta.subdir && <Field label="Subfolder" value={meta.subdir} mono full autoselect />}
         {meta.worktreePath && <Field label="Worktree" value={meta.worktreePath} mono full autoselect />}
-        {meta.tempPath && <Field label="Temp dir" value={meta.tempPath} mono full autoselect />}
         <Field label="Log file" value={meta.filePath} mono full autoselect />      </Section>
     </div>
   )

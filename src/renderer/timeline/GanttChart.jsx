@@ -10,6 +10,8 @@ import './GanttChart.css'
 
 const HEADER_HEIGHT  = 28
 const PROJECTS_WIDTH = 220
+const LABEL_LINE     = 15 // one line of 11px label text, e.g. "N dirs grouped" below the project name
+const LABEL_X        = 22 // every project label leaves room for the expand chevron, so names stay aligned
 const BARS = {
   day:   { height: 16, min_width: 4, row_gap: 2, group_gap: 6, radius: 3 },
   week:  { height: 12, min_width: 3, row_gap: 2, group_gap: 3, radius: 2 },
@@ -18,6 +20,7 @@ const BARS = {
 
 const SUBAGENT_SPLIT_GAP = 5 * 60_000 // a longer pause between subagents (user working) splits them into separate bars
 const endOf = (s) => Math.max(s.lastActivityAt, s.startedAt + 60_000)
+const clipLeft = (s, n = 29) => s.length > n ? '…' + s.slice(1 - n) : s // keep the distinctive tail of a long subfolder
 
 function packLanes(items) {
   const lanes = []
@@ -38,12 +41,12 @@ function packLanes(items) {
 
 export default function GanttChart({
   dayRange, sessions, onSelect, selectedId, dayAnchor,
-  granularity = 'day', projectFilter, onToggleProjectFilter,
+  granularity = 'day', expanded, onToggleExpanded, otherProjects, onShowAllProjects,
 }) {
   const bar = BARS[granularity] ?? BARS.day
   const containerRef = useRef(null)
   const [width, setWidth] = useState(1200)
-  const [view, setView] = useLocalStorage('gantt-chart.view', { dayAnchor, granularity, start: dayRange.start, end: dayRange.end })
+  const [view, setView]   = useLocalStorage('gantt-chart.view', { dayAnchor, granularity, start: dayRange.start, end: dayRange.end })
 
   useEffect(() => {
     if (view.dayAnchor !== dayAnchor || view.granularity !== granularity) {
@@ -69,9 +72,13 @@ export default function GanttChart({
     const addItem = (s, item, cost) => {
       const key = s.project || '(no project)'
       let group = byKey.get(key)
-      if (!group) byKey.set(key, group = { projectShort: s.projectShort, tempDirs: new Set(), items: [], cost: 0 })
-      if (s.tempPath) group.tempDirs.add(s.tempPath)
-      group.items.push(item)
+      if (!group) byKey.set(key, group = { key, projectShort: s.projectShort, temp: false, byDir: new Map(), cost: 0 })
+      group.temp ||= !!s.tempPath
+      item.dir = s.subdir ?? ''
+      let row = group.byDir.get(item.dir)
+      if (!row) group.byDir.set(item.dir, row = { dir: item.dir, items: [], cost: 0 })
+      row.items.push(item)
+      row.cost += cost || 0
       group.cost += cost || 0
     }
 
@@ -99,19 +106,31 @@ export default function GanttChart({
         subCount: subs.filter(c => !isJournal(c)).length, // journals are workflow logs, not subagents
       }, subs.reduce((sum, c) => sum + (c.cost || 0), 0))
     }
-    const arr = [...byKey.entries()].map(([key, { projectShort, tempDirs, items, cost }]) => {
-      const { placed, laneCount } = packLanes(items)
-      return { key, projectShort, tempDirs: tempDirs.size, placed, laneCount, cost }
-    })
-    arr.sort((a, b) => (a.tempDirs > 0) - (b.tempDirs > 0) || b.cost - a.cost)
+    const lane = bar.height + bar.row_gap
+    const arr = [...byKey.values()].sort((a, b) => a.temp - b.temp || b.cost - a.cost)
     let y = HEADER_HEIGHT
     for (const g of arr) {
       g.yOffset = y
-      g.height = g.laneCount * (bar.height + bar.row_gap)
+      g.dirs = g.byDir.size - g.byDir.has('')
+      g.expanded = g.dirs > 0 && expanded.includes(g.key)
+      const rows = g.expanded
+        ? [...g.byDir.values()].sort((a, b) => !!a.dir - !!b.dir || b.cost - a.cost)
+        : [{ items: [...g.byDir.values()].flatMap(r => r.items) }]
+      // Expanded, the project name gets a line of its own above the per-subfolder rows
+      let rowY = g.expanded ? y + Math.max(LABEL_LINE, lane) : y
+      g.placed = []
+      g.labels = g.dirs > 0 && !g.expanded ? [{ text: `${g.dirs} dir${g.dirs === 1 ? '' : 's'} grouped`, x: LABEL_X, y: y + bar.height / 2 + LABEL_LINE }] : []
+      for (const row of rows) {
+        const { placed, laneCount } = packLanes(row.items)
+        if (g.expanded) g.labels.push({ text: clipLeft(row.dir || '(root)'), title: row.dir, x: LABEL_X + 8, y: rowY + bar.height / 2 })
+        for (const p of placed) g.placed.push({ item: p.item, y: rowY + p.lane * lane })
+        rowY += g.expanded ? Math.max(laneCount * lane, LABEL_LINE) : laneCount * lane // month lanes are shorter than a label
+      }
+      g.height = Math.max(rowY - y, ...g.labels.map(l => l.y + 6 - y)) // tall enough for the lowest label
       y += g.height + bar.group_gap
     }
     return { groups: arr, totalHeight: Math.max(HEADER_HEIGHT + bar.height + 12, y + 4) }
-  }, [sessions, granularity])
+  }, [sessions, granularity, expanded])
 
   const chartWidth = Math.max(100, width - PROJECTS_WIDTH)
   const span = view.end - view.start
@@ -173,8 +192,18 @@ export default function GanttChart({
             ))}
             <TimeAxis viewStart={view.start} viewEnd={view.end} width={chartWidth} span={span} headerHeight={HEADER_HEIGHT} />
           </g>
+          {otherProjects > 0 && ( // the project picker hides the rest — point back to them from the axis row
+            <text
+              x={LABEL_X} y={HEADER_HEIGHT / 2}
+              dominantBaseline="central"
+              className="gantt-project-more"
+              onClick={e => { e.stopPropagation(); onShowAllProjects() }}
+            >
+              ({otherProjects} hidden project{otherProjects === 1 ? '' : 's'})
+            </text>
+          )}
           {groups.map((g, gi) => (
-            <g key={g.key} style={projectFilter && projectFilter !== g.key ? { opacity: 0.25 } : undefined}>
+            <g key={g.key}>
               {gi > 0 && (
                 <line
                   x1={0} x2={width}
@@ -183,17 +212,27 @@ export default function GanttChart({
                   className="gantt-group-sep"
                 />
               )}
-              <text
-                x={8} y={g.yOffset + bar.height / 2}
-                dominantBaseline="central"
-                className={`gantt-project gantt-project-clickable${projectFilter === g.key ? ' gantt-project-active' : ''}`}
-                onClick={(e) => { e.stopPropagation(); onToggleProjectFilter?.(g.key) }}
+              <g
+                className={g.dirs > 0 ? 'gantt-project-clickable' : undefined}
+                onClick={g.dirs > 0 ? e => { e.stopPropagation(); onToggleExpanded(g.key) } : undefined}
               >
-                <title>{g.key}</title>
-                {g.projectShort}{g.tempDirs > 0 && ` (${g.tempDirs} dir${g.tempDirs === 1 ? '' : 's'} grouped)`}
-              </text>
-              {g.placed.map(({ item, lane }) => {
-                const y = g.yOffset + lane * (bar.height + bar.row_gap)
+                {g.dirs > 0 && (
+                  <text x={6} y={g.yOffset + bar.height / 2} dominantBaseline="central" className="gantt-project-toggle">
+                    {g.expanded ? '▾' : '▸'}
+                  </text>
+                )}
+                <text x={LABEL_X} y={g.yOffset + bar.height / 2} dominantBaseline="central" className="gantt-project">
+                  <title>{g.key}</title>
+                  {g.projectShort}
+                </text>
+              </g>
+              {g.labels.map(l => (
+                <text key={l.y} x={l.x} y={l.y} dominantBaseline="central" className="gantt-project-dir">
+                  {l.title && <title>{l.title}</title>}
+                  {l.text}
+                </text>
+              ))}
+              {g.placed.map(({ item, y }) => {
                 const color = SOURCE_COLORS[item.source] || SOURCE_COLORS.other
                 const isSelected = item.subs ? item.subs.some((c) => c.filePath === selectedId) : item.id === selectedId
                 const periods = item.activityPeriods?.length
@@ -227,7 +266,7 @@ export default function GanttChart({
                     {isSelected && (
                       <rect x={x} y={y} width={w} height={bar.height} rx={bar.radius} className="bar-outline" />
                     )}
-                    <title>{`${item.subs ? `${item.subCount} subagents` : `${SOURCE_LABELS[item.source] || item.source} · ${item.label}`}\n${g.key}\n${new Date(item.start).toLocaleString()} → ${new Date(item.end).toLocaleString()}`}</title>
+                    <title>{`${item.subs ? `${item.subCount} subagents` : `${SOURCE_LABELS[item.source] || item.source} · ${item.label}`}\n${item.dir ? `${g.key} › ${item.dir}` : g.key}\n${new Date(item.start).toLocaleString()} → ${new Date(item.end).toLocaleString()}`}</title>
                   </g>
                 )
               })}

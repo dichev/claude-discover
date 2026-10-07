@@ -1,6 +1,7 @@
 import { format } from 'date-fns'
 import { endOfPeriod, isSamePeriod } from '../utils/period.js'
 import { SOURCE_COLORS, SOURCE_LABELS, SOURCE_ORDER } from '../utils/colors.js'
+import MultiPicker from '../ui/MultiPicker.jsx'
 import './Toolbar.css'
 
 const GRANULARITIES = [
@@ -11,6 +12,15 @@ const GRANULARITIES = [
 
 const RESET_LABELS = { day: 'Today', week: 'This week', month: 'This month' }
 
+// Picked projects survive period changes, so keep them listed even where they have no sessions.
+// Temp-dir projects go last, behind a divider.
+function projectOptions(projects, picked) {
+  const missing = picked.filter(k => !projects.some(p => p.key === k)).map(k => ({ key: k, projectShort: k.split(/[\\/]/).pop() }))
+  return [...projects, ...missing]
+    .sort((a, b) => !!a.temp - !!b.temp || a.projectShort.localeCompare(b.projectShort) || a.key.localeCompare(b.key))
+    .map(p => ({ value: p.key, label: p.projectShort, detail: p.key !== p.projectShort && p.key, group: !!p.temp }))
+}
+
 function periodTitle(anchor, granularity) {
   if (granularity === 'week') return `${format(anchor, 'MMM d')} – ${format(endOfPeriod(anchor, 'week'), 'MMM d')}`
   if (granularity === 'month') return format(anchor, 'MMMM yyyy')
@@ -20,12 +30,19 @@ function periodTitle(anchor, granularity) {
 export default function Toolbar({
   granularity, onSetGranularity, dayAnchor, onShiftDay, onResetToday,
   sourceFilter, availableSources, onToggleSourceFilter,
+  projects, projectFilter, onSetProjectFilter,
 }) {
   const onToday = isSamePeriod(dayAnchor, Date.now(), granularity)
 
   return (
     <div className="gantt-toolbar">
       <div className="gantt-legend">
+        <MultiPicker
+          options={projectOptions(projects, projectFilter)}
+          value={projectFilter}
+          onChange={onSetProjectFilter}
+          allLabel="All projects"
+        />
         {(availableSources ?? []).slice().sort((a, b) => {
           const ia = SOURCE_ORDER.indexOf(a), ib = SOURCE_ORDER.indexOf(b)
           return (ia === -1 ? SOURCE_ORDER.length : ia) - (ib === -1 ? SOURCE_ORDER.length : ib)

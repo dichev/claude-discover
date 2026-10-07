@@ -14,16 +14,17 @@ import { useLocalStorage } from './utils/useLocalStorage.js'
 import './App.css'
 
 export default function App() {
-  const [sessions, setSessions] = useState([])
-  const [loading, setLoading] = useState(true)
-  const [listError, setListError] = useState(null)
-  const [scanProgress, setScanProgress] = useState(null)
-  const [granularity, setGranularity] = useLocalStorage('gantt.granularity', 'day')
-  const [anchor, setAnchor] = useState(() => startOfPeriod(Date.now(), granularity))
-  const [selectedId, setSelectedId] = useState(null)
-  const [deepLink, setDeepLink] = useState(null) // the link the current selection came from, if any
-  const [sourceFilter, setSourceFilter] = useState(null)
-  const [projectFilter, setProjectFilter] = useState(null)
+  const [sessions, setSessions]                 = useState([])
+  const [loading, setLoading]                   = useState(true)
+  const [listError, setListError]               = useState(null)
+  const [scanProgress, setScanProgress]         = useState(null)
+  const [granularity, setGranularity]           = useLocalStorage('gantt.granularity', 'day')
+  const [anchor, setAnchor]                     = useState(() => startOfPeriod(Date.now(), granularity))
+  const [selectedId, setSelectedId]             = useState(null)
+  const [deepLink, setDeepLink]                 = useState(null) // the link the current selection came from, if any
+  const [sourceFilter, setSourceFilter]         = useState(null)
+  const [projectFilter, setProjectFilter]       = useLocalStorage('app.projects', [])
+  const [expandedProjects, setExpandedProjects] = useLocalStorage('gantt-chart.expanded', [])
   const { defaultLayout, onLayoutChanged } = useDefaultLayout({ id: 'app.body', panelIds: ['list', 'detail'], storage: localStorage })
   const { defaultLayout: rootLayout, onLayoutChanged: onRootLayoutChanged } = useDefaultLayout({ id: 'app.root', panelIds: ['gantt', 'body'], storage: localStorage })
 
@@ -68,10 +69,15 @@ export default function App() {
   }, [anchor, granularity])
 
   const dayItems = useMemo(() => {
-    const sourceFiltered = sourceFilter ? sessions.filter((s) => (s.source || 'other') === sourceFilter) : sessions
-    const past = projectFilter ? sourceFiltered.filter((s) => (s.project || '(no project)') === projectFilter) : sourceFiltered
-    const availableSources = [...new Set(sessions.map((s) => s.source || 'other'))]
-    return { sourceFiltered, past, availableSources }
+    const sourceFiltered = sourceFilter ? sessions.filter(s => (s.source || 'other') === sourceFilter) : sessions
+    const past = projectFilter.length ? sourceFiltered.filter(s => projectFilter.includes(s.project || '(no project)')) : sourceFiltered
+    const availableSources = [...new Set(sessions.map(s => s.source || 'other'))]
+    const byProject = new Map()
+    for (const s of sourceFiltered) {
+      const key = s.project || '(no project)'
+      if (!byProject.has(key)) byProject.set(key, { key, projectShort: s.projectShort, temp: !!s.tempPath })
+    }
+    return { past, availableSources, projects: [...byProject.values()] }
   }, [sessions, sourceFilter, projectFilter])
 
   // `selectedId` is a file path, or a session id when the selection came from a deep
@@ -106,7 +112,7 @@ export default function App() {
         setGranularity('day')
         setAnchor(startOfPeriod(day, 'day'))
         setSourceFilter(null) // filters could hide the session from the list
-        setProjectFilter(null)
+        setProjectFilter([])
       }
       selectSession(id, { id, date })
     }
@@ -115,12 +121,10 @@ export default function App() {
   }, [selectSession, setGranularity])
 
   const shiftPeriod = useCallback((delta) => {
-    setProjectFilter(null)
     setAnchor((a) => startOfPeriod(addPeriod(a, granularity, delta), granularity))
   }, [granularity])
 
   const changeGranularity = useCallback((g) => {
-    setProjectFilter(null)
     // Snap to the LAST sub-period of the current window (e.g. month → its final week/day), capped at today
     setAnchor((a) => startOfPeriod(Math.min(endOfPeriod(a, granularity), Date.now()), g))
     setGranularity(g)
@@ -144,23 +148,28 @@ export default function App() {
           onSetGranularity={changeGranularity}
           dayAnchor={anchor}
           onShiftDay={shiftPeriod}
-          onResetToday={() => { setProjectFilter(null); setAnchor(startOfPeriod(Date.now(), granularity)) }}
+          onResetToday={() => setAnchor(startOfPeriod(Date.now(), granularity))}
           sourceFilter={sourceFilter}
           availableSources={dayItems.availableSources}
           onToggleSourceFilter={(src) => setSourceFilter((cur) => (cur === src ? null : src))}
+          projects={dayItems.projects}
+          projectFilter={projectFilter}
+          onSetProjectFilter={setProjectFilter}
         />
         <div className="gantt-body">
           <GanttChart
             dayRange={dayRange}
-            sessions={dayItems.sourceFiltered}
+            sessions={dayItems.past}
             onSelect={selectSession}
             selectedId={selected?.filePath ?? null}
             dayAnchor={anchor}
             granularity={granularity}
-            projectFilter={projectFilter}
-            onToggleProjectFilter={(project) => setProjectFilter((cur) => (cur === project ? null : project))}
+            expanded={expandedProjects}
+            onToggleExpanded={key => setExpandedProjects(cur => cur.includes(key) ? cur.filter(k => k !== key) : [...cur, key])}
+            otherProjects={projectFilter.length ? dayItems.projects.filter(p => !projectFilter.includes(p.key)).length : 0}
+            onShowAllProjects={() => setProjectFilter([])}
           />
-          <PeriodSummary sessions={dayItems.past} dayAnchor={anchor} granularity={granularity} />
+          <PeriodSummary sessions={dayItems.past} dayAnchor={anchor} granularity={granularity} expanded={expandedProjects} />
         </div>
       </Panel>
       <Separator className="resize-handle resize-handle-h" />
