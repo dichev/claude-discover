@@ -21,14 +21,14 @@ export class ClaudeSettings {
     }
   }
 
-  // Days Claude Code keeps transcripts before auto-deleting them; undefined when unset (its default is 30).
-  get cleanupPeriodDays() {
-    return this.cfg.cleanupPeriodDays
+  // Any top-level setting; undefined when unset, and setting undefined removes the key.
+  get(key) {
+    return this.cfg[key]
   }
 
-  set cleanupPeriodDays(days) {
-    if (days === undefined) delete this.cfg.cleanupPeriodDays
-    else this.cfg.cleanupPeriodDays = days
+  set(key, value) {
+    if (value === undefined) delete this.cfg[key]
+    else this.cfg[key] = value
   }
 
   // Claude Code's status line config: { type: 'command', command }; undefined when unset.

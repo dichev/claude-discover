@@ -20,8 +20,19 @@ const proxyChanges = <>
   <p>Note: <code>/remote-control</code> is disabled while proxy is active.</p>
 </>
 
-const retentionTooltip = <p>Claude Code deletes transcripts older than <code>cleanupPeriodDays</code> (default 30) - this app can only show what's left. Raise it to keep a year of history browsable.</p>
-const retentionChanges = <pre>{`"cleanupPeriodDays": 365`}</pre>
+const settingsTooltip = <>
+  <p>Claude Code settings that let this app show more:</p>
+  <ul>
+    <li><b>Keep session logs for a year</b> - Claude Code deletes them after 30 days by default.</li>
+    <li><b>Show Claude's thinking</b> - a summary of how it reasoned, which Claude Code leaves empty by default.</li>
+  </ul>
+</>
+const settingsChanges = <>
+  <pre>{`"cleanupPeriodDays": 365,
+"showThinkingSummaries": true`}</pre>
+  <p>Deactivate keeps the 1-year logs, so it shows 1/2. Going back to 30 days would permanently delete older sessions.</p>
+</>
+const settingsLabel = s => !s ? '…' : s.applied === s.total ? 'ON' : s.applied ? `${s.applied}/${s.total}` : 'off'
 
 const statuslineTooltip = <p>This app ships a status line for Claude Code showing context/token usage and rate limits.</p>
 const statuslineChanges = <pre>{`"statusLine": {
@@ -131,22 +142,13 @@ function useRateLimits() {
   return limits
 }
 
-const ONE_YEAR_DAYS = 365
-
-// Humanize a day count for the status bar: years once past a year, otherwise raw days.
-function humanizeDays(days) {
-  if (days < ONE_YEAR_DAYS) return `${days}d`
-  const years = days / ONE_YEAR_DAYS
-  return `${Number.isInteger(years) ? years : years.toFixed(1)}y`
-}
-
 export default function StatusBar({ progress, sessionCount = 0 }) {
   const { claudeDir } = window.api.claudeSettings
   // Status shapes come from the matching *Switch in src/main/services/switchers/:
-  // proxy { running, configured } · statusline { installed } · retention { days, raised } · claudedir { dir }
+  // proxy { running, configured } · statusline { installed } · settings { applied, total } · claudedir { dir }
   const proxy      = useSwitch({ name: 'proxy',      isOn: s => s?.running })
   const statusline = useSwitch({ name: 'statusline', isOn: s => s?.installed })
-  const retention  = useSwitch({ name: 'retention',  isOn: s => s?.raised })
+  const settings   = useSwitch({ name: 'settings',   isOn: s => s && s.applied === s.total })
   const claudedir  = useSwitch({ name: 'claudedir' }) // action-style: its button always activates (opens the folder picker)
   const [update, setUpdate]     = useState(null) // { current, latest } when an npm-global install is outdated, plus fromNpx for an npx run
   const [updating, setUpdating] = useState(false)
@@ -159,7 +161,7 @@ export default function StatusBar({ progress, sessionCount = 0 }) {
   } }
   const proxyRunning = proxy.status?.running
   const proxyDown = proxy.status?.configured && proxyRunning === false // Claude Code is pointed at a dead proxy — it can't reach the API
-  const retentionRaised = retention.status?.raised
+  const settingsOn = settings.status && settings.status.applied === settings.status.total
   const scanning = progress?.scanning && progress.total > 0
   const finished = progress && !progress.scanning // keep "Loaded N" visible after the scan completes
   const pct = scanning ? (progress.done / progress.total) * 100 : 0
@@ -189,8 +191,8 @@ export default function StatusBar({ progress, sessionCount = 0 }) {
         </StatusSwitch>
       )}
       <UsageLimits limits={limits} />
-      <StatusSwitch service={retention} on={retentionRaised} warn={!!(retention.status && !retentionRaised)} tooltip={retentionTooltip} changes={retentionChanges}>
-        Session logs <span className="statusbar-state">{retention.status ? humanizeDays(retention.status.days) : '…'}</span>
+      <StatusSwitch service={settings} on={settingsOn} warn={!!(settings.status && !settingsOn)} tooltip={settingsTooltip} changes={settingsChanges}>
+        Claude settings : <span className="statusbar-state">{settingsLabel(settings.status)}</span>
       </StatusSwitch>
       <StatusSwitch service={proxy} on={proxyRunning} warn={!!proxyDown} tooltip={proxyTooltip} changes={proxyChanges}>
         Capture proxy : <span className="statusbar-state">{proxyRunning ? 'ON' : proxyDown ? 'DOWN' : 'off'}</span>
