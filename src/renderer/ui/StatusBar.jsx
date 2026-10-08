@@ -146,7 +146,7 @@ export default function StatusBar({ progress, sessionCount = 0 }) {
   const { claudeDir } = window.api.claudeSettings
   // Status shapes come from the matching *Switch in src/main/services/switchers/:
   // proxy { running, configured } · statusline { installed } · settings { applied, total } · claudedir { dir }
-  const proxy      = useSwitch({ name: 'proxy',      isOn: s => s?.running })
+  const proxy      = useSwitch({ name: 'proxy',      isOn: s => s?.running && s.configured })
   const statusline = useSwitch({ name: 'statusline', isOn: s => s?.installed })
   const settings   = useSwitch({ name: 'settings',   isOn: s => s && s.applied === s.total })
   const claudedir  = useSwitch({ name: 'claudedir' }) // action-style: its button always activates (opens the folder picker)
@@ -159,8 +159,8 @@ export default function StatusBar({ progress, sessionCount = 0 }) {
     await window.api.installUpdate()
     setUpdating(false)
   } }
-  const proxyRunning = proxy.status?.running
-  const proxyDown = proxy.status?.configured && proxyRunning === false // Claude Code is pointed at a dead proxy — it can't reach the API
+  const proxyOn   = proxy.status?.running && proxy.status.configured
+  const proxyDown = proxy.status?.configured && proxy.status.running === false // Claude Code is pointed at a dead proxy — it can't reach the API
   const settingsOn = settings.status && settings.status.applied === settings.status.total
   const scanning = progress?.scanning && progress.total > 0
   const finished = progress && !progress.scanning // keep "Loaded N" visible after the scan completes
@@ -194,8 +194,8 @@ export default function StatusBar({ progress, sessionCount = 0 }) {
       <StatusSwitch service={settings} on={settingsOn} warn={!!(settings.status && !settingsOn)} tooltip={settingsTooltip} changes={settingsChanges}>
         Claude settings : <span className="statusbar-state">{settingsLabel(settings.status)}</span>
       </StatusSwitch>
-      <StatusSwitch service={proxy} on={proxyRunning} warn={!!proxyDown} tooltip={proxyTooltip} changes={proxyChanges}>
-        Capture proxy : <span className="statusbar-state">{proxyRunning ? 'ON' : proxyDown ? 'DOWN' : 'off'}</span>
+      <StatusSwitch service={proxy} on={proxyOn} warn={!!proxyDown} tooltip={proxyTooltip} changes={proxyChanges}>
+        Capture proxy : <span className="statusbar-state">{proxyOn ? 'ON' : proxyDown ? 'DOWN' : 'off'}</span>
       </StatusSwitch>
       <StatusSwitch service={statusline} on={statusline.status?.installed} tooltip={statuslineTooltip} changes={statuslineChanges}>
         Status line : <span className="statusbar-state">{statusline.status?.installed ? 'ON' : 'off'}</span>

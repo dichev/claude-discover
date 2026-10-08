@@ -35,7 +35,8 @@ export class ProxySwitch {
     // The proxy listens even with no network, so check the upstream here for a clear error instead of 502s later
     try { await fetch(new URL('/v1/models', UPSTREAM), { signal: AbortSignal.timeout(5000) }) }
     catch { throw new Error('Cannot reach api.anthropic.com — not enabling capture. Check your network and try again.') }
-    await this.#exit() // replace a running instance so the service owns it and it runs the current code
+    if (!await this.#exit()) // replace a running instance so the service owns it and it runs the current code
+      throw new Error(`The running proxy on ${PROXY_URL} did not exit — try again.`)
     await this.#service.install()
     if (!await this.#settle(true)) {
       await this.#service.uninstall().catch(() => {})
@@ -60,14 +61,16 @@ export class ProxySwitch {
       settings.save()
       await new Promise(r => setTimeout(r, SETTINGS_RELOAD_GRACE_MS))
     }
-    await this.#exit()
+    const exited = await this.#exit()
     await this.#service.uninstall()
+    if (!exited) throw new Error(`The proxy on ${PROXY_URL} did not exit and still holds the port.`)
   }
 
-  // Ask a running instance to exit via its control route and wait for the port to free up
+  // Ask a running instance to exit via its control route; true once the port is free
   async #exit() {
-    try { await fetch(`${PROXY_URL}${EXIT_ROUTE}`, { method: 'POST', signal: AbortSignal.timeout(1000) }) } catch { return } // not running is fine
-    await this.#settle(false)
+    // A failed request means not running, or too busy to answer in time — the ping below tells which
+    try { await fetch(`${PROXY_URL}${EXIT_ROUTE}`, { method: 'POST', signal: AbortSignal.timeout(1000) }) } catch {}
+    return this.#settle(false)
   }
 
   async #running() {
