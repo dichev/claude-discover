@@ -46,7 +46,8 @@
     line-height: 1.2 !important;
   }
   & .w-rjv-value {
-    color: var(--w-rjv-type-string-color)
+    color: var(--w-rjv-type-string-color);
+    white-space: pre-wrap; /* show the \n's inside strings instead of collapsing them to spaces */
   }
 }
 
