@@ -28,6 +28,7 @@ delegate('body', {
   onShow(instance) { // re-read data-tippy-content each show so tooltips over live-updating data stay fresh
     const content = instance.reference.getAttribute('data-tippy-content')
     if (content != null) instance.setContent(content)
+    if (!instance.props.content) return false // e.g. a label that's only tipped when truncated
   }
 })
 
