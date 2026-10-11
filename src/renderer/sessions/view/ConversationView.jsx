@@ -8,6 +8,7 @@ import Divider from '../../ui/Divider.jsx'
 import LazyMount from '../../ui/LazyMount.jsx'
 import Markdown from '../../ui/Markdown.jsx'
 import OpenLink from '../../ui/OpenLink.jsx'
+import Tip from '../../ui/Tip.jsx'
 import { useFindActive } from '../../ui/useFindActive.js'
 import { useMouseFontScale } from '../../utils/useMouse.js'
 import './ConversationView.css'
@@ -59,8 +60,8 @@ export default function ConversationView({ items, instructions = [], desktop = f
             {i === branch?.index && branchDivider}
             <div className={`conv-row conv-row-${g.kind}`}>
               <LazyMount eager={i < 8} forceMount={findOpen} placeholderMinHeight={80}>
-                {g.kind === 'user' || g.kind === 'system' ? <InputRow kind={g.kind} turns={g.turns} point={points[i]} ctxLimit={ctxLimit} />
-                 : g.kind === 'assistant' ? <AssistantCard turns={g.turns} point={points[i]} ctxLimit={ctxLimit} duration={durations[i]} showAuthor={groups[i - 1]?.kind !== 'assistant'} />
+                {g.kind === 'user' || g.kind === 'system' ? <InputRow kind={g.kind} turns={g.turns} point={points[i]} index={i} />
+                 : g.kind === 'assistant' ? <AssistantCard turns={g.turns} point={points[i]} index={i} duration={durations[i]} showAuthor={groups[i - 1]?.kind !== 'assistant'} />
                  : g.kind === 'compact'   ? <Compaction block={g.turns[0].blocks[0]} />
                  :                        <InstructionRun turns={g.turns} model={model} />}
               </LazyMount>
@@ -77,6 +78,10 @@ export default function ConversationView({ items, instructions = [], desktop = f
             Continues on {format(continuesTo, 'MMM d, yyyy HH:mm')}
           </Divider>
         )}
+        <Tip anchorSelect=".msg-tokens" render={({ activeAnchor }) => {
+          const point = points[activeAnchor?.dataset.point] // the last-hovered anchor outlives its group when the transcript regroups
+          return point && <TokenTip point={point} ctxLimit={ctxLimit} />
+        }} />
       </div>
     </TranscriptFileContext.Provider>
     </ExpandAllContext.Provider>
@@ -118,35 +123,34 @@ function TokenPoint({ point: p }) {
   )
 }
 
-// Total-tokens figure, shared by user and assistant headers. Its tooltip (HTML, opt-in via
-// data-tippy-html — see main.jsx) carries the context bar, the turn's usage breakdown
-// (labels/formulas mirror SessionSummary's Tokens section) and the running total. All values
-// are numeric/trusted; never interpolate transcript text into this string.
-function TokenStats({ point, ctxLimit }) {
+// Total-tokens figure in user and assistant headers; indexes into the one shared TokenTip, as a tooltip per message would slow long conversations
+function TokenStats({ point, index }) {
   if (!point) return null
-  const rows = []
-  if (point.ctx != null) {
-    const width = Math.min(point.ctx / ctxLimit, 1) * 100
-    rows.push(`<div class="token-tooltip-ctx">Context <span class="token-point-ctx-bar"><span style="width:${width}%"></span></span> <span class="token-tooltip-ctx-val">${fmtCompact(point.ctx)}</span></div>`)
-  }
-  const u = point.usage
-  if (u) {
-    const cells = [
-      ['Input', fmtCompact(u.input)],
-      ['Output', fmtCompact(u.output)],
-      ['Cache write (5m)', fmtCompact(u.cacheCreation5m)],
-      ['Cache write (1h)', fmtCompact(u.cacheCreation1h)],
-      ['Cache read', fmtCompact(u.cacheRead)],
-    ]
-    // Turn total: unlabeled sum row, its top border draws the "adding-up" line over the values column.
-    const sum = `<span></span><span class="token-tooltip-sum">+${fmtCompact(u.input + u.output + u.cacheRead + u.cacheCreation)}</span>`
-    rows.push(`<div class="token-tooltip-grid">${cells.map(([l, v]) => `<span>${l}</span><span>${v}</span>`).join('')}${sum}</div>`)
-  }
-  rows.push(`<div class="token-tooltip-total"><span>Accumulated tokens</span><span>${fmtCompact(point.total)}</span></div>`)
+  return <span className="msg-tokens" data-point={index}>{fmtCompact(point.total)}</span>
+}
+
+const USAGE_ROWS = [['Input', 'input'], ['Output', 'output'], ['Cache write (5m)', 'cacheCreation5m'], ['Cache write (1h)', 'cacheCreation1h'], ['Cache read', 'cacheRead']]
+
+// The context bar, the turn's usage breakdown (labels/formulas mirror SessionSummary's Tokens section) and the running total
+function TokenTip({ point, ctxLimit }) {
+  const u     = point.usage
+  const width = Math.min(point.ctx / ctxLimit, 1) * 100
   return (
-    <span className="msg-tokens" data-tippy-html={`<div class="token-tooltip">${rows.join('')}</div>`}>
-      {fmtCompact(point.total)}
-    </span>
+    <div className="token-tooltip">
+      {point.ctx != null && (
+        <div className="token-tooltip-ctx">
+          Context <span className="token-point-ctx-bar"><span style={{ width: `${width}%` }} /></span> <span className="token-tooltip-ctx-val">{fmtCompact(point.ctx)}</span>
+        </div>
+      )}
+      {u && (
+        <div className="token-tooltip-grid">
+          {USAGE_ROWS.map(([label, key]) => <React.Fragment key={key}><span>{label}</span><span>{fmtCompact(u[key])}</span></React.Fragment>)}
+          {/* Turn total: unlabeled sum row, its top border draws the "adding-up" line over the values column */}
+          <span /><span className="token-tooltip-sum">+{fmtCompact(u.input + u.output + u.cacheRead + u.cacheCreation)}</span>
+        </div>
+      )}
+      <div className="token-tooltip-total"><span>Accumulated tokens</span><span>{fmtCompact(point.total)}</span></div>
+    </div>
   )
 }
 
@@ -156,7 +160,7 @@ const AUTHORS = {
 }
 
 // A You or System row: its messages, with the context that came along folded behind the header
-function InputRow({ kind, turns, point, ctxLimit }) {
+function InputRow({ kind, turns, point, index }) {
   const [open, setOpen] = useCollapsed(false)
   const msgs            = turns.filter(t => !isContextTurn(t))
   const ctxItems        = turns.filter(isContextTurn).flatMap(t => t.blocks)
@@ -175,7 +179,7 @@ function InputRow({ kind, turns, point, ctxLimit }) {
           </button>
         )}
         <span className="msg-header-right">
-          <TokenStats point={point} ctxLimit={ctxLimit} />
+          <TokenStats point={point} index={index} />
           {ts != null && <span className="msg-time">{format(ts, 'HH:mm:ss')}</span>}
         </span>
       </div>
@@ -189,7 +193,7 @@ function InputRow({ kind, turns, point, ctxLimit }) {
   )
 }
 
-function AssistantCard({ turns, point, ctxLimit, duration, showAuthor = true }) {
+function AssistantCard({ turns, point, index, duration, showAuthor = true }) {
   const [open, setOpen] = useCollapsed(false)
   const toolBlocks = turns.flatMap(t => t.blocks.filter(b => b.type === 'tool_use'))
   const errorCount = toolBlocks.filter(b => b.result?.is_error).length
@@ -222,9 +226,9 @@ function AssistantCard({ turns, point, ctxLimit, duration, showAuthor = true }) 
             </button>
           : <span className="msg-summary">{summary}</span>)}
         <span className="msg-header-right">
-          <TokenStats point={point} ctxLimit={ctxLimit} />
+          <TokenStats point={point} index={index} />
           {end != null && (
-            <span className="msg-time" title={duration > 0 ? `Response time: ${fmtDuration(duration)}` : null}>
+            <span className="msg-time" data-tooltip-content={duration > 0 ? `Response time: ${fmtDuration(duration)}` : null}>
               {format(end, 'HH:mm:ss')}
             </span>
           )}
@@ -482,8 +486,8 @@ function InstructionFile({ it, model, tokens }) {
     <div className="aux instruction-file">
       <button className="aux-toggle" onClick={() => setOpen(v => !v)}>
         <span className="aux-chevron">{open ? '▾' : '▸'}</span>
-        <span className="instruction-title" onMouseEnter={e => { const el = e.currentTarget; el.title = el.scrollWidth > el.clientWidth ? title : '' }}>{title}</span>
-        {tokens > 0 && <span className="instruction-tokens" title="Approx. tokens">~ {fmtCompact(tokens)}</span>}
+        <span className="instruction-title" data-tooltip-content={title} data-tip-if-truncated>{title}</span>
+        {tokens > 0 && <span className="instruction-tokens" data-tooltip-content="Approx. tokens">~ {fmtCompact(tokens)}</span>}
       </button>
       {open && (
         <div className="aux-body">

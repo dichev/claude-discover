@@ -1,6 +1,5 @@
-import { useEffect, useRef, useState } from 'react'
-import { createPortal } from 'react-dom'
-import tippy from 'tippy.js'
+import { useEffect, useId, useState } from 'react'
+import Tip from './Tip.jsx'
 import './StatusSwitch.css'
 
 // On/off feature switch in the StatusBar: tinted while `on`, with a tooltip carrying the prose and
@@ -38,22 +37,15 @@ export function useSwitch({ name, isOn = () => false }) {
 }
 
 export default function StatusSwitch({ service, on, warn, button, className = '', tooltip, changes, changesTitle = 'Changes in settings.json', children }) {
-  const ref = useRef(null)
-  // Interactive tippy (stays open under the cursor) with a live React body, portalled into its
-  // container. main.jsx's global tippy delegate only targets [title] elements, so it skips this.
-  const [tip]                     = useState(() => document.createElement('div'))
+  const id                        = useId()
   const [showChanges, setChanges] = useState(false)
-  useEffect(() => {
-    const t = tippy(ref.current, { content: tip, interactive: true, delay: [0, 0], appendTo: () => document.body })
-    return () => t.destroy()
-  }, [])
   return (
-    <span className={`statusbar-group statusbar-seg ${className} ${on ? 'statusbar-seg-on' : ''}`} ref={ref}>
+    <span className={`statusbar-group statusbar-seg ${className} ${on ? 'statusbar-seg-on' : ''}`} data-tooltip-id={id}>
       <span className={`statusbar-msg ${button ? '' : on ? 'statusbar-active' : 'statusbar-off'}`}>
         {warn !== undefined && <span className="statusbar-warn" data-on={warn ? '' : undefined}>⚠ </span>}
         {children}
       </span>
-      {createPortal(
+      <Tip id={id} clickable className="statusbar-tip">
         <div className="statusbar-tooltip">
           {tooltip}
           <div className="statusbar-tooltip-footer">
@@ -64,7 +56,7 @@ export default function StatusSwitch({ service, on, warn, button, className = ''
               </div>
             )}
             {service.status?.keepActive !== undefined && (
-              <label className="statusbar-tooltip-keep" title={service.status.ephemeral ? 'Keep active is not available for a temporary npx run.\nInstall the app globally to enable it.' : undefined}>
+              <label className="statusbar-tooltip-keep" data-tooltip-content={service.status.ephemeral ? 'Keep active is not available for a temporary npx run.\nInstall the app globally to enable it.' : undefined}>
                 <input type="checkbox" checked={service.status.keepActive} disabled={service.status.ephemeral} onChange={e => service.setKeepActive(e.target.checked)} />
                 Keep active after the app closes
               </label>
@@ -78,9 +70,8 @@ export default function StatusSwitch({ service, on, warn, button, className = ''
               )}
             </div>
           </div>
-        </div>,
-        tip
-      )}
+        </div>
+      </Tip>
     </span>
   )
 }

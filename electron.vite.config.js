@@ -5,7 +5,7 @@ import pkg from './package.json' with { type: 'json' }
 
 // Strict CSP for the renderer (it shows untrusted transcripts), same in dev and packaged builds.
 // Scripts stay 'self'; no remote origins, so a stray markdown <img>/link can't beacon out.
-// 'unsafe-inline' is for styles only (React style props, tippy, syntax themes), never scripts.
+// 'unsafe-inline' is for styles only (React style props, react-tooltip, syntax themes), never scripts.
 const cspMeta = () => ({
   name: 'csp-meta',
   transformIndexHtml: { order: 'pre', handler: () => [{

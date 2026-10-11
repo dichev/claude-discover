@@ -23,7 +23,7 @@ export function ErrorBanner() {
   return (
     <div className="error-banner" role="alert">
       <span>⚠ {error}</span>
-      <button type="button" onClick={() => setError(null)} title="Dismiss">×</button>
+      <button type="button" onClick={() => setError(null)} aria-label="Dismiss" data-tooltip-content="Dismiss">×</button>
     </div>
   )
 }

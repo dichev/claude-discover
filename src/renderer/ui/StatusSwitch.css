@@ -19,7 +19,7 @@
 .statusbar-off { color: var(--warn); }
 .statusbar-active { color: #34d399; }
 
-/* Scoped to the StatusBar switch tooltips only — the global [title] tippies keep their own padding */
+/* Scoped to the StatusBar switch tooltips only — plain-text tips keep .tip's padding */
 .statusbar-tooltip { padding: 6px 8px; }
 .statusbar-tooltip p  { margin: 0 0 6px; }
 .statusbar-tooltip pre {

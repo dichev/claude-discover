@@ -4,30 +4,23 @@
   padding: 0;
 }
 
-.tippy-box {
+.tip {
   --tooltip-border: #424e66; /* a step brighter than --border-strong so the edge reads on dark bg */
+  --rt-color-dark: #0e1011;
+  --rt-opacity: 1;
+  --rt-transition-show-delay: 0s;
+  --rt-transition-closing-delay: 0s;
   font-family: var(--font-sans);
   font-size: 12px;
-  background: var(--bg);
-  background-clip: padding-box;
-  border: 1px solid var(--tooltip-border);
+  line-height: 1.4;
   border-radius: 5px;
+  max-width: 350px;
+  z-index: 9999;
 }
-.tippy-box .tippy-content { background: #0e1011; border-radius: 4px; white-space: pre-line; } /* render \n in title attributes as line breaks */
-.tippy-box > .tippy-arrow { color: var(--bg); }
-/* Border around the arrow too (tippy's light-border technique): ::after draws a border-colored
-   triangle offset 1px outward from the bg-colored ::before; z-index -1 tucks it behind the box. */
-.tippy-box > .tippy-arrow::after {
-  content: "";
-  position: absolute;
-  z-index: -1;
-  border-color: transparent;
-  border-style: solid;
-}
-.tippy-box[data-placement^='top']    > .tippy-arrow::after { border-top-color: var(--tooltip-border);    border-width: 7px 7px 0; top: 17px; left: 1px; }
-.tippy-box[data-placement^='bottom'] > .tippy-arrow::after { border-bottom-color: var(--tooltip-border); border-width: 0 7px 7px; bottom: 17px; left: 1px; }
-.tippy-box[data-placement^='left']   > .tippy-arrow::after { border-left-color: var(--tooltip-border);   border-width: 7px 0 7px 7px; left: 17px; top: 1px; }
-.tippy-box[data-placement^='right']  > .tippy-arrow::after { border-right-color: var(--tooltip-border);  border-width: 7px 7px 7px 0; right: 17px; top: 1px; }
+.tip.tip-text { white-space: pre-line; } /* render \n in plain-text tips as line breaks */
+.tip > .react-tooltip-content-wrapper { padding: 5px 9px; } /* a render prop nests a second wrapper of the same class */
+.tip.tip-wide { max-width: 560px; }
+.tip.tip-unbounded { max-width: none; }
 
 :focus, :focus-visible {
   outline: none;
@@ -151,6 +144,7 @@ button:hover { background: var(--border); }
 
 /* Pill meter styled like .button-primary: a strong tone border over a tinted track */
 .progress-bar {
+  display: block;
   width: 100%;
   height: 10px;
   padding: 2px;

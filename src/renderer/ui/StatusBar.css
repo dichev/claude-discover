@@ -111,3 +111,6 @@
   flex: none;
   width: 100px;
 }
+
+/* Neighbouring segments' tips would overlap while clickable ones linger 100ms for the pointer to reach them; the newest is last in body */
+.tip.statusbar-tip:has(~ .statusbar-tip.react-tooltip__show) { visibility: hidden; }

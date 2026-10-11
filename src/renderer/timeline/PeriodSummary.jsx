@@ -69,7 +69,7 @@ export default function PeriodSummary({ sessions, dayAnchor, granularity = 'day'
             <button
               className="stats-toggle"
               onClick={() => setProjectStat((v) => v === 'cost' ? 'tokens' : 'cost')}
-              title={`Showing ${projectStat} — click to toggle`}
+              data-tooltip-content={`Showing ${projectStat} — click to toggle`}
             >{projectStat === 'cost' ? 'T' : '$'}</button>
           </div>
           {sortedByProject.map((g) => (
@@ -80,7 +80,7 @@ export default function PeriodSummary({ sessions, dayAnchor, granularity = 'day'
               </div>
               {expanded.includes(g.key) && g.byDir.size - g.byDir.has('') > 0 && [...g.byDir.values()].sort(byStat).map(d => (
                 <div key={d.dir} className="gantt-side-row gantt-side-subrow">
-                  <span title={d.dir || undefined}>{d.dir || '(root)'}</span>
+                  <span data-tooltip-content={d.dir || undefined}>{d.dir || '(root)'}</span>
                   <b>{projectStat === 'cost' ? fmtUSD(d.cost) : fmtCompact(d.totalTokens)}</b>
                 </div>
               ))}

@@ -13,13 +13,15 @@ import './Markdown.css'
 
 // Local links without a known basePath aren't resolvable, so render them as plain text.
 const isExternal = href => /^(https?:|mailto:)/i.test(href || '')
+// Markdown titles (`[x](url "title")`) show in the app's tooltip rather than the browser's
 function buildLinkComponents(basePath) {
   return {
-    a: ({ href, children, ...props }) => {
+    a: ({ href, title, children, ...props }) => {
       const clickable = href && (isExternal(href) || basePath)
       if (!clickable) return <>{children}</>
-      return <OpenLink href={href} basePath={basePath} {...props}>{children}</OpenLink>
+      return <OpenLink href={href} basePath={basePath} data-tooltip-content={title} {...props}>{children}</OpenLink>
     },
+    img: ({ node, title, ...props }) => <img data-tooltip-content={title} {...props} />,
   }
 }
 

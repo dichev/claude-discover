@@ -58,13 +58,13 @@ export default function Toolbar({
         })}
       </div>
       <div className="gantt-toolbar-nav">
-        <button className="gantt-nav-arrow" onClick={() => onShiftDay?.(-1)} title="Previous period" aria-label="Previous period">‹</button>
+        <button className="gantt-nav-arrow" onClick={() => onShiftDay?.(-1)} data-tooltip-content="Previous period" aria-label="Previous period">‹</button>
         <h2 className="gantt-toolbar-title">{periodTitle(dayAnchor, granularity)}</h2>
         <button
           className="gantt-nav-arrow"
           onClick={() => onShiftDay?.(1)}
           style={{ visibility: onToday ? 'hidden' : 'visible' }}
-          title="Next period"
+          data-tooltip-content="Next period"
           aria-label="Next period"
         >›</button>
         <button

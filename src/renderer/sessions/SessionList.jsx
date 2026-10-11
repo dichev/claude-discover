@@ -19,6 +19,9 @@ const TIPS = {
 
 const EFFORT_BADGE = { xhigh: 'warn-badge', max: 'danger-badge' }
 
+// Icon-only badge: its tip doubles as its accessible name
+const Badge = ({ className, tip, icon: Icon }) => <span className={className} role="img" aria-label={tip} data-tooltip-content={tip}><Icon size={11} /></span>
+
 export default function SessionList({ sessions, selectedId, deepLink, onSelect }) {
   const selectedRef         = useRef(null)
   const [sortBy, setSortBy] = useLocalStorage('session-list.sort', 'time')
@@ -112,31 +115,31 @@ export default function SessionList({ sessions, selectedId, deepLink, onSelect }
             >
               <div className="session-row-main">
                 <div className="session-label">
-                  {s.tokens?.cacheCreation1h > 0 && <span className="warn-badge" title={`Used 1h extended cache (${fmtNum(s.tokens.cacheCreation1h)} tokens)\n${TIPS.cache1h}`}><Hourglass size={11} /></span>}
-                  {s.lastContextTokens > T.context.danger && <span className="danger-badge" title={`Context size: ${fmtCompact(s.lastContextTokens)} tokens\n${TIPS.context}`}><Gauge size={11} /></span>}
-                  {s.lastContextTokens > T.context.warn && s.lastContextTokens <= T.context.danger && <span className="warn-badge" title={`Context size: ${fmtCompact(s.lastContextTokens)} tokens\n${TIPS.context}`}><Gauge size={11} /></span>}
-                  {s.messageCount > T.messages.danger && <span className="danger-badge" title={`${fmtNum(s.messageCount)} messages\n${TIPS.messages}`}><MessageSquare size={11} /></span>}
-                  {s.messageCount > T.messages.warn && s.messageCount <= T.messages.danger && <span className="warn-badge" title={`${fmtNum(s.messageCount)} messages\n${TIPS.messages}`}><MessageSquare size={11} /></span>}
-                  {s.activeMs > T.workTime.danger && <span className="danger-badge" title={`Working time: ${fmtDuration(s.activeMs)}\n${TIPS.time}`}><Clock size={11} /></span>}
-                  {s.activeMs > T.workTime.warn && s.activeMs <= T.workTime.danger && <span className="warn-badge" title={`Working time: ${fmtDuration(s.activeMs)}\n${TIPS.time}`}><Clock size={11} /></span>}
-                  {topEffort && <span className={EFFORT_BADGE[topEffort]} title={`Effort: ${topEffort}\n${TIPS.effort}`}><Brain size={11} /></span>}
-                  {s.speed === 'fast' && <span className={`fast-badge ${s.fastPricingUnknown ? 'fast-badge-unknown' : ''}`} title={s.fastPricingUnknown ? 'Used fast mode — cost is INACCURATE: no fast-mode price multiplier known for this model' : 'Used fast mode (speed: fast)'}><Zap size={11} /></span>}
-                  {s.priceUnknown && <span className="danger-badge" title={`No price entry for ${s.models?.join(', ') || 'this model'} — cost is missing or understated`}><DollarSign size={11} /></span>}
+                  {s.tokens?.cacheCreation1h > 0 && <Badge className="warn-badge" tip={`Used 1h extended cache (${fmtNum(s.tokens.cacheCreation1h)} tokens)\n${TIPS.cache1h}`} icon={Hourglass} />}
+                  {s.lastContextTokens > T.context.danger && <Badge className="danger-badge" tip={`Context size: ${fmtCompact(s.lastContextTokens)} tokens\n${TIPS.context}`} icon={Gauge} />}
+                  {s.lastContextTokens > T.context.warn && s.lastContextTokens <= T.context.danger && <Badge className="warn-badge" tip={`Context size: ${fmtCompact(s.lastContextTokens)} tokens\n${TIPS.context}`} icon={Gauge} />}
+                  {s.messageCount > T.messages.danger && <Badge className="danger-badge" tip={`${fmtNum(s.messageCount)} messages\n${TIPS.messages}`} icon={MessageSquare} />}
+                  {s.messageCount > T.messages.warn && s.messageCount <= T.messages.danger && <Badge className="warn-badge" tip={`${fmtNum(s.messageCount)} messages\n${TIPS.messages}`} icon={MessageSquare} />}
+                  {s.activeMs > T.workTime.danger && <Badge className="danger-badge" tip={`Working time: ${fmtDuration(s.activeMs)}\n${TIPS.time}`} icon={Clock} />}
+                  {s.activeMs > T.workTime.warn && s.activeMs <= T.workTime.danger && <Badge className="warn-badge" tip={`Working time: ${fmtDuration(s.activeMs)}\n${TIPS.time}`} icon={Clock} />}
+                  {topEffort && <Badge className={EFFORT_BADGE[topEffort]} tip={`Effort: ${topEffort}\n${TIPS.effort}`} icon={Brain} />}
+                  {s.speed === 'fast' && <Badge className={`fast-badge ${s.fastPricingUnknown ? 'fast-badge-unknown' : ''}`} tip={s.fastPricingUnknown ? 'Used fast mode — cost is INACCURATE: no fast-mode price multiplier known for this model' : 'Used fast mode (speed: fast)'} icon={Zap} />}
+                  {s.priceUnknown && <Badge className="danger-badge" tip={`No price entry for ${s.models?.join(', ') || 'this model'} — cost is missing or understated`} icon={DollarSign} />}
                   {isSubagent && <span className="subagent-tag">[subagent]</span>}
                   {journal && <span className="subagent-tag">[journal: {s.workflowAgents} subagent{s.workflowAgents === 1 ? '' : 's'}]</span>}
-                  {s.worktree && <span className="worktree-tag" title={`Worktree of ${s.projectShort}`}>[{s.worktree}]</span>}
-                  {isFork && <span className="fork-tag" title={`Forked from session ${s.forkedFrom.sessionId}`}>↳</span>}
+                  {s.worktree && <span className="worktree-tag" data-tooltip-content={`Worktree of ${s.projectShort}`}>[{s.worktree}]</span>}
+                  {isFork && <span className="fork-tag" role="img" aria-label="Forked" data-tooltip-content={`Forked from session ${s.forkedFrom.sessionId}`}>↳</span>}
                   {sessionName && <span className="session-name">{sessionName}</span>}
                   <span className="session-label-text">
                     {command ? <><span className="session-command">{command.name || command.message}</span> {command.args}</> : sessionLabel(s)}
                   </span>
                 </div>
                 <div className="session-time-bottom">
-                  {s.tag && <span className="session-tag" title="Session tag">#{s.tag}</span>}
-                  {s.project && <span className="session-project" title={s.project}>{s.projectShort}{s.subdir && ` › ${s.subdir}`}</span>}
+                  {s.tag && <span className="session-tag" data-tooltip-content="Session tag">#{s.tag}</span>}
+                  {s.project && <span className="session-project" data-tooltip-content={s.project}>{s.projectShort}{s.subdir && ` › ${s.subdir}`}</span>}
                   {s.models?.length > 0 && <span className="session-model">{s.models.map((m) => m.replace(/^claude-/, '')).join(', ')}{s.efforts?.length > 0 && ` ${s.efforts.join(', ')}`}</span>}
-                  <span title={format(s.lastActivityAt, 'MMM d, HH:mm:ss')}>{fmtAgo(s.lastActivityAt)}</span>
-                  {linked && <span className="deeplink-note" title={linkTip} data-tippy-maxWidth={560}>opened from deep link</span>}
+                  <span data-tooltip-content={format(s.lastActivityAt, 'MMM d, HH:mm:ss')}>{fmtAgo(s.lastActivityAt)}</span>
+                  {linked && <span className="deeplink-note" data-tooltip-content={linkTip} data-tooltip-class-name="tip-wide">opened from deep link</span>}
                 </div>
               </div>
               <div className="session-row-stats">

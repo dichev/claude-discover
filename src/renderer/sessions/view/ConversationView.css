@@ -18,7 +18,7 @@
 
 
 /* Token timeline: a right gutter with one dot per row, scrolling with the content.
-   Totals live in the message headers (see TokenStats); delta and context size in their tooltip. */
+   Totals live in the message headers (see TokenStats); context size and usage in their tooltip (TokenTip). */
 .conversation.has-token-timeline {
   position: relative;
   max-width: calc(848px * var(--font-scale, 1));
@@ -61,7 +61,7 @@
 .token-point-command   .token-point-dot { background: var(--accent); } /* slash commands: no tokens, just a marker */
 .token-point.negative  .token-point-dot { background: #63a76b; } /* compaction shrank the context — good news, so green */
 
-/* Context size fill bar, shown in the msg-tokens tooltip (see TokenStats): fraction of CTX_LIMIT. */
+/* Context size fill bar, shown in the msg-tokens tooltip (see TokenTip): fraction of CTX_LIMIT. */
 .token-point-ctx-bar {
   display: inline-block;
   vertical-align: middle;
@@ -82,7 +82,7 @@
    (labels left, numbers right), then the accumulated total under a divider. */
 .token-tooltip { display: flex; flex-direction: column; gap: 5px; }
 .token-tooltip-ctx { display: flex; align-items: center; gap: 5px; }
-.token-tooltip .token-point-ctx-bar { flex: 1; width: auto; background: rgba(255, 255, 255, 0.25); } /* grow to fill the row; lighter track for tippy's dark background */
+.token-tooltip .token-point-ctx-bar { flex: 1; width: auto; background: rgba(255, 255, 255, 0.25); } /* grow to fill the row; lighter track for the tooltip's dark background */
 .token-tooltip-ctx-val { text-align: right; font-variant-numeric: tabular-nums; }
 .token-tooltip-grid {
   display: grid;

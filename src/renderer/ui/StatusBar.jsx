@@ -1,7 +1,9 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useId, useState } from 'react'
 import { ArrowDownToLine } from 'lucide-react'
 import { format, isToday } from 'date-fns'
 import StatusSwitch, { useSwitch } from './StatusSwitch'
+import ProgressBar from './ProgressBar.jsx'
+import Tip from './Tip.jsx'
 import { tone } from '../utils/formatting'
 import { THRESHOLDS } from '../utils/thresholds'
 import './StatusBar.css'
@@ -57,20 +59,20 @@ const npxTooltip = <>
   <p>The app will restart from the global install - this takes about a minute.</p>
 </>
 
-// Server-supplied labels (model and product names) go into an HTML tooltip
-const esc = s => String(s).replace(/[&<>"]/g, c => `&#${c.charCodeAt(0)};`)
-
 // "4:30 PM" today, "Wed 1:00 PM" later
 const fmtTime = ts => format(ts, isToday(ts) ? 'h:mm a' : 'EEE h:mm a')
 
-const tipBar = (pct, pctTone) => `<span class="progress-bar tone-${pctTone}"><span class="progress-bar-fill" style="width: ${Math.min(pct, 100)}%"></span></span>`
-
 // One tooltip row per limit: label, bar, used %, and when it resets
-const limitRow = (label, w) => {
+function LimitRow({ label, w }) {
   const pct     = Math.floor(w.utilization)
   const pctTone = tone(pct, THRESHOLDS.limit)
   const resets  = w.resetsAt > Date.now() ? `resets ${isToday(w.resetsAt) ? 'at ' : ''}${fmtTime(w.resetsAt)}` : ''
-  return `<span>${label}</span>${tipBar(pct, pctTone)}<span class="tip-pct ${pctTone}">${pct}%</span><span class="tip-faint">${resets}</span>`
+  return <>
+    <span>{label}</span>
+    <ProgressBar pct={pct} tone={pctTone} />
+    <span className={`tip-pct ${pctTone}`}>{pct}%</span>
+    <span className="tip-faint">{resets}</span>
+  </>
 }
 
 // `limit` is missing while loading or when usage isn't available; the bar then stays empty
@@ -80,50 +82,52 @@ function UsageBar({ label, limit, placeholder }) {
   return (
     <span className={`statusbar-group statusbar-limit ${pctTone}`}>
       <span>{label}</span>
-      <span className={`progress-bar tone-${pctTone}`}><span className="progress-bar-fill" style={{ width: `${pct ?? 0}%` }} /></span>
+      <ProgressBar pct={pct} tone={pctTone} />
       <span className="statusbar-num">{pct != null ? `${pct}%` : placeholder}</span>
     </span>
   )
 }
 
-// Everything /usage reported, as the bars' HTML tooltip
-function usageTip({ at, plan, fiveHour, sevenDay, models, sources, extra }) {
-  const money     = n => new Intl.NumberFormat(undefined, { style: 'currency', currency: extra.currency || 'USD' }).format(n / 10 ** extra.decimals)
-  const userOff   = extra && !extra.on && !extra.reason
-  const extraPct  = extra?.limit ? Math.floor((extra.used ?? 0) / extra.limit * 100) : 0
-  const extraRow  = extra && [
-    '<span class="tip-sep"></span><span>Extra usage</span>',
-    userOff ? '<span></span>' : tipBar(extraPct, tone(extraPct, THRESHOLDS.limit)),
-    `<span class="tip-pct">${userOff ? 'off' : money(extra.used ?? 0)}</span>`,
-    `<span class="tip-faint">${userOff ? '' : extra.limit != null ? `of ${money(extra.limit)} this month` : 'this month'}</span>`,
-  ].join('')
-  const tip = [
-    `<div class="tip-head"><b>Claude Usage${plan ? ` (${esc(plan[0].toUpperCase() + plan.slice(1))})` : ''}</b></div>`,
-    '<div class="tip-limits">',
-    fiveHour && limitRow('Daily', fiveHour),
-    sevenDay && limitRow('Weekly', sevenDay),
-    ...models.map(m => limitRow(`Weekly (${esc(m.name)})`, m)),
-    extraRow,
-    '</div>',
-    `<div class="tip-foot">`,
-    sources.length && `<div>This week's usage by product: ${sources.map(s => `${esc(s.name)} ${s.pct}%`).join(', ')}</div>`,
-    `<div>Last updated ${fmtTime(at)}</div>`,
-    '</div>',
-  ].filter(Boolean).join('')
-  return `<div class="statusbar-tooltip statusbar-limit-tip">${tip}</div>`
+// Everything /usage reported, as the bars' tooltip
+function UsageTip({ at, plan, fiveHour, sevenDay, models, sources, extra }) {
+  const money    = n => new Intl.NumberFormat(undefined, { style: 'currency', currency: extra.currency || 'USD' }).format(n / 10 ** extra.decimals)
+  const userOff  = extra && !extra.on && !extra.reason
+  const extraPct = extra?.limit ? Math.floor((extra.used ?? 0) / extra.limit * 100) : 0
+  return (
+    <div className="statusbar-tooltip statusbar-limit-tip">
+      <div className="tip-head"><b>Claude Usage{plan && ` (${plan[0].toUpperCase() + plan.slice(1)})`}</b></div>
+      <div className="tip-limits">
+        {fiveHour && <LimitRow label="Daily" w={fiveHour} />}
+        {sevenDay && <LimitRow label="Weekly" w={sevenDay} />}
+        {models.map(m => <LimitRow key={m.name} label={`Weekly (${m.name})`} w={m} />)}
+        {extra && <>
+          <span className="tip-sep" /><span>Extra usage</span>
+          {userOff ? <span /> : <ProgressBar pct={extraPct} tone={tone(extraPct, THRESHOLDS.limit)} />}
+          <span className="tip-pct">{userOff ? 'off' : money(extra.used ?? 0)}</span>
+          <span className="tip-faint">{userOff ? '' : extra.limit != null ? `of ${money(extra.limit)} this month` : 'this month'}</span>
+        </>}
+      </div>
+      <div className="tip-foot">
+        {sources.length > 0 && <div>This week's usage by product: {sources.map(s => `${s.name} ${s.pct}%`).join(', ')}</div>}
+        <div>Last updated {fmtTime(at)}</div>
+      </div>
+    </div>
+  )
 }
 
 // The daily and weekly bars, sharing one tooltip
 // The bars show from startup on, so they don't pop in later: `limits` is undefined while loading, null when unavailable
 function UsageLimits({ limits }) {
-  const ref         = useRef(null)
+  const id          = useId()
   const placeholder = limits === undefined ? '…' : '—'
-  const tip         = limits ? usageTip(limits) : limits === undefined ? 'Loading Claude usage…' : "Claude usage isn't available - it needs Claude Code logged in with a Claude subscription"
-  useEffect(() => { ref.current._tippy?.setContent(tip) }, [tip]) // the tooltip delegate re-reads data-tippy-html only on show, so update one already open
+  const tip         = limits ? <UsageTip {...limits} /> : limits === undefined ? 'Loading Claude usage…' : "Claude usage isn't available - it needs Claude Code logged in with a Claude subscription"
   return (
-    <span ref={ref} className="statusbar-limits" data-tippy-interactive="true" data-tippy-maxwidth="none" data-tippy-html={tip}>
+    <span className="statusbar-limits" data-tooltip-id={id}>
       <UsageBar label="Daily" limit={limits?.fiveHour} placeholder={placeholder} />
       <UsageBar label="Weekly" limit={limits?.sevenDay} placeholder={placeholder} />
+      <Tip id={id} clickable className="tip-unbounded statusbar-tip">
+        {tip}
+      </Tip>
     </span>
   )
 }
@@ -173,11 +177,7 @@ export default function StatusBar({ progress, sessionCount = 0 }) {
           <span className="statusbar-loading-text">
             {scanning ? 'Loading' : 'Loaded'} <span className="statusbar-num">{sessionCount}</span> sessions{scanning ? '…' : ''}
           </span>
-          {scanning && (
-            <span className="progress-bar">
-              <span className="progress-bar-fill" style={{ width: `${pct}%` }} />
-            </span>
-          )}
+          {scanning && <ProgressBar pct={pct} />}
         </span>
       )}
       {update?.fromNpx && (

@@ -214,7 +214,7 @@ export default function RequestsView({ filePath, items, date, granularity = 'day
               <span className="requests-meta">{time(r.timestamp)}</span>
               <span className="requests-meta requests-duration">{duration(r.durationMs)}</span>
               <span className={`requests-kind ${r.kind ? `kind-${r.kind[0]}` : ''}`}>{r.kind?.[1]}</span>
-              <span className="requests-meta requests-tokens" title="total tokens (input + output + cache)">{tokens(totalTokens(r))}</span>
+              <span className="requests-meta requests-tokens" data-tooltip-content="total tokens (input + output + cache)">{tokens(totalTokens(r))}</span>
             </button>
           </li>
           </React.Fragment>

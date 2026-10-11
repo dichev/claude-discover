@@ -4,6 +4,7 @@ import { fmtDuration, fmtNum, fmtUSD, fmtCompact, fmtToolCalls, tone } from '../
 import { THRESHOLDS as T } from '../utils/thresholds.js'
 import { contextWindow } from './view/transcript.js'
 import AgentOutput from '../agent/AgentOutput.jsx'
+import ProgressBar from '../ui/ProgressBar.jsx'
 import './SessionSummary.css'
 
 export default function SessionSummary({ meta, items, instructions, agent, granularity = 'day' }) {
@@ -38,7 +39,7 @@ export default function SessionSummary({ meta, items, instructions, agent, granu
       <Section title="Summary">
         <Field label="Estimated cost" value={
           <>
-            {meta.priceUnknown && <span className="danger-badge" title={`No price entry for ${modelLabel} — cost is missing or understated`}><DollarSign size={11} /></span>}
+            {meta.priceUnknown && <span className="danger-badge" role="img" aria-label="No price entry" data-tooltip-content={`No price entry for ${modelLabel} — cost is missing or understated`}><DollarSign size={11} /></span>}
             <span className={tone(cost, T.cost)}>{fmtUSD(cost)}</span>
           </>
         } />
@@ -47,7 +48,7 @@ export default function SessionSummary({ meta, items, instructions, agent, granu
         <Field label="Context size" value={
           <span className={ctxTone}>{`${fmtCompact(meta.lastContextTokens)} / ${fmtCompact(ctxLimit)}`}</span>
         } below={
-          <Bar ratio={meta.lastContextTokens / ctxLimit} tone={ctxTone} />
+          <ProgressBar pct={meta.lastContextTokens / ctxLimit * 100} tone={ctxTone} />
         }/>
       </Section>
 
@@ -113,15 +114,6 @@ function Section({ title, children }) {
     <div className="summary-section">
       <div className="summary-section-title">{title}</div>
       {children}
-    </div>
-  )
-}
-
-function Bar({ ratio, tone }) {
-  const pct = Math.max(0, Math.min(1, ratio)) * 100
-  return (
-    <div className={`progress-bar tone-${tone}`}>
-      <div className="progress-bar-fill" style={{ width: `${pct}%` }} />
     </div>
   )
 }

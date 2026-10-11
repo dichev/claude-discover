@@ -61,7 +61,7 @@ export default function JsonlView({ items, expandAll = null }) {
           <ul className="jsonl-viewer-toc">
             {entries.map(({ label }, i) => (
               <li key={i}>
-                <button type="button" onClick={() => scrollTo(i)} title={label}>
+                <button type="button" onClick={() => scrollTo(i)} data-tooltip-content={label}>
                   <span className="jsonl-viewer-toc-index">{i + 1}</span>
                   <span className="jsonl-viewer-toc-label">{label}</span>
                 </button>

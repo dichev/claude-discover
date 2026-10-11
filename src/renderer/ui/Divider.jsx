@@ -4,7 +4,7 @@ import './Divider.css'
 export default function Divider({ children, onClick, title, className = '' }) {
   const Tag = onClick ? 'button' : 'div'
   return (
-    <Tag type={onClick ? 'button' : undefined} className={`divider ${className}`} onClick={onClick} title={title}>
+    <Tag type={onClick ? 'button' : undefined} className={`divider ${className}`} onClick={onClick} data-tooltip-content={title}>
       {children}
     </Tag>
   )
