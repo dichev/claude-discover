@@ -15,22 +15,30 @@ import './styles.css'
 
 clearOutdatedLocalStorage()
 
-// Plain-text tooltips from title / data-tippy-content. allowHTML stays OFF: these carry
+// Plain-text tooltips from title. allowHTML stays OFF: these carry
 // untrusted transcript fields (session/model/type labels), so tippy must render them as text.
 delegate('body', {
-  target: '[title], [data-tippy-content]',
+  target: '[title]',
   delay: [0, 0],
-  content(reference) {
-    const title = reference.getAttribute('title')
-    reference.removeAttribute('title')
-    return title
-  },
-  onShow(instance) { // re-read data-tippy-content each show so tooltips over live-updating data stay fresh
-    const content = instance.reference.getAttribute('data-tippy-content')
-    if (content != null) instance.setContent(content)
-    if (!instance.props.content) return false // e.g. a label that's only tipped when truncated
+  onShow(instance) {
+    moveTitleIntoTippy(instance.reference)
+    return !!instance.props.content
   }
 })
+
+// React writes the title back whenever its value changes, even while the tooltip is open
+new MutationObserver(records => {
+  for (const { target } of records) {
+    if (target._tippy) moveTitleIntoTippy(target)
+  }
+}).observe(document.body, { subtree: true, attributeFilter: ['title'] })
+
+// Removing the title keeps the browser's own tooltip from showing beside tippy's
+function moveTitleIntoTippy(el) {
+  if (!el.hasAttribute('title')) return
+  el._tippy.setContent(el.title)
+  el.removeAttribute('title')
+}
 
 // HTML tooltips, opt-in via data-tippy-html. Only ever set from trusted, numeric content
 // (the token-usage breakdown, plan limits) — never from transcript data. Keep it that way.

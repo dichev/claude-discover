@@ -136,7 +136,7 @@ export default function SessionList({ sessions, selectedId, deepLink, onSelect }
                   {s.project && <span className="session-project" title={s.project}>{s.projectShort}{s.subdir && ` › ${s.subdir}`}</span>}
                   {s.models?.length > 0 && <span className="session-model">{s.models.map((m) => m.replace(/^claude-/, '')).join(', ')}{s.efforts?.length > 0 && ` ${s.efforts.join(', ')}`}</span>}
                   <span title={format(s.lastActivityAt, 'MMM d, HH:mm:ss')}>{fmtAgo(s.lastActivityAt)}</span>
-                  {linked && <span className="deeplink-note" data-tippy-content={linkTip} data-tippy-maxWidth={560}>opened from deep link</span>}
+                  {linked && <span className="deeplink-note" title={linkTip} data-tippy-maxWidth={560}>opened from deep link</span>}
                 </div>
               </div>
               <div className="session-row-stats">

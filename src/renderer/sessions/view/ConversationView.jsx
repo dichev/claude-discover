@@ -482,7 +482,7 @@ function InstructionFile({ it, model, tokens }) {
     <div className="aux instruction-file">
       <button className="aux-toggle" onClick={() => setOpen(v => !v)}>
         <span className="aux-chevron">{open ? '▾' : '▸'}</span>
-        <span className="instruction-title" onMouseEnter={e => { const el = e.currentTarget; el.dataset.tippyContent = el.scrollWidth > el.clientWidth ? title : '' }}>{title}</span>
+        <span className="instruction-title" onMouseEnter={e => { const el = e.currentTarget; el.title = el.scrollWidth > el.clientWidth ? title : '' }}>{title}</span>
         {tokens > 0 && <span className="instruction-tokens" title="Approx. tokens">~ {fmtCompact(tokens)}</span>}
       </button>
       {open && (
