@@ -383,6 +383,9 @@ button.msg-summary:hover { color: var(--text); background: var(--bg-elev-2); bor
   color: var(--text-faint);
   font-size: calc(11px * var(--font-scale, 1));
 }
+.instruction-missing.pending :is(.msg-summary, .instruction-missing-text) {
+  visibility: hidden;
+}
 
 /* Group label over the strips read from one part of the request (system prompt / tools / user message). */
 .instruction-source {

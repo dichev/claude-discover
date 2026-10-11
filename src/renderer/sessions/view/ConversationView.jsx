@@ -54,7 +54,7 @@ export default function ConversationView({ items, instructions = [], desktop = f
             Continues from {format(continuesFrom, 'MMM d, yyyy HH:mm')}
           </Divider>
         )}
-        {instructions.length === 0 && <div className="conv-row conv-row-instruction"><InstructionsMissing desktop={desktop} /></div>}
+        {instructions.length === 0 && <div className="conv-row conv-row-instruction"><InstructionsMissing desktop={desktop} pending={!groups.some(g => g.kind === 'assistant')} /></div>}
         {groups.map((g, i) => (
           <React.Fragment key={g.turns[0].uuid}>
             {i === branch?.index && branchDivider}
@@ -447,13 +447,17 @@ const ProxyHeader = ({ children }) => (
   </div>
 )
 
-// Stands in for InstructionRun when no requests were captured, so it's clear what the proxy would add
-function InstructionsMissing({ desktop }) {
+// Stands in for InstructionRun when no requests were captured, so it's clear what the proxy would add.
+// `pending`: the proxy logs a request only once its reply ends, so before the first reply the notice
+// keeps its space but stays hidden — no layout shift whichever way it resolves.
+function InstructionsMissing({ desktop, pending }) {
   return (
-    <div className="instruction-missing">
+    <div className={`instruction-missing${pending ? ' pending' : ''}`}>
       <ProxyHeader><span className="msg-summary">not captured</span></ProxyHeader>
-      {desktop ? 'Not yet supported for Claude desktop app sessions.'
-               : 'Turn on the Capture proxy to see the system prompt, tools and memory files.'}
+      <div className="instruction-missing-text">
+        {desktop ? 'Not yet supported for Claude desktop app sessions.'
+                 : 'Turn on the Capture proxy to see the system prompt, tools and memory files.'}
+      </div>
     </div>
   )
 }
