@@ -29,7 +29,7 @@ describe('prod build (out/)', () => {
     }
   })
 
-  it('keeps electron-update-from-npm external, so it finds its installer.js next to itself', () => {
+  it('keeps electron-update-from-npm external, so it finds its bin/update.js next to itself', () => {
     expect(read('main/main.js')).toMatch(/from ["']electron-update-from-npm["']/)
   })
 

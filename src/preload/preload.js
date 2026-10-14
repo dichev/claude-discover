@@ -24,7 +24,7 @@ contextBridge.exposeInMainWorld('api', {
   runAgentPrompt: text => ipcRenderer.invoke('agent:run', text),
   onAgentOutput: subscribe('agent:output'),
 
-  checkUpdate: fresh => ipcRenderer.invoke('auto-update:check', fresh),
+  checkUpdate: () => ipcRenderer.invoke('auto-update:check'),
   installUpdate: () => ipcRenderer.invoke('auto-update:install'),
 
   getRateLimits: opts => ipcRenderer.invoke('rate-limits:get', opts),
