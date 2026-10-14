@@ -17,9 +17,6 @@
     "out",
     "bin"
   ],
-  "workspaces": [
-    "packages/*"
-  ],
   "scripts": {
     "predev": "kill-port 5555 9333",
     "dev": "electron-vite dev",

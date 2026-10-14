@@ -1,7 +1,0 @@
-{
-  "name": "electron-find-overlay",
-  "version": "0.0.0",
-  "private": true,
-  "type": "module",
-  "main": "update-prompt.js"
-}
