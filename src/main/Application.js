@@ -44,7 +44,7 @@ export class Application {
     ipcMain.handle('switch:keep-active', (_e, name, value) => switchers.setKeepActive(name, value))
     ipcMain.handle('work-hours:get', () => workHours.read())
     ipcMain.handle('work-hours:set', (_e, data) => workHours.write(data))
-    ipcMain.handle('auto-update:check', () => checkForUpdate({ dev: import.meta.env.DEV }))
+    ipcMain.handle('auto-update:check', (_e, fresh) => checkForUpdate({ dev: import.meta.env.DEV, fresh: fresh === true }))
     ipcMain.handle('auto-update:install', () => installUpdate())
     ipcMain.handle('rate-limits:get', (_e, opts) => rateLimits.get(opts))
     ipcMain.handle('agent:run', (e, text) => agentRunner.run(text, e.sender))

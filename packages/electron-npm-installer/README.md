@@ -23,6 +23,12 @@ installUpdate()                       // installs that version: closes the app, 
 
 Show a "New version available" button when `checkForUpdate()` returns something, and call `installUpdate()` when it's clicked.
 
+`checkForUpdate()` asks npm once and shares the answer. For an app that stays open for days, ask again now and then:
+
+```js
+setInterval(() => checkForUpdate({ fresh: true }).then(showUpdateButton), 6 * 60 * 60_000)
+```
+
 No update UI of your own? Let the package ask in a native dialog:
 
 ```js

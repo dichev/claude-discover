@@ -12,18 +12,24 @@ import { LAUNCH_MODES, launchMode } from './launch-mode.js'
 const INSTALLER_PATH = join(import.meta.dirname, 'installer.js')
 
 let checked = null
+let answer  = null // the last settled check, so an install never waits on a re-check
+let mode    = null
 
-// Once per launch — a renderer reload reuses the answer
-export function checkForUpdate({ dev = false } = {}) {
-  return checked ??= fetchNewer(launchMode(app.getAppPath(), { dev })).catch(err => {
-    console.warn('[electron-npm-installer] check failed:', err.message)
-    return null
-  })
+// Shares the last answer, so a renderer reload doesn't ask again; `fresh` asks npm again for an app left open
+export function checkForUpdate({ dev = false, fresh = false } = {}) {
+  if (checked && !fresh) return checked
+  mode ??= launchMode(app.getAppPath(), { dev }) // can't change while the app runs, so a fresh check needn't repeat `dev`
+  return checked = fetchNewer(mode)
+    .catch(err => {
+      console.warn('[electron-npm-installer] check failed:', err.message)
+      return answer // offline for a moment shouldn't drop an update already found
+    })
+    .then(result => answer = result)
 }
 
-// Installs what the check found, so the user gets the version they were shown
+// Installs what the latest check found
 export async function installUpdate() {
-  const update = await checked
+  const update = answer ?? await checked
   if (!update) return
   const { bin } = appPackage()
   // Dev isn't reopened: its renderer usually lives on a dev server, which dies with the app

@@ -157,7 +157,11 @@ export default function StatusBar({ progress, sessionCount = 0 }) {
   const [update, setUpdate]     = useState(null) // { name, current, latest, mode } when a global install is outdated, or always for an npx run
   const [updating, setUpdating] = useState(false)
   const limits                  = useRateLimits()
-  useEffect(() => { window.api.checkUpdate().then(setUpdate) }, [])
+  useEffect(() => {
+    window.api.checkUpdate().then(setUpdate)
+    const timer = setInterval(() => window.api.checkUpdate(true).then(setUpdate), 6 * 60 * 60_000) // an app left open for days still hears of new releases
+    return () => clearInterval(timer)
+  }, [])
   const updater = { status: update, busy: updating, toggle: async () => { // the StatusSwitch service shape, for an action that always runs
     setUpdating(true)
     await window.api.installUpdate()

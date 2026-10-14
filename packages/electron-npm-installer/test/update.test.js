@@ -22,12 +22,12 @@ import { join } from 'node:path'
 const INSTALLER_PATH = join(import.meta.dirname, '../src/installer.js')
 const DIRS = { 'npm-global': '/npm/node_modules/my-app', 'npx-temp': '/home/u/.npm/_npx/ab12/node_modules/my-app', 'npm-start': '/src/my-app' }
 
-// A fresh app launch: the once-per-launch check lives in update.js's module state
+// A fresh app launch: the shared answer lives in update.js's module state
 async function launch(mode) {
   mocks.appPath = DIRS[mode] ?? DIRS['npm-start']
   vi.resetModules()
   const { checkForUpdate, installUpdate, promptForUpdate } = await import('../src/update.js')
-  return { check: () => checkForUpdate({ dev: mode === 'npm-dev' }), installUpdate, promptForUpdate }
+  return { check: () => checkForUpdate({ dev: mode === 'npm-dev' }), checkForUpdate, installUpdate, promptForUpdate }
 }
 
 async function launchAndInstall(mode) {
@@ -104,7 +104,54 @@ describe('checkForUpdate', () => {
   })
 })
 
+describe('checkForUpdate({ fresh: true })', () => {
+  it('asks npm again, keeping the launch mode of the first check', async () => {
+    publish('1.11.0')
+    const { check, checkForUpdate } = await launch('npm-dev')
+    await check()
+    publish('1.12.0')
+    expect(await checkForUpdate({ fresh: true })).toEqual({ name: 'my-app', current: '1.10.1', latest: '1.12.0', mode: 'npm-dev' })
+    expect(mocks.latestVersion).toHaveBeenCalledTimes(2)
+  })
+
+  it('keeps the previous answer when the fresh check fails', async () => {
+    publish('1.11.0')
+    const { check, checkForUpdate } = await launch('npm-global')
+    await check()
+    publish('9.9.9', { ok: false })
+    expect(await checkForUpdate({ fresh: true })).toMatchObject({ latest: '1.11.0' })
+  })
+
+  it('lets a later check succeed after a failed one', async () => {
+    publish('9.9.9', { ok: false })
+    const { check, checkForUpdate } = await launch('npm-global')
+    expect(await check()).toBeNull()
+    publish('1.11.0')
+    expect(await checkForUpdate({ fresh: true })).toMatchObject({ latest: '1.11.0' })
+  })
+
+  it('has installUpdate install what the latest check found', async () => {
+    publish('1.11.0')
+    const { check, checkForUpdate, installUpdate } = await launch('npm-global')
+    await check()
+    publish('1.12.0')
+    await checkForUpdate({ fresh: true })
+    await installUpdate()
+    expect(spawnedArgv()).toContain('1.12.0')
+  })
+})
+
 describe('installUpdate', () => {
+  it('installs the last answer at once, not waiting on a re-check still running', async () => {
+    publish('1.11.0')
+    const { check, checkForUpdate, installUpdate } = await launch('npm-global')
+    await check()
+    mocks.latestVersion.mockReturnValue(new Promise(() => {})) // a re-check that never answers
+    checkForUpdate({ fresh: true })
+    await installUpdate()
+    expect(spawnedArgv()).toContain('1.11.0')
+  })
+
   it('hands off to the installer with everything it needs, then quits once it runs', async () => {
     publish('1.11.0')
     await launchAndInstall('npm-global')

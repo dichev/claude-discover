@@ -15,9 +15,11 @@ export interface Update {
 export interface CheckOptions {
   /** Check from a repo checkout too; the install then updates the global install and doesn't reopen. Default: false. */
   dev?: boolean
+  /** Ask npm again instead of sharing the last answer, e.g. on a timer for an app left open; a failed one keeps the last answer. Default: false. */
+  fresh?: boolean
 }
 
-/** Asks npm for a newer version, once per launch. Resolves to null when up to date, from a repo checkout, or on failure. */
+/** Asks npm for a newer version, sharing the answer until a `fresh` check. Resolves to null when up to date, from a repo checkout, or on failure. */
 export function checkForUpdate(options?: CheckOptions): Promise<Update | null>
 
 export interface ShortcutOptions {
@@ -34,7 +36,7 @@ export interface ShortcutOptions {
 /** Writes @windows Start Menu + Desktop shortcuts and @macOS an ~/Applications launcher, for an `npm i -g` install. Call before any window is created. */
 export function createShortcuts(options?: ShortcutOptions): void
 
-/** Installs what the last check found: closes the app, runs `npm i -g`, then reopens it. Does nothing without an update. */
+/** Installs what the latest check found: closes the app, runs `npm i -g`, then reopens it. Does nothing without an update. */
 export function installUpdate(): Promise<void>
 
 export interface PromptOptions {
