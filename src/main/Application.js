@@ -55,12 +55,7 @@ export class Application {
     ipcMain.on('claude-settings:get', e => e.returnValue = { claudeDir: CLAUDE_DIR })
 
     // app lifecycle
-    app.on('activate', () => { // @macOS
-      if (BrowserWindow.getAllWindows().length === 0) win.create()
-    })
-    app.on('window-all-closed', () => { // @macOS
-      if (process.platform !== 'darwin') app.quit()
-    })
+    app.on('window-all-closed', () => app.quit()) // @macOS too — a windowless app would keep the watchers and switches alive
     // Switches not marked "keep active when the app is closed" are undone on quit, so their
     // settings.json config dies with the app (deactivate is async — hold the quit)
     app.on('will-quit', async e => {
