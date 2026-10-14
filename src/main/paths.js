@@ -1,7 +1,7 @@
 import {homedir} from 'node:os'
 import {join} from 'node:path'
 import {config} from './config/ConfigFile.js'
-import {launchMode} from 'electron-npm-installer/launch-mode'
+import {launchMode} from 'electron-update-from-npm/launch-mode'
 
 const local = config.read()
 export const DATA_DIR             = config.dataDir
@@ -14,5 +14,5 @@ export const STATUSLINE_PATH      = join(import.meta.dirname, '../../bin/claude/
 export const PROXY_PATH           = join(import.meta.dirname, '../../bin/proxy.mjs')
 
 
-export {LAUNCH_MODES} from 'electron-npm-installer/launch-mode'
+export {LAUNCH_MODES} from 'electron-update-from-npm/launch-mode'
 export const LAUNCH_MODE          = launchMode(import.meta.dirname, { dev: import.meta.env?.DEV }) // env is Vite-only, undefined under plain node (test/scripts)

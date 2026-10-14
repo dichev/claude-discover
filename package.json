@@ -35,7 +35,7 @@
     "electron": "44.4.5",
     "electron-context-menu": "^4.1.2",
     "electron-find-overlay": "^1.0.1",
-    "electron-npm-installer": "^0.1.0",
+    "electron-update-from-npm": "^0.1.0",
     "electron-window-state": "^5.0.3",
     "which": "^6.0.1",
     "write-file-atomic": "^7.0.1"

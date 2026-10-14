@@ -1,7 +1,7 @@
 import { app } from 'electron'
 import { DeepLink, findTarget } from './services/DeepLink.js'
 import { Application } from './Application.js'
-import { createShortcuts } from 'electron-npm-installer'
+import { createShortcuts } from 'electron-update-from-npm'
 
 if (import.meta.env.DEV) await import('./debug.js')  // note dev uses a separate userData profile
 

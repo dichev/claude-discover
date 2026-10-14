@@ -29,8 +29,8 @@ describe('prod build (out/)', () => {
     }
   })
 
-  it('keeps electron-npm-installer external, so it finds its installer.js next to itself', () => {
-    expect(read('main/main.js')).toMatch(/from ["']electron-npm-installer["']/)
+  it('keeps electron-update-from-npm external, so it finds its installer.js next to itself', () => {
+    expect(read('main/main.js')).toMatch(/from ["']electron-update-from-npm["']/)
   })
 
   it('injects the CSP meta tag and no inline scripts into every HTML entry', () => {
