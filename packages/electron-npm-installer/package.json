@@ -2,7 +2,7 @@
   "name": "electron-npm-installer",
   "version": "0.1.0",
   "type": "module",
-  "description": "Self-update for Electron apps distributed through npm (npm i -g / npx) — no installers, no code signing",
+  "description": "Self-update and launcher shortcuts for Electron apps distributed through npm (npm i -g / npx) — no installers, no code signing",
   "license": "MIT",
   "author": "dichev <dichev.lab@gmail.com>",
   "homepage": "https://github.com/dichev/claude-discover/tree/main/packages/electron-npm-installer#readme",
@@ -49,6 +49,7 @@
     "update",
     "auto-update",
     "self-update",
-    "updater"
+    "updater",
+    "shortcuts"
   ]
 }

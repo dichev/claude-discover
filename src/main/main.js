@@ -1,7 +1,7 @@
 import { app } from 'electron'
 import { DeepLink, findTarget } from './services/DeepLink.js'
 import { Application } from './Application.js'
-import { Shortcuts } from './services/Shortcuts.js'
+import { createShortcuts } from 'electron-npm-installer'
 
 if (import.meta.env.DEV) await import('./debug.js')  // note dev uses a separate userData profile
 
@@ -13,7 +13,7 @@ if (isFirstInstance) {
   let application = null
   let deepLink = null
   optional('deep links', () => deepLink = new DeepLink().activate())
-  optional('shortcuts', () => new Shortcuts().activate())
+  optional('shortcuts', () => createShortcuts({ appId: 'com.dichev.claude-discover', name: 'Claude Discover', description: 'Browse your local Claude Code sessions', dev: import.meta.env.DEV }))
 
   app.whenReady().then(() => {
     application = new Application({ deepLink })

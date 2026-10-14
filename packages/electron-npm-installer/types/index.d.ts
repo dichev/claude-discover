@@ -20,5 +20,19 @@ export interface CheckOptions {
 /** Asks npm for a newer version, once per launch. Resolves to null when up to date, from a repo checkout, or on failure. */
 export function checkForUpdate(options?: CheckOptions): Promise<Update | null>
 
+export interface ShortcutOptions {
+  /** Reverse-DNS app id, for the @windows taskbar and the @macOS bundle; a repo checkout gets `.local` appended. Default: `com.electron.<package name>`. */
+  appId?: string
+  /** Shortcut name; a repo checkout gets ` (local)` appended. Default: `app.getName()`. */
+  name?: string
+  /** @windows The shortcut's tooltip. */
+  description?: string
+  /** A repo checkout in development: sets the app id but writes no shortcuts. Default: false. */
+  dev?: boolean
+}
+
+/** Writes @windows Start Menu + Desktop shortcuts and @macOS an ~/Applications launcher, for an `npm i -g` install. Call before any window is created. */
+export function createShortcuts(options?: ShortcutOptions): void
+
 /** Installs what the last check found: closes the app, runs `npm i -g`, then reopens it. Does nothing without an update. */
 export function installUpdate(): Promise<void>

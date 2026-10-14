@@ -1,6 +1,6 @@
 # electron-npm-installer
 
-Auto-update for Electron apps that people install with npm (`npm i -g my-app` or `npx my-app`).
+What an installer would give your Electron app, for apps that people install with npm (`npm i -g my-app` or `npx my-app`): auto-update and launcher shortcuts.
 
 No installers, no code signing, no release server — npm is already your release channel, so updating is just `npm i -g my-app@latest`. This package does that for you, from inside the app.
 
@@ -12,7 +12,7 @@ npm install electron-npm-installer
 
 Requires Electron 30+. ESM-only (from CommonJS, use `await import()`).
 
-## Usage
+## Auto-update
 
 ```js
 import { checkForUpdate, installUpdate } from 'electron-npm-installer'
@@ -25,11 +25,27 @@ Show a "New version available" button when `checkForUpdate()` returns something,
 
 Your app's name and `bin` are read from its `package.json`. Keep this package out of your main-process bundle (most Electron bundlers externalize dependencies by default): it starts its `installer.js` from its own folder.
 
-## What `checkForUpdate()` returns
+What `checkForUpdate()` returns:
 
 - **Installed with `npm i -g`:** the new version, if there is one.
 - **Run with `npx`:** always returns a result, so you can offer a proper global install (npx's copy is temporary).
 - **Run from a repo checkout:** always `null`. Pass `checkForUpdate({ dev: true })` to try the flow anyway; it updates your global install and doesn't reopen.
+
+## Shortcuts
+
+```js
+import { createShortcuts } from 'electron-npm-installer'
+
+createShortcuts({ appId: 'com.example.my-app', name: 'My App', description: 'What my app does' }) // before the first window
+```
+
+On Windows this adds Start Menu and Desktop shortcuts, and on macOS an app in `~/Applications`. Linux is skipped.
+
+- They're created once per install: if the user deletes one, it stays deleted until the next `npm i -g`.
+- A repo checkout gets its own `My App (local)` shortcuts, so both stay launchable. Pass `dev: true` while developing to leave the user's shortcuts alone.
+- npx runs get none, since npx's copy is temporary.
+
+To remove them, delete `My App*.lnk` from the Start Menu and Desktop, or `~/Applications/My App*.app`.
 
 ## Launch mode
 
@@ -42,7 +58,7 @@ launchMode(app.getAppPath()) // → 'npm-global', 'npx-temp' (npx's temporary co
 ## Good to know
 
 - Works with npm only, not pnpm or yarn.
-- If the update fails, the old version opens again.
+- If an update fails, the old version opens again.
 
 ## License
 
