@@ -36,3 +36,11 @@ export function createShortcuts(options?: ShortcutOptions): void
 
 /** Installs what the last check found: closes the app, runs `npm i -g`, then reopens it. Does nothing without an update. */
 export function installUpdate(): Promise<void>
+
+export interface PromptOptions {
+  /** Also ask npx runs to install the app globally; off by default, as they'd be asked on every launch. Default: false. */
+  npx?: boolean
+}
+
+/** Checks (reusing the launch's check, so call `checkForUpdate({ dev: true })` first to try it from a checkout), and if there's an update asks "Update now / Later" in a native dialog, installing on yes. Call after the app is ready. */
+export function promptForUpdate(options?: PromptOptions): Promise<void>

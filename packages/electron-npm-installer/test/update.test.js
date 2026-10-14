@@ -7,7 +7,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 const mocks = vi.hoisted(() => ({
   appPath: null, // set per launch
   app: { getVersion: () => '1.10.1', getName: () => 'my-app', getAppPath: () => mocks.appPath, quit: vi.fn() },
-  dialog: { showErrorBox: vi.fn() },
+  dialog: { showErrorBox: vi.fn(), showMessageBox: vi.fn() },
   spawn: vi.fn(),
   latestVersion: vi.fn(),
 }))
@@ -26,8 +26,8 @@ const DIRS = { 'npm-global': '/npm/node_modules/my-app', 'npx-temp': '/home/u/.n
 async function launch(mode) {
   mocks.appPath = DIRS[mode] ?? DIRS['npm-start']
   vi.resetModules()
-  const { checkForUpdate, installUpdate } = await import('../src/update.js')
-  return { check: () => checkForUpdate({ dev: mode === 'npm-dev' }), installUpdate }
+  const { checkForUpdate, installUpdate, promptForUpdate } = await import('../src/update.js')
+  return { check: () => checkForUpdate({ dev: mode === 'npm-dev' }), installUpdate, promptForUpdate }
 }
 
 async function launchAndInstall(mode) {
@@ -154,5 +154,49 @@ describe('installUpdate', () => {
     publish('1.10.1')
     await launchAndInstall('npm-global')
     expect(mocks.spawn).not.toHaveBeenCalled()
+  })
+})
+
+describe('promptForUpdate', () => {
+  const answer = button => mocks.dialog.showMessageBox.mockImplementation(async ({ buttons }) => ({ response: buttons.indexOf(button) }))
+
+  it('installs the new version when the user agrees', async () => {
+    publish('1.11.0')
+    answer('Update now')
+    await (await launch('npm-global')).promptForUpdate()
+    expect(mocks.dialog.showMessageBox.mock.calls[0][0].message).toBe('my-app 1.11.0 is available')
+    expect(spawnedArgv()).toContain('1.11.0')
+  })
+
+  it('leaves the app alone when the user says later', async () => {
+    publish('1.11.0')
+    answer('Later')
+    await (await launch('npm-global')).promptForUpdate()
+    expect(mocks.spawn).not.toHaveBeenCalled()
+  })
+
+  it('stays silent without an update', async () => {
+    publish('1.10.1')
+    await (await launch('npm-global')).promptForUpdate()
+    expect(mocks.dialog.showMessageBox).not.toHaveBeenCalled()
+  })
+
+  it('reuses the launch\'s check, so a checkout can try it after a dev check', async () => {
+    publish('1.11.0')
+    answer('Later')
+    const { check, promptForUpdate } = await launch('npm-dev')
+    await check()
+    await promptForUpdate()
+    expect(mocks.dialog.showMessageBox).toHaveBeenCalled()
+  })
+
+  it('asks an npx run to install only when opted in', async () => {
+    publish('1.10.1')
+    answer('Install')
+    await (await launch('npx-temp')).promptForUpdate()
+    expect(mocks.dialog.showMessageBox).not.toHaveBeenCalled()
+    await (await launch('npx-temp')).promptForUpdate({ npx: true })
+    expect(mocks.dialog.showMessageBox.mock.calls[0][0].message).toBe('Install my-app?')
+    expect(spawnedArgv()).toContain('1.10.1')
   })
 })

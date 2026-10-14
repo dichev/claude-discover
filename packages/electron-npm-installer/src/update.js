@@ -37,6 +37,22 @@ export async function installUpdate() {
     .once('error', err => dialog.showErrorBox('Update failed', `Could not start node: ${err.message}`))
 }
 
+// A native dialog for apps without an update UI of their own. npx runs are asked only with `npx: true`, as they'd be asked every launch
+export async function promptForUpdate({ npx = false } = {}) {
+  const update = await checkForUpdate()
+  if (!update || (update.mode === LAUNCH_MODES.NPX_TEMP && !npx)) return
+  const { response } = await dialog.showMessageBox(update.mode === LAUNCH_MODES.NPX_TEMP ? {
+    message: `Install ${app.getName()}?`,
+    detail:  `It's running from npx's temporary copy. Installing it keeps it around (npm i -g ${update.name}).`,
+    buttons: ['Install', 'Not now'],
+  } : {
+    message: `${app.getName()} ${update.latest} is available`,
+    detail:  `You have ${update.current}. Updating restarts the app.`,
+    buttons: ['Update now', 'Later'],
+  })
+  if (response === 0) await installUpdate()
+}
+
 async function fetchNewer(mode) {
   if (mode === LAUNCH_MODES.NPM_START) return null
   const { name } = appPackage()

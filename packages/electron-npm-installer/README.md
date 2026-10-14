@@ -23,6 +23,18 @@ installUpdate()                       // installs that version: closes the app, 
 
 Show a "New version available" button when `checkForUpdate()` returns something, and call `installUpdate()` when it's clicked.
 
+No update UI of your own? Let the package ask in a native dialog:
+
+```js
+import { promptForUpdate } from 'electron-npm-installer'
+
+app.whenReady().then(() => promptForUpdate()) // "My App 1.3.0 is available" → Update now / Later
+```
+
+npx runs aren't asked by default, since they'd see it on every launch. Pass `promptForUpdate({ npx: true })` to offer them a global install.
+
+To see the dialog, run `npm start` from a clone of this package ([example/update-prompt.js](example/update-prompt.js)). The example poses as an old `electron-find-overlay`, so **Update now** really installs that package globally.
+
 Your app's name and `bin` are read from its `package.json`. Keep this package out of your main-process bundle (most Electron bundlers externalize dependencies by default): it starts its `installer.js` from its own folder.
 
 What `checkForUpdate()` returns:
