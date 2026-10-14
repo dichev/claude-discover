@@ -58,7 +58,7 @@ class WindowsLinks { // @windows
 
 
 // A stub bundle handing off to npm's Electron.app, not a renamed copy of it: editing Electron's plist breaks its signature.
-// Finder launches get a bare PATH, so the stub passes on this launch's (claude for AI Analyze, npm/node for AutoUpdate).
+// Finder launches get a bare PATH, so the stub passes on this launch's (claude for AI Analyze, npm/node for the auto update).
 class MacBundle { // @macOS
   paths() { return [join(app.getPath('home'), 'Applications', `${NAME}.app`)] }
 

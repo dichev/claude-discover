@@ -17,7 +17,7 @@ The tool works on Windows, macOS, and Linux. If you have Node.js 22+, just try i
 npx claude-discover@latest
 ```
 
-Like it and want to keep it around? Install it:
+Like it and want to keep it around, install it:
 ```
 npm install -g claude-discover
 claude-discover
