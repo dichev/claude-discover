@@ -17,7 +17,7 @@ vi.mock('../src/main/Application.js', () => ({ Application: class {
   restart = restart
 } }))
 vi.mock('../src/main/debug.js', () => ({}))
-vi.mock('../src/main/services/Shortcuts.js', () => ({ Shortcuts: class { activate() {} } }))
+vi.mock('electron-update-from-npm', () => ({ NpmUpdater: class { createShortcuts() {} } }))
 
 import { app } from 'electron'
 

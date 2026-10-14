@@ -3,9 +3,9 @@ import { SessionsService } from './services/SessionsService.js'
 import { WorkHours } from './services/WorkHours.js'
 import { AgentRunner } from './services/AgentRunner.js'
 import { Switchers } from './services/switchers/Switchers.js'
-import { AutoUpdate } from './services/AutoUpdate.js'
 import { RateLimits } from './services/RateLimits.js'
 import { MainWindow } from './windows/MainWindow.js'
+import { updater } from './updater.js'
 import { CLAUDE_DIR, RECENT_CLAUDE_DIRS } from './paths.js'
 import { openLinkSafely } from './utils.js'
 
@@ -16,13 +16,12 @@ export class Application {
     this.agentRunner     = new AgentRunner()
     this.workHours       = new WorkHours()
     this.sessionsService = new SessionsService()
-    this.autoUpdate      = new AutoUpdate()
     this.rateLimits      = new RateLimits(this.agentRunner)
     this.switchers       = new Switchers({ restart: () => this.restart() }) // the on/off features behind the StatusBar switches
   }
 
   start() {
-    const { deepLink, win, agentRunner, workHours, sessionsService, autoUpdate, rateLimits, switchers } = this
+    const { deepLink, win, agentRunner, workHours, sessionsService, rateLimits, switchers } = this
 
     Menu.setApplicationMenu(this.#buildMenu())
 
@@ -45,8 +44,8 @@ export class Application {
     ipcMain.handle('switch:keep-active', (_e, name, value) => switchers.setKeepActive(name, value))
     ipcMain.handle('work-hours:get', () => workHours.read())
     ipcMain.handle('work-hours:set', (_e, data) => workHours.write(data))
-    ipcMain.handle('auto-update:check', () => autoUpdate.check())
-    ipcMain.handle('auto-update:install', () => autoUpdate.install())
+    ipcMain.handle('auto-update:check', () => updater.check())
+    ipcMain.handle('auto-update:install', () => updater.install())
     ipcMain.handle('rate-limits:get', (_e, opts) => rateLimits.get(opts))
     ipcMain.handle('agent:run', (e, text) => agentRunner.run(text, e.sender))
     ipcMain.handle('shell:open-link', (_e, href, baseFile) => openLinkSafely(href, baseFile))

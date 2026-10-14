@@ -33,8 +33,7 @@ Not a hard constraint — restructure when it serves the code, just update this 
 │   ├── claude/
 │   │   └── statusline.mjs          the installed statusLine command
 │   ├── proxy.config.js             proxy config (port, routes, ping body, log paths) — imported by bin/ and src/main/
-│   ├── proxy.mjs                   API request-capture logging proxy
-│   └── update.mjs                  AutoUpdate's helper: waits for the app to exit, runs `npm i -g`, reopens the global install
+│   └── proxy.mjs                   API request-capture logging proxy
 ├── src/
 │   ├── main/                       main process (OOP): entry point, app wiring & menu (Application), path/config resolution
 │   │   ├── config/                 the app's own config: ConfigFile (~/.claude-discover/config.json) + pricing seed
@@ -98,9 +97,9 @@ Optional features, secondary to the core timeline. The switchable ones are a cla
 - **Statusline** — installs `bin/claude/statusline.mjs` as Claude Code's statusLine command.
 - **Claude settings** — one switch applying recommended `settings.json` keys together (the table in `ClaudeSettingsSwitch`): `cleanupPeriodDays` raised so transcripts aren't swept before this app can browse them (one-way: deactivating never lowers it, since Claude Code's next sweep would delete them), `showThinkingSummaries` so transcripts record thinking instead of empty blocks.
 - **Claude dir** — switches which Claude data directory the app reads from (relaunches the app on it).
-- **Shortcuts** (not a switcher, @windows @macOS) — `Shortcuts` writes launchers (@windows Start Menu + Desktop `.lnk`s, @macOS an `~/Applications` stub `.app`) once per install, keyed by the package dir's birth time, and re-points them on every launch. Skipped under npx and dev.
+- **Shortcuts** (not a switcher, @windows @macOS) — `updater.createShortcuts` (the shared `NpmUpdater` from [`electron-update-from-npm`](https://github.com/dichev/electron-update-from-npm), in `src/main/updater.js`) writes launchers (@windows Start Menu + Desktop `.lnk`s, @macOS an `~/Applications` stub `.app`) once per install, keyed by the package dir's birth time, and re-points them on every launch. Skipped under npx and dev.
 - **Deep links** (not a switcher) — `claude-discover://session?id=<sessionId>&date=<yyyy-MM-dd>` opens a session from another app. `DeepLink` does the routing; only the scheme registration is OS-specific — @windows registers on every launch and the link arrives in a second launch's argv; @macOS is not registered (only an `.app` bundle can own a scheme, and npx runs bare Electron), though the `open-url` handler is wired for a future bundle.
-- **Auto update** (not a switcher, `NPM_GLOBAL`; dev runs it too, updating the global install without reopening; `NPX_TEMP` gets "Install this app", the same flow creating the global install) — `AutoUpdate` asks the npm registry once per launch and the StatusBar shows the hint. Clicking it starts `bin/update.mjs` on the system node, detached, and quits, since Windows locks the running `electron.exe` inside the package npm must replace.
+- **Auto update** (not a switcher) — `updater.check()`/`install()` from the same `NpmUpdater`, shown as the StatusBar hint ("Install this app" for npx runs). The main bundle must keep the package external, or it can't find its `bin/update.js` (pinned in `test/prod-build.test.js`).
 
 ### Dev-only bits
 

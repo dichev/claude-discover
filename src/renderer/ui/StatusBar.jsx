@@ -154,15 +154,20 @@ export default function StatusBar({ progress, sessionCount = 0 }) {
   const statusline = useSwitch({ name: 'statusline', isOn: s => s?.installed })
   const settings   = useSwitch({ name: 'settings',   isOn: s => s && s.applied === s.total })
   const claudedir  = useSwitch({ name: 'claudedir' }) // action-style: its button always activates (opens the folder picker)
-  const [update, setUpdate]     = useState(null) // { current, latest } when an npm-global install is outdated, plus fromNpx for an npx run
+  const [update, setUpdate]     = useState(null) // { type: 'update', current, latest, spec } when a global install is outdated, or { type: 'install', spec } for an npx run
   const [updating, setUpdating] = useState(false)
   const limits                  = useRateLimits()
-  useEffect(() => { window.api.checkUpdate().then(setUpdate) }, [])
+  useEffect(() => {
+    window.api.checkUpdate().then(setUpdate)
+    const timer = setInterval(() => window.api.checkUpdate().then(setUpdate), 6 * 60 * 60_000) // an app left open for days still hears of new releases
+    return () => clearInterval(timer)
+  }, [])
   const updater = { status: update, busy: updating, toggle: async () => { // the StatusSwitch service shape, for an action that always runs
     setUpdating(true)
     await window.api.installUpdate()
     setUpdating(false)
   } }
+  const npx       = update?.type === 'install'
   const proxyOn   = proxy.status?.running && proxy.status.configured
   const proxyDown = proxy.status?.configured && proxy.status.running === false // Claude Code is pointed at a dead proxy — it can't reach the API
   const settingsOn = settings.status && settings.status.applied === settings.status.total
@@ -180,14 +185,9 @@ export default function StatusBar({ progress, sessionCount = 0 }) {
           {scanning && <ProgressBar pct={pct} />}
         </span>
       )}
-      {update?.fromNpx && (
-        <StatusSwitch service={updater} button="Install globally" className="statusbar-update" tooltip={npxTooltip} changes={<pre>{`npm i -g claude-discover@${update.latest}`}</pre>} changesTitle="Runs after the app closes">
-          <ArrowDownToLine size={12} /> Install this app
-        </StatusSwitch>
-      )}
-      {update && !update.fromNpx && (
-        <StatusSwitch service={updater} button={`Update to v${update.latest}`} className="statusbar-update" tooltip={updateTooltip(update)} changes={<pre>{`npm i -g claude-discover@${update.latest}`}</pre>} changesTitle="Runs after the app closes">
-          <ArrowDownToLine size={12} /> Update available
+      {update && (
+        <StatusSwitch service={updater} button={npx ? 'Install globally' : `Update to v${update.latest}`} className="statusbar-update" tooltip={npx ? npxTooltip : updateTooltip(update)} changes={<pre>{`npm i -g ${update.spec}`}</pre>} changesTitle="Runs after the app closes">
+          <ArrowDownToLine size={12} /> {npx ? 'Install this app' : 'Update available'}
         </StatusSwitch>
       )}
       <UsageLimits limits={limits} />

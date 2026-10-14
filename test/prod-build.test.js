@@ -29,6 +29,10 @@ describe('prod build (out/)', () => {
     }
   })
 
+  it('keeps electron-update-from-npm external, so it finds its bin/update.js next to itself', () => {
+    expect(read('main/main.js')).toMatch(/from ["']electron-update-from-npm["']/)
+  })
+
   it('injects the CSP meta tag and no inline scripts into every HTML entry', () => {
     const pages = fs.readdirSync(join(ROOT, 'src/renderer'), { recursive: true }).filter(f => f.endsWith('.html'))
     expect(pages.length).toBeGreaterThan(0) // each src page lands at the same relative path in out/renderer
