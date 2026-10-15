@@ -13,7 +13,7 @@ if (isFirstInstance) {
   let application = null
   let deepLink = null
   optional('deep links', () => deepLink = new DeepLink().activate())
-  optional('shortcuts', () => updater.createShortcuts({ appId: 'com.dichev.claude-discover', name: 'Claude Discover', description: 'Browse your local Claude Code sessions' }))
+  updater.createShortcuts({ appId: 'com.dichev.claude-discover', name: 'Claude Discover', description: 'Browse your local Claude Code sessions' }) // never throws
 
   app.whenReady().then(() => {
     application = new Application({ deepLink })
