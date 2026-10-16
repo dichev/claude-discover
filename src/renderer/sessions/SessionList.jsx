@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { Suspense, use, useEffect, useMemo, useRef, useState } from 'react'
 import { Hourglass, Gauge, MessageSquare, Clock, Zap, DollarSign, Brain } from 'lucide-react'
 import { SOURCE_COLORS } from '../utils/colors.js'
 import { format } from 'date-fns'
@@ -21,6 +21,14 @@ const EFFORT_BADGE = { xhigh: 'warn-badge', max: 'danger-badge' }
 
 // Icon-only badge: its tip doubles as its accessible name
 const Badge = ({ className, tip, icon: Icon }) => <span className={className} role="img" aria-label={tip} data-tooltip-content={tip}><Icon size={11} /></span>
+
+// Read once per avatar file, however many sessions share it
+const avatars = new Map()
+const Avatar = ({ session }) => {
+  if (!avatars.has(session.avatar)) avatars.set(session.avatar, window.api.readAvatar(session.filePath))
+  const src = use(avatars.get(session.avatar))
+  return src && <img className="session-avatar" src={src} alt="" />
+}
 
 export default function SessionList({ sessions, selectedId, deepLink, onSelect }) {
   const selectedRef         = useRef(null)
@@ -113,6 +121,7 @@ export default function SessionList({ sessions, selectedId, deepLink, onSelect }
               onClick={() => onSelect(selectedId === s.filePath ? null : s.filePath)}
               style={{ borderLeftColor: SOURCE_COLORS[s.source] || SOURCE_COLORS.other }}
             >
+              {s.avatar && <Suspense><Avatar session={s} /></Suspense>}
               <div className="session-row-main">
                 <div className="session-label">
                   {s.tokens?.cacheCreation1h > 0 && <Badge className="warn-badge" tip={`Used 1h extended cache (${fmtNum(s.tokens.cacheCreation1h)} tokens)\n${TIPS.cache1h}`} icon={Hourglass} />}

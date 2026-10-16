@@ -73,6 +73,11 @@ export class SessionsService extends EventEmitter {
     return this.#requestFile(meta.sessionId, meta.parentSessionId).read(range)
   }
 
+  // Looked up by session, so only avatar paths are readable over IPC
+  avatarPath(filePath) {
+    return this.metaCache.get(filePath)?.avatar ?? null
+  }
+
   // Subagents send the parent's session id, so the proxy logs their requests into the parent's
   // file, tagged x-claude-code-agent-id — route their reads there. The transcript filename is
   // `agent-<id>`; RequestFile normalizes that id against the header's own spelling.
@@ -150,7 +155,8 @@ export class SessionsService extends EventEmitter {
     await reader.stream(obj => parser.feed(obj))
     const meta = parser.finalize(stat.mtimeMs)
     // The parser keeps the raw cwd as project; grouping it needs disk access, which the parser stays free of
-    return Object.assign(meta, await this.projects.resolve(meta.project))
+    const [project, avatar] = await Promise.all([this.projects.resolve(meta.project), this.projects.avatar(meta.project)])
+    return Object.assign(meta, project, { avatar })
   }
 
   // Resume/fork copies prior message.ids verbatim. Walk earliest-first; if a

@@ -1,4 +1,4 @@
-import { shell } from 'electron'
+import { nativeImage, shell } from 'electron'
 import path from 'node:path'
 import { pathToFileURL } from 'node:url'
 
@@ -42,6 +42,13 @@ export function lockNavigation(contents) {
   })
   contents.on('will-navigate', block)
   contents.on('will-redirect', block)
+}
+
+
+// A data URL, as the renderer's CSP blocks file:// images; downscaled so the IPC carries a few KB, not the full-size file
+export function imageDataUrl(file, height) {
+  const image = file && nativeImage.createFromPath(file)
+  return image && !image.isEmpty() ? image.resize({ height, quality: 'best' }).toDataURL() : null
 }
 
 

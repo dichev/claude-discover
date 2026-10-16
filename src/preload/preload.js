@@ -15,6 +15,7 @@ contextBridge.exposeInMainWorld('api', {
   listSessions: (date, granularity = 'day') => ipcRenderer.invoke('sessions:list', date, granularity),
   readSession: (filePath, date = null, granularity = 'day') => ipcRenderer.invoke('sessions:read', filePath, date, granularity),
   readRequests: (filePath, date = null, granularity = 'day') => ipcRenderer.invoke('sessions:read-requests', filePath, date, granularity),
+  readAvatar: filePath => ipcRenderer.invoke('sessions:read-avatar', filePath),
   onSessionsUpdate: subscribe('sessions:update'),
   onScanProgress: subscribe('sessions:scan-progress'),
 

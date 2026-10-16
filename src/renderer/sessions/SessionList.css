@@ -179,6 +179,15 @@
 
 .session-command { color: var(--accent); }
 
+.session-avatar {
+  flex: none;
+  align-self: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  object-fit: cover;
+}
+
 .subagent-tag,
 .worktree-tag {
   font-family: var(--font-mono), monospace;
