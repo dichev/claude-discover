@@ -1,12 +1,10 @@
 import { app, BrowserWindow, nativeTheme } from 'electron'
 import path from 'node:path'
-import { fileURLToPath } from 'node:url'
 import windowStateKeeper from 'electron-window-state'
 import contextMenu from 'electron-context-menu'
 import { FindOverlay } from 'electron-find-overlay'
 import { lockNavigation } from '../utils.js'
 
-const __dirname = path.dirname(fileURLToPath(import.meta.url))
 const DEV_URL = process.env.ELECTRON_RENDERER_URL
 
 export class MainWindow {
@@ -26,7 +24,7 @@ export class MainWindow {
       autoHideMenuBar: true,
       title: `Claude Discover v${app.getVersion()}`,
       webPreferences: {
-        preload: path.join(__dirname, '../preload/preload.cjs'),
+        preload: path.join(import.meta.dirname, '../preload/preload.cjs'),
         contextIsolation: true,
         nodeIntegration: false,
         sandbox: true
@@ -41,7 +39,7 @@ export class MainWindow {
     if (DEV_URL) {
       this.win.loadURL(DEV_URL)
     } else {
-      this.win.loadFile(path.join(__dirname, '../renderer/index.html'))
+      this.win.loadFile(path.join(import.meta.dirname, '../renderer/index.html'))
     }
 
     this.findBar = new FindOverlay(this.win)

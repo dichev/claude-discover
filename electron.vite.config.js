@@ -37,7 +37,7 @@ export default defineConfig({
   preload: {
     build: {
       // Sandboxed renderers require CommonJS, single-file preloads (no ESM, no shared chunks to require).
-      rollupOptions: {
+      rolldownOptions: {
         input: {
           preload: resolve('src/preload/preload.js')
         },
@@ -54,12 +54,12 @@ export default defineConfig({
     build: {
       modulePreload: { polyfill: false }, // Electron ships modern Chromium skip the inline polyfill so script-src can stay 'self'
       assetsInlineLimit: 0, // export all assets as files (instead of inlining them as data URIs)
-      rollupOptions: {
+      rolldownOptions: {
         input: {
           index: resolve('src/renderer/index.html')
         },
         output: { // Split deps into a shared vendors.js/css
-          manualChunks: id => id.includes('node_modules') ? 'vendors' : undefined
+          codeSplitting: { groups: [{ name: 'vendors', test: /node_modules/ }] }
         }
       }
     },
