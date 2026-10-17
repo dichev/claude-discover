@@ -39,7 +39,7 @@ claude-discover
     The same session exactly as Claude Code stores it on disk, one JSON line at a time. For when you don't want the story, you want the evidence.
 
   - **API request inspector**\
-    A Postman-like view of every API request and response, captured by an optional local proxy (one click on, one click off). This is where the secrets live: the system prompt, your CLAUDE.md and memory files, tool definitions, injected reminders - all the stuff session logs politely never record.
+    A Postman-like view of every API request and response, captured by an optional local proxy (one click on, one click off). This is where the secrets live: the system prompt, your CLAUDE.md and memory files, tool definitions, injected reminders - plus the side requests (title, auto-mode checks, …) session logs never record.
 
 - **Session summary**\
   Token usage and cost for every session, and totals for the whole period. Computed from your local transcripts with current model rates - accurate to the cent.

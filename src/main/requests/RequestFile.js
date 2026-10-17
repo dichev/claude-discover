@@ -49,35 +49,17 @@ export class RequestFile {
     return records.filter(r => this.#mine(r) && inRange(r.timestamp, range))
   }
 
-  // System prompts, tool definitions, memory files (CLAUDE.md / MEMORY.md / … from a user
-  // message's instructions system-reminder) and every other injected system-reminder — none of
-  // which the transcript records, so the request log is the only source. Returns one record per
-  // unique prompt / tool batch / file_path / reminder, flagged `side` when a side-channel request
-  // carried it (see isLoop). Dedup runs over the whole file; `range` then keeps what was first sent
-  // within it, plus what the conversation started with — its context on any day.
+  // What the side requests (title, auto-mode check, …) first sent, which the transcript doesn't log.
+  // The loop's requests still claim theirs, so a fork of the conversation (suggestions) adds nothing.
   async readInstructions(range = null) {
-    const parser = new RequestParser() // holds the per-tool dedup state
-    const files = new Map() // dedup key → record, first sight wins
-    let start = null // the conversation's first request
+    const parser = new RequestParser() // holds the dedup state
+    const strips = []
     for (const rec of await this.read()) {
-      // body-less (older proxy's count_tokens, unparsable body) would re-emit the cached roster; a
-      // count_tokens probe re-sends the conversation, so it would claim the loop's strips as its own
+      // body-less (older proxy, unparsable body) has nothing to read; a count_tokens probe would claim the loop's strips
       if (!rec.request || rec.kind?.[0] === 'count') continue
-      const loop = isLoop(rec.kind)
-      start ??= loop ? rec : null
-      const record = f => ({ timestamp: rec.timestamp, ...f, side: !loop })
-      const sys = parser.systemPrompt(rec)
-      if (sys && !files.has(sys.hash)) files.set(sys.hash, record(sys))
-      const deferred = parser.deferredStrip(rec)
-      if (deferred && !files.has(deferred.hash)) files.set(deferred.hash, record(deferred))
-      for (const tools of parser.systemTools(rec)) files.set(tools.hash, record(tools)) // per-tool dedup — only not-yet-seen tools
-      for (const f of parser.memoryFiles(rec)) {
-        if (!files.has(f.file_path)) files.set(f.file_path, record(f))
-      }
-      for (const r of parser.reminderStrips(rec)) {
-        if (!files.has(r.hash)) files.set(r.hash, record(r))
-      }
+      const found = parser.strips(rec)
+      if (!isLoop(rec.kind) && inRange(rec.timestamp, range)) strips.push(...found.map(f => ({ timestamp: rec.timestamp, ...f })))
     }
-    return [...files.values()].filter(f => f.timestamp === start?.timestamp || inRange(f.timestamp, range))
+    return strips
   }
 }

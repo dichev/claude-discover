@@ -11,19 +11,16 @@ const isMcp = name => name.startsWith('mcp__')
 
 // The kind of an instruction strip: side-channel requests (security monitor, title gen, …) keep
 // their [kind, label]; main-loop requests (user message and tool-result continuations alike)
-// collapse to a label-less 'main' — they ARE the conversation being read.
-const stripKind = req => {
-  const kind = classifyRequest(req)
-  return !kind || kind[0] === 'main' || kind[0] === 'tools' ? ['main', null] : kind
-}
+// collapse to a label-less 'main' — they ARE the conversation being read, as is a kind-less transcript record.
+const stripKind = ({ kind }) => !kind || kind[0] === 'main' || kind[0] === 'tools' ? ['main', null] : kind
 
 // Every instruction strip has the same shape: a label the request's kind prefixes for side-channel
-// calls, a content hash the caller dedups on, and the part of the request it was read from —
+// calls, a content hash it dedups on (see strips), and the part of the request it was read from —
 // `source`: 'system' | 'tools' | 'message' — which the frontend groups a request's strips by. The
 // model is kept separate from the label — the frontend names it only when it differs from the
 // conversation's own.
 const toStrip = (rec, source, file_path, label, content) => {
-  const [kind, kindLabel] = stripKind(rec.request)
+  const [kind, kindLabel] = stripKind(rec)
   return { source, file_path, memory_type: [kindLabel, label].filter(Boolean).join(', '),
     model: rec.request.model, content, hash: contentHash(content), kind }
 }
@@ -35,14 +32,27 @@ const texts = c => (Array.isArray(c) ? c.map(p => p?.text) : [c]).filter(t => ty
 // must not parse as one the harness injected.
 const injectedTexts = req => (req?.messages || []).filter(m => m?.role !== 'assistant').flatMap(m => texts(m.content))
 
-// Record-level parsing of the NDJSON request log written by bin/proxy.mjs.
-// Stateful: the log's dedup scheme stores system/tools/each message in full ({ $hash, value })
-// only on first sight, then as { $ref } — so feed records in file order.
+// Parses the proxy's request log and the transcript's request records. Stateful (the log stores each
+// value once, then { $ref }s it; strips dedup by hash) — so feed records in file order.
 export class RequestParser {
   constructor() {
     this.hashes = new Map() // $hash → value
     this.seenTools = new Set() // tool names already returned by systemTools
     this.deferred = null // the session's deferred-tool roster, parsed from the first record that carries it
+    this.seenStrips = new Set() // hash of every strip returned by strips
+  }
+
+  // Every strip a request carries that this parser hasn't returned yet, in request order
+  // (system → tools → messages) — first sight wins
+  strips(rec) {
+    const files = this.memoryFiles(rec)
+    const found = [this.systemPrompt(rec), ...files.filter(f => f.source === 'system'), ...this.systemTools(rec),
+      this.deferredStrip(rec), ...files.filter(f => f.source === 'message'), ...this.reminderStrips(rec)]
+    return found.filter(f => {
+      if (!f || this.seenStrips.has(f.hash)) return false
+      this.seenStrips.add(f.hash)
+      return true
+    })
   }
 
   // Resolves $hash/$ref dedup wrappers at any depth — children first, so stored and returned
@@ -81,7 +91,6 @@ export class RequestParser {
 
   // The request's system prompt, from a resolveRefs'd record — a plain string or an array of
   // text blocks, minus any CLAUDE.md section (those files are strips of their own, see memoryFiles).
-  // The content hash is the dedup key: repeats collapse in the caller's map.
   systemPrompt(rec) {
     const sys = rec.request?.system
     if (sys == null || sys.$ref) return null // absent, or an unresolvable ref (truncated log)
@@ -155,7 +164,8 @@ export class RequestParser {
   memoryFiles(rec) {
     const req = rec.request
     const reminders = injectedTexts(req).filter(t => t.includes('<system-reminder>'))
-    const from = (source, list) => list.flatMap(t => splitClaudeMd(t).files).map(f => ({ source, ...f }))
+    // hashed with its path, so an edited file is sent anew but two files alike in content stay apart
+    const from = (source, list) => list.flatMap(t => splitClaudeMd(t).files).map(f => ({ source, ...f, hash: contentHash(`${f.file_path}\n${f.content}`) }))
     return [...from('system', texts(req?.system)), ...from('message', reminders)]
   }
 

@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import { flatten, groupTurns, tokenPoints, cycleDurations, isContextTurn } from '../src/renderer/sessions/view/transcript.js'
-import { parseCommand, groupInstructions, sideChannelNote, compactTitle, persistedOutput } from '../src/renderer/sessions/view/labels.js'
+import { parseCommand, groupInstructions, compactTitle, persistedOutput } from '../src/renderer/sessions/view/labels.js'
 import { SessionParser } from '../src/main/sessions/SessionParser.js'
 
 describe('parseCommand', () => {
@@ -387,24 +387,42 @@ describe('groupTurns — the instruction block', () => {
   ]
   const instr = (timestamp, file_path, source) => ({ timestamp, file_path, source, content: 'x' })
 
-  it('gives each request\'s instructions a block of their own, at their place in the timeline', () => {
-    const groups = groupTurns(flatten(items, [
-      { ...instr('2026-07-24T18:07:30.326Z', 'System Prompt', 'system'), side: true }, // title generation, 10ms before the main loop
-      instr('2026-07-24T18:07:30.336Z', 'System Prompt', 'system'),
-      instr('2026-07-24T18:07:30.336Z', 'System Tools', 'tools'),
-      instr('2026-07-24T18:08:30.336Z', 'Notification', 'message'), // a later request's additions, together
-      instr('2026-07-24T18:08:30.336Z', 'MCP Tools', 'tools'),
-      { ...instr('2026-07-24T18:08:40.000Z', 'System Prompt', 'system'), side: true }, // an auto-mode check
-    ]))
-    expect(groups.map(g => g.kind)).toEqual(['instruction', 'instruction', 'user', 'instruction', 'user', 'instruction'])
-    const blocks = groups.filter(g => g.kind === 'instruction').map(g => g.turns[0].blocks.map(b => b.it))
-    expect(blocks.map(list => list.map(it => it.file_path))).toEqual([['System Prompt'], ['System Prompt', 'System Tools'], ['Notification', 'MCP Tools'], ['System Prompt']])
-    expect(blocks.map(list => !!sideChannelNote(list))).toEqual([true, false, false, true])
+  it('gives each side request\'s instructions a Proxy block of their own, at their place in the timeline', () => {
+    const groups = groupTurns(flatten(items, { side: [
+      instr('2026-07-24T18:07:30.326Z', 'System Prompt', 'system'), // title generation
+      instr('2026-07-24T18:08:40.000Z', 'System Prompt', 'system'), // an auto-mode check, together with what it carried
+      instr('2026-07-24T18:08:40.000Z', 'CLAUDE.md', 'message'),
+    ] }))
+    expect(groups.map(g => g.kind)).toEqual(['instruction', 'user', 'user', 'instruction'])
+    const blocks = groups.filter(g => g.kind === 'instruction').map(g => g.turns[0].blocks.map(b => b.it.file_path))
+    expect(blocks).toEqual([['System Prompt'], ['System Prompt', 'CLAUDE.md']])
+  })
+
+  it('shows what a prompt\'s request first sent as System telling Claude, above the prompt', () => {
+    const reply = { type: 'assistant', uuid: 'a1', timestamp: '2026-07-24T18:07:41.000Z', message: { role: 'assistant', id: 'm1', model: 'claude-opus-5-5', content: [{ type: 'text', text: 'ok' }] } }
+    const groups = groupTurns(flatten([items[0], reply], { loop: [
+      instr('2026-07-24T18:07:31.400Z', 'System Prompt', 'system'),
+      instr('2026-07-24T18:07:31.400Z', 'System Tools', 'tools'),
+      instr('2026-07-24T18:07:31.400Z', 'CLAUDE.md', 'message'),
+    ] }))
+    expect(groups.map(g => g.kind)).toEqual(['system', 'user', 'assistant'])
+    expect(groups[0].turns[0].blocks.map(b => [b.type, b.it.file_path, b.it.model])).toEqual([
+      ['instruction', 'System Prompt', 'claude-opus-5-5'], // costed with the conversation's model
+      ['instruction', 'System Tools', 'claude-opus-5-5'],
+      ['instruction', 'CLAUDE.md', 'claude-opus-5-5'],
+    ])
+  })
+
+  it('shows what a mid-turn request first sent below the tool work it followed', () => {
+    const call = { type: 'assistant', uuid: 'a1', timestamp: '2026-07-24T18:07:35.000Z', message: { role: 'assistant', id: 'm1', content: [{ type: 'tool_use', id: 't1', name: 'Read', input: {} }] } }
+    const result = { type: 'user', uuid: 'r1', timestamp: '2026-07-24T18:07:36.000Z', message: { role: 'user', content: [{ type: 'tool_result', tool_use_id: 't1', content: 'x' }] } }
+    const turns = flatten([items[0], call, result], { loop: [instr('2026-07-24T18:07:36.500Z', 'CLAUDE.md', 'message')] })
+    expect(turns.map(t => t.role)).toEqual(['user', 'assistant', 'system'])
   })
 
   it('times a response from the message it answers, not from a Proxy block in between', () => {
     const reply = { type: 'assistant', uuid: 'a1', timestamp: '2026-07-24T18:07:41.000Z', message: { role: 'assistant', id: 'm1', content: [{ type: 'text', text: 'ok' }] } }
-    const groups = groupTurns(flatten([items[0], reply], [instr('2026-07-24T18:07:36.000Z', 'Notification', 'message')]))
+    const groups = groupTurns(flatten([items[0], reply], { side: [instr('2026-07-24T18:07:36.000Z', 'Notification', 'message')] }))
     expect(groups.map(g => g.kind)).toEqual(['user', 'instruction', 'assistant'])
     expect(cycleDurations(groups)[2]).toBe(10_000)
   })

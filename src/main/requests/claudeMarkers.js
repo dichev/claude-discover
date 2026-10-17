@@ -1,7 +1,7 @@
 // The text markers Claude Code puts on the wire, coarse to fine: what a request is for (its system
 // prompt / trailing message), the system-reminders it injects into user messages, and the memory
 // files carried inside one of those. Pure text functions — RequestParser applies them to the proxy
-// log's records.
+// log's and the transcript's request records.
 
 const headline = line => line.length > 34 ? line.slice(0, 33).trimEnd() + '…' : line
 
@@ -24,7 +24,7 @@ export const classifyRequest = (req, url) => {
   // auto permission mode vets each tool call with a security-monitor prompt before running it
   if (sysText.includes('You are a security monitor') || user.startsWith('<transcript>')) return ['security', 'Auto-mode check']
   if (sysText.includes('Generate a concise, sentence-case title') || sysText.includes('You are naming a coding session')) return ['title', 'Session title']
-  if (sysText.includes('performing a web search')) return ['web', 'Web search']
+  if (sysText.includes('performing a web search') || sysText.includes('You run a web search')) return ['web', 'Web search']
   if (user.startsWith('[SUGGESTION MODE')) return ['suggest', 'Suggestions']
   if (user.startsWith('Web page content')) return ['web', 'Web fetch']
   if (user.startsWith('Describe your most recent action')) return ['status', 'Status blurb']

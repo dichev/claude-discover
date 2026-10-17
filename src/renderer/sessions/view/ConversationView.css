@@ -11,7 +11,7 @@
 }
 
 .conv-row + .conv-row { margin-top: 15px; }
-/* The session's one instruction row (see flatten) — the gap keeps its strips off the first message. */
+/* A side request's Proxy block — the gap keeps its strips off the next message. */
 .conv-row-instruction + .conv-row { margin-top: 20px; }
 .conv-row-assistant + .conv-row-user { margin-top: 60px; }
 .conv-row-assistant + .conv-row-assistant { margin-top: 0; }
@@ -219,6 +219,7 @@ button.msg-summary:hover { color: var(--text); background: var(--bg-elev-2); bor
 
 .turn-system {
   & .turn-blocks > .aux { align-self: flex-start; }
+  & .turn-blocks > .instruction-file { align-self: stretch; } /* full width, so its token count lines up right */
   & .turn-blocks > .block-text {
     border: 1px dashed var(--border);
     border-radius: 6px;
@@ -366,24 +367,16 @@ button.msg-summary:hover { color: var(--text); background: var(--bg-elev-2); bor
   }
 }
 
-/* Instruction files (system prompt / CLAUDE.md / memory) extracted from the captured API requests,
-   and the label over each group — one unbroken strip down the whole run. */
+/* Instruction files (system prompt / CLAUDE.md / memory) a side request sent, and the label over
+   each group — one unbroken strip down the whole Proxy block. */
 .instruction-file,
-.instruction-source,
-.instruction-missing {
+.instruction-source {
   border-left: 2px solid #a78bfa;
   padding-left: 8px;
   margin-left: -10px;
 }
-
-/* Stands in for the strips when nothing was captured (see InstructionsMissing). */
-.instruction-missing {
-  color: var(--text-faint);
-  font-size: calc(11px * var(--font-scale, 1));
-}
-.instruction-missing.pending :is(.msg-summary, .instruction-missing-text) {
-  visibility: hidden;
-}
+/* The loop's own system prompt and tools sit in a System row, among its directives */
+.instruction-file.directive { border-left: none; padding-left: 0; margin-left: 0; }
 
 /* Group label over the strips read from one part of the request (system prompt / tools / user message). */
 .instruction-source {

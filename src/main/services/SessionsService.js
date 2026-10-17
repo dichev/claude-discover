@@ -3,6 +3,7 @@ import { startOfDay, endOfDay, startOfWeek, endOfWeek, startOfMonth, endOfMonth,
 import { SessionFile } from '../sessions/SessionFile.js'
 import { RequestFile } from '../requests/RequestFile.js'
 import { UNATTRIBUTED } from '../../../bin/proxy.config.js'
+import { TranscriptInstructions } from '../requests/TranscriptInstructions.js'
 import { SessionParser, suffixLabels } from '../sessions/SessionParser.js'
 import { SessionsScanner } from '../sessions/SessionsScanner.js'
 import { MetaCache } from '../sessions/MetaCache.js'
@@ -57,13 +58,33 @@ export class SessionsService extends EventEmitter {
     const reader = new SessionFile(meta.filePath)
     const parser = new SessionParser({ sessionId: reader.sessionId, parentSessionId: reader.parentSessionId, filePath: reader.filePath, mtime: meta.mtime, range })
     const items = []
-    await reader.stream(obj => { if (parser.feed(obj)) items.push(obj) })
+    const transcript = new TranscriptInstructions()
+    const loop = []
+    let start = null // what the conversation's first request sent — its context on any day
+    const [, side] = await Promise.all([
+      reader.stream(obj => {
+        // read ahead of the range filter, so what was sent before the period isn't listed again
+        const strips = transcript.feed(obj)
+        if (obj.type === 'api-request') start ??= strips
+        if (parser.feed(obj)) {
+          items.push(obj)
+          loop.push(...strips)
+        }
+      }),
+      // what the side requests (title, auto-mode check, …) sent, which only the capture proxy saw
+      this.#requestFile(reader.sessionId, reader.parentSessionId).readInstructions(range),
+    ])
+    if (start?.length && !loop.includes(start[0])) loop.unshift(...start)
     items.sort((a, b) => a._ts - b._ts) // .jsonl lines aren't always in timestamp order
-    for (const o of items) delete o._ts
-    // System prompts and memory files captured by the request proxy, shipped separately from the
-    // transcript items; the renderer slots them into the view by timestamp.
-    const instructions = await this.#requestFile(reader.sessionId, reader.parentSessionId).readInstructions(range)
-    return { items, instructions }
+    const keys = new Set(loop.map(s => s.hash))
+    for (const o of items) {
+      delete o._ts
+      // already listed among the loop's strips, so the view leaves it out
+      if (o.type === 'attachment' && TranscriptInstructions.listed(o, keys)) o._listed = true
+    }
+    // Shipped apart from the transcript items, the renderer slots them in by timestamp: the loop's as
+    // System rows, the side requests' as Proxy blocks
+    return { items, instructions: { loop, side } }
   }
 
   // Captured API requests for a session (see bin/proxy.mjs), period-filtered like readSession.

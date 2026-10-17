@@ -17,7 +17,7 @@ const TABS = [
 
 export default function Session({ meta, missing, date, granularity = 'day', onShowPeriodOf }) {
   const [items, setItems]               = useState(null)
-  const [instructions, setInstructions] = useState([])
+  const [instructions, setInstructions] = useState({})
   const [error, setError]               = useState(null)
   const [mode, setMode]               = useLocalStorage('session.view-mode', 'conversation')
   const [expandAll, setExpandAll]       = useState(null)
@@ -30,7 +30,7 @@ export default function Session({ meta, missing, date, granularity = 'day', onSh
   // the content in place below, without flashing the loading state.
   useEffect(() => {
     setItems(null)
-    setInstructions([])
+    setInstructions({})
     setError(null)
   }, [filePath, date, granularity])
 
@@ -42,7 +42,7 @@ export default function Session({ meta, missing, date, granularity = 'day', onSh
     window.api.readSession(filePath, date || null, granularity).then((res) => {
       if (cancelled || !res) return
       setItems(res.items)
-      setInstructions(res.instructions || [])
+      setInstructions(res.instructions || {})
       setError(null)
     }, err => {
       if (!cancelled) setError(err)
@@ -88,7 +88,7 @@ export default function Session({ meta, missing, date, granularity = 'day', onSh
                 </div>
                 {mode === 'conversation' ? (
                   <div className="view-tab-pane-content">
-                    {items ? <ConversationView items={items} instructions={instructions} desktop={desktop} filePath={meta.parentFilePath ?? meta.filePath} expandAll={expandAll} continuesFrom={meta.continuesFrom} continuesTo={meta.continuesTo} onShowPeriodOf={onShowPeriodOf} />
+                    {items ? <ConversationView items={items} instructions={instructions} filePath={meta.parentFilePath ?? meta.filePath} expandAll={expandAll} continuesFrom={meta.continuesFrom} continuesTo={meta.continuesTo} onShowPeriodOf={onShowPeriodOf} />
                            : loadError || <div className="empty">Loading conversation…</div>}
                   </div>
                 ) : mode === 'jsonl' ? (

@@ -4,12 +4,22 @@ import { humanize, parseCommand } from './labels.js'
 // Pure transcript model, shared by ConversationView (rendering) and MarkdownSession (agent
 // payload): raw session items → turns (flatten) → row groups (groupTurns) → per-group stats.
 
+// o200k length per text, cached: the view re-renders on every transcript append, re-counting the same prompts and tools
+const lengths = new Map()
+const tokenLength = text => {
+  if (!lengths.has(text)) {
+    if (lengths.size >= 1000) lengths.clear()
+    lengths.set(text, encode(text).length)
+  }
+  return lengths.get(text)
+}
+
 // Estimate Claude tokens from tiktokenizer's o200k counts
 export const countTokens = (text, model = '') => {
   if (!text) return 0
   const LEGACY_CLAUDE = /-(3|4)(-|$)/
   const scale = LEGACY_CLAUDE.test(model) ? 1.13 : 1.5
-  return Math.round(encode(text).length * scale)
+  return Math.round(tokenLength(text) * scale)
 }
 
 // The user's own prompt, typed while Claude was working and recorded nowhere else — so it renders as
@@ -81,9 +91,9 @@ const metaTurn = (it, role, blocks, uuid = it.uuid) => ({
 // `folded`: routine bookkeeping, tucked behind its row's summary — only warnings and errors show unless a note says otherwise
 const noteTurn = (it, note, uuid) => metaTurn(it, 'system', [{ type: 'system', folded: !note.level, ...note }], uuid)
 
-// `instructions` are the system prompts / memory files captured by the request proxy
-// (readSession's separate `instructions` list) — not transcript items, merged in by timestamp.
-export function flatten(items, instructions = []) {
+// `instructions` are the system prompts, tools and memory files read off the API requests (readSession's
+// separate { loop, side } lists) — not transcript items, merged in by timestamp.
+export function flatten(items, { loop = [], side = [] } = {}) {
   const turns = []
   const results = {}
   const companions = {}
@@ -98,6 +108,7 @@ export function flatten(items, instructions = []) {
   }
   for (let it of items) {
     if (it._relogged) continue // the original already shows
+    if (it._listed) continue // an attachment the request's System items already list
     // Rendered just before the record carrying the change, under its own key (state records have no uuid)
     const change = stateNote(it, state)
     if (change) turns.push(noteTurn(it, change, `state-${turns.length}`))
@@ -223,18 +234,23 @@ export function flatten(items, instructions = []) {
       .filter((b) => !(b.type === 'tool_result' && calls.has(b.tool_use_id)))
   }
   const out = turns.filter((t) => t.blocks.length > 0)
-  // Each request's first-seen instructions form one turn, slotted backdated 500ms above what it answered —
-  // the first request's are the conversation's start; later ones' (task notifications, side channels, …) add on.
-  for (const [ts, list] of Object.entries(Object.groupBy(instructions, it => it.timestamp))) {
-    const turn = {
-      uuid: `instructions-${ts}`,
-      role: 'instruction',
-      ts: Date.parse(ts) - 500,
-      model: null, usage: null, tokenDelta: null, tokenTotal: null,
-      blocks: list.map(it => ({ type: 'instruction', it }))
-    }
+  const slot = turn => {
     const i = out.findIndex(t => t.ts != null && t.ts > turn.ts)
     i === -1 ? out.push(turn) : out.splice(i, 0, turn)
+  }
+  // Each side request's first-seen instructions form a Proxy turn, slotted backdated 500ms above what it answered
+  for (const [ts, list] of Object.entries(Object.groupBy(side, it => it.timestamp))) {
+    const blocks = list.map(it => ({ type: 'instruction', it }))
+    slot({ ...metaTurn({ timestamp: ts }, 'instruction', blocks, `instructions-${ts}`), ts: Date.parse(ts) - 500 })
+  }
+  // What the loop's requests first sent is System's to Claude, in request order (system → tools → messages).
+  // A prompt's own request sent it ahead of the prompt (memory files lead its message), so it shows above it.
+  const model = currentModel(out)
+  for (const [ts, list] of Object.entries(Object.groupBy(loop, it => it.timestamp))) {
+    const blocks = list.map(it => ({ type: 'instruction', it: { ...it, model: it.model ?? model } }))
+    const turn = metaTurn({ timestamp: ts }, 'system', blocks, `prompt-${ts}`)
+    const i = out.findLastIndex(t => t.ts != null && t.ts <= turn.ts && ['user', 'assistant', 'tool'].includes(t.role) && !isContextTurn(t))
+    out[i]?.role === 'user' ? out.splice(i, 0, turn) : slot(turn)
   }
   return out
 }

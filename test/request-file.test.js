@@ -5,7 +5,8 @@ import os from 'node:os'
 import path from 'node:path'
 import { describe, it, expect, beforeAll, afterAll } from 'vitest'
 import { RequestFile } from '../src/main/requests/RequestFile.js'
-import { splitClaudeMd } from '../src/main/requests/claudeMarkers.js'
+import { RequestParser } from '../src/main/requests/RequestParser.js'
+import { splitClaudeMd, classifyRequest } from '../src/main/requests/claudeMarkers.js'
 
 const system = [{ type: 'text', text: 'You are Claude Code' }]
 const userMsg = { role: 'user', content: 'hi' }
@@ -45,6 +46,12 @@ describe('RequestFile', () => {
     const out = await new RequestFile('sess-1', { dir }).read()
     expect(out[0].kind).toEqual(['main', 'User message'])
     expect(out[2].kind).toEqual(['count', 'Token count']) // by url — works even for old body-less records
+  })
+
+  it('classifies both web search prompt wordings as a side channel', () => {
+    const search = text => classifyRequest({ system: [{ type: 'text', text }], tools: [{ type: 'web_search_20250305', name: 'web_search' }], messages: [userMsg] })
+    expect(search('You are an assistant for performing a web search tool use')).toEqual(['web', 'Web search'])
+    expect(search('You run a web search for another Claude model')).toEqual(['web', 'Web search'])
   })
 
   it('leaves requests with an unrecognized system prompt unclassified', async () => {
@@ -196,7 +203,13 @@ Contents of C:\\Users\\me\\.claude\\projects\\p\\memory\\MEMORY.md (user's auto-
   })
 })
 
-describe('RequestFile.readInstructions', () => {
+// Every request's first-sent strips, read off the log the way readInstructions reads the side requests'
+const stripsOf = async (sessionId, opts = {}) => {
+  const parser = new RequestParser()
+  return (await new RequestFile(sessionId, { dir, ...opts }).read()).filter(r => r.request).flatMap(r => parser.strips(r).map(f => ({ timestamp: r.timestamp, ...f })))
+}
+
+describe('RequestParser.strips', () => {
   it('collects the system prompt and unique memory files across all requests', async () => {
     const withReminder = (ts, system) => ({ type: 'api-request', timestamp: ts, url: 'POST /v1/messages', status: 200,
       request: { model: 'claude-sonnet-5', ...(system && { system }), messages: [{ $hash: `h-${ts}`, value: { role: 'user', content: [{ $hash: `b-${ts}`, value: { type: 'text', text: reminder } }] } }] } })
@@ -204,7 +217,7 @@ describe('RequestFile.readInstructions', () => {
       JSON.stringify(withReminder('2026-07-14T10:00:00.000Z', { $hash: 'sys1', value: 'Be terse' })),
       JSON.stringify(withReminder('2026-07-15T10:00:00.000Z', { $ref: 'sys1' })), // e.g. a subagent request repeating the same files
     ].join('\n') + '\n')
-    const files = await new RequestFile('sess-2', { dir }).readInstructions()
+    const files = await stripsOf('sess-2')
     expect(files.map(f => f.file_path)).toEqual([
       'System Prompt', 'C:\\Users\\me\\.claude\\CLAUDE.md', 'D:\\proj\\CLAUDE.md', 'C:\\Users\\me\\.claude\\projects\\p\\memory\\MEMORY.md',
       'Session Context', // the rest of the reminder, once its files are strips of their own
@@ -233,7 +246,7 @@ describe('RequestFile.readInstructions', () => {
         messages: [{ role: 'user', content: [{ type: 'text', text }] }, { role: 'assistant', content: wrap('quoted, not injected') },
           { role: 'user', content: wrap('[SYSTEM NOTIFICATION - NOT USER INPUT]\n<task-notification>done</task-notification>') + 'again' }] } },
     ].map(r => JSON.stringify(r)).join('\n') + '\n')
-    const files = await new RequestFile('sess-rem', { dir }).readInstructions()
+    const files = await stripsOf('sess-rem')
     expect(files.map(f => [f.file_path, f.memory_type])).toEqual([
       ['Deferred Tools', '1 deferred system tool'],
       ['D:\\proj\\CLAUDE.md', 'Project'], // the wrapper reminder is nothing but its files — no strip of its own
@@ -246,23 +259,6 @@ describe('RequestFile.readInstructions', () => {
     expect(files.slice(0, -1).every(f => f.timestamp === '2026-07-14T10:00:00.000Z')).toBe(true) // a repeated reminder dedups by content
   })
 
-  it('flags side-channel requests, skips count_tokens probes, and keeps a range\'s strips plus the conversation\'s start', async () => {
-    const base = { type: 'api-request', url: 'POST /v1/messages', status: 200 }
-    const req = (timestamp, system, text, url = base.url) => ({ ...base, url, timestamp, request: { model: 'claude-sonnet-5', system, messages: [{ role: 'user', content: text }] } })
-    fs.writeFileSync(path.join(dir, 'sess-side.requests.jsonl'), [
-      req('2026-07-14T10:00:00.000Z', 'You are Claude Code, counted', 'hi', 'POST /v1/messages/count_tokens'), // re-sends the conversation — not its own strips
-      req('2026-07-14T10:00:00.500Z', 'You are naming a coding session', 'hi'), // title gen, sent before the main loop
-      req('2026-07-14T10:00:01.000Z', 'You are Claude Code', 'hi'),
-      req('2026-07-15T10:01:00.000Z', 'You are Claude Code, now with a changed prompt', 'more'),
-    ].map(r => JSON.stringify(r)).join('\n') + '\n')
-    const file = new RequestFile('sess-side', { dir })
-    expect((await file.readInstructions()).map(f => [f.content, f.side])).toEqual([
-      ['You are naming a coding session', true], ['You are Claude Code', false], ['You are Claude Code, now with a changed prompt', false],
-    ])
-    const day2 = { start: Date.parse('2026-07-15T00:00:00.000Z'), end: Date.parse('2026-07-15T23:59:59.999Z') }
-    expect((await file.readInstructions(day2)).map(f => f.content)).toEqual(['You are Claude Code', 'You are Claude Code, now with a changed prompt'])
-  })
-
   // An Agent SDK app appends its own files to the system prompt in Claude Code's reminder shape
   it('reads a CLAUDE.md section from the system prompt too, and leaves it out of the System Prompt strip', async () => {
     const appended = 'You are Claude Code\n\nCodebase and user instructions are shown below. Be sure to adhere to these instructions.\n\n'
@@ -271,7 +267,7 @@ describe('RequestFile.readInstructions', () => {
     fs.writeFileSync(path.join(dir, 'sess-p.requests.jsonl'), JSON.stringify({ type: 'api-request', url: 'POST /v1/messages',
       status: 200, timestamp: '2026-07-14T10:00:00.000Z', request: { model: 'claude-sonnet-5',
         system: [{ type: 'text', text: 'billing' }, { type: 'text', text: appended }], messages: [userMsg] } }) + '\n')
-    const files = await new RequestFile('sess-p', { dir }).readInstructions()
+    const files = await stripsOf('sess-p')
     expect(files).toMatchObject([
       { source: 'system', file_path: 'System Prompt', content: 'billing\n\nYou are Claude Code' },
       { source: 'system', file_path: 'D:\\biz\\ROLE.md', name: 'D:\\biz\\ROLE.md', memory_type: 'role instructions', content: '# Customer Support\n\nRole body.' },
@@ -288,7 +284,7 @@ describe('RequestFile.readInstructions', () => {
       { ...base, timestamp: '2026-07-14T10:01:00.000Z', request: { model: 'claude-opus-4-8',
         system: { $hash: 's2', value: [{ type: 'text', text: 'other billing' }, { $ref: 'p1' }] }, messages: [] } },
     ].map(r => JSON.stringify(r)).join('\n') + '\n')
-    const files = await new RequestFile('sess-s', { dir }).readInstructions()
+    const files = await stripsOf('sess-s')
     expect(files.map(f => f.content)).toEqual([
       'billing\n\nYou are Claude Code',
       'other billing\n\nYou are Claude Code', // block resolved from the earlier record
@@ -309,7 +305,7 @@ describe('RequestFile.readInstructions', () => {
       { ...base, timestamp: '2026-07-14T10:02:00.000Z', request: { model: 'claude-opus-4-8',
         tools: { $hash: 't2', value: [{ $ref: 'ta' }, bash, web] }, messages: [] } }, // grown by one deferred tool
     ].map(r => JSON.stringify(r)).join('\n') + '\n')
-    const files = await new RequestFile('sess-t', { dir }).readInstructions()
+    const files = await stripsOf('sess-t')
     expect(files).toMatchObject([
       { timestamp: '2026-07-14T10:00:00.000Z', file_path: 'System Tools', memory_type: '2 tools', model: 'claude-sonnet-5',
         content: `## Read\n\nReads a file\n\n${schema}\n\n## Bash\n\nRuns a command`, kind: 'main' },
@@ -325,7 +321,7 @@ describe('RequestFile.readInstructions', () => {
       { name: 'mcp__pw__type', description: 'Types' }]
     fs.writeFileSync(path.join(dir, 'sess-m.requests.jsonl'),
       JSON.stringify({ ...base, timestamp: '2026-07-14T10:00:00.000Z', request: { model: 'claude-sonnet-5', tools, messages: [] } }) + '\n')
-    const files = await new RequestFile('sess-m', { dir }).readInstructions()
+    const files = await stripsOf('sess-m')
     expect(files).toMatchObject([
       { file_path: 'System Tools', memory_type: '1 tool', content: '## Read\n\nReads a file' },
       { file_path: 'MCP Tools', memory_type: '2 tools', content: '## mcp__pw__click\n\nClicks\n\n## mcp__pw__type\n\nTypes',
@@ -333,7 +329,7 @@ describe('RequestFile.readInstructions', () => {
     ])
   })
 
-  it('reports the deferred roster once, beside the tools of the same request', async () => {
+  it('reports the deferred roster once, after the tools of the same request', async () => {
     const env = ['You are powered by Opus 5.', '',
       'The following deferred tools are now available via ToolSearch. Use ToolSearch to load their schemas before calling them:',
       'WebFetch', 'WebSearch', 'mcp__pw__click', 'mcp__pw__type', 'mcp__ide__getDiagnostics', '',
@@ -342,11 +338,11 @@ describe('RequestFile.readInstructions', () => {
     fs.writeFileSync(path.join(dir, 'sess-d.requests.jsonl'), JSON.stringify({ type: 'api-request', url: 'POST /v1/messages',
       status: 200, timestamp: '2026-07-14T10:00:00.000Z', request: { model: 'claude-sonnet-5', tools,
         messages: [{ role: 'user', content: [{ type: 'text', text: env }] }] } }) + '\n')
-    const files = await new RequestFile('sess-d', { dir }).readInstructions()
+    const files = await stripsOf('sess-d')
     expect(files.map(f => [f.source, f.file_path, f.memory_type])).toEqual([
-      ['message', 'Deferred Tools', '2 deferred system tools, 3 deferred MCP tools'], // the roster's own strip carries the counts
       ['tools', 'System Tools', '1 tool'],
       ['tools', 'MCP Tools', '1 tool'],
+      ['message', 'Deferred Tools', '2 deferred system tools, 3 deferred MCP tools'], // the roster's own strip carries the counts
     ])
   })
 
@@ -356,21 +352,10 @@ describe('RequestFile.readInstructions', () => {
     fs.writeFileSync(path.join(dir, 'sess-r.requests.jsonl'), JSON.stringify({ type: 'api-request', url: 'POST /v1/messages',
       status: 200, timestamp: '2026-07-14T10:00:00.000Z', request: { model: 'claude-sonnet-5', tools: [],
         messages: [{ role: 'user', content: [{ type: 'text', text: env }] }] } }) + '\n')
-    const files = await new RequestFile('sess-r', { dir }).readInstructions()
+    const files = await stripsOf('sess-r')
     expect(files).toMatchObject([
       { file_path: 'Deferred Tools', memory_type: '2 deferred system tools, 1 deferred MCP tool', content: '```\nWebFetch\nWebSearch\nmcp__pw__click\n```' },
     ])
-  })
-
-  it('skips a body-less record logged after the deferred roster', async () => {
-    const env = 'The following deferred tools are now available via ToolSearch, before calling them:\nWebFetch\n'
-    fs.writeFileSync(path.join(dir, 'sess-nb.requests.jsonl'), [
-      { type: 'api-request', url: 'POST /v1/messages', status: 200, timestamp: '2026-07-14T10:00:00.000Z',
-        request: { model: 'claude-sonnet-5', messages: [{ role: 'user', content: [{ type: 'text', text: env }] }] } },
-      { type: 'api-request', url: 'POST /v1/messages/count_tokens', status: 200, timestamp: '2026-07-14T10:01:00.000Z', model: 'claude-sonnet-5', size: 42 },
-    ].map(r => JSON.stringify(r)).join('\n') + '\n')
-    const files = await new RequestFile('sess-nb', { dir }).readInstructions()
-    expect(files.map(f => f.file_path)).toEqual(['Deferred Tools'])
   })
 
   it('emits only the MCP strip when a later request adds nothing but MCP tools', async () => {
@@ -381,12 +366,12 @@ describe('RequestFile.readInstructions', () => {
       { ...base, timestamp: '2026-07-14T10:01:00.000Z', request: { model: 'claude-sonnet-5', // ToolSearch pulled a deferred MCP tool in
         tools: [read, { name: 'mcp__ide__getDiagnostics', description: 'Diagnostics' }], messages: [] } },
     ].map(r => JSON.stringify(r)).join('\n') + '\n')
-    const files = await new RequestFile('sess-m2', { dir }).readInstructions()
+    const files = await stripsOf('sess-m2')
     expect(files.map(f => [f.file_path, f.memory_type])).toEqual([['System Tools', '1 tool'], ['MCP Tools', '1 tool']])
   })
 
   it('joins block-array system prompts into one text', async () => {
-    const files = await new RequestFile('sess-1', { dir }).readInstructions()
+    const files = await stripsOf('sess-1')
     expect(files).toMatchObject([{ timestamp: '2026-07-14T10:00:00.000Z',
       file_path: 'System Prompt', memory_type: '', model: 'claude-sonnet-5', content: 'You are Claude Code', kind: 'main' }])
   })
@@ -398,7 +383,7 @@ describe('RequestFile.readInstructions', () => {
         system: { $hash: 'k1', value: 'You are a security monitor reviewing tool calls' },
         messages: [{ $hash: 'km', value: { role: 'user', content: '<transcript>…</transcript>' } }] } },
     ].map(r => JSON.stringify(r)).join('\n') + '\n')
-    const files = await new RequestFile('sess-k', { dir }).readInstructions()
+    const files = await stripsOf('sess-k')
     expect(files[0]).toMatchObject({ memory_type: 'Auto-mode check', model: 'claude-haiku-4-5', kind: 'security' })
   })
 
@@ -411,9 +396,36 @@ describe('RequestFile.readInstructions', () => {
       { ...base, timestamp: '2026-07-14T10:01:00.000Z', request: { model: 'claude-sonnet-5', tools: [{ name: 'Read', description: 'Reads a file' }],
         system: 'You are Claude Code', messages: [{ role: 'user', content: 'hi' }] } },
     ].map(r => JSON.stringify(r)).join('\n') + '\n')
-    const files = await new RequestFile('sess-a', { dir }).readInstructions()
+    const files = await stripsOf('sess-a')
     expect(files.filter(f => f.file_path === 'System Prompt').map(f => f.memory_type))
       .toEqual(['Generate a short kebab-case name…', '']) // the agent loop itself stays label-less
+  })
+
+})
+
+describe('RequestFile.readInstructions', () => {
+  const base = { type: 'api-request', url: 'POST /v1/messages', status: 200 }
+  const req = (timestamp, system, text, url = base.url) => ({ ...base, url, timestamp, request: { model: 'claude-sonnet-5', system, messages: [{ role: 'user', content: text }] } })
+  const attribution = '<system-reminder>\nAttribution for git commits and pull requests you create from here on:\n- none\n</system-reminder>'
+  beforeAll(() => {
+    fs.writeFileSync(path.join(dir, 'sess-side.requests.jsonl'), [
+      req('2026-07-14T10:00:00.000Z', 'You are Claude Code, counted', 'hi', 'POST /v1/messages/count_tokens'), // re-sends the conversation — not its own strips
+      req('2026-07-14T10:00:00.500Z', 'You are naming a coding session', 'hi'), // title gen, sent before the main loop
+      req('2026-07-14T10:00:01.000Z', 'You are Claude Code', attribution),
+      { type: 'api-request', url: 'POST /v1/messages/count_tokens', status: 200, timestamp: '2026-07-14T10:01:00.000Z', model: 'claude-sonnet-5', size: 42 }, // body-less
+      req('2026-07-15T10:01:00.000Z', 'You are a security monitor reviewing tool calls', attribution),
+    ].map(r => JSON.stringify(r)).join('\n') + '\n')
+  })
+
+  it('reads the side-channel requests only, without what the loop already sent', async () => {
+    expect((await new RequestFile('sess-side', { dir }).readInstructions()).map(f => f.content)).toEqual([
+      'You are naming a coding session', 'You are a security monitor reviewing tool calls', // its attribution reminder came from the loop
+    ])
+  })
+
+  it('keeps what was first sent within the range', async () => {
+    const day2 = { start: Date.parse('2026-07-15T00:00:00.000Z'), end: Date.parse('2026-07-15T23:59:59.999Z') }
+    expect((await new RequestFile('sess-side', { dir }).readInstructions(day2)).map(f => f.content)).toEqual(['You are a security monitor reviewing tool calls'])
   })
 
   it('returns [] when no log exists', async () => {
@@ -452,8 +464,8 @@ describe('RequestFile agent scoping', () => {
     expect(agent[0].request.system).toEqual([{ type: 'text', text: 'You are an agent' }, { type: 'text', text: 'You are Claude Code' }])
   })
 
-  it('agent-scoped readInstructions resolves values first logged by the parent, with its own tool dedup', async () => {
-    const files = await new RequestFile('sess-a', { dir, agentId: 'abc123' }).readInstructions()
+  it('agent-scoped strips resolve values first logged by the parent, with its own tool dedup', async () => {
+    const files = await stripsOf('sess-a', { agentId: 'abc123' })
     expect(files).toMatchObject([
       { timestamp: '2026-07-14T10:01:00.000Z', file_path: 'System Prompt', memory_type: '', model: 'claude-sonnet-5',
         content: 'You are an agent\n\nYou are Claude Code', kind: 'main' },
@@ -476,8 +488,9 @@ describe('RequestFile agent scoping', () => {
     expect(main.map(r => r.timestamp)).toEqual(['2026-07-14T10:00:00.000Z'])
   })
 
-  it('unscoped readInstructions skips the subagent record', async () => {
-    const files = await new RequestFile('sess-a', { dir }).readInstructions()
+  it('unscoped strips skip the subagent record', async () => {
+    const files = await stripsOf('sess-a')
     expect(files.map(f => f.content)).toEqual(['You are Claude Code', '## Read\n\nreads']) // no "You are an agent" — that prompt is not the session's
   })
 })
+

@@ -4,7 +4,7 @@ import { Globe, LaptopMinimal, Terminal } from 'lucide-react'
 import { fmtCompact, fmtDuration, plural, tone } from '../../utils/formatting'
 import { THRESHOLDS as T } from '../../utils/thresholds.js'
 import { flatten, groupTurns, cycleDurations, tokenPoints, currentModel, contextWindow, countTokens } from './transcript.js'
-import { toolSummary, parseCommand, groupInstructions, sideChannelNote, instructionTitle, compactTitle, persistedOutput, humanize } from './labels.js'
+import { toolSummary, parseCommand, groupInstructions, instructionTitle, compactTitle, persistedOutput, humanize, SIDE_NOTE } from './labels.js'
 import Divider from '../../ui/Divider.jsx'
 import LazyMount from '../../ui/LazyMount.jsx'
 import Markdown from '../../ui/Markdown.jsx'
@@ -34,7 +34,7 @@ const isCommandTurn = t => t.blocks.some(b => b.type === 'text' && parseCommand(
 const isClearTurn   = t => t.blocks.some(b => b.type === 'text' && parseCommand(b.text)?.name === '/clear')
 
 
-export default function ConversationView({ items, instructions = [], desktop = false, filePath = null, expandAll = null, continuesFrom = null, continuesTo = null, onShowPeriodOf }) {
+export default function ConversationView({ items, instructions = {}, filePath = null, expandAll = null, continuesFrom = null, continuesTo = null, onShowPeriodOf }) {
   const turns            = useMemo(() => flatten(items, instructions), [items, instructions])
   const groups           = useMemo(() => groupTurns(turns), [turns])
   const points           = useMemo(() => tokenPoints(groups), [groups])
@@ -56,7 +56,6 @@ export default function ConversationView({ items, instructions = [], desktop = f
             Continues from {format(continuesFrom, 'MMM d, yyyy HH:mm')}
           </Divider>
         )}
-        {instructions.length === 0 && <div className="conv-row conv-row-instruction"><InstructionsMissing desktop={desktop} pending={!groups.some(g => g.kind === 'assistant')} /></div>}
         {groups.map((g, i) => (
           <React.Fragment key={g.turns[0].uuid}>
             {i === branch?.index && branchDivider}
@@ -336,6 +335,9 @@ function Block({ block, speaker = null }) {
   if (block.type === 'attachment') {
     return <Attachment att={block.attachment} folded={block.folded} speaker={speaker} />
   }
+  if (block.type === 'instruction') {
+    return <InstructionFile it={block.it} model={block.it.model} tokens={countTokens(block.it.content, block.it.model)} speaker={speaker} className="directive" />
+  }
   if (block.type === 'system') {
     const className = `system-note ${block.level ?? ''} ${block.kind ?? ''}`
     if (!block.body) return <Label title={said(speaker, block.url ? <OpenLink href={block.url}>{block.title}</OpenLink> : block.title)} className={className} />
@@ -467,43 +469,22 @@ function JsonBlock({ value }) {
   return <Markdown className="block-text" text={'```json\n' + safeJson(value) + '\n```'} />
 }
 
-const ProxyHeader = ({ children }) => (
-  <div className="msg-header msg-proxy">
-    <Globe className="msg-icon" />
-    <span className="msg-author">Proxy</span>
-    {children}
-  </div>
-)
-
-// Stands in for InstructionRun when no requests were captured, so it's clear what the proxy would add.
-// `pending`: the proxy logs a request only once its reply ends, so before the first reply the notice
-// keeps its space but stays hidden — no layout shift whichever way it resolves.
-function InstructionsMissing({ desktop, pending }) {
-  return (
-    <div className={`instruction-missing${pending ? ' pending' : ''}`}>
-      <ProxyHeader><span className="msg-summary">not captured</span></ProxyHeader>
-      <div className="instruction-missing-text">
-        {desktop ? 'Not yet supported for Claude desktop app sessions.'
-                 : 'Turn on the Capture proxy to see the system prompt, tools and memory files.'}
-      </div>
-    </div>
-  )
-}
-
-// The session's instruction files, grouped by the part of the request they were read from
-// (system prompt / tools / user message) — labeled only when there's more than one part — with a
-// summed token total under them once there's more than one file to add up.
+// A side request's instruction files, grouped by the part of the request they came from (labeled once
+// there's more than one), with a summed token total once there's more than one file
 function InstructionRun({ turns, model }) {
   const strips = turns.flatMap(t => t.blocks).map(({ it }) => ({ ...it, tokens: countTokens(it.content, it.model ?? model) }))
-  const note   = sideChannelNote(strips)
   const groups = groupInstructions(strips)
   return (
     <>
-      <ProxyHeader>{note && <span className="msg-summary">{note}</span>}</ProxyHeader>
+      <div className="msg-header msg-proxy">
+        <Globe className="msg-icon" />
+        <span className="msg-author">Proxy</span>
+        <span className="msg-summary">{SIDE_NOTE}</span>
+      </div>
       {groups.map(([label, list]) => (
         <React.Fragment key={label}>
           {groups.length > 1 && <div className="aux instruction-source">{label}</div>}
-          {list.map(it => <InstructionFile key={`${it.hash ?? it.file_path}-${it.timestamp}`} it={it} model={model} tokens={it.tokens} />)}
+          {list.map(it => <InstructionFile key={`${it.hash}-${it.timestamp}`} it={it} model={model} tokens={it.tokens} />)}
         </React.Fragment>
       ))}
       {strips.length > 1 && (
@@ -513,14 +494,14 @@ function InstructionRun({ turns, model }) {
   )
 }
 
-function InstructionFile({ it, model, tokens }) {
+function InstructionFile({ it, model, tokens, speaker = null, className = '' }) {
   const [open, setOpen] = useCollapsed(false)
   const title           = instructionTitle(it, model)
   return (
-    <div className="aux instruction-file">
+    <div className={`aux instruction-file ${className}`}>
       <button className="aux-toggle" onClick={() => setOpen(v => !v)}>
         <span className="aux-chevron">{open ? '▾' : '▸'}</span>
-        <span className="instruction-title" data-tooltip-content={title} data-tip-if-truncated>{title}</span>
+        <span className="instruction-title" data-tooltip-content={title} data-tip-if-truncated>{said(speaker, title)}</span>
         {tokens > 0 && <span className="instruction-tokens" data-tooltip-content="Approx. tokens">~ {fmtCompact(tokens)}</span>}
       </button>
       {open && (
