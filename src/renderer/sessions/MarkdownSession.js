@@ -1,7 +1,7 @@
 import { format } from 'date-fns'
 import { fmtDuration, fmtNum, fmtUSD, fmtCompact, fmtToolCalls } from '../utils/formatting.js'
 import { flatten, currentModel, contextWindow } from './view/transcript.js'
-import { toolSummary, instructionTitle, groupInstructions, compactTitle } from './view/labels.js'
+import { toolSummary, instructionTitle, groupInstructions, sideChannelNote, compactTitle } from './view/labels.js'
 
 export const MAX_LINES = 10
 export const MAX_LINE_CHARS = 200
@@ -49,7 +49,9 @@ function renderBlock(b) {
 
 function renderTurn(t) {
   if (t.role === 'instruction') {
-    return '**Proxy:**\n\n' + groupInstructions(t.blocks.map(b => b.it))
+    const strips = t.blocks.map(b => b.it)
+    const note = sideChannelNote(strips)
+    return `**Proxy${note ? ` (${note})` : ''}:**\n\n` + groupInstructions(strips)
       .map(([label, list]) => `**Instructions loaded (${label}):**\n\n${list.map(it => renderBlock({ type: 'instruction', it })).join('\n\n')}`)
       .join('\n\n')
   }

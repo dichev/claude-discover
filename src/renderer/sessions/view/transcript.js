@@ -211,17 +211,15 @@ export function flatten(items, instructions = []) {
       .filter((b) => !(b.type === 'tool_result' && calls.has(b.tool_use_id)))
   }
   const out = turns.filter((t) => t.blocks.length > 0)
-  // All instructions form one turn, slotted backdated 500ms above the user message whose request
-  // carried the first of them — later requests' additions (deferred tools, newly read CLAUDE.md
-  // files) join the same block rather than scattering down the timeline.
-  if (instructions.length) {
-    const first = instructions.find(it => it.timestamp)
+  // Each request's first-seen instructions form one turn, slotted backdated 500ms above what it answered —
+  // the first request's are the conversation's start; later ones' (task notifications, side channels, …) add on.
+  for (const [ts, list] of Object.entries(Object.groupBy(instructions, it => it.timestamp))) {
     const turn = {
-      uuid: 'instructions',
+      uuid: `instructions-${ts}`,
       role: 'instruction',
-      ts: first ? Date.parse(first.timestamp) - 500 : null,
+      ts: Date.parse(ts) - 500,
       model: null, usage: null, tokenDelta: null, tokenTotal: null,
-      blocks: instructions.map(it => ({ type: 'instruction', it }))
+      blocks: list.map(it => ({ type: 'instruction', it }))
     }
     const i = out.findIndex(t => t.ts != null && t.ts > turn.ts)
     i === -1 ? out.push(turn) : out.splice(i, 0, turn)
@@ -317,7 +315,7 @@ export function cycleDurations(groups) {
     const tss = g.turns.map(t => t.ts).filter(ts => ts != null)
     const end = tss.length ? tss[tss.length - 1] : null
     const duration = g.kind === 'assistant' && end != null && prevEnd != null ? end - prevEnd : null
-    if (end != null) prevEnd = end
+    if (end != null && g.kind !== 'instruction') prevEnd = end // a mid-cycle Proxy block isn't where the response began
     return duration
   })
 }

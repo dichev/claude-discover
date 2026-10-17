@@ -73,6 +73,10 @@ export function groupInstructions(strips) {
   return Object.entries(SOURCE_LABELS).map(([source, label]) => [label, strips.filter(it => it.source === source)]).filter(([, list]) => list.length)
 }
 
+// A side-channel request's block (title gen, auto-mode check, …) — an API call of its own that
+// Claude Code makes beside the conversation, so none of it is in the conversation's context.
+export const sideChannelNote = strips => strips.every(it => it.side) ? 'separate session, not in context' : null
+
 // Instruction strip title: `name (memory_type)` — the request's model is named only when it
 // differs from the conversation's own (currentModel), i.e. for side-channel requests like title gen.
 export function instructionTitle(it, model) {

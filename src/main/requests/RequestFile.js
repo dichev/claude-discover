@@ -2,12 +2,20 @@ import fsp from 'node:fs/promises'
 import { join } from 'node:path'
 import { REQUESTS_DIR } from '../../../bin/proxy.config.js'
 import { RequestParser } from './RequestParser.js'
+import { isLoop } from './claudeMarkers.js'
 
 // The two sides spell an agent id differently, so compare a normalized key. An anonymous Task
 // subagent is `a<16hex>` in both the transcript id and the header; a named teammate is
 // `a<name>-<16hex>` in the transcript but `<name>@<team>` in the header.
 const agentKey = id => id?.includes('@') ? id.slice(0, id.indexOf('@'))
   : id?.replace(/^a/, '').replace(/-[0-9a-f]{16}$/, '') ?? null
+
+// `range` is { start, end } epoch ms, null for no bounds
+const inRange = (timestamp, range) => {
+  if (!range) return true
+  const t = Date.parse(timestamp)
+  return t >= range.start && t <= range.end
+}
 
 // Reads a session's NDJSON request log written by bin/proxy.mjs (RequestParser does the per-record work).
 // Subagents share their parent's session id, so their requests land in the parent's file and are told
@@ -38,24 +46,26 @@ export class RequestFile {
       try { rec = JSON.parse(line) } catch { continue }
       records.push(parser.resolveRefs(rec))
     }
-    return records.filter(r => {
-      if (!this.#mine(r)) return false
-      if (!range) return true
-      const t = Date.parse(r.timestamp)
-      return t >= range.start && t <= range.end
-    })
+    return records.filter(r => this.#mine(r) && inRange(r.timestamp, range))
   }
 
   // System prompts, tool definitions, memory files (CLAUDE.md / MEMORY.md / … from a user
   // message's instructions system-reminder) and every other injected system-reminder — none of
   // which the transcript records, so the request log is the only source. Returns one record per
-  // unique prompt / tool batch / file_path / reminder.
-  async readInstructions() {
+  // unique prompt / tool batch / file_path / reminder, flagged `side` when a side-channel request
+  // carried it (see isLoop). Dedup runs over the whole file; `range` then keeps what was first sent
+  // within it, plus what the conversation started with — its context on any day.
+  async readInstructions(range = null) {
     const parser = new RequestParser() // holds the per-tool dedup state
     const files = new Map() // dedup key → record, first sight wins
+    let start = null // the conversation's first request
     for (const rec of await this.read()) {
-      if (!rec.request) continue // body-less (older proxy's count_tokens, unparsable body) — would re-emit the cached roster
-      const record = f => ({ timestamp: rec.timestamp, ...f })
+      // body-less (older proxy's count_tokens, unparsable body) would re-emit the cached roster; a
+      // count_tokens probe re-sends the conversation, so it would claim the loop's strips as its own
+      if (!rec.request || rec.kind?.[0] === 'count') continue
+      const loop = isLoop(rec.kind)
+      start ??= loop ? rec : null
+      const record = f => ({ timestamp: rec.timestamp, ...f, side: !loop })
       const sys = parser.systemPrompt(rec)
       if (sys && !files.has(sys.hash)) files.set(sys.hash, record(sys))
       const deferred = parser.deferredStrip(rec)
@@ -68,6 +78,6 @@ export class RequestFile {
         if (!files.has(r.hash)) files.set(r.hash, record(r))
       }
     }
-    return [...files.values()]
+    return [...files.values()].filter(f => f.timestamp === start?.timestamp || inRange(f.timestamp, range))
   }
 }

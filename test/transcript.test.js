@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest'
-import { flatten, groupTurns, tokenPoints } from '../src/renderer/sessions/view/transcript.js'
-import { parseCommand, groupInstructions, compactTitle, persistedOutput } from '../src/renderer/sessions/view/labels.js'
+import { flatten, groupTurns, tokenPoints, cycleDurations } from '../src/renderer/sessions/view/transcript.js'
+import { parseCommand, groupInstructions, sideChannelNote, compactTitle, persistedOutput } from '../src/renderer/sessions/view/labels.js'
 import { SessionParser } from '../src/main/sessions/SessionParser.js'
 
 describe('parseCommand', () => {
@@ -353,16 +353,26 @@ describe('groupTurns — the instruction block', () => {
   ]
   const instr = (timestamp, file_path, source) => ({ timestamp, file_path, source, content: 'x' })
 
-  it('folds every request\'s instructions into one block above the first message', () => {
+  it('gives each request\'s instructions a block of their own, at their place in the timeline', () => {
     const groups = groupTurns(flatten(items, [
-      instr('2026-07-24T18:07:30.326Z', 'System Prompt', 'system'), // title generation
-      instr('2026-07-24T18:07:30.336Z', 'System Prompt', 'system'), // the main loop, 10ms later
+      { ...instr('2026-07-24T18:07:30.326Z', 'System Prompt', 'system'), side: true }, // title generation, 10ms before the main loop
+      instr('2026-07-24T18:07:30.336Z', 'System Prompt', 'system'),
       instr('2026-07-24T18:07:30.336Z', 'System Tools', 'tools'),
-      instr('2026-07-24T18:08:30.336Z', 'MCP Tools', 'tools'), // a deferred tool loaded by the second request
+      instr('2026-07-24T18:08:30.336Z', 'Notification', 'message'), // a later request's additions, together
+      instr('2026-07-24T18:08:30.336Z', 'MCP Tools', 'tools'),
+      { ...instr('2026-07-24T18:08:40.000Z', 'System Prompt', 'system'), side: true }, // an auto-mode check
     ]))
-    expect(groups.map(g => g.kind)).toEqual(['instruction', 'user', 'user'])
-    expect(groups[0].turns).toHaveLength(1)
-    expect(groups[0].turns[0].blocks.map(b => b.it.file_path)).toEqual(['System Prompt', 'System Prompt', 'System Tools', 'MCP Tools'])
+    expect(groups.map(g => g.kind)).toEqual(['instruction', 'instruction', 'user', 'instruction', 'user', 'instruction'])
+    const blocks = groups.filter(g => g.kind === 'instruction').map(g => g.turns[0].blocks.map(b => b.it))
+    expect(blocks.map(list => list.map(it => it.file_path))).toEqual([['System Prompt'], ['System Prompt', 'System Tools'], ['Notification', 'MCP Tools'], ['System Prompt']])
+    expect(blocks.map(list => !!sideChannelNote(list))).toEqual([true, false, false, true])
+  })
+
+  it('times a response from the message it answers, not from a Proxy block in between', () => {
+    const reply = { type: 'assistant', uuid: 'a1', timestamp: '2026-07-24T18:07:41.000Z', message: { role: 'assistant', id: 'm1', content: [{ type: 'text', text: 'ok' }] } }
+    const groups = groupTurns(flatten([items[0], reply], [instr('2026-07-24T18:07:36.000Z', 'Notification', 'message')]))
+    expect(groups.map(g => g.kind)).toEqual(['user', 'instruction', 'assistant'])
+    expect(cycleDurations(groups)[2]).toBe(10_000)
   })
 
   it('groups the block\'s strips by source, in request order, skipping empty sources', () => {

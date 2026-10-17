@@ -4,7 +4,7 @@ import { Globe, LaptopMinimal, Terminal } from 'lucide-react'
 import { fmtCompact, fmtDuration, tone } from '../../utils/formatting'
 import { THRESHOLDS as T } from '../../utils/thresholds.js'
 import { flatten, groupTurns, cycleDurations, tokenPoints, isContextTurn, currentModel, contextWindow, countTokens } from './transcript.js'
-import { toolSummary, parseCommand, groupInstructions, instructionTitle, compactTitle, persistedOutput, humanize } from './labels.js'
+import { toolSummary, parseCommand, groupInstructions, sideChannelNote, instructionTitle, compactTitle, persistedOutput, humanize } from './labels.js'
 import Divider from '../../ui/Divider.jsx'
 import LazyMount from '../../ui/LazyMount.jsx'
 import Markdown from '../../ui/Markdown.jsx'
@@ -476,16 +476,18 @@ function InstructionsMissing({ desktop, pending }) {
 }
 
 // The session's instruction files, grouped by the part of the request they were read from
-// (system prompt / tools / user message), with a summed token total under them once there's
-// more than one file to add up.
+// (system prompt / tools / user message) — labeled only when there's more than one part — with a
+// summed token total under them once there's more than one file to add up.
 function InstructionRun({ turns, model }) {
   const strips = turns.flatMap(t => t.blocks).map(({ it }) => ({ ...it, tokens: countTokens(it.content, it.model ?? model) }))
+  const note   = sideChannelNote(strips)
+  const groups = groupInstructions(strips)
   return (
     <>
-      <ProxyHeader />
-      {groupInstructions(strips).map(([label, list]) => (
+      <ProxyHeader>{note && <span className="msg-summary">{note}</span>}</ProxyHeader>
+      {groups.map(([label, list]) => (
         <React.Fragment key={label}>
-          <div className="aux instruction-source">{label}</div>
+          {groups.length > 1 && <div className="aux instruction-source">{label}</div>}
           {list.map(it => <InstructionFile key={`${it.hash ?? it.file_path}-${it.timestamp}`} it={it} model={model} tokens={it.tokens} />)}
         </React.Fragment>
       ))}

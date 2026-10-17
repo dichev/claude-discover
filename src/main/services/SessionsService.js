@@ -61,7 +61,7 @@ export class SessionsService extends EventEmitter {
     for (const o of items) delete o._ts
     // System prompts and memory files captured by the request proxy, shipped separately from the
     // transcript items; the renderer slots them into the view by timestamp.
-    const instructions = await this.#requestFile(reader.sessionId, reader.parentSessionId).readInstructions()
+    const instructions = await this.#requestFile(reader.sessionId, reader.parentSessionId).readInstructions(range)
     return { items, instructions }
   }
 

@@ -230,7 +230,8 @@ describe('RequestFile.readInstructions', () => {
       { ...base, timestamp: '2026-07-14T10:00:00.000Z', request: { model: 'claude-sonnet-5', tools: [],
         messages: [{ role: 'user', content: [{ type: 'text', text }, { type: 'text', text: 'hi' }] }] } },
       { ...base, timestamp: '2026-07-14T10:01:00.000Z', request: { model: 'claude-sonnet-5', tools: [],
-        messages: [{ role: 'user', content: [{ type: 'text', text }] }, { role: 'assistant', content: wrap('quoted, not injected') }, { role: 'user', content: 'again' }] } },
+        messages: [{ role: 'user', content: [{ type: 'text', text }] }, { role: 'assistant', content: wrap('quoted, not injected') },
+          { role: 'user', content: wrap('[SYSTEM NOTIFICATION - NOT USER INPUT]\n<task-notification>done</task-notification>') + 'again' }] } },
     ].map(r => JSON.stringify(r)).join('\n') + '\n')
     const files = await new RequestFile('sess-rem', { dir }).readInstructions()
     expect(files.map(f => [f.file_path, f.memory_type])).toEqual([
@@ -239,9 +240,27 @@ describe('RequestFile.readInstructions', () => {
       ['Session Context', 'system-reminder'],
       ['Attribution', 'system-reminder'],
       ['The user opened the file D:\\proj\\…', 'system-reminder'], // unlisted opening line, shortened
+      ['Notification', 'system-reminder'],
     ])
     expect(files[2].content).toBe("As you answer the user's questions, you can use the following context:\n# gitStatus\nclean")
-    expect(files.every(f => f.timestamp === '2026-07-14T10:00:00.000Z')).toBe(true) // a repeated reminder dedups by content
+    expect(files.slice(0, -1).every(f => f.timestamp === '2026-07-14T10:00:00.000Z')).toBe(true) // a repeated reminder dedups by content
+  })
+
+  it('flags side-channel requests, skips count_tokens probes, and keeps a range\'s strips plus the conversation\'s start', async () => {
+    const base = { type: 'api-request', url: 'POST /v1/messages', status: 200 }
+    const req = (timestamp, system, text, url = base.url) => ({ ...base, url, timestamp, request: { model: 'claude-sonnet-5', system, messages: [{ role: 'user', content: text }] } })
+    fs.writeFileSync(path.join(dir, 'sess-side.requests.jsonl'), [
+      req('2026-07-14T10:00:00.000Z', 'You are Claude Code, counted', 'hi', 'POST /v1/messages/count_tokens'), // re-sends the conversation — not its own strips
+      req('2026-07-14T10:00:00.500Z', 'You are naming a coding session', 'hi'), // title gen, sent before the main loop
+      req('2026-07-14T10:00:01.000Z', 'You are Claude Code', 'hi'),
+      req('2026-07-15T10:01:00.000Z', 'You are Claude Code, now with a changed prompt', 'more'),
+    ].map(r => JSON.stringify(r)).join('\n') + '\n')
+    const file = new RequestFile('sess-side', { dir })
+    expect((await file.readInstructions()).map(f => [f.content, f.side])).toEqual([
+      ['You are naming a coding session', true], ['You are Claude Code', false], ['You are Claude Code, now with a changed prompt', false],
+    ])
+    const day2 = { start: Date.parse('2026-07-15T00:00:00.000Z'), end: Date.parse('2026-07-15T23:59:59.999Z') }
+    expect((await file.readInstructions(day2)).map(f => f.content)).toEqual(['You are Claude Code', 'You are Claude Code, now with a changed prompt'])
   })
 
   // An Agent SDK app appends its own files to the system prompt in Claude Code's reminder shape
