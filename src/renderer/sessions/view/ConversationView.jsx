@@ -1,13 +1,15 @@
 import React, { useContext, useEffect, useMemo, useState } from 'react'
 import { format } from 'date-fns'
 import { Globe, LaptopMinimal, Terminal } from 'lucide-react'
-import { fmtCompact, fmtDuration } from '../../utils/formatting'
+import { fmtCompact, fmtDuration, tone } from '../../utils/formatting'
+import { THRESHOLDS as T } from '../../utils/thresholds.js'
 import { flatten, groupTurns, cycleDurations, tokenPoints, isContextTurn, currentModel, contextWindow, countTokens } from './transcript.js'
 import { toolSummary, parseCommand, groupInstructions, instructionTitle, compactTitle, persistedOutput, humanize } from './labels.js'
 import Divider from '../../ui/Divider.jsx'
 import LazyMount from '../../ui/LazyMount.jsx'
 import Markdown from '../../ui/Markdown.jsx'
 import OpenLink from '../../ui/OpenLink.jsx'
+import ProgressBar from '../../ui/ProgressBar.jsx'
 import Tip from '../../ui/Tip.jsx'
 import { useFindActive } from '../../ui/useFindActive.js'
 import { useMouseFontScale } from '../../utils/useMouse.js'
@@ -61,7 +63,7 @@ export default function ConversationView({ items, instructions = [], desktop = f
             <div className={`conv-row conv-row-${g.kind}`}>
               <LazyMount eager={i < 8} forceMount={findOpen} placeholderMinHeight={80}>
                 {g.kind === 'user' || g.kind === 'system' ? <InputRow kind={g.kind} turns={g.turns} point={points[i]} index={i} />
-                 : g.kind === 'assistant' ? <AssistantCard turns={g.turns} point={points[i]} index={i} duration={durations[i]} showAuthor={groups[i - 1]?.kind !== 'assistant'} />
+                 : g.kind === 'assistant' ? <AssistantCard turns={g.turns} point={points[i]} index={i} duration={durations[i]} ctxLimit={ctxLimit} showAuthor={groups[i - 1]?.kind !== 'assistant'} />
                  : g.kind === 'compact'   ? <Compaction block={g.turns[0].blocks[0]} />
                  :                        <InstructionRun turns={g.turns} model={model} />}
               </LazyMount>
@@ -80,7 +82,7 @@ export default function ConversationView({ items, instructions = [], desktop = f
         )}
         <Tip anchorSelect=".msg-tokens" render={({ activeAnchor }) => {
           const point = points[activeAnchor?.dataset.point] // the last-hovered anchor outlives its group when the transcript regroups
-          return point && <TokenTip point={point} ctxLimit={ctxLimit} />
+          return point && <TokenTip point={point} />
         }} />
       </div>
     </TranscriptFileContext.Provider>
@@ -129,17 +131,27 @@ function TokenStats({ point, index }) {
   return <span className="msg-tokens" data-point={index}>{fmtCompact(point.total)}</span>
 }
 
+// The context size of the cycle's last API call, as a fill bar of the model's window plus the figure
+function ContextStat({ point, ctxLimit }) {
+  if (point?.ctx == null) return null
+  const pct = point.ctx / ctxLimit * 100
+  return (
+    <span className="msg-ctx" data-tooltip-content={`Context: ${fmtCompact(point.ctx)} / ${fmtCompact(ctxLimit)} (${Math.round(pct)}%)`}>
+      <ProgressBar pct={pct} tone={tone(point.ctx, T.context)} /> {fmtCompact(point.ctx)}
+    </span>
+  )
+}
+
 const USAGE_ROWS = [['Input', 'input'], ['Output', 'output'], ['Cache write (5m)', 'cacheCreation5m'], ['Cache write (1h)', 'cacheCreation1h'], ['Cache read', 'cacheRead']]
 
-// The context bar, the turn's usage breakdown (labels/formulas mirror SessionSummary's Tokens section) and the running total
-function TokenTip({ point, ctxLimit }) {
-  const u     = point.usage
-  const width = Math.min(point.ctx / ctxLimit, 1) * 100
+// The context size, the turn's usage breakdown (labels/formulas mirror SessionSummary's Tokens section) and the running total
+function TokenTip({ point }) {
+  const u = point.usage
   return (
     <div className="token-tooltip">
       {point.ctx != null && (
         <div className="token-tooltip-ctx">
-          Context <span className="token-point-ctx-bar"><span style={{ width: `${width}%` }} /></span> <span className="token-tooltip-ctx-val">{fmtCompact(point.ctx)}</span>
+          Context <span className="token-tooltip-ctx-val">{fmtCompact(point.ctx)}</span>
         </div>
       )}
       {u && (
@@ -193,7 +205,7 @@ function InputRow({ kind, turns, point, index }) {
   )
 }
 
-function AssistantCard({ turns, point, index, duration, showAuthor = true }) {
+function AssistantCard({ turns, point, index, duration, ctxLimit, showAuthor = true }) {
   const [open, setOpen] = useCollapsed(false)
   const toolBlocks = turns.flatMap(t => t.blocks.filter(b => b.type === 'tool_use'))
   const errorCount = toolBlocks.filter(b => b.result?.is_error).length
@@ -226,6 +238,7 @@ function AssistantCard({ turns, point, index, duration, showAuthor = true }) {
             </button>
           : <span className="msg-summary">{summary}</span>)}
         <span className="msg-header-right">
+          <ContextStat point={point} ctxLimit={ctxLimit} />
           <TokenStats point={point} index={index} />
           {end != null && (
             <span className="msg-time" data-tooltip-content={duration > 0 ? `Response time: ${fmtDuration(duration)}` : null}>

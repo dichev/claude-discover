@@ -18,7 +18,7 @@
 
 
 /* Token timeline: a right gutter with one dot per row, scrolling with the content.
-   Totals live in the message headers (see TokenStats); context size and usage in their tooltip (TokenTip). */
+   Totals (and, on assistant cards, context size) live in the message headers; usage in their tooltip (TokenTip). */
 .conversation.has-token-timeline {
   position: relative;
   max-width: calc(848px * var(--font-scale, 1));
@@ -61,29 +61,21 @@
 .token-point-command   .token-point-dot { background: var(--accent); } /* slash commands: no tokens, just a marker */
 .token-point.negative  .token-point-dot { background: #63a76b; } /* compaction shrank the context — good news, so green */
 
-/* Context size fill bar, shown in the msg-tokens tooltip (see TokenTip): fraction of CTX_LIMIT. */
-.token-point-ctx-bar {
+/* Context fill bar in assistant headers (ContextStat): a slim, borderless inline ProgressBar. */
+.msg-ctx .progress-bar {
   display: inline-block;
   vertical-align: middle;
-  width: 30px;
-  height: 4px;
-  border-radius: 2px;
-  background: var(--bg-elev-2);
-  overflow: hidden;
-
-  & > span {
-    display: block;
-    height: 100%;
-    background: var(--ok);
-  }
+  width: 60px;
+  height: 7px;
+  padding: 1px;
+  border: none;
 }
 
-/* msg-tokens tooltip: `Context [fill bar] N tokens`, the turn's usage breakdown grid
+/* msg-tokens tooltip: `Context N tokens`, the turn's usage breakdown grid
    (labels left, numbers right), then the accumulated total under a divider. */
 .token-tooltip { display: flex; flex-direction: column; gap: 5px; }
 .token-tooltip-ctx { display: flex; align-items: center; gap: 5px; }
-.token-tooltip .token-point-ctx-bar { flex: 1; width: auto; background: rgba(255, 255, 255, 0.25); } /* grow to fill the row; lighter track for the tooltip's dark background */
-.token-tooltip-ctx-val { text-align: right; font-variant-numeric: tabular-nums; }
+.token-tooltip-ctx-val { margin-left: auto; font-variant-numeric: tabular-nums; }
 .token-tooltip-grid {
   display: grid;
   grid-template-columns: auto auto;
@@ -123,7 +115,7 @@
   min-width: 0;
 }
 
-/* Message headers: token stats + time above user bubbles (right-aligned); Claude icon · author · summary | token stats · time above assistant cards. */
+/* Message headers: token stats + time above user bubbles (right-aligned); Claude icon · author · summary | context · token stats · time above assistant cards. */
 .msg-header {
   display: flex;
   align-items: center;
@@ -169,8 +161,8 @@ button.msg-summary:hover { color: var(--text); background: var(--bg-elev-2); bor
   gap: 10px;
 }
 
-/* Pipe divider between header-right cells: `tokens | time`. */
-.msg-header-right .msg-tokens:not(:last-child)::after {
+/* Pipe divider between header-right cells: `context | tokens | time`. */
+.msg-header-right > :not(:last-child)::after {
   content: '|';
   margin-left: 10px;
   color: var(--border);
@@ -183,7 +175,7 @@ button.msg-summary:hover { color: var(--text); background: var(--bg-elev-2); bor
   flex-direction: column;
 }
 
-.msg-time, .msg-tokens, .msg-summary {
+.msg-time, .msg-tokens, .msg-ctx, .msg-summary {
   font-family: var(--font-mono), monospace;
   font-size: calc(10.5px * var(--font-scale, 1));
   color: var(--text-faint);
