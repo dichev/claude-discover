@@ -22,6 +22,15 @@ const queuedPrompt = it =>
 // Context the user brought in themselves (IDE state, @-mentions) — every other attachment is Claude Code's own
 const USER_ATTACHMENTS = new Set(['opened_file_in_ide', 'selected_lines_in_ide', 'selected_lines_in_diff', 'file', 'already_read_file'])
 
+// What Claude Code tells Claude itself — hook feedback, reminders, mode switches, harness and agent messages.
+// Every other system attachment, including types added later, is session bookkeeping and stays folded.
+const DIRECTIVES = new Set([
+  'hook_additional_context', 'hook_blocking_error', 'hook_stopped_continuation', 'queued_command',
+  'silent_turn_reminder', 'read_truncation_notice', 'max_turns_reached',
+  'plan_mode', 'plan_mode_exit', 'auto_mode_exit', 'ultra_effort_enter', 'ultra_effort_exit',
+])
+const isDirective = att => DIRECTIVES.has(att?.type) || (att?.type === 'hook_success' && /\S/.test(att.content ?? ''))
+
 // Who a message or attachment record is from: You (`user`), Claude (`assistant`) or Claude Code itself (`system`)
 function speaker(it, blocks = []) {
   if (it.type === 'attachment') return USER_ATTACHMENTS.has(it.attachment.type) ? 'user' : 'system'
@@ -34,13 +43,15 @@ function speaker(it, blocks = []) {
 // Fields every record carries — what's left of a system record is its own payload
 const ENVELOPE = new Set(['type', 'subtype', 'level', 'content', 'uuid', 'parentUuid', 'logicalParentUuid', 'isSidechain', 'isMeta', 'userType', 'entrypoint', 'cwd', 'sessionId', 'session_id', 'version', 'gitBranch', 'slug', 'timestamp'])
 
-// The CLI's inline notices: the text it printed, else its payload. Only warnings and errors keep a `level`.
+// The CLI's inline notices: the text it printed, else its payload. Only warnings and errors keep a `level` —
+// a failed hook counts as one whatever level the CLI logged. Routine ones fold; a recap is written for the user.
 function systemNote(it) {
   if (it.subtype === 'turn_duration') return null // the CLI's own timing; cycleDurations derives it from the turns
   const title   = humanize(String(it.subtype)).replace(/^Api\b/, 'API')
   const payload = Object.fromEntries(Object.entries(it).filter(([k]) => !ENVELOPE.has(k)))
   const body    = it.content || (Object.keys(payload).length ? JSON.stringify(payload, null, 2) : null)
-  return { title, body, level: ['warning', 'error'].includes(it.level) ? it.level : null }
+  const level   = it.hookErrors?.length ? 'warning' : ['warning', 'error'].includes(it.level) ? it.level : null
+  return { title, body, level, folded: !level && it.subtype !== 'away_summary' }
 }
 
 const changed = (state, key, value) => { const prev = state[key]; state[key] = value; return prev && prev !== value }
@@ -48,7 +59,7 @@ const changed = (state, key, value) => { const prev = state[key]; state[key] = v
 // Claude Code re-logs permission mode, cwd and artifacts over and over — note only an actual change
 function stateNote(it, state) {
   if (it.type === 'permission-mode') {
-    return changed(state, 'mode', it.permissionMode) ? { title: `Permission mode → ${it.permissionMode}`, kind: 'mode' } : null
+    return changed(state, 'mode', it.permissionMode) ? { title: `Permission mode → ${it.permissionMode}`, kind: 'mode', folded: false } : null
   }
   if ((it.type === 'user' || it.type === 'assistant') && it.cwd) {
     return changed(state, 'cwd', it.cwd) ? { title: `Working directory → ${it.cwd}` } : null
@@ -67,7 +78,8 @@ const metaTurn = (it, role, blocks, uuid = it.uuid) => ({
   model: null, usage: null, tokenDelta: null, tokenTotal: null,
   blocks
 })
-const noteTurn = (it, note, uuid) => metaTurn(it, 'system', [{ type: 'system', ...note }], uuid)
+// `folded`: routine bookkeeping, tucked behind its row's summary — only warnings and errors show unless a note says otherwise
+const noteTurn = (it, note, uuid) => metaTurn(it, 'system', [{ type: 'system', folded: !note.level, ...note }], uuid)
 
 // `instructions` are the system prompts / memory files captured by the request proxy
 // (readSession's separate `instructions` list) — not transcript items, merged in by timestamp.
@@ -131,13 +143,13 @@ export function flatten(items, instructions = []) {
     if (it.type === 'attachment' && it.attachment) {
       // Echoes the StructuredOutput call's input verbatim — the call already shows it.
       if (it.attachment.type === 'structured_output' && it.attachment.toolUseID) continue
-      const block = { type: 'attachment', attachment: it.attachment }
+      const block = { type: 'attachment', attachment: it.attachment, folded: !isDirective(it.attachment) }
       const role = speaker(it)
       const last = turns[turns.length - 1]
-      // Coalesce consecutive attachments of one side into one meta turn.
+      // Coalesce consecutive attachments of one side into one meta turn; a directive keeps its own.
       // Never merge into a real user/assistant turn — that would pull tool_result
       // turns out of their tool-group bucket and render them as user bubbles.
-      if (last && isContextTurn(last) && last.role === role) {
+      if (last && isContextTurn(last) && last.role === role && block.folded) {
         last.blocks.push(block)
         if (it._tokenDelta != null) last.tokenDelta = (last.tokenDelta ?? 0) + it._tokenDelta
         if (it._tokenTotal != null) last.tokenTotal = it._tokenTotal
@@ -269,8 +281,8 @@ function normalizeContent(content) {
   return content.map((b) => (typeof b === 'string' ? { type: 'text', text: b } : b))
 }
 
-// Injected context is a turn whose blocks are all attachments (the "N attachments" payload).
-export const isContextTurn = t => t.blocks.every(b => b.type === 'attachment')
+// Injected context is a turn whose blocks are all attachments (the "N attachments" payload) — directives show as messages instead.
+export const isContextTurn = t => t.blocks.every(b => b.type === 'attachment' && b.folded)
 
 export function groupTurns(turns) {
   const groups = []

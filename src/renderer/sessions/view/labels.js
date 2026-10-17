@@ -4,7 +4,7 @@ import { fmtCompact } from '../../utils/formatting.js'
 // MarkdownSession and the session list.
 
 // "stop_hook_summary" → "Stop hook summary"
-export const humanize = type => type.replace(/_/g, ' ').replace(/^./, c => c.toUpperCase())
+export const humanize = type => type.replace(/[_-]/g, ' ').replace(/^./, c => c.toUpperCase())
 
 // One-line tool-call titles: an explicit `description` (Bash, Task) wins; standard
 // tools derive one from their key argument. Unknown/MCP tools fall back to the bare name.

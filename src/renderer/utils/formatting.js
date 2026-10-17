@@ -21,6 +21,8 @@ export function fmtNum(n) {
   return n.toLocaleString()
 }
 
+export const plural = (n, noun) => `${n} ${noun}${n === 1 ? '' : 's'}`
+
 // "12 tool calls, 1 skill" — the skill count only when there is one
 export function fmtToolCalls({ toolCalls, skillCalls }) {
   return skillCalls ? `${fmtNum(toolCalls)}, ${fmtNum(skillCalls)} skill${skillCalls === 1 ? '' : 's'}` : fmtNum(toolCalls)

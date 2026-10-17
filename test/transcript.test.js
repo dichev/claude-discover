@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { flatten, groupTurns, tokenPoints, cycleDurations } from '../src/renderer/sessions/view/transcript.js'
+import { flatten, groupTurns, tokenPoints, cycleDurations, isContextTurn } from '../src/renderer/sessions/view/transcript.js'
 import { parseCommand, groupInstructions, sideChannelNote, compactTitle, persistedOutput } from '../src/renderer/sessions/view/labels.js'
 import { SessionParser } from '../src/main/sessions/SessionParser.js'
 
@@ -92,7 +92,7 @@ describe('flatten — what Claude Code writes in the model\'s name', () => {
 
   it('shows an API error as an error notice', () => {
     const [turn] = flatten([synthetic('s2', 'API Error: 529 Overloaded', { isApiErrorMessage: true })])
-    expect(turn.blocks).toEqual([{ type: 'system', title: 'API Error: 529 Overloaded', level: 'error' }])
+    expect(turn.blocks).toEqual([{ type: 'system', title: 'API Error: 529 Overloaded', level: 'error', folded: false }])
   })
 })
 
@@ -147,14 +147,14 @@ describe('flatten — system records', () => {
   const ts = '2026-09-23T00:00:00.000Z'
   const reply = { type: 'assistant', uuid: 'a1', timestamp: ts, message: { role: 'assistant', content: [{ type: 'text', text: 'Done.' }] } }
 
-  it('shows the printed text as the note body', () => {
+  it('shows the printed text as the note body, keeping a recap apart from the routine notices', () => {
     const recap = { type: 'system', subtype: 'away_summary', uuid: 's1', timestamp: ts, level: 'info', content: 'You asked to…' }
-    expect(flatten([recap])[0].blocks).toEqual([{ type: 'system', title: 'Away summary', body: 'You asked to…', level: null }])
+    expect(flatten([recap])[0].blocks).toEqual([{ type: 'system', title: 'Away summary', body: 'You asked to…', level: null, folded: false }])
   })
 
   it('shows a notice with no text as its payload, without the envelope', () => {
     const err = { type: 'system', subtype: 'api_error', uuid: 's1', cwd: 'D:\\app', timestamp: ts, level: 'error', error: { formatted: 'Unable to connect to API (ECONNRESET)' }, retryAttempt: 1 }
-    expect(flatten([err])[0].blocks).toEqual([{ type: 'system', title: 'API error', body: JSON.stringify({ error: err.error, retryAttempt: 1 }, null, 2), level: 'error' }])
+    expect(flatten([err])[0].blocks).toEqual([{ type: 'system', title: 'API error', body: JSON.stringify({ error: err.error, retryAttempt: 1 }, null, 2), level: 'error', folded: false }])
   })
 
   it('shows a notice after a finished reply as a System row', () => {
@@ -169,6 +169,12 @@ describe('flatten — system records', () => {
   it('keeps a tagless local command as a plain note', () => {
     const exit = { type: 'system', subtype: 'local_command', uuid: 's1', timestamp: ts, content: '/exit' }
     expect(flatten([exit])[0].blocks[0]).toMatchObject({ type: 'system', title: 'Local command', body: '/exit' })
+  })
+
+  it('raises a stop hook summary to a warning only when a hook failed', () => {
+    const summary = hookErrors => ({ type: 'system', subtype: 'stop_hook_summary', level: 'suggestion', uuid: 's1', timestamp: ts, hookCount: 1, hookErrors })
+    expect(flatten([summary([])])[0].blocks[0]).toMatchObject({ level: null, folded: true })
+    expect(flatten([summary(['Failed to run: Plugin directory does not exist'])])[0].blocks[0]).toMatchObject({ level: 'warning', folded: false })
   })
 })
 
@@ -192,6 +198,19 @@ describe('groupTurns — System rows', () => {
     const groups = groupTurns(flatten([prompt, call, result, att('t1', 5, 'total_tokens_reminder'), reply]))
     expect(groups.map(g => g.kind)).toEqual(['user', 'assistant'])
     expect(groups[1].turns.map(t => t.role)).toEqual(['assistant', 'system', 'assistant'])
+  })
+
+  it('keeps a directive out of the folded context, beside its bookkeeping', () => {
+    const hook = { type: 'attachment', uuid: 'h1', timestamp: at(2), attachment: { type: 'hook_success', hookName: 'SessionStart:startup', content: 'Speak your replies.' } }
+    const turns = flatten([att('d1', 2, 'date'), hook, att('e1', 2, 'environment'), prompt])
+    expect(turns.map(t => [isContextTurn(t), t.blocks.map(b => b.attachment?.type ?? b.text)])).toEqual([
+      [true, ['date']], [false, ['hook_success']], [true, ['environment']], [false, ['fix it']],
+    ])
+  })
+
+  it('folds a hook that told Claude nothing like any other bookkeeping', () => {
+    const turns = flatten([att('h1', 2, 'some_future_type'), { type: 'attachment', uuid: 'h2', timestamp: at(2), attachment: { type: 'hook_success', hookName: 'Stop', content: '' } }])
+    expect(turns.flatMap(t => t.blocks.map(b => b.folded))).toEqual([true, true])
   })
 
   it('gives System prompting Claude its own row, even mid-cycle', () => {
@@ -218,7 +237,7 @@ describe('flatten — state changes', () => {
   it('links a published artifact once', () => {
     const link = { type: 'frame-link', frameUrl: 'https://claude.ai/artifact/a1', title: 'Notes', timestamp: '2026-09-16T19:06:42.109Z' }
     const notes = flatten([link, { ...link }]).flatMap(t => t.blocks)
-    expect(notes).toEqual([{ type: 'system', title: 'Artifact: Notes', url: 'https://claude.ai/artifact/a1' }])
+    expect(notes).toEqual([{ type: 'system', title: 'Artifact: Notes', url: 'https://claude.ai/artifact/a1', folded: true }])
   })
 })
 
@@ -297,15 +316,14 @@ describe('flatten — queued commands', () => {
     expect(flatten([queued({ prompt: 'why?', commandMode: 'prompt' })])[0]).toMatchObject({ role: 'user', queued: true })
   })
 
-  it('leaves harness- and agent-queued prompts as attachments', () => {
+  it('leaves harness- and agent-queued prompts as System messages, one per turn', () => {
     const items = [
       queued({ prompt: '<task-notification>…</task-notification>', commandMode: 'task-notification' }, 'q1'),
       queued({ prompt: 'from a peer', commandMode: 'prompt', origin: { kind: 'peer', from: 'simplify' } }, 'q2'),
     ]
     const turns = flatten(items)
-    expect(turns).toHaveLength(1) // consecutive attachments coalesce into one meta turn
-    expect(turns[0].role).toBe('system')
-    expect(turns[0].blocks.map(b => b.type)).toEqual(['attachment', 'attachment'])
+    expect(turns.map(t => [t.role, t.blocks.map(b => b.type)])).toEqual([['system', ['attachment']], ['system', ['attachment']]])
+    expect(turns.some(isContextTurn)).toBe(false)
   })
 })
 

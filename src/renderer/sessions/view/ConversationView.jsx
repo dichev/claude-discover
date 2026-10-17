@@ -1,9 +1,9 @@
 import React, { useContext, useEffect, useMemo, useState } from 'react'
 import { format } from 'date-fns'
 import { Globe, LaptopMinimal, Terminal } from 'lucide-react'
-import { fmtCompact, fmtDuration, tone } from '../../utils/formatting'
+import { fmtCompact, fmtDuration, plural, tone } from '../../utils/formatting'
 import { THRESHOLDS as T } from '../../utils/thresholds.js'
-import { flatten, groupTurns, cycleDurations, tokenPoints, isContextTurn, currentModel, contextWindow, countTokens } from './transcript.js'
+import { flatten, groupTurns, cycleDurations, tokenPoints, currentModel, contextWindow, countTokens } from './transcript.js'
 import { toolSummary, parseCommand, groupInstructions, sideChannelNote, instructionTitle, compactTitle, persistedOutput, humanize } from './labels.js'
 import Divider from '../../ui/Divider.jsx'
 import LazyMount from '../../ui/LazyMount.jsx'
@@ -171,13 +171,18 @@ const AUTHORS = {
   system: { Icon: LaptopMinimal, name: 'System' },
 }
 
+// Context and the CLI's routine notices — what the transcript model marks `folded`
+const isFolded = t => t.blocks.every(b => b.folded)
+
 // A You or System row: its messages, with the context that came along folded behind the header
 function InputRow({ kind, turns, point, index }) {
   const [open, setOpen] = useCollapsed(false)
-  const msgs            = turns.filter(t => !isContextTurn(t))
-  const ctxItems        = turns.filter(isContextTurn).flatMap(t => t.blocks)
+  const msgs            = turns.filter(t => !isFolded(t))
+  const ctxItems        = turns.filter(isFolded).flatMap(t => t.blocks)
   const ts              = (msgs[0] ?? turns[0]).ts
   const { Icon, name }  = AUTHORS[kind]
+  const count           = (type, noun) => { const n = ctxItems.filter(b => b.type === type).length; return n > 0 && plural(n, noun) }
+  const summary         = [count('attachment', 'attachment'), count('system', 'notice')].filter(Boolean).join(', ')
   return (
     <div className={`msg-${kind}`}>
       <div className="msg-header">
@@ -187,7 +192,7 @@ function InputRow({ kind, turns, point, index }) {
         {ctxItems.length > 0 && (
           <button className="msg-summary" onClick={() => setOpen(v => !v)}>
             <span className="aux-chevron">{open ? '▾' : '▸'}</span>
-            <span>{ctxItems.length} attachment{ctxItems.length === 1 ? '' : 's'}</span>
+            <span>{summary}</span>
           </button>
         )}
         <span className="msg-header-right">
@@ -197,7 +202,7 @@ function InputRow({ kind, turns, point, index }) {
       </div>
       {open && ctxItems.length > 0 && (
         <div className="msg-context">
-          {ctxItems.map((b, i) => <Attachment key={i} att={b.attachment} />)}
+          {ctxItems.map((b, i) => <Block key={i} block={b} />)}
         </div>
       )}
       {msgs.map(t => <TurnRow key={t.uuid} turn={t} />)}
@@ -210,8 +215,8 @@ function AssistantCard({ turns, point, index, duration, ctxLimit, showAuthor = t
   const toolBlocks = turns.flatMap(t => t.blocks.filter(b => b.type === 'tool_use'))
   const errorCount = toolBlocks.filter(b => b.result?.is_error).length
   const skillCount = toolBlocks.filter(b => b.name === 'Skill').length
-  const isAux      = t => t.role === 'system' ? !t.blocks.some(b => b.level) : !t.blocks.some(b => b.type === 'text')
-  // Aux turns (tool calls, thinking, System's injections — not its warning/error notes) fold behind the chevron, but only if there are tool calls
+  const isAux      = t => t.role === 'system' ? isFolded(t) : !t.blocks.some(b => b.type === 'text')
+  // Aux turns (tool calls, thinking, System's bookkeeping) fold behind the chevron, but only if there are tool calls
   const foldable   = toolBlocks.length > 0 && turns.some(isAux)
   const end        = turns.findLast(t => t.ts != null)?.ts ?? null
   // Once opened, keep aux turns mounted while folded (hidden via CSS) so each tool's expanded state
@@ -221,9 +226,9 @@ function AssistantCard({ turns, point, index, duration, ctxLimit, showAuthor = t
   const hidden     = t => !open && foldable && isAux(t)
   const anyVisible = turns.some(t => !hidden(t))
   const parts = [
-    toolBlocks.length > 0 && `${toolBlocks.length} tool call${toolBlocks.length === 1 ? '' : 's'}`,
-    skillCount > 0 && `${skillCount} skill${skillCount === 1 ? '' : 's'}`,
-    errorCount > 0 && <span key="err" className="msg-errors">{errorCount} error{errorCount === 1 ? '' : 's'}</span>,
+    toolBlocks.length > 0 && plural(toolBlocks.length, 'tool call'),
+    skillCount > 0 && plural(skillCount, 'skill'),
+    errorCount > 0 && <span key="err" className="msg-errors">{plural(errorCount, 'error')}</span>,
   ].filter(Boolean)
   const summary = parts.map((p, i) => <React.Fragment key={i}>{i > 0 && ', '}{p}</React.Fragment>)
   return (
@@ -268,8 +273,8 @@ function TurnRow({ turn, hidden = false, speaker = null }) {
     <div className={`turn turn-${turn.role} ${hasError ? 'turn-error' : ''} ${hidden ? 'turn-hidden' : ''}`}>
       <div className="turn-blocks">
         {contextBlocks.length > 0 && (
-          <Collapsible className="attachment" defaultOpen={false} title={`${contextBlocks.length} attachment${contextBlocks.length === 1 ? '' : 's'}`}>
-            {contextBlocks.map((b, i) => <Attachment key={i} att={b.attachment} />)}
+          <Collapsible className="attachment" defaultOpen={false} title={plural(contextBlocks.length, 'attachment')}>
+            {contextBlocks.map((b, i) => <Attachment key={i} att={b.attachment} folded={b.folded} />)}
           </Collapsible>
         )}
         {otherBlocks.map((b, i) => <Block key={i} block={b} speaker={speaker} />)}
@@ -329,12 +334,12 @@ function Block({ block, speaker = null }) {
     )
   }
   if (block.type === 'attachment') {
-    return <Attachment att={block.attachment} speaker={speaker} />
+    return <Attachment att={block.attachment} folded={block.folded} speaker={speaker} />
   }
   if (block.type === 'system') {
     const className = `system-note ${block.level ?? ''} ${block.kind ?? ''}`
     if (!block.body) return <Label title={said(speaker, block.url ? <OpenLink href={block.url}>{block.title}</OpenLink> : block.title)} className={className} />
-    return <Collapsible title={said(speaker, block.title)} className={className} defaultOpen={!!block.level}><pre>{block.body}</pre></Collapsible>
+    return <Collapsible title={said(speaker, block.title)} className={className} defaultOpen={!block.folded}><pre>{block.body}</pre></Collapsible>
   }
   if (block.type === 'image') {
     const src = block.source
@@ -364,11 +369,10 @@ const ATTACHMENT_RENDERERS = {
     const f = a.content?.file
     return { title: `File: ${a.displayPath || f?.filePath || a.filename || ''}`, body: f?.content ?? safeJson(a.content) }
   },
-  skill_listing: (a) => ({ title: `${a.skillCount} skills`, body: a.content || '', defaultOpen: false }),
+  skill_listing: (a) => ({ title: `${a.skillCount} skills`, body: a.content || '' }),
   deferred_tools_delta: (a) => ({
     title: `${a.addedNames?.length || 0} deferred tools ${a.removedNames?.length ? `(removed: ${a.removedNames.length})` : ''}`,
     body: safeJson({ added: a.addedNames, removed: a.removedNames }),
-    defaultOpen: false,
   }),
   prompt_snapshot: a => ({
     title: `Prompt snapshot: system prompt, ${a.tools?.length ?? 0} tools`,
@@ -380,15 +384,24 @@ const ATTACHMENT_RENDERERS = {
       .map(d => `${f.uri}:${(d.range?.start?.line ?? 0) + 1} ${d.severity}: ${d.message}${d.source ? ` (${d.source})` : ''}`))
     return { title: `Diagnostics: ${lines.length} in ${a.files?.length || 0} file${a.files?.length === 1 ? '' : 's'}`, body: lines.join('\n') }
   },
+  // Directives whose text the fallback below would bury in raw JSON or drop
+  hook_success:              a => ({ title: `Hook: ${a.hookName}`, body: a.content || safeJson(a) }),
+  hook_additional_context:   a => ({ title: `Hook context: ${a.hookName}`, body: [a.content].flat().join('\n\n') }),
+  hook_blocking_error:       a => ({ title: `Hook blocked: ${a.hookName}`, body: a.blockingError?.blockingError ?? safeJson(a.blockingError) }),
+  hook_stopped_continuation: a => ({ title: `Hook stopped: ${a.hookName}`, body: a.message }),
+  queued_command:            a => ({
+    title: a.origin?.from ? `Message from ${a.origin.from}` : humanize(a.origin?.kind ?? a.commandMode ?? 'queued_command'),
+    body: typeof a.prompt === 'string' ? a.prompt : safeJson(a.prompt),
+  }),
+  max_turns_reached:         a => ({ title: `Max turns reached (${a.maxTurns})`, body: null }),
   // addedLines carry each agent's one-line description; addedTypes is just their names.
   agent_listing_delta: (a) => ({
     title: `${a.addedTypes?.length || 0} agent types${a.removedTypes?.length ? ` (removed: ${a.removedTypes.length})` : ''}`,
     body: (a.addedLines || a.addedTypes || []).join('\n'),
-    defaultOpen: false,
   }),
 }
 
-// Everything else — Claude Code keeps adding attachment types (hooks, plan mode, tips, …), so the
+// Everything else — Claude Code keeps adding attachment types (reminders, mode switches, tips, …), so the
 // fallback reads them structurally instead of growing a renderer per type: the first short string
 // names the thing (a path, a hook, a date), long ones are the content, and if several short strings
 // carry the payload nothing is hidden — the raw record stays as the body.
@@ -408,12 +421,14 @@ function genericAttachment(att) {
   }
 }
 
-function Attachment({ att, speaker = null }) {
-  const render = ATTACHMENT_RENDERERS[att?.type]
-  const { title, body, defaultOpen = false } = render ? render(att) : genericAttachment(att)
-  if (body == null) return <Label title={said(speaker, title)} className="attachment" />
+// An attachment the model didn't fold is a directive to Claude: open, and tinted apart
+function Attachment({ att, folded = true, speaker = null }) {
+  const render          = ATTACHMENT_RENDERERS[att?.type]
+  const { title, body } = render ? render(att) : genericAttachment(att)
+  const className       = `attachment${folded ? '' : ' directive'}`
+  if (body == null) return <Label title={said(speaker, title)} className={className} />
   return (
-    <Collapsible title={said(speaker, title)} className="attachment" defaultOpen={defaultOpen}>
+    <Collapsible title={said(speaker, title)} className={className} defaultOpen={!folded}>
       <pre>{body}</pre>
     </Collapsible>
   )
