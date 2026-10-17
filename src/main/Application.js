@@ -7,7 +7,7 @@ import { RateLimits } from './services/RateLimits.js'
 import { MainWindow } from './windows/MainWindow.js'
 import { updater } from './updater.js'
 import { CLAUDE_DIR, RECENT_CLAUDE_DIRS } from './paths.js'
-import { imageDataUrl, openLinkSafely } from './utils.js'
+import { openLinkSafely, webpDataUrl } from './utils.js'
 
 export class Application {
   constructor({ deepLink }) {
@@ -38,7 +38,7 @@ export class Application {
     ipcMain.handle('sessions:list', (_e, date, granularity) => sessionsService.list(date, granularity))
     ipcMain.handle('sessions:read', (_e, filePath, date, granularity) => sessionsService.readSession(filePath, date, granularity))
     ipcMain.handle('sessions:read-requests', (_e, filePath, date, granularity) => sessionsService.readRequests(filePath, date, granularity))
-    ipcMain.handle('sessions:read-avatar', (_e, filePath) => imageDataUrl(sessionsService.avatarPath(filePath), 56)) // 2x the 28px it's shown at
+    ipcMain.handle('sessions:read-avatar', (_e, filePath) => webpDataUrl(sessionsService.avatarPath(filePath)))
     ipcMain.handle('switch:status', (_e, name) => switchers.status(name))
     ipcMain.handle('switch:activate', (_e, name) => switchers.activate(name))
     ipcMain.handle('switch:deactivate', (_e, name) => switchers.deactivate(name))

@@ -40,10 +40,10 @@ export class ProjectResolver {
     return out
   }
 
-  // An avatar.png in the session's cwd is shown beside it in the session list (e.g. a teamflows role's folder)
+  // An avatar.webp in the session's cwd is shown beside it in the session list (e.g. a teamflows role's folder)
   async avatar(cwd) {
     if (!LOCAL_DIR.test(cwd ?? '')) return null
-    const file = path.join(cwd, 'avatar.png')
+    const file = path.join(cwd, 'avatar.webp')
     return await fs.stat(file).catch(() => null) && file
   }
 

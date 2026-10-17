@@ -16,7 +16,7 @@ beforeAll(() => {
   fs.mkdirSync(path.join(tmp, 'repo', 'nested', 'sub'), { recursive: true })
   fs.writeFileSync(path.join(tmp, 'repo', 'nested', '.git'), 'gitdir: ../.git/modules/nested') // submodule
   fs.mkdirSync(path.join(tmp, 'plain', 'sub'), { recursive: true })
-  fs.writeFileSync(path.join(tmp, 'repo', 'roles', 'owner', 'avatar.png'), '')
+  fs.writeFileSync(path.join(tmp, 'repo', 'roles', 'owner', 'avatar.webp'), '')
 })
 afterAll(() => fs.rmSync(tmp, { recursive: true, force: true }))
 
@@ -58,10 +58,10 @@ describe('ProjectResolver.resolve', () => {
 })
 
 describe('ProjectResolver.avatar', () => {
-  it('finds an avatar.png in the cwd itself, not in its ancestors', async () => {
+  it('finds an avatar.webp in the cwd itself, not in its ancestors', async () => {
     const projects = new ProjectResolver()
     const owner = path.join(tmp, 'repo', 'roles', 'owner')
-    expect(await projects.avatar(owner)).toBe(path.join(owner, 'avatar.png'))
+    expect(await projects.avatar(owner)).toBe(path.join(owner, 'avatar.webp'))
     expect(await projects.avatar(path.join(owner, 'sub'))).toBe(null)
     expect(await projects.avatar(path.join(tmp, 'repo'))).toBe(null)
     expect(await projects.avatar(null)).toBe(null)

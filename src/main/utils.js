@@ -1,4 +1,5 @@
-import { nativeImage, shell } from 'electron'
+import { shell } from 'electron'
+import fs from 'node:fs/promises'
 import path from 'node:path'
 import { pathToFileURL } from 'node:url'
 
@@ -45,10 +46,10 @@ export function lockNavigation(contents) {
 }
 
 
-// A data URL, as the renderer's CSP blocks file:// images; downscaled so the IPC carries a few KB, not the full-size file
-export function imageDataUrl(file, height) {
-  const image = file && nativeImage.createFromPath(file)
-  return image && !image.isEmpty() ? image.resize({ height, quality: 'best' }).toDataURL() : null
+// A data URL, as the renderer's CSP blocks file:// images; sent full-size since nativeImage can't decode (and so downscale) webp.
+// null when the file is gone since the scan — a rejection would crash the renderer's use()
+export function webpDataUrl(file) {
+  return file && fs.readFile(file).then(b => `data:image/webp;base64,${b.toString('base64')}`, () => null)
 }
 
 
