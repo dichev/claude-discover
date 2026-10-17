@@ -364,6 +364,22 @@ describe('token totals around a back-dated queued command', () => {
   })
 })
 
+describe('token totals around trailing attachments', () => {
+  const ts = '2026-10-17T21:58:59.000Z'
+  const lines = [
+    { type: 'user', uuid: 'u1', timestamp: ts, message: { role: 'user', content: 'hey' } },
+    { type: 'attachment', uuid: 'x1', timestamp: ts, attachment: { type: 'date', date: '2026-10-17' } },
+    { type: 'attachment', uuid: 'x2', timestamp: ts, attachment: { type: 'prompt_snapshot' } },
+    { type: 'assistant', uuid: 'a1', timestamp: ts, message: { id: 'm1', model: 'claude-opus-5', usage: { input_tokens: 100, output_tokens: 10 }, content: [{ type: 'text', text: 'hi' }] } },
+  ]
+
+  it('bills the call\'s input to the prompt, not to the attachments logged after it', () => {
+    const parser = new SessionParser({ sessionId: 's1', filePath: 's1.jsonl' })
+    const items = lines.map(l => structuredClone(l)).filter(l => parser.feed(l))
+    expect(items.map(it => it._tokenTotal ?? null)).toEqual([100, null, null, 110])
+  })
+})
+
 describe('groupTurns — the instruction block', () => {
   const items = [
     { type: 'user', uuid: 'u1', timestamp: '2026-07-24T18:07:31.000Z', message: { role: 'user', content: 'hi' } },
