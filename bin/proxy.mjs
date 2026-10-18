@@ -14,7 +14,7 @@ import crypto from 'node:crypto'
 import { pathToFileURL } from 'node:url'
 import { parseArgs } from 'node:util'
 
-import { HOST, PORT, PROXY_URL, UPSTREAM, EXIT_ROUTE, PING_ROUTE, PING_RESPONSE, REQUESTS_DIR, ERROR_LOG_PATH } from './proxy.config.js'
+import { HOST, PORT, PROXY_URL, UPSTREAM, EXIT_ROUTE, PING_ROUTE, PING_RESPONSE, REQUESTS_DIR, UNATTRIBUTED, ERROR_LOG_PATH } from './proxy.config.js'
 
 // How long an exiting proxy keeps serving in-flight responses — long replies stream for minutes
 const DRAIN_TIMEOUT_MS = 10 * 60_000
@@ -107,7 +107,7 @@ function decode(encoding, buf) {
 
 // ── 2. Claude Code capture ───────────────────────────────────────────────────
 // One JSON record per exchange in ~/.claude-discover/requests/<sessionId>.requests.jsonl
-// (session id from the X-Claude-Code-Session-Id header).
+// (session id from the X-Claude-Code-Session-Id header; requests without a usable one go to the UNATTRIBUTED log).
 
 // Keep the header name (useful signal) but never the credential.
 function redactHeaders(headers, keys) {
@@ -116,8 +116,9 @@ function redactHeaders(headers, keys) {
 }
 
 function logRequest({ req, requestBody, status, responseHeaders, responseBody, timestamp, durationMs }) {
-  const sessionId = req.headers['x-claude-code-session-id']
-  if (!sessionId || !/^[\w-]+$/.test(sessionId)) return // header value becomes a filename — accept only safe ids
+  const header = req.headers['x-claude-code-session-id']
+  if (!header && req.method === 'HEAD') return // Claude Code's connectivity probe (HEAD /api/hello), every few seconds at times
+  const sessionId = /^[\w-]+$/.test(header ?? '') ? header : UNATTRIBUTED // header value becomes a filename — accept only safe ids
   const logPath = path.join(REQUESTS_DIR, `${sessionId}.requests.jsonl`)
   const record = { type: 'api-request', timestamp, url: `${req.method} ${req.url}`, status, durationMs }
   record.requestHeaders = redactHeaders(req.headers, ['authorization', 'x-api-key', 'proxy-authorization', 'cookie'])

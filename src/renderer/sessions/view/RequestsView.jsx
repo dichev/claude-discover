@@ -203,17 +203,18 @@ export default function RequestsView({ filePath, items, date, granularity = 'day
         {records.map((r, i) => {
           const [method, path] = splitUrl(r.url)
           // r.kind is [cssKind, label] from classifyRequest (requests/claudeMarkers.js) — null when unclassifiable
+          const kind = r.unattributed ? ['unattributed', 'No session id'] : r.kind
           return (
           <React.Fragment key={i}>
           {gapRow(records[i - 1]?.timestamp, r.timestamp)}
-          <li className={i > 0 && r.kind?.[0] === 'main' ? 'new-turn' : ''}>
+          <li className={r.unattributed ? 'unattributed' : i > 0 && kind?.[0] === 'main' ? 'new-turn' : ''}>
             <button type="button" className={i === selected ? 'active' : ''} onClick={() => setSelected(i)}>
               <span className={`requests-method ${method.toLowerCase()}`}>{method}</span>
               <span className="requests-url">{path}</span>
               <span className={`requests-status ${!r.status || r.status >= 400 ? 'error' : 'ok'}`}>{r.status ?? '—'}</span>
               <span className="requests-meta">{time(r.timestamp)}</span>
               <span className="requests-meta requests-duration">{duration(r.durationMs)}</span>
-              <span className={`requests-kind ${r.kind ? `kind-${r.kind[0]}` : ''}`}>{r.kind?.[1]}</span>
+              <span className={`requests-kind ${kind ? `kind-${kind[0]}` : ''}`} data-tooltip-content={r.unattributed ? 'Sent without a session id, so it might not be from this session - every session active at the time lists it' : undefined}>{kind?.[1]}</span>
               <span className="requests-meta requests-tokens" data-tooltip-content="total tokens (input + output + cache)">{tokens(totalTokens(r))}</span>
             </button>
           </li>

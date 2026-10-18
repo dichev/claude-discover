@@ -16,4 +16,5 @@ export const PING_RESPONSE = 'claude-discover-proxy' // the ping body — proves
 
 export const DATA_DIR       = process.env.CLAUDE_DISCOVER_DIR || path.join(os.homedir(), '.claude-discover') // global on purpose — session ids are unique, so one flat dir serves every Claude dir (env override used only by tests)
 export const REQUESTS_DIR   = path.join(DATA_DIR, 'requests') // logs are kept forever — nothing deletes them
+export const UNATTRIBUTED   = 'unattributed' // the log name for requests without a session-id header
 export const ERROR_LOG_PATH = path.join(DATA_DIR, 'proxy.error.log') // capture errors — capture must never fail a request

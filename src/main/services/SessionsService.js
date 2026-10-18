@@ -2,6 +2,7 @@ import { EventEmitter } from 'node:events'
 import { startOfDay, endOfDay, startOfWeek, endOfWeek, startOfMonth, endOfMonth, parseISO } from 'date-fns'
 import { SessionFile } from '../sessions/SessionFile.js'
 import { RequestFile } from '../requests/RequestFile.js'
+import { UNATTRIBUTED } from '../../../bin/proxy.config.js'
 import { SessionParser, suffixLabels } from '../sessions/SessionParser.js'
 import { SessionsScanner } from '../sessions/SessionsScanner.js'
 import { MetaCache } from '../sessions/MetaCache.js'
@@ -70,7 +71,11 @@ export class SessionsService extends EventEmitter {
     const meta = this.metaCache.get(filePath)
     if (!meta || !/^[\w-]+$/.test(meta.sessionId)) return [] // the id becomes a filename — same guard as the proxy
     const range = date ? periodBounds(date, granularity) : null
-    return this.#requestFile(meta.sessionId, meta.parentSessionId).read(range)
+    const own = await this.#requestFile(meta.sessionId, meta.parentSessionId).read(range)
+    // No session id to tell whose they are, so every session active at the time lists them
+    const span = { start: meta.startedAt, end: meta.lastActivityAt }
+    const unattributed = (await new RequestFile(UNATTRIBUTED).read(span)).map(r => ({ ...r, unattributed: true }))
+    return [...own, ...unattributed].sort((a, b) => Date.parse(a.timestamp) - Date.parse(b.timestamp))
   }
 
   // Looked up by session, so only avatar paths are readable over IPC

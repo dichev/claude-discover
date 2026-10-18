@@ -63,6 +63,14 @@
   white-space: nowrap;
 }
 
+/* sent without a session id — tinted so it stands out from the session's own requests */
+.requests-list li.unattributed button {
+  background: color-mix(in srgb, var(--warn) 10%, transparent);
+
+  &:hover { background: color-mix(in srgb, var(--warn) 16%, transparent); }
+  &.active { background: color-mix(in srgb, var(--warn) 22%, transparent); }
+}
+
 /* category label, last column — fixed width so the labels line up left-aligned,
    set off from the metrics by a full-height vertical rule; colors come from the
    shared .kind-* palette in styles.css */

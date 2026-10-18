@@ -319,14 +319,19 @@ describe('proxy end-to-end', () => {
     expect(received.length).toBe(before)
   })
 
-  it('ignores requests without a session id', async () => {
+  it('logs requests without a session id to the unattributed log, minus connectivity probes', async () => {
+    await fetch(`http://${HOST}:${proxyPort}/api/hello`, { method: 'HEAD' })
     const res = await fetch(`http://${HOST}:${proxyPort}/v1/messages`, {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
       body: JSON.stringify(body),
     })
     expect(res.status).toBe(200)
-    expect(fs.readdirSync(path.join(discoverDir, 'requests'))).toEqual(['sess-e2e.requests.jsonl'])
+    await res.text()
+    const log = path.join(discoverDir, 'requests', 'unattributed.requests.jsonl')
+    while (!fs.existsSync(log)) await new Promise(r => setTimeout(r, 25)) // lands when the upstream response closes
+    expect(fs.readdirSync(path.join(discoverDir, 'requests'))).toEqual(['sess-e2e.requests.jsonl', 'unattributed.requests.jsonl'])
+    expect(fs.readFileSync(log, 'utf8').trim().split('\n').map(l => JSON.parse(l).url)).toEqual(['POST /v1/messages'])
   })
 
   it('re-sends once when a pooled keep-alive socket resets before upstream saw the request', async () => {

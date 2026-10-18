@@ -66,7 +66,7 @@ Three-process Electron split:
 Three independent data sources feed the UI:
 
 1. **Session transcripts** — `<CLAUDE_DIR>/projects/**/*.jsonl`, append-only, written by Claude Code.
-2. **Captured API requests** — `~/.claude-discover/requests/<sessionId>.requests.jsonl`, written by `bin/proxy.mjs` only while capture is on.
+2. **Captured API requests** — `~/.claude-discover/requests/<sessionId>.requests.jsonl`, written by `bin/proxy.mjs` only while capture is on (requests without a session-id header go to `unattributed.requests.jsonl`, listed in the API Requests tab of every session active at the time).
 3. **Model prices** — `src/main/config/prices.seed.json` seed, refreshed daily from LiteLLM into `~/.claude-discover/prices.current.json`.
 
 Everything is date-scoped: the renderer requests one period at a time and the backend returns sessions only for it — neither side handles multi-day ranges.
