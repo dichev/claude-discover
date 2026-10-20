@@ -43,10 +43,6 @@ export class ProxySwitch {
       throw new Error(`Proxy did not start — see ${ERROR_LOG_PATH}`)
     }
     settings.setEnv('ANTHROPIC_BASE_URL', PROXY_URL)
-    // Claude Code turns Tool Search off under a custom base URL (most proxies can't forward
-    // `tool_reference` blocks); ours forwards verbatim, so turn it back on — it saves ~27k tokens
-    // per request. https://code.claude.com/docs/en/env-vars
-    settings.setEnv('ENABLE_TOOL_SEARCH', 'true')
     settings.save()
   }
 
@@ -57,7 +53,7 @@ export class ProxySwitch {
       // Blank, not delete: running sessions apply changed env values live but keep removed ones,
       // so a deleted key would leave them on the dead port. "" counts as unset (default endpoint)
       settings.setEnv('ANTHROPIC_BASE_URL', '')
-      settings.deleteEnv('ENABLE_TOOL_SEARCH')
+      settings.deleteEnv('ENABLE_TOOL_SEARCH') // older app versions set it; Claude Code 2.1.304+ has it on by default
       settings.save()
       await new Promise(r => setTimeout(r, SETTINGS_RELOAD_GRACE_MS))
     }
