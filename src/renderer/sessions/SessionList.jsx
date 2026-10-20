@@ -27,7 +27,7 @@ const avatars = new Map()
 const Avatar = ({ session }) => {
   if (!avatars.has(session.avatar)) avatars.set(session.avatar, window.api.readAvatar(session.filePath))
   const src = use(avatars.get(session.avatar))
-  return src && <img className="session-avatar" src={src} alt="" />
+  return src && <span className="session-avatar"><img src={src} alt="" /></span>
 }
 
 export default function SessionList({ sessions, selectedId, deepLink, onSelect }) {

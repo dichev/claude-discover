@@ -185,7 +185,13 @@
   width: 28px;
   height: 28px;
   border-radius: 50%;
-  object-fit: cover;
+  overflow: hidden;
+}
+
+/* Clipped by the box rather than object-fit/object-view-box, which downscale with a blockier filter */
+.session-avatar img {
+  display: block;
+  width: 100%;
 }
 
 .subagent-tag,
