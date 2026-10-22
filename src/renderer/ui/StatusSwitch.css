@@ -16,7 +16,7 @@
 .statusbar-warn { visibility: hidden; }
 .statusbar-warn[data-on] { visibility: visible; }
 
-.statusbar-off { color: var(--warn); }
+.statusbar-alert { color: var(--warn); }
 .statusbar-active { color: #34d399; }
 
 /* Scoped to the StatusBar switch tooltips only — plain-text tips keep .tip's padding */

@@ -1,7 +1,6 @@
 import { Suspense, use, useEffect, useMemo, useRef, useState } from 'react'
 import { Hourglass, Gauge, MessageSquare, Clock, Zap, DollarSign, Brain } from 'lucide-react'
 import { SOURCE_COLORS } from '../utils/colors.js'
-import { format } from 'date-fns'
 import { fmtCompact, fmtNum, fmtUSD, fmtDuration, fmtAgo, tone } from '../utils/formatting.js'
 import { THRESHOLDS as T } from '../utils/thresholds.js'
 import { parseCommand } from './view/labels.js'
@@ -107,7 +106,6 @@ export default function SessionList({ sessions, selectedId, deepLink, onSelect }
           const journal = isJournal(s)
           const isFork = !!s.forkedFrom
           const linked = !!deepLink && s.filePath === selectedId // opened by a claude-discover:// link, see App.jsx
-          const linkTip = linked && `Opened from deep link\nclaude-discover://session?id=${deepLink.id}${deepLink.date ? `&date=${deepLink.date}` : ''}`
           const command = labelCommand(s)
           const topEffort = ['max', 'xhigh'].find(e => s.efforts?.includes(e))
           const sessionName = s.customTitle && s.agentName && s.customTitle !== s.agentName
@@ -121,9 +119,9 @@ export default function SessionList({ sessions, selectedId, deepLink, onSelect }
               onClick={() => onSelect(selectedId === s.filePath ? null : s.filePath)}
               style={{ borderLeftColor: SOURCE_COLORS[s.source] || SOURCE_COLORS.other }}
             >
-              {s.avatar && <Suspense><Avatar session={s} /></Suspense>}
               <div className="session-row-main">
                 <div className="session-label">
+                  {s.avatar && <Suspense><Avatar session={s} /></Suspense>}
                   {s.tokens?.cacheCreation1h > 0 && <Badge className="warn-badge" tip={`Used 1h extended cache (${fmtNum(s.tokens.cacheCreation1h)} tokens)\n${TIPS.cache1h}`} icon={Hourglass} />}
                   {s.lastContextTokens > T.context.danger && <Badge className="danger-badge" tip={`Context size: ${fmtCompact(s.lastContextTokens)} tokens\n${TIPS.context}`} icon={Gauge} />}
                   {s.lastContextTokens > T.context.warn && s.lastContextTokens <= T.context.danger && <Badge className="warn-badge" tip={`Context size: ${fmtCompact(s.lastContextTokens)} tokens\n${TIPS.context}`} icon={Gauge} />}
@@ -144,11 +142,11 @@ export default function SessionList({ sessions, selectedId, deepLink, onSelect }
                   </span>
                 </div>
                 <div className="session-time-bottom">
-                  {s.tag && <span className="session-tag" data-tooltip-content="Session tag">#{s.tag}</span>}
-                  {s.project && <span className="session-project" data-tooltip-content={s.project}>{s.projectShort}{s.subdir && ` › ${s.subdir}`}</span>}
+                  {s.tag && <span className="session-tag">#{s.tag}</span>}
+                  {s.project && <span className="session-project">{s.projectShort}{s.subdir && ` › ${s.subdir}`}</span>}
                   {s.models?.length > 0 && <span className="session-model">{s.models.map((m) => m.replace(/^claude-/, '')).join(', ')}{s.efforts?.length > 0 && ` ${s.efforts.join(', ')}`}</span>}
-                  <span data-tooltip-content={format(s.lastActivityAt, 'MMM d, HH:mm:ss')}>{fmtAgo(s.lastActivityAt)}</span>
-                  {linked && <span className="deeplink-note" data-tooltip-content={linkTip} data-tooltip-class-name="tip-wide">opened from deep link</span>}
+                  <span>{fmtAgo(s.lastActivityAt)}</span>
+                  {linked && <span className="deeplink-note">opened from deep link</span>}
                 </div>
               </div>
               <div className="session-row-stats">

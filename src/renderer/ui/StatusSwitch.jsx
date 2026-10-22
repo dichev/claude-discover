@@ -41,7 +41,7 @@ export default function StatusSwitch({ service, on, warn, button, className = ''
   const [showChanges, setChanges] = useState(false)
   return (
     <span className={`statusbar-group statusbar-seg ${className} ${on ? 'statusbar-seg-on' : ''}`} data-tooltip-id={id}>
-      <span className={`statusbar-msg ${button ? '' : on ? 'statusbar-active' : 'statusbar-off'}`}>
+      <span className={`statusbar-msg ${button ? '' : on ? 'statusbar-active' : warn ? 'statusbar-alert' : ''}`}>
         {warn !== undefined && <span className="statusbar-warn" data-on={warn ? '' : undefined}>⚠ </span>}
         {children}
       </span>
