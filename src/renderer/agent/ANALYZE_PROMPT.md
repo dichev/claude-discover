@@ -49,7 +49,7 @@ Visible in `<summary>`.
 # Input
 
 `<summary>` is rich — the app pre-computes it for you. Read every field and reason from numbers, not vibes
-`<transcript>` shows the actual turns, labeled with per-turn token deltas like `(+12k / 340k tokens)`. Use the deltas to find expensive moments and to ground each recommendation in a concrete event. **System** rows listing the system prompt, tools and CLAUDE.md / memory files are what Claude Code sent along with the conversation — they re-pay on every turn, so their size and relevance are a direct cost lever. **Proxy** blocks are side requests (title, auto-mode check, …): separate sessions, not in the conversation's context.
+`<transcript>` shows the actual turns, labeled with per-turn token deltas like `(+12k / 340k tokens)`. Use the deltas to find expensive moments and to ground each recommendation in a concrete event. **System** rows listing the system prompt, tools and CLAUDE.md / memory files are what Claude Code sent along with the conversation — they re-pay on every turn, so their size and relevance are a direct cost lever. **Proxy** blocks are side requests (title, auto-mode check, …): separate requests, not in the conversation's context.
 {{TRUNCATION_NOTE}}
 
 # How to analyze

@@ -315,6 +315,17 @@ describe('RequestParser.strips', () => {
     expect(files[0].hash).not.toBe(files[1].hash) // content hash — distinct per batch, used as the dedup key
   })
 
+  it('shows a server tool by its definition, having no description or schema', async () => {
+    const base = { type: 'api-request', url: 'POST /v1/messages', status: 200 }
+    const tools = [{ type: 'web_search_20250305', name: 'web_search', max_uses: 8 }]
+    fs.writeFileSync(path.join(dir, 'sess-w.requests.jsonl'),
+      JSON.stringify({ ...base, timestamp: '2026-07-14T10:00:00.000Z', request: { model: 'claude-sonnet-5', tools, messages: [] } }) + '\n')
+    const files = await stripsOf('sess-w')
+    expect(files).toMatchObject([
+      { file_path: 'System Tools', content: '## web_search\n\n```json\n{\n  "type": "web_search_20250305",\n  "max_uses": 8\n}\n```' },
+    ])
+  })
+
   it('splits a batch into a native and an MCP strip, so MCP schemas cost separately', async () => {
     const base = { type: 'api-request', url: 'POST /v1/messages', status: 200 }
     const tools = [{ name: 'Read', description: 'Reads a file' }, { name: 'mcp__pw__click', description: 'Clicks' },

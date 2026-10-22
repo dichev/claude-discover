@@ -4,7 +4,7 @@ import { Globe, LaptopMinimal, Terminal } from 'lucide-react'
 import { fmtCompact, fmtDuration, plural, tone } from '../../utils/formatting'
 import { THRESHOLDS as T } from '../../utils/thresholds.js'
 import { flatten, groupTurns, cycleDurations, tokenPoints, currentModel, contextWindow, countTokens } from './transcript.js'
-import { toolSummary, parseCommand, groupInstructions, instructionTitle, compactTitle, persistedOutput, humanize, SIDE_NOTE } from './labels.js'
+import { toolSummary, parseCommand, instructionTitle, compactTitle, persistedOutput, humanize, SIDE_NOTE } from './labels.js'
 import Divider from '../../ui/Divider.jsx'
 import LazyMount from '../../ui/LazyMount.jsx'
 import Markdown from '../../ui/Markdown.jsx'
@@ -485,11 +485,9 @@ function JsonBlock({ value }) {
   return <Markdown className="block-text" text={'```json\n' + safeJson(value) + '\n```'} />
 }
 
-// A side request's instruction files, grouped by the part of the request they came from (labeled once
-// there's more than one), with a summed token total once there's more than one file
+// A side request's instruction files, in request order, with a summed token total once there's more than one file
 function InstructionRun({ turns, model }) {
   const strips = turns.flatMap(t => t.blocks).map(({ it }) => ({ ...it, tokens: countTokens(it.content, it.model ?? model) }))
-  const groups = groupInstructions(strips)
   return (
     <>
       <div className="msg-header msg-proxy">
@@ -497,12 +495,7 @@ function InstructionRun({ turns, model }) {
         <span className="msg-author">Proxy</span>
         <span className="msg-summary">{SIDE_NOTE}</span>
       </div>
-      {groups.map(([label, list]) => (
-        <React.Fragment key={label}>
-          {groups.length > 1 && <div className="aux instruction-source">{label}</div>}
-          {list.map(it => <InstructionFile key={`${it.hash}-${it.timestamp}`} it={it} model={model} tokens={it.tokens} />)}
-        </React.Fragment>
-      ))}
+      {strips.map(it => <InstructionFile key={`${it.hash}-${it.timestamp}`} it={it} model={model} tokens={it.tokens} />)}
       {strips.length > 1 && (
         <div className="aux instruction-total"><ApproxTokens tokens={strips.reduce((a, it) => a + it.tokens, 0)} /></div>
       )}

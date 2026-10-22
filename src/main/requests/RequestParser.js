@@ -16,7 +16,7 @@ const stripKind = ({ kind }) => !kind || kind[0] === 'main' || kind[0] === 'tool
 
 // Every instruction strip has the same shape: a label the request's kind prefixes for side-channel
 // calls, a content hash it dedups on (see strips), and the part of the request it was read from —
-// `source`: 'system' | 'tools' | 'message' — which the frontend groups a request's strips by. The
+// `source`: 'system' | 'tools' | 'message'. The
 // model is kept separate from the label — the frontend names it only when it differs from the
 // conversation's own.
 const toStrip = (rec, source, file_path, label, content) => {
@@ -147,9 +147,12 @@ export class RequestParser {
     for (const t of fresh) this.seenTools.add(t.name)
     // Schemas included: they are a large part of what a tool actually costs, so leaving them
     // out made the strip's token estimate far too low.
-    const schema = t => t.input_schema ? '```json\n' + JSON.stringify(t.input_schema, null, 2) + '\n```' : ''
+    const json = v => '```json\n' + JSON.stringify(v, null, 2) + '\n```'
+    const schema = t => t.input_schema ? json(t.input_schema) : ''
+    // Server tools (web_search, …) carry no description or schema — their definition is all there is
+    const definition = ({ name, ...rest }) => json(rest)
     const strip = (file_path, pick) => {
-      const list = fresh.filter(t => pick(t.name)).map(t => ({ name: t.name, content: [t.description || '', schema(t)].filter(Boolean).join('\n\n') }))
+      const list = fresh.filter(t => pick(t.name)).map(t => ({ name: t.name, content: [t.description || '', schema(t)].filter(Boolean).join('\n\n') || definition(t) }))
       if (!list.length) return null
       const content = list.map(t => [`## ${t.name}`, t.content].filter(Boolean).join('\n\n')).join('\n\n')
       // `tools` keeps each definition apart, so the UI can fold them one by one

@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import { flatten, groupTurns, tokenPoints, cycleDurations, isContextTurn } from '../src/renderer/sessions/view/transcript.js'
-import { parseCommand, groupInstructions, compactTitle, persistedOutput } from '../src/renderer/sessions/view/labels.js'
+import { parseCommand, compactTitle, persistedOutput } from '../src/renderer/sessions/view/labels.js'
 import { SessionParser } from '../src/main/sessions/SessionParser.js'
 
 describe('parseCommand', () => {
@@ -425,14 +425,5 @@ describe('groupTurns — the instruction block', () => {
     const groups = groupTurns(flatten([items[0], reply], { side: [instr('2026-07-24T18:07:36.000Z', 'Notification', 'message')] }))
     expect(groups.map(g => g.kind)).toEqual(['user', 'instruction', 'assistant'])
     expect(cycleDurations(groups)[2]).toBe(10_000)
-  })
-
-  it('groups the block\'s strips by source, in request order, skipping empty sources', () => {
-    const strips = [instr('t', 'CLAUDE.md', 'message'), instr('t', 'System Tools', 'tools'), instr('t', 'System Prompt', 'system'), instr('t', 'MCP Tools', 'tools')]
-    expect(groupInstructions(strips).map(([label, list]) => [label, list.map(it => it.file_path)])).toEqual([
-      ['system prompt', ['System Prompt']],
-      ['tools', ['System Tools', 'MCP Tools']],
-      ['user message', ['CLAUDE.md']],
-    ])
   })
 })

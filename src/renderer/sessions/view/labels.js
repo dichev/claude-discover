@@ -65,16 +65,7 @@ export function persistedOutput(text) {
 }
 
 // A side request's Proxy block, as told apart from the conversation
-export const SIDE_NOTE = 'separate session, not in context'
-
-// The part of the request an instruction strip was read from (its `source`), as shown to the user —
-// in the request's own order (system → tools → messages).
-export const SOURCE_LABELS = { system: 'system prompt', tools: 'tools', message: 'user message' }
-
-// One request's instruction strips split by source: [[label, strips], …], empty groups left out.
-export function groupInstructions(strips) {
-  return Object.entries(SOURCE_LABELS).map(([source, label]) => [label, strips.filter(it => it.source === source)]).filter(([, list]) => list.length)
-}
+export const SIDE_NOTE = 'separate request, not in context'
 
 // Instruction strip title: `name (memory_type)` — the request's model is named only when it
 // differs from the conversation's own (currentModel), i.e. for side-channel requests like title gen.
