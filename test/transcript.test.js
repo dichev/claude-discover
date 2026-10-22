@@ -60,7 +60,7 @@ describe('flatten — skill companion records', () => {
     const body = { type: 'user', uuid: 'c2', parentUuid: 'u1', timestamp: '2026-09-23T18:50:38.018Z', isMeta: true, turnCompanion: true, message: { role: 'user', content: [{ type: 'text', text: '# Writing a job' }] } }
     const turns = flatten([cmd, body])
     expect(turns).toHaveLength(1)
-    expect(turns[0].blocks[1]).toEqual({ type: 'skill', name: 'hire', text: '# Writing a job' })
+    expect(turns[0].blocks[0]).toEqual({ type: 'skill', name: 'hire', text: '# Writing a job' })
 
     const parser = new SessionParser({ sessionId: 's1', filePath: 's1.jsonl' })
     for (const l of [cmd, body]) parser.feed(structuredClone(l))

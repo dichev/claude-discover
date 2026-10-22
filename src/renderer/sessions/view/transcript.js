@@ -8,7 +8,7 @@ import { humanize, parseCommand } from './labels.js'
 const lengths = new Map()
 const tokenLength = text => {
   if (!lengths.has(text)) {
-    if (lengths.size >= 1000) lengths.clear()
+    if (lengths.size >= 10000) lengths.delete(lengths.keys().next().value)
     lengths.set(text, encode(text).length)
   }
   return lengths.get(text)
@@ -189,12 +189,12 @@ export function flatten(items, { loop = [], side = [] } = {}) {
       companions[it.sourceToolUseID] = messageText(it)
       continue
     }
-    // A skill run as a slash command has no Skill call — its body folds into the command turn it follows.
+    // A skill run as a slash command has no Skill call — its body folds into the command turn it follows, listed on top as its context.
     // Other companions (e.g. the "no visible output" nudge after an assistant turn) stay meta notes.
     const command = it.turnCompanion && turns.findLast(t => t.uuid === it.parentUuid)
     const name = command && command.blocks.map(b => parseCommand(b.text)?.name).find(Boolean)?.replace(/^\//, '')
     if (name) {
-      command.blocks.push({ type: 'skill', name, text: messageText(it) })
+      command.blocks.unshift({ type: 'skill', name, text: messageText(it) })
       continue
     }
     if (it.type !== 'user' && it.type !== 'assistant') continue

@@ -173,11 +173,17 @@ const AUTHORS = {
 // Context and the CLI's routine notices — what the transcript model marks `folded`
 const isFolded = t => t.blocks.every(b => b.folded)
 
+// The user's own attachments that carry a token count (@-files, IDE selections) list above the prompt, like System's instruction files
+const isCounted = b => b.type === 'attachment' && hasText(attachmentView(b.attachment))
+
 // A You or System row: its messages, with the context that came along folded behind the header
 function InputRow({ kind, turns, point, index }) {
   const [open, setOpen] = useCollapsed(false)
   const msgs            = turns.filter(t => !isFolded(t))
-  const ctxItems        = turns.filter(isFolded).flatMap(t => t.blocks)
+  const listed          = [], ctxItems = []
+  for (const b of turns.filter(isFolded).flatMap(t => t.blocks)) {
+    (kind === 'user' && isCounted(b) ? listed : ctxItems).push(b)
+  }
   const ts              = (msgs[0] ?? turns[0]).ts
   const { Icon, name }  = AUTHORS[kind]
   const count           = (type, noun) => { const n = ctxItems.filter(b => b.type === type).length; return n > 0 && plural(n, noun) }
@@ -204,6 +210,7 @@ function InputRow({ kind, turns, point, index }) {
           {ctxItems.map((b, i) => <Block key={i} block={b} />)}
         </div>
       )}
+      {listed.length > 0 && <div className="listed">{listed.map((b, i) => <Block key={i} block={b} />)}</div>}
       {msgs.map(t => <TurnRow key={t.uuid} turn={t} />)}
     </div>
   )
@@ -318,7 +325,7 @@ function Block({ block, speaker = null }) {
     )
   }
   if (block.type === 'skill') {
-    return <Collapsible title={block.name ? `Skill: ${block.name}` : 'Skill'} defaultOpen={false}><Markdown className="block-text" text={block.text} /></Collapsible>
+    return <Collapsible title={block.name ? `Skill: ${block.name}` : 'Skill'} className="listed" defaultOpen={false} tokens={countTokens(block.text)}><Markdown className="block-text" text={block.text} /></Collapsible>
   }
   if (block.type === 'tool_result') {
     const c = block.content
@@ -417,20 +424,26 @@ function genericAttachment(att) {
   for (const [k, v] of Object.entries(att || {})) { if (k !== 'type') collect(v, k) }
   const detail = short.find(([k]) => /path|file|name|dir|uri|url|date/i.test(k))?.[1] // what the attachment is about
   const label = humanize(att?.type || 'attachment')
+  const raw   = !long.length && short.length > 1
   return {
     title: detail ? `${label}: ${detail}` : label,
-    body: long.length ? long.map(([, v]) => v).join('\n\n') : short.length > 1 ? safeJson(att) : null,
+    body: long.length ? long.map(([, v]) => v).join('\n\n') : raw ? safeJson(att) : null,
+    raw,
   }
 }
 
+const attachmentView = att => (ATTACHMENT_RENDERERS[att?.type] ?? genericAttachment)(att)
+// A raw record dump is our rendering, not text the model read — counting it would be noise
+const hasText = view => view.body != null && !view.raw
+
 // An attachment the model didn't fold is a directive to Claude: open, and tinted apart
 function Attachment({ att, folded = true, speaker = null }) {
-  const render          = ATTACHMENT_RENDERERS[att?.type]
-  const { title, body } = render ? render(att) : genericAttachment(att)
+  const view            = attachmentView(att)
+  const { title, body } = view
   const className       = `attachment${folded ? '' : ' directive'}`
   if (body == null) return <Label title={said(speaker, title)} className={className} />
   return (
-    <Collapsible title={said(speaker, title)} className={className} defaultOpen={!folded}>
+    <Collapsible title={said(speaker, title)} className={className} defaultOpen={!folded} tokens={hasText(view) && countTokens(body)}>
       <pre>{body}</pre>
     </Collapsible>
   )
@@ -446,18 +459,21 @@ function Label({ title, className }) {
   )
 }
 
-function Collapsible({ title, children, className, defaultOpen = true }) {
+function Collapsible({ title, children, className, defaultOpen = true, tokens }) {
   const [open, setOpen] = useCollapsed(defaultOpen)
   return (
     <div className={`aux ${className || ''}`}>
       <button className="aux-toggle" onClick={() => setOpen((v) => !v)}>
         <span className="aux-chevron">{open ? '▾' : '▸'}</span>
         <span>{title}</span>
+        <ApproxTokens tokens={tokens} />
       </button>
       {open && <div className="aux-body">{children}</div>}
     </div>
   )
 }
+
+const ApproxTokens = ({ tokens }) => tokens > 0 && <span className="instruction-tokens" data-tooltip-content="Approx. tokens">~ {fmtCompact(tokens)}</span>
 
 function safeJson(x) {
   try { return JSON.stringify(x, null, 2)
@@ -488,7 +504,7 @@ function InstructionRun({ turns, model }) {
         </React.Fragment>
       ))}
       {strips.length > 1 && (
-        <div className="aux instruction-total"><span className="instruction-tokens">~ {fmtCompact(strips.reduce((a, it) => a + it.tokens, 0))}</span></div>
+        <div className="aux instruction-total"><ApproxTokens tokens={strips.reduce((a, it) => a + it.tokens, 0)} /></div>
       )}
     </>
   )
@@ -502,7 +518,7 @@ function InstructionFile({ it, model, tokens, speaker = null, className = '' }) 
       <button className="aux-toggle" onClick={() => setOpen(v => !v)}>
         <span className="aux-chevron">{open ? '▾' : '▸'}</span>
         <span className="instruction-title" data-tooltip-content={title} data-tip-if-truncated>{said(speaker, title)}</span>
-        {tokens > 0 && <span className="instruction-tokens" data-tooltip-content="Approx. tokens">~ {fmtCompact(tokens)}</span>}
+        <ApproxTokens tokens={tokens} />
       </button>
       {open && (
         <div className="aux-body">
