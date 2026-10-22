@@ -259,6 +259,26 @@ describe('RequestParser.strips', () => {
     expect(files.slice(0, -1).every(f => f.timestamp === '2026-07-14T10:00:00.000Z')).toBe(true) // a repeated reminder dedups by content
   })
 
+  it('splits the skills, agent-type and MCP-instruction reminders into one entry each, keeping the text around them', async () => {
+    const text = '<system-reminder>\nThe following skills are available for use with the Skill tool:\n\n'
+      + '- simplify: Review the changed code.\n- anthropic-skills:pdf: Use for PDFs.\nTRIGGER: a .pdf file\n- init\n- apps/web:deploy (project): Deploys.\n</system-reminder>'
+      + '<system-reminder>\nAvailable agent types for the Agent tool:\n- Explore: Read-only search agent. (Tools: Read)\n\nLaunch agents in parallel.\n</system-reminder>'
+      + '<system-reminder>\n# MCP Server Instructions\n\nThe following MCP servers have provided instructions:\n\n## Docs\nCreate the doc first.\n\n## pw\nAsk before driving.\n</system-reminder>'
+    fs.writeFileSync(path.join(dir, 'sess-sk.requests.jsonl'), JSON.stringify({ type: 'api-request', url: 'POST /v1/messages',
+      status: 200, timestamp: '2026-07-14T10:00:00.000Z', request: { model: 'claude-sonnet-5', tools: [],
+        messages: [{ role: 'user', content: [{ type: 'text', text }] }] } }) + '\n')
+    const files = await stripsOf('sess-sk')
+    expect(files).toMatchObject([{ file_path: 'Skills', memory_type: '4 skills', intro: 'The following skills are available for use with the Skill tool:', items: [
+      { name: 'simplify', content: 'Review the changed code.' },
+      { name: 'anthropic-skills:pdf', content: 'Use for PDFs.\nTRIGGER: a .pdf file' }, // a description can span lines
+      { name: 'init', content: '' }, // past the listing budget, names only
+      { name: 'apps/web:deploy (project)', content: 'Deploys.' },
+    ], outro: '' }, { file_path: 'Agent Types', memory_type: '1 agent type', intro: 'Available agent types for the Agent tool:',
+      items: [{ name: 'Explore', content: 'Read-only search agent. (Tools: Read)' }], outro: 'Launch agents in parallel.' }, // a closing note isn't the last entry's
+    { file_path: 'MCP Instructions', memory_type: '2 servers', intro: '# MCP Server Instructions\n\nThe following MCP servers have provided instructions:',
+      items: [{ name: 'Docs', content: 'Create the doc first.' }, { name: 'pw', content: 'Ask before driving.' }] }])
+  })
+
   // An Agent SDK app appends its own files to the system prompt in Claude Code's reminder shape
   it('reads a CLAUDE.md section from the system prompt too, and leaves it out of the System Prompt strip', async () => {
     const appended = 'You are Claude Code\n\nCodebase and user instructions are shown below. Be sure to adhere to these instructions.\n\n'
@@ -336,7 +356,7 @@ describe('RequestParser.strips', () => {
     expect(files).toMatchObject([
       { file_path: 'System Tools', memory_type: '1 tool', content: '## Read\n\nReads a file' },
       { file_path: 'MCP Tools', memory_type: '2 tools', content: '## mcp__pw__click\n\nClicks\n\n## mcp__pw__type\n\nTypes',
-        tools: [{ name: 'mcp__pw__click', content: 'Clicks' }, { name: 'mcp__pw__type', content: 'Types' }] },
+        items: [{ name: 'mcp__pw__click', content: 'Clicks' }, { name: 'mcp__pw__type', content: 'Types' }] },
     ])
   })
 
@@ -359,13 +379,15 @@ describe('RequestParser.strips', () => {
 
   it('lists the deferred roster as its own strip — names only, no schemas to show', async () => {
     const env = 'The following deferred tools are now available via ToolSearch, before calling them:\n'
-      + 'WebFetch\nWebSearch\nmcp__pw__click\n</system-reminder>' // the list also ends at a closing reminder tag
+      + 'WebFetch\nWebSearch\nmcp__pw__click\nmcp__chrome-dev__click\n</system-reminder>' // the list also ends at a closing reminder tag
     fs.writeFileSync(path.join(dir, 'sess-r.requests.jsonl'), JSON.stringify({ type: 'api-request', url: 'POST /v1/messages',
       status: 200, timestamp: '2026-07-14T10:00:00.000Z', request: { model: 'claude-sonnet-5', tools: [],
         messages: [{ role: 'user', content: [{ type: 'text', text: env }] }] } }) + '\n')
     const files = await stripsOf('sess-r')
     expect(files).toMatchObject([
-      { file_path: 'Deferred Tools', memory_type: '2 deferred system tools, 1 deferred MCP tool', content: '```\nWebFetch\nWebSearch\nmcp__pw__click\n```' },
+      { file_path: 'Deferred Tools', memory_type: '2 deferred system tools, 2 deferred MCP tools', content: '```\nWebFetch\nWebSearch\nmcp__pw__click\nmcp__chrome-dev__click\n```',
+        items: [{ name: 'System', memory_type: '2 tools', content: '```\nWebFetch\nWebSearch\n```' }, { name: 'pw MCP', memory_type: '1 tool', content: '```\nmcp__pw__click\n```' },
+          { name: 'chrome-dev MCP', memory_type: '1 tool', content: '```\nmcp__chrome-dev__click\n```' }] }, // server names may carry hyphens
     ])
   })
 

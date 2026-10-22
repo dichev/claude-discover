@@ -154,7 +154,7 @@ export function flatten(items, { loop = [], side = [] } = {}) {
     if (it.type === 'attachment' && it.attachment) {
       // Echoes the StructuredOutput call's input verbatim — the call already shows it.
       if (it.attachment.type === 'structured_output' && it.attachment.toolUseID) continue
-      const block = { type: 'attachment', attachment: it.attachment, folded: !isDirective(it.attachment) }
+      const block = { type: 'attachment', attachment: it.attachment, rendered: it.rendered, folded: !isDirective(it.attachment) }
       const role = speaker(it)
       const last = turns[turns.length - 1]
       // Coalesce consecutive attachments of one side into one meta turn; a directive keeps its own.

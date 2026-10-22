@@ -42,6 +42,7 @@ Not a hard constraint — restructure when it serves the code, just update this 
 │   │   ├── sessions/               transcript scanning, caching & parsing (utils/: the file watchers)
 │   │   └── windows/                the app window (find bar: electron-find-overlay)
 │   ├── preload/                    contextBridge preload (main window)
+│   ├── shared/                     pure text helpers both main and renderer import (Claude Code's listing formats)
 │   └── renderer/                   React frontend (functional)
 │       ├── agent/                  AI Analyze hook, output + prompt template
 │       ├── assets/                 images imported by the UI
@@ -109,7 +110,7 @@ Optional features, secondary to the core timeline. The switchable ones are a cla
 
 - **Backend (`src/main/`) is OOP** — every service/module is a class
 - **Frontend (`src/renderer/`) is functional** — function components, hooks for state, shared logic in custom hooks
-- Renderer never imports from `bin/` or `src/main/`; the only channel is `window.api`
+- Renderer never imports from `bin/` or `src/main/`; the only channel is `window.api` (`src/shared/` pure helpers excepted)
 - Every markdown surface renders through `ui/Markdown.jsx` — never instantiate ReactMarkdown directly
 - `MarkdownSession.js` duplicates fields from `ConversationView.jsx`/`SessionSummary.jsx` by hand — changing either means updating it too
 - IPC channel names are `namespace:kebab-case-action` (e.g. `sessions:read-requests`)

@@ -2,6 +2,7 @@
 // prompt / trailing message), the system-reminders it injects into user messages, and the memory
 // files carried inside one of those. Pure text functions — RequestParser applies them to the proxy
 // log's and the transcript's request records.
+import { listedEntries, mcpSections } from '../../shared/listings.js'
 
 const headline = line => line.length > 34 ? line.slice(0, 33).trimEnd() + '…' : line
 
@@ -50,14 +51,14 @@ export const classifyRequest = (req, url) => {
 export const isLoop = kind => !kind || ['main', 'tools', 'agent'].includes(kind[0])
 
 // The reminders Claude Code injects into user messages, named by their opening line; an unlisted
-// one is named after that line itself.
+// one is named after that line itself. A listing also names its items and how to split them apart.
 const REMINDER_LABELS = [
   ['As you answer the user',             'Session Context'],
   ['# Environment',                      'Environment'],
   ['Attribution for git commits',        'Attribution'],
-  ['Available agent types',              'Agent Types'],
-  ['The following skills are available', 'Skills'],
-  ['# MCP Server Instructions',          'MCP Instructions'],
+  ['Available agent types',              'Agent Types', 'agent type', listedEntries],
+  ['The following skills are available', 'Skills', 'skill', listedEntries],
+  ['# MCP Server Instructions',          'MCP Instructions', 'server', mcpSections],
   ['You are powered by the model',       'Model'],
   ["Today's date",                       'Date'],
   ['While auto mode is active',          'Auto Mode'],
@@ -67,9 +68,11 @@ const REMINDER_LABELS = [
   ['<total_tokens>',                     'Token Budget'],
 ]
 
-export const reminderLabel = text => {
+// A reminder's label, plus for a listing what its items are called, the items, and the text around them
+export const reminderView = text => {
   const line = text.split('\n').map(l => l.trim()).find(Boolean) ?? ''
-  return REMINDER_LABELS.find(([open]) => line.startsWith(open))?.[1] ?? headline(line)
+  const [, label = headline(line), unit, split] = REMINDER_LABELS.find(([open]) => line.startsWith(open)) ?? []
+  return { label, unit, items: [], ...split?.(text) }
 }
 
 // The environment block's announcement of the deferred-tool roster — deferredTools reads the names

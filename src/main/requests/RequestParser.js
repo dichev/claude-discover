@@ -1,5 +1,5 @@
 import crypto from 'node:crypto'
-import { classifyRequest, splitClaudeMd, reminderLabel, DEFERRED_INTRO } from './claudeMarkers.js'
+import { classifyRequest, splitClaudeMd, reminderView, DEFERRED_INTRO } from './claudeMarkers.js'
 
 const jsonBytes = x => x == null ? 0 : Buffer.byteLength(JSON.stringify(x))
 
@@ -8,6 +8,8 @@ const contentHash = s => crypto.createHash('sha256').update(s).digest('base64url
 
 // Tools an MCP server provides, namespaced by Claude Code as mcp__<server>__<tool>.
 const isMcp = name => name.startsWith('mcp__')
+
+const plural = (n, noun) => `${n} ${noun}${n === 1 ? '' : 's'}`
 
 // The kind of an instruction strip: side-channel requests (security monitor, title gen, …) keep
 // their [kind, label]; main-loop requests (user message and tool-result continuations alike)
@@ -39,6 +41,7 @@ export class RequestParser {
     this.hashes = new Map() // $hash → value
     this.seenTools = new Set() // tool names already returned by systemTools
     this.deferred = null // the session's deferred-tool roster, parsed from the first record that carries it
+    this.deferredRoster = null // and its strip
     this.seenStrips = new Set() // hash of every strip returned by strips
   }
 
@@ -113,7 +116,7 @@ export class RequestParser {
         if (!intro) continue
         const names = []
         for (const line of text.slice(intro.index + intro[0].length).split(/\r?\n/)) {
-          if (!/^[A-Za-z_]\w*$/.test(line)) break // one bare name per line; the list ends at the first line that isn't one
+          if (!/^[A-Za-z_][\w-]*$/.test(line)) break // one bare name per line; the list ends at the first line that isn't one
           names.push(line)
         }
         return (this.deferred = names)
@@ -125,15 +128,21 @@ export class RequestParser {
   // The roster as a strip of its own. Names only — a deferred tool has no schema in the request, so
   // this costs what the environment block's list costs, not what the tools would. Kept in announced
   // order, which already runs native names before MCP ones, and fenced so markdown keeps one name
-  // per line instead of reflowing them all into one paragraph.
+  // per line instead of reflowing them all into one paragraph. Built once, like the roster — every
+  // later request would only rebuild the same strip for strips() to drop as already seen.
   deferredStrip(rec) {
+    if (this.deferredRoster) return this.deferredRoster
     const names = this.deferredTools(rec)
     if (!names.length) return null
     const mcp = names.filter(isMcp).length
     // Counted per kind, named after the strip each would have joined had it loaded
-    const count = (n, what) => n && `${n} deferred ${what} tool${n === 1 ? '' : 's'}`
+    const count = (n, what) => n && plural(n, `deferred ${what} tool`)
     const label = [count(names.length - mcp, 'system'), count(mcp, 'MCP')].filter(Boolean).join(', ')
-    return toStrip(rec, 'message', 'Deferred Tools', label, '```\n' + names.join('\n') + '\n```')
+    const fence = list => '```\n' + list.join('\n') + '\n```'
+    // No descriptions to fold, so the names fold per source instead: the system ones, then each MCP server's
+    const groups = Map.groupBy(names, n => isMcp(n) ? `${n.split('__')[1]} MCP` : 'System')
+    const items = [...groups].map(([name, list]) => ({ name, memory_type: plural(list.length, 'tool'), content: fence(list) }))
+    return (this.deferredRoster = { ...toStrip(rec, 'message', 'Deferred Tools', label, fence(names)), items })
   }
 
   // The request's tool definitions, from a resolveRefs'd record, as a native and an MCP strip —
@@ -155,8 +164,8 @@ export class RequestParser {
       const list = fresh.filter(t => pick(t.name)).map(t => ({ name: t.name, content: [t.description || '', schema(t)].filter(Boolean).join('\n\n') || definition(t) }))
       if (!list.length) return null
       const content = list.map(t => [`## ${t.name}`, t.content].filter(Boolean).join('\n\n')).join('\n\n')
-      // `tools` keeps each definition apart, so the UI can fold them one by one
-      return { ...toStrip(rec, 'tools', file_path, `${list.length} tool${list.length === 1 ? '' : 's'}`, content), tools: list }
+      // `items` keeps each definition apart, so the UI can fold them one by one
+      return { ...toStrip(rec, 'tools', file_path, plural(list.length, 'tool'), content), items: list }
     }
     return [strip('System Tools', n => !isMcp(n)), strip('MCP Tools', isMcp)].filter(Boolean)
   }
@@ -182,7 +191,10 @@ export class RequestParser {
       for (const [, inner] of text.matchAll(/<system-reminder>([\s\S]*?)<\/system-reminder>/g)) {
         if (DEFERRED_INTRO.test(inner)) continue
         const content = splitClaudeMd(inner).rest.trim()
-        if (content) strips.push(toStrip(rec, 'message', reminderLabel(content), 'system-reminder', content))
+        if (!content) continue
+        const { label, unit, intro, items, outro } = reminderView(content)
+        const strip = toStrip(rec, 'message', label, items.length ? plural(items.length, unit) : 'system-reminder', content)
+        strips.push(items.length ? { ...strip, intro, items, outro } : strip)
       }
     }
     return strips

@@ -3,6 +3,7 @@ import { format } from 'date-fns'
 import { Globe, LaptopMinimal, Terminal } from 'lucide-react'
 import { fmtCompact, fmtDuration, plural, tone } from '../../utils/formatting'
 import { THRESHOLDS as T } from '../../utils/thresholds.js'
+import { listedEntries, mcpSections } from '../../../shared/listings.js'
 import { flatten, groupTurns, cycleDurations, tokenPoints, currentModel, contextWindow, countTokens } from './transcript.js'
 import { toolSummary, parseCommand, instructionTitle, compactTitle, persistedOutput, humanize, SIDE_NOTE } from './labels.js'
 import Divider from '../../ui/Divider.jsx'
@@ -174,7 +175,7 @@ const AUTHORS = {
 const isFolded = t => t.blocks.every(b => b.folded)
 
 // The user's own attachments that carry a token count (@-files, IDE selections) list above the prompt, like System's instruction files
-const isCounted = b => b.type === 'attachment' && hasText(attachmentView(b.attachment))
+const isCounted = b => b.type === 'attachment' && hasText(attachmentView(b.attachment, b.rendered))
 
 // A You or System row: its messages, with the context that came along folded behind the header
 function InputRow({ kind, turns, point, index }) {
@@ -280,7 +281,7 @@ function TurnRow({ turn, hidden = false, speaker = null }) {
       <div className="turn-blocks">
         {contextBlocks.length > 0 && (
           <Collapsible className="attachment" defaultOpen={false} title={plural(contextBlocks.length, 'attachment')}>
-            {contextBlocks.map((b, i) => <Attachment key={i} att={b.attachment} folded={b.folded} />)}
+            {contextBlocks.map((b, i) => <Attachment key={i} att={b.attachment} rendered={b.rendered} folded={b.folded} />)}
           </Collapsible>
         )}
         {otherBlocks.map((b, i) => <Block key={i} block={b} speaker={speaker} />)}
@@ -340,7 +341,7 @@ function Block({ block, speaker = null }) {
     )
   }
   if (block.type === 'attachment') {
-    return <Attachment att={block.attachment} folded={block.folded} speaker={speaker} />
+    return <Attachment att={block.attachment} rendered={block.rendered} folded={block.folded} speaker={speaker} />
   }
   if (block.type === 'instruction') {
     return <InstructionFile it={block.it} model={block.it.model} tokens={countTokens(block.it.content, block.it.model)} speaker={speaker} className="directive" />
@@ -378,7 +379,7 @@ const ATTACHMENT_RENDERERS = {
     const f = a.content?.file
     return { title: `File: ${a.displayPath || f?.filePath || a.filename || ''}`, body: f?.content ?? safeJson(a.content) }
   },
-  skill_listing: (a) => ({ title: `${a.skillCount} skills`, body: a.content || '' }),
+  skill_listing: (a) => ({ title: `${a.skillCount} skills`, body: a.content || '', ...listedEntries(a.content || '') }),
   deferred_tools_delta: (a) => ({
     title: `${a.addedNames?.length || 0} deferred tools ${a.removedNames?.length ? `(removed: ${a.removedNames.length})` : ''}`,
     body: safeJson({ added: a.addedNames, removed: a.removedNames }),
@@ -403,11 +404,25 @@ const ATTACHMENT_RENDERERS = {
     body: typeof a.prompt === 'string' ? a.prompt : safeJson(a.prompt),
   }),
   max_turns_reached:         a => ({ title: `Max turns reached (${a.maxTurns})`, body: null }),
-  // addedLines carry each agent's one-line description; addedTypes is just their names.
-  agent_listing_delta: (a) => ({
-    title: `${a.addedTypes?.length || 0} agent types${a.removedTypes?.length ? ` (removed: ${a.removedTypes.length})` : ''}`,
-    body: (a.addedLines || a.addedTypes || []).join('\n'),
-  }),
+  // addedLines carry each agent's one-line description; only the rendered text has the list's intro and closing
+  // (concurrency) note, so it's read from that when the record has it.
+  agent_listing_delta: (a, rendered) => {
+    const body = rendered || (a.addedLines || a.addedTypes || []).join('\n')
+    return {
+      title: `${a.addedTypes?.length || 0} agent types${a.removedTypes?.length ? ` (removed: ${a.removedTypes.length})` : ''}`,
+      body,
+      ...listedEntries(body),
+    }
+  },
+  // addedBlocks are each server's instructions under a `## <server>` heading
+  mcp_instructions_delta: a => {
+    const body = (a.addedBlocks || []).join('\n\n')
+    return {
+      title: `MCP instructions: ${plural(a.addedNames?.length || 0, 'server')}${a.removedNames?.length ? ` (removed: ${a.removedNames.length})` : ''}`,
+      body,
+      ...mcpSections(body),
+    }
+  },
 }
 
 // Everything else — Claude Code keeps adding attachment types (reminders, mode switches, tips, …), so the
@@ -432,19 +447,22 @@ function genericAttachment(att) {
   }
 }
 
-const attachmentView = att => (ATTACHMENT_RENDERERS[att?.type] ?? genericAttachment)(att)
+// The text the model actually read for an attachment, minus the system-reminder wrapper
+const renderedText = rendered => (rendered ?? []).map(r => r?.content).filter(c => typeof c === 'string').join('\n')
+  .replace(/<\/?system-reminder>/g, '').trim()
+const attachmentView = (att, rendered) => (ATTACHMENT_RENDERERS[att?.type] ?? genericAttachment)(att, renderedText(rendered))
 // A raw record dump is our rendering, not text the model read — counting it would be noise
 const hasText = view => view.body != null && !view.raw
 
 // An attachment the model didn't fold is a directive to Claude: open, and tinted apart
-function Attachment({ att, folded = true, speaker = null }) {
-  const view            = attachmentView(att)
+function Attachment({ att, rendered, folded = true, speaker = null }) {
+  const view            = attachmentView(att, rendered)
   const { title, body } = view
   const className       = `attachment${folded ? '' : ' directive'}`
   if (body == null) return <Label title={said(speaker, title)} className={className} />
   return (
     <Collapsible title={said(speaker, title)} className={className} defaultOpen={!folded} tokens={hasText(view) && countTokens(body)}>
-      <pre>{body}</pre>
+      {view.items?.length ? <ItemFolds {...view} /> : <pre>{body}</pre>}
     </Collapsible>
   )
 }
@@ -516,11 +534,22 @@ function InstructionFile({ it, model, tokens, speaker = null, className = '' }) 
       {open && (
         <div className="aux-body">
           {it.name && it.name !== it.file_path && <div className="instruction-path">{it.file_path}</div>}
-          {it.tools
-            ? it.tools.map(t => <InstructionFile key={t.name} it={{ file_path: t.name, content: t.content }} model={model} tokens={countTokens(t.content, it.model ?? model)} />)
+          {it.items
+            ? <ItemFolds {...it} model={it.model ?? model} />
             : <Markdown className="block-text" text={it.content || ''} basePath={it.file_path} />}
         </div>
       )}
     </div>
+  )
+}
+
+// A strip's or listing's items (tools, skills, agent types, …), each folding on its own, between the text around them
+function ItemFolds({ intro, items, outro, model }) {
+  return (
+    <>
+      {intro && <Markdown className="block-text" text={intro} />}
+      {items.map(t => <InstructionFile key={t.name} it={{ ...t, file_path: t.name }} model={model} tokens={countTokens(t.content, model)} />)}
+      {outro && <Markdown className="block-text" text={outro} />}
+    </>
   )
 }
