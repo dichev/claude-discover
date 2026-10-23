@@ -1,10 +1,10 @@
 import { Suspense, use, useEffect, useMemo, useRef, useState } from 'react'
-import { Hourglass, Gauge, MessageSquare, Clock, Zap, DollarSign, Brain, Bot, CornerDownRight } from 'lucide-react'
+import { Hourglass, Gauge, MessageSquare, Clock, Zap, DollarSign, Brain, GitBranch, ChevronDown, ChevronRight } from 'lucide-react'
 import { SOURCE_COLORS } from '../utils/colors.js'
 import { fmtCompact, fmtNum, fmtUSD, fmtDuration, fmtAgo, tone } from '../utils/formatting.js'
 import { THRESHOLDS as T } from '../utils/thresholds.js'
 import { parseCommand } from './view/labels.js'
-import { subagentsByParent, isJournal } from '../utils/subagents.js'
+import { subagentClusters, isJournal } from '../utils/subagents.js'
 import { useLocalStorage } from '../utils/useLocalStorage.js'
 import './SessionList.css'
 
@@ -18,8 +18,29 @@ const TIPS = {
 
 const EFFORT_BADGE = { xhigh: 'warn-badge', max: 'danger-badge' }
 
+const sumOf = (sessions, key) => sessions.reduce((sum, s) => sum + (s[key] || 0), 0)
+
 // Icon-only badge: its tip doubles as its accessible name
 const Badge = ({ className, tip, icon: Icon }) => <span className={className} role="img" aria-label={tip} data-tooltip-content={tip}><Icon size={11} /></span>
+
+// The row's time and tokens/cost columns; `toned` colors them against the per-session thresholds
+const RowStats = ({ at, tokens, cost, sortBy, toned }) => <>
+  <span className="session-row-time">{fmtAgo(at)}</span>
+  <span className="session-row-stats">
+    <span className={`${sortBy === 'tokens' ? 'stat-primary' : 'stat-secondary'} ${toned ? tone(tokens, T.tokens) : ''}`}>
+      {fmtCompact(tokens)}
+    </span>
+    <span className={`${sortBy === 'cost' ? 'stat-primary' : 'stat-secondary'} ${toned ? tone(cost, T.cost) : ''}`}>
+      {cost ? fmtUSD(cost) : '—'}
+    </span>
+  </span>
+</>
+
+// The project and model(s) that end a row's second line
+const ProjectModels = ({ project, projectShort, subdir, models, efforts }) => <>
+  {project && <span className="session-project">{projectShort}{subdir && ` › ${subdir}`}</span>}
+  {models?.length > 0 && <span className="session-model">{models.map(m => m.replace(/^claude-/, '')).join(', ')}{efforts?.length > 0 && ` ${efforts.join(', ')}`}</span>}
+</>
 
 // Read once per avatar file, however many sessions share it
 const avatars = new Map()
@@ -30,10 +51,11 @@ const Avatar = ({ session }) => {
 }
 
 export default function SessionList({ sessions, selectedId, deepLink, onSelect }) {
-  const selectedRef         = useRef(null)
-  const [sortBy, setSortBy] = useLocalStorage('session-list.sort', 'time')
-  const [filter, setFilter] = useState('')
-  const [, tick]            = useState(0)
+  const selectedRef             = useRef(null)
+  const [sortBy, setSortBy]     = useLocalStorage('session-list.sort', 'time')
+  const [filter, setFilter]     = useState('')
+  const [expanded, setExpanded] = useState(() => new Map())
+  const [, tick]                = useState(0)
 
   useEffect(() => {
     selectedRef.current?.scrollIntoView({ block: 'nearest' })
@@ -64,13 +86,22 @@ export default function SessionList({ sessions, selectedId, deepLink, onSelect }
                : filtered
 
   const grouped = useMemo(() => {
-    const byParent = subagentsByParent(sorted)
-    return sorted.flatMap((s) => byParent.has(s.parentFilePath) ? [] : [
-      { session: s, isChild: false },
-      ...(byParent.get(s.filePath) ?? []).map((c) => ({ session: c, isChild: true }))
+    // Subagents list under a header per run they were spawned in, newest run first, each run in the list's order
+    const runsOf = Map.groupBy(subagentClusters(sorted), run => run[0].parentFilePath)
+    const rank   = new Map(sorted.map((s, i) => [s, i]))
+    return sorted.flatMap(s => runsOf.has(s.parentFilePath) ? [] : [
+      { session: s },
+      ...(runsOf.get(s.filePath) ?? []).toReversed().flatMap(run => {
+        const runKey = `${run[0].filePath}::run`
+        return [{ run, runKey }, ...run.toSorted((a, b) => rank.get(a) - rank.get(b)).map(c => ({ session: c, runKey }))]
+      }),
     ])
   }, [sorted])
 
+  // Runs start collapsed, except the one holding the selected subagent; a click overrides either
+  const selectedRun = grouped.find(i => i.runKey && i.session?.filePath === selectedId)?.runKey
+  const isOpen      = key => expanded.get(key) ?? key === selectedRun
+  const toggleRun   = key => setExpanded(prev => new Map(prev).set(key, !isOpen(key)))
 
   return (
     <div className="session-list">
@@ -101,8 +132,35 @@ export default function SessionList({ sessions, selectedId, deepLink, onSelect }
         {sorted.length === 0 && (
           <div className="empty">No sessions on this day.</div>
         )}
-        {grouped.map(({ session: s, isChild }) => {
-          const isSubagent = s.sessionId.startsWith('agent-')
+        {grouped.map(({ session: s, run, runKey }) => {
+          const isCollapsed = !!runKey && !isOpen(runKey)
+          if (run) {
+            const Chevron = isCollapsed ? ChevronRight : ChevronDown
+            const hidesSelected = isCollapsed && runKey === selectedRun
+            return (
+              <button
+                type="button"
+                key={runKey}
+                ref={hidesSelected ? selectedRef : null}
+                className={`session-row subagent-run ${hidesSelected ? 'selected' : ''}`}
+                aria-expanded={!isCollapsed}
+                onClick={() => toggleRun(runKey)}
+                style={{ borderLeftColor: SOURCE_COLORS[run[0].source] || SOURCE_COLORS.other }}
+              >
+                <span className="subagent-run-chevron"><Chevron size={14} aria-hidden="true" /></span>
+                <span className="session-row-main">
+                  <span className="session-label subagent-run-title">
+                    Subagents ({run.length})
+                  </span>
+                  <span className="session-time-bottom">
+                    <ProjectModels {...run[0]} models={[...new Set(run.flatMap(c => c.models ?? []))]} efforts={[...new Set(run.flatMap(c => c.efforts ?? []))]} />
+                  </span>
+                </span>
+                <RowStats at={Math.max(...run.map(c => c.lastActivityAt))} tokens={sumOf(run, 'totalTokens')} cost={sumOf(run, 'cost')} sortBy={sortBy} />
+              </button>
+            )
+          }
+          if (isCollapsed) return null
           const journal = isJournal(s)
           const isFork = !!s.forkedFrom
           const linked = !!deepLink && s.filePath === selectedId // opened by a claude-discover:// link, see App.jsx
@@ -117,13 +175,12 @@ export default function SessionList({ sessions, selectedId, deepLink, onSelect }
             <div
               key={s.filePath}
               ref={selectedId === s.filePath ? selectedRef : null}
-              className={`session-row ${selectedId === s.filePath ? 'selected' : ''} ${isChild ? 'is-subagent-child' : ''} ${linked ? 'deep-linked' : ''}`}
+              className={`session-row ${selectedId === s.filePath ? 'selected' : ''} ${runKey ? 'is-subagent-child' : ''} ${linked ? 'deep-linked' : ''}`}
               onClick={() => onSelect(selectedId === s.filePath ? null : s.filePath)}
               style={{ borderLeftColor: SOURCE_COLORS[s.source] || SOURCE_COLORS.other }}
             >
               <div className="session-row-main">
                 <div className="session-label">
-                  {isSubagent && <span className="subagent-icon" role="img" aria-label="Subagent" data-tooltip-content="Subagent"><Bot size={18} /></span>}
                   <span className="session-label-text">
                     {command ? commandArgs || commandName : sessionLabel(s)}
                   </span>
@@ -131,12 +188,11 @@ export default function SessionList({ sessions, selectedId, deepLink, onSelect }
                 <div className="session-time-bottom">
                   {journal && <span className="subagent-tag">[journal: {s.workflowAgents} subagent{s.workflowAgents === 1 ? '' : 's'}]</span>}
                   {s.worktree && <span className="worktree-tag" data-tooltip-content={`Worktree of ${s.projectShort}`}>[{s.worktree}]</span>}
-                  {isFork && <span className="fork-tag" role="img" aria-label="Forked" data-tooltip-content={`Forked from session ${s.forkedFrom.sessionId}`}><CornerDownRight size={12} /></span>}
+                  {isFork && <span className="fork-tag" role="img" aria-label="Forked" data-tooltip-content={`Forked from session ${s.forkedFrom.sessionId}`}><GitBranch size={12} /></span>}
                   {sessionName && <span className="session-name">{sessionName}</span>}
                   {command && <span className="session-command">{commandName}</span>}
                   {s.tag && <span className="session-tag">#{s.tag}</span>}
-                  {s.project && <span className="session-project">{s.projectShort}{s.subdir && ` › ${s.subdir}`}</span>}
-                  {s.models?.length > 0 && <span className="session-model">{s.models.map((m) => m.replace(/^claude-/, '')).join(', ')}{s.efforts?.length > 0 && ` ${s.efforts.join(', ')}`}</span>}
+                  <ProjectModels {...s} />
                   {linked && <span className="deeplink-note">opened from deep link</span>}
                 </div>
               </div>
@@ -153,15 +209,7 @@ export default function SessionList({ sessions, selectedId, deepLink, onSelect }
                 {s.speed === 'fast' && <Badge className={`fast-badge ${s.fastPricingUnknown ? 'fast-badge-unknown' : ''}`} tip={s.fastPricingUnknown ? 'Used fast mode — cost is INACCURATE: no fast-mode price multiplier known for this model' : 'Used fast mode (speed: fast)'} icon={Zap} />}
                 {s.priceUnknown && <Badge className="danger-badge" tip={`No price entry for ${s.models?.join(', ') || 'this model'} — cost is missing or understated`} icon={DollarSign} />}
               </div>
-              <span className="session-row-time">{fmtAgo(s.lastActivityAt)}</span>
-              <div className="session-row-stats">
-                <span className={`${sortBy === 'tokens' ? 'stat-primary' : 'stat-secondary'} ${tone(s.totalTokens, T.tokens)}`}>
-                  {fmtCompact(s.totalTokens)}
-                </span>
-                <span className={`${sortBy === 'cost' ? 'stat-primary' : 'stat-secondary'} ${tone(s.cost, T.cost)}`}>
-                  {s.cost ? fmtUSD(s.cost) : '—'}
-                </span>
-              </div>
+              <RowStats at={s.lastActivityAt} tokens={s.totalTokens} cost={s.cost} sortBy={sortBy} toned />
             </div>
           )
         })}

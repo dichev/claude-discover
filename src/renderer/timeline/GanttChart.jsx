@@ -18,7 +18,6 @@ const BARS = {
   month: { height: 10, min_width: 2, row_gap: 2, group_gap: 2, radius: 1 },
 }
 
-const SUBAGENT_SPLIT_GAP = 5 * 60_000 // a longer pause between subagents (user working) splits them into separate bars
 const endOf = (s) => Math.max(s.lastActivityAt, s.startedAt + 60_000)
 const clipLeft = (s, n = 29) => s.length > n ? '…' + s.slice(1 - n) : s // keep the distinctive tail of a long subfolder
 
@@ -65,7 +64,7 @@ export default function GanttChart({
 
   const { groups, totalHeight } = useMemo(() => {
     // Subagents split into time-separated runs; a run of 2+ collapses into one labelled bar.
-    const clusters = subagentClusters(sessions, SUBAGENT_SPLIT_GAP).filter((c) => c.length >= 2)
+    const clusters = subagentClusters(sessions).filter((c) => c.length >= 2)
     const collapsed = new Set(clusters.flat().map((s) => s.filePath))
 
     const byKey = new Map()

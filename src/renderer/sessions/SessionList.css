@@ -111,8 +111,26 @@
 
   &:hover { background: var(--bg-elev-2); }
   &.selected { background: var(--selected); }
-  &.is-subagent-child { padding-left: 20px; }
+  &.is-subagent-child { padding-left: 29px; } /* under the run title text: 10px padding + 14px chevron + 5px gap */
   &.deep-linked { background: rgba(52, 211, 153, 0.12); } /* last, so it wins over :hover and .selected */
+}
+
+/* A .session-row reset as a button, so it lines up with the subagent rows below it */
+.subagent-run {
+  width: 100%;
+  border-top: none;
+  border-right: none;
+  background: none;
+  font: inherit;
+  text-align: left;
+}
+
+/* 18px tall to center on the title's line; the margin trims the row's 10px gap to 5px */
+.subagent-run-chevron { display: flex; align-items: center; height: 18px; margin-right: -5px; color: var(--text); }
+
+.subagent-run-title {
+  font-weight: 600;
+  color: var(--text);
 }
 
 .deeplink-note { color: #34d399; }
@@ -228,7 +246,6 @@
 
 .worktree-tag { color: #34d399; }
 
-.subagent-icon,
 .fork-tag {
   display: inline-flex;
   align-items: center;
