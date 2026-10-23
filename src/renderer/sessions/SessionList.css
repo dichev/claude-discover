@@ -105,9 +105,13 @@
   border-left: 3px solid transparent;
   border-bottom: 1px solid var(--border);
   cursor: pointer;
-  display: flex;
-  align-items: flex-start;
-  gap: 10px;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto auto auto;
+  /* the second line runs on under the badges and time, up to the stats column */
+  grid-template-areas:
+    "chevron label  badges time   stats"
+    "chevron bottom bottom bottom stats";
+  align-items: start;
 
   &:hover { background: var(--bg-elev-2); }
   &.selected { background: var(--selected); }
@@ -125,8 +129,8 @@
   text-align: left;
 }
 
-/* 18px tall to center on the title's line; the margin trims the row's 10px gap to 5px */
-.subagent-run-chevron { display: flex; align-items: center; height: 18px; margin-right: -5px; color: var(--text); }
+/* 18px tall to center on the title's line */
+.subagent-run-chevron { grid-area: chevron; display: flex; align-items: center; height: 18px; margin-right: 5px; color: var(--text); }
 
 .subagent-run-title {
   font-weight: 600;
@@ -135,10 +139,9 @@
 
 .deeplink-note { color: #34d399; }
 
-.session-row-main { flex: 1; min-width: 0; }
-
 .session-row-badges {
-  flex: none;
+  grid-area: badges;
+  margin-left: 10px;
   display: flex;
   align-items: center;
   gap: 3px;
@@ -150,9 +153,9 @@
 
 /* 18px line height keeps it on the label's line */
 .session-row-time {
-  flex: none;
+  grid-area: time;
   width: 24px;
-  margin: 0 -4px; /* trims the row's 10px gap to 6px on both sides */
+  margin-left: 6px;
   text-align: right;
   font-family: var(--font-mono), monospace;
   font-size: 10px;
@@ -162,7 +165,8 @@
 }
 
 .session-row-stats {
-  flex: none;
+  grid-area: stats;
+  margin-left: 6px;
   display: flex;
   flex-direction: column;
   align-items: flex-end;
@@ -191,25 +195,27 @@
 }
 
 .session-time-bottom {
+  grid-area: bottom;
   margin-top: 2px;
   display: flex;
-  gap: 0px;
+  overflow: hidden;
   font-family: var(--font-mono), monospace;
   font-size: 10px;
   line-height: 14px;
   color: var(--text-faint);
 
   & > * { flex: none; }
+  & > :last-child { flex: 0 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   & > * + *::before { content: ', '; }
   & > .fork-tag + *::before { content: '\00a0'; }
   & .subagent-tag, & .worktree-tag { font-size: inherit; }
 }
 .session-model { color: var(--text-dim); }
 
-/* the only part of the line that gives way when the list pane narrows */
+/* the part of the line that gives way first when the list pane narrows; the huge factor leaves the ellipsized last item untouched until it's gone */
 .session-project {
   color: var(--text-dim);
-  flex: 0 1 auto;
+  flex: 0 1e6 auto;
   min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -256,6 +262,7 @@
 
 /* Single flex line, 18px tall to line up with the badge column */
 .session-label {
+  grid-area: label;
   font-size: 12px;
   display: flex;
   align-items: center;

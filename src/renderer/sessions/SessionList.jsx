@@ -148,13 +148,11 @@ export default function SessionList({ sessions, selectedId, deepLink, onSelect }
                 style={{ borderLeftColor: SOURCE_COLORS[run[0].source] || SOURCE_COLORS.other }}
               >
                 <span className="subagent-run-chevron"><Chevron size={14} aria-hidden="true" /></span>
-                <span className="session-row-main">
-                  <span className="session-label subagent-run-title">
-                    Subagents ({run.length})
-                  </span>
-                  <span className="session-time-bottom">
-                    <ProjectModels {...run[0]} models={[...new Set(run.flatMap(c => c.models ?? []))]} efforts={[...new Set(run.flatMap(c => c.efforts ?? []))]} />
-                  </span>
+                <span className="session-label subagent-run-title">
+                  Subagents ({run.length})
+                </span>
+                <span className="session-time-bottom">
+                  <ProjectModels {...run[0]} models={[...new Set(run.flatMap(c => c.models ?? []))]} efforts={[...new Set(run.flatMap(c => c.efforts ?? []))]} />
                 </span>
                 <RowStats at={Math.max(...run.map(c => c.lastActivityAt))} tokens={sumOf(run, 'totalTokens')} cost={sumOf(run, 'cost')} sortBy={sortBy} />
               </button>
@@ -179,22 +177,20 @@ export default function SessionList({ sessions, selectedId, deepLink, onSelect }
               onClick={() => onSelect(selectedId === s.filePath ? null : s.filePath)}
               style={{ borderLeftColor: SOURCE_COLORS[s.source] || SOURCE_COLORS.other }}
             >
-              <div className="session-row-main">
-                <div className="session-label">
-                  <span className="session-label-text">
-                    {command ? commandArgs || commandName : sessionLabel(s)}
-                  </span>
-                </div>
-                <div className="session-time-bottom">
-                  {journal && <span className="subagent-tag">[journal: {s.workflowAgents} subagent{s.workflowAgents === 1 ? '' : 's'}]</span>}
-                  {s.worktree && <span className="worktree-tag" data-tooltip-content={`Worktree of ${s.projectShort}`}>[{s.worktree}]</span>}
-                  {isFork && <span className="fork-tag" role="img" aria-label="Forked" data-tooltip-content={`Forked from session ${s.forkedFrom.sessionId}`}><GitBranch size={12} /></span>}
-                  {sessionName && <span className="session-name">{sessionName}</span>}
-                  {command && <span className="session-command">{commandName}</span>}
-                  {s.tag && <span className="session-tag">#{s.tag}</span>}
-                  <ProjectModels {...s} />
-                  {linked && <span className="deeplink-note">opened from deep link</span>}
-                </div>
+              <div className="session-label">
+                <span className="session-label-text">
+                  {command ? commandArgs || commandName : sessionLabel(s)}
+                </span>
+              </div>
+              <div className="session-time-bottom">
+                {journal && <span className="subagent-tag">[journal: {s.workflowAgents} subagent{s.workflowAgents === 1 ? '' : 's'}]</span>}
+                {s.worktree && <span className="worktree-tag" data-tooltip-content={`Worktree of ${s.projectShort}`}>[{s.worktree}]</span>}
+                {isFork && <span className="fork-tag" role="img" aria-label="Forked" data-tooltip-content={`Forked from session ${s.forkedFrom.sessionId}`}><GitBranch size={12} /></span>}
+                {sessionName && <span className="session-name">{sessionName}</span>}
+                {command && <span className="session-command">{commandName}</span>}
+                {s.tag && <span className="session-tag">#{s.tag}</span>}
+                <ProjectModels {...s} />
+                {linked && <span className="deeplink-note">opened from deep link</span>}
               </div>
               <div className="session-row-badges">
                 {s.avatar && <Suspense><Avatar session={s} /></Suspense>}
