@@ -7,7 +7,7 @@ import './MultiPicker.css'
 //   options: [{ value, label, detail?, group? }] — a divider goes wherever `group` changes
 const isMulti = e => e.ctrlKey || e.metaKey || e.shiftKey
 
-export default function MultiPicker({ options, value, onChange, allLabel = 'All' }) {
+export default function MultiPicker({ options, value, onChange, allLabel = 'All', className = '' }) {
   const [multi, setMulti] = useState(false)
   const popoverRef        = useRef(null)
   const id                = useId()
@@ -60,7 +60,7 @@ export default function MultiPicker({ options, value, onChange, allLabel = 'All'
       <button
         type="button"
         popoverTarget={id}
-        className={`multi-picker${value.length ? ' active' : ''}`}
+        className={`multi-picker ${className}${value.length ? ' active' : ''}`}
         style={{ anchorName: anchor }}
       >
         <span className="multi-picker-label">{label}</span>

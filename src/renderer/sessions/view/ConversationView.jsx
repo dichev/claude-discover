@@ -34,8 +34,23 @@ function useCollapsed(defaultOpen) {
 const isCommandTurn = t => t.blocks.some(b => b.type === 'text' && parseCommand(b.text)?.name)
 const isClearTurn   = t => t.blocks.some(b => b.type === 'text' && parseCommand(b.text)?.name === '/clear')
 
+export const FILTERS = [
+  { value: 'user', label: 'User messages' },
+  { value: 'assistant', label: 'Claude messages' },
+  { value: 'system', label: 'System & memory files' },
+  { value: 'other', label: 'Everything else' },
+]
+const CATEGORY = { compact: 'system', instruction: 'other' }
 
-export default function ConversationView({ items, instructions = {}, filePath = null, expandAll = null, continuesFrom = null, continuesTo = null, forkedFrom = null, forkedAt = null, onShowPeriodOf }) {
+// System's turns count as `system` even mid-cycle inside a Claude card; a card left with only those shows as System's row
+function filtered(g, filter) {
+  if (!filter.length) return g
+  const turns = g.turns.filter(t => filter.includes(CATEGORY[g.kind] ?? (t.role === 'system' ? 'system' : g.kind)))
+  if (!turns.length) return null
+  return { kind: turns.every(t => t.role === 'system') ? 'system' : g.kind, turns }
+}
+
+export default function ConversationView({ items, instructions = {}, filePath = null, expandAll = null, filter = [], continuesFrom = null, continuesTo = null, forkedFrom = null, forkedAt = null, onShowPeriodOf }) {
   const turns            = useMemo(() => flatten(items, instructions), [items, instructions])
   const groups           = useMemo(() => groupTurns(turns), [turns])
   const points           = useMemo(() => tokenPoints(groups), [groups])
@@ -46,6 +61,7 @@ export default function ConversationView({ items, instructions = {}, filePath = 
   const model = currentModel(turns)
   const ctxLimit = contextWindow([model]) // bar scale: fraction of this model's context window
   const hasTimeline = points.some(Boolean)
+  const shown = groups.map(g => filtered(g, filter))
   const branch = branchPoint(groups, forkedFrom, forkedAt, continuesFrom)
   const branchDivider = branch && <Divider className="conv-divider" title={branch.from}>Branched from session {branch.from.slice(0, 8)}</Divider>
   return (
@@ -57,10 +73,10 @@ export default function ConversationView({ items, instructions = {}, filePath = 
             Continues from {format(continuesFrom, 'MMM d, yyyy HH:mm')}
           </Divider>
         )}
-        {groups.map((g, i) => (
-          <React.Fragment key={g.turns[0].uuid}>
+        {shown.map((g, i) => (
+          <React.Fragment key={groups[i].turns[0].uuid}>
             {i === branch?.index && branchDivider}
-            <div className={`conv-row conv-row-${g.kind}`}>
+            {g && <div className={`conv-row conv-row-${g.kind}`}>
               <LazyMount eager={i < 8} forceMount={findOpen} placeholderMinHeight={80}>
                 {g.kind === 'user' || g.kind === 'system' ? <InputRow kind={g.kind} turns={g.turns} point={points[i]} index={i} />
                  : g.kind === 'assistant' ? <AssistantCard turns={g.turns} point={points[i]} index={i} duration={durations[i]} ctxLimit={ctxLimit} showAuthor={groups[i - 1]?.kind !== 'assistant'} />
@@ -70,10 +86,11 @@ export default function ConversationView({ items, instructions = {}, filePath = 
               {points[i] ? <TokenPoint point={points[i]} />
                // Commands consume no tokens so they never get a real point — mark them with a plain dot.
                : hasTimeline && g.kind === 'user' && g.turns.some(isCommandTurn) && <TokenPoint point={{ role: 'command', delta: 0 }} />}
-            </div>
-            {g.kind === 'user' && g.turns.some(isClearTurn) && <Divider className="conv-divider">Context cleared</Divider>}
+            </div>}
+            {groups[i].kind === 'user' && groups[i].turns.some(isClearTurn) && <Divider className="conv-divider">Context cleared</Divider>}
           </React.Fragment>
         ))}
+        {filter.length > 0 && !shown.some(Boolean) && <div className="empty">Nothing in this session matches the filter.</div>}
         {branch?.index === groups.length && branchDivider}
         {continuesTo != null && (
           <Divider className="conv-continues-to" onClick={() => onShowPeriodOf(continuesTo)} title="Show the later period">
