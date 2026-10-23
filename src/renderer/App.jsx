@@ -142,7 +142,7 @@ export default function App() {
       defaultLayout={rootLayout}
       onLayoutChanged={onRootLayoutChanged}
     >
-      <Panel id="gantt" defaultSize={400} minSize={180} className="gantt-pane">
+      <Panel id="gantt" defaultSize={450} minSize={180} className="gantt-pane">
         <Toolbar
           granularity={granularity}
           onSetGranularity={changeGranularity}

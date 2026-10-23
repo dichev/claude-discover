@@ -1,6 +1,6 @@
 .cost-chart {
   position: relative;
-  margin-top: 6px;
+  margin-top: 16px;
   margin-bottom: 10px;
 }
 
@@ -9,6 +9,26 @@
   display: flex;
   align-items: flex-end;
   gap: 2px;
+}
+
+/* y tick at the tallest bar's height, labelled with its amount */
+.cost-chart-max {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 0;
+  border-top: 1px dashed var(--border-strong);
+  pointer-events: none;
+
+  & > span {
+    position: absolute;
+    right: 0;
+    bottom: 1px;
+    font-size: 9px;
+    line-height: 1;
+    font-family: var(--font-mono), monospace;
+    color: var(--text-faint);
+  }
 }
 
 /* x-axis line at the bar baseline, above the labels */
