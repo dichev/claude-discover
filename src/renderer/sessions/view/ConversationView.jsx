@@ -35,7 +35,7 @@ const isCommandTurn = t => t.blocks.some(b => b.type === 'text' && parseCommand(
 const isClearTurn   = t => t.blocks.some(b => b.type === 'text' && parseCommand(b.text)?.name === '/clear')
 
 
-export default function ConversationView({ items, instructions = {}, filePath = null, expandAll = null, continuesFrom = null, continuesTo = null, onShowPeriodOf }) {
+export default function ConversationView({ items, instructions = {}, filePath = null, expandAll = null, continuesFrom = null, continuesTo = null, forkedFrom = null, forkedAt = null, onShowPeriodOf }) {
   const turns            = useMemo(() => flatten(items, instructions), [items, instructions])
   const groups           = useMemo(() => groupTurns(turns), [turns])
   const points           = useMemo(() => tokenPoints(groups), [groups])
@@ -46,7 +46,7 @@ export default function ConversationView({ items, instructions = {}, filePath = 
   const model = currentModel(turns)
   const ctxLimit = contextWindow([model]) // bar scale: fraction of this model's context window
   const hasTimeline = points.some(Boolean)
-  const branch = branchPoint(items, groups)
+  const branch = branchPoint(groups, forkedFrom, forkedAt, continuesFrom)
   const branchDivider = branch && <Divider className="conv-divider" title={branch.from}>Branched from session {branch.from.slice(0, 8)}</Divider>
   return (
     <ExpandAllContext.Provider value={expandAll}>
@@ -90,15 +90,13 @@ export default function ConversationView({ items, instructions = {}, filePath = 
   )
 }
 
-// A branch (/branch, --fork-session) opens with the source's records copied over, each stamped `forkedFrom` —
+// A branch (/branch, --fork-session) opens with the source's records copied over, up to `forkedAt` —
 // returns the source session and the index of the first group after them (groups.length when none yet).
-function branchPoint(items, groups) {
-  const from = items.find(it => it.forkedFrom)?.forkedFrom.sessionId
-  const first = from && items.find(it => it.timestamp && !it.forkedFrom)
-  if (!first) return null
-  const ts = Date.parse(first.timestamp)
-  const i = groups.findIndex(g => g.turns.some(t => t.ts >= ts))
-  return { from, index: i === -1 ? groups.length : i }
+// The copies don't count as earlier activity, so the period holding the branch's start has no `continuesFrom`.
+function branchPoint(groups, forkedFrom, forkedAt, continuesFrom) {
+  if (!forkedFrom || continuesFrom != null) return null
+  const i = groups.findIndex(g => g.turns.some(t => t.ts > forkedAt))
+  return { from: forkedFrom.sessionId, index: i === -1 ? groups.length : i }
 }
 
 // From here on the history was replaced by a summary — folded under the divider.

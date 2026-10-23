@@ -11,7 +11,7 @@ const agentKey = id => id?.includes('@') ? id.slice(0, id.indexOf('@'))
   : id?.replace(/^a/, '').replace(/-[0-9a-f]{16}$/, '') ?? null
 
 // `range` is { start, end } epoch ms, null for no bounds
-const inRange = (timestamp, range) => {
+export const inRange = (timestamp, range) => {
   if (!range) return true
   const t = Date.parse(timestamp)
   return t >= range.start && t <= range.end

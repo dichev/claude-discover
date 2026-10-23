@@ -6,6 +6,7 @@ import path from 'node:path'
 import { describe, it, expect, beforeAll, afterAll } from 'vitest'
 import { TranscriptInstructions } from '../src/main/requests/TranscriptInstructions.js'
 import { SessionsService } from '../src/main/services/SessionsService.js'
+import { SessionFile } from '../src/main/sessions/SessionFile.js'
 
 const system = [{ type: 'text', text: "You are Claude Code, Anthropic's official CLI for Claude." }]
 const read   = { name: 'Read', description: 'reads' }
@@ -83,5 +84,27 @@ describe('SessionsService.readSession — the loop\'s strips', () => {
     service.metaCache.periodMetas.set(file, { filePath: file, mtime: Date.now() })
     const { instructions } = await service.readSession(file, '2026-10-18', 'day')
     expect(instructions.loop.map(s => s.file_path)).toEqual(['System Prompt', 'System Tools', 'D:\\proj\\CLAUDE.md', 'Tools added'])
+  })
+
+  it('reads what a branch\'s copied turns sent off its source, up to the branch point', async () => {
+    const source = crypto.randomUUID()
+    const later  = [{ type: 'api-request-blob', hash: 'b9', message: added }, request('r9', '2026-10-17T10:30:00.000Z', { base: 'r1' })] // the source went on after the branch
+    fs.writeFileSync(path.join(dir, `${source}.jsonl`), [...lines.slice(0, 5), ...later].map(l => JSON.stringify(l)).join('\n') + '\n')
+    const copied = [lines[0], lines[4]].map(l => ({ ...l, forkedFrom: { sessionId: source } }))
+    const branch = [
+      { type: 'api-request-shape', shapeHash: 's1', timestamp: '2026-10-17T11:00:00.000Z', shape: { system, tools: [read] } },
+      { type: 'api-request-blob', hash: 'b1', message: claudeMd },
+      request('r1', '2026-10-17T11:00:00.000Z'),
+    ]
+    const file = path.join(dir, `${crypto.randomUUID()}.jsonl`)
+    fs.writeFileSync(file, [...copied, ...branch].map(l => JSON.stringify(l)).join('\n') + '\n')
+    const service = new SessionsService({ root: dir })
+    service.metaCache.periodMetas.set(file, await service._scanSession(new SessionFile(file)))
+    const { instructions } = await service.readSession(file, '2026-10-17', 'day')
+    expect(instructions.loop.map(s => [s.timestamp, s.file_path])).toEqual([ // the branch's first request sent nothing new
+      ['2026-10-17T10:00:00.300Z', 'System Prompt'],
+      ['2026-10-17T10:00:00.300Z', 'System Tools'],
+      ['2026-10-17T10:00:00.300Z', 'D:\\proj\\CLAUDE.md'],
+    ])
   })
 })

@@ -1,7 +1,8 @@
 import { EventEmitter } from 'node:events'
+import path from 'node:path'
 import { startOfDay, endOfDay, startOfWeek, endOfWeek, startOfMonth, endOfMonth, parseISO } from 'date-fns'
 import { SessionFile } from '../sessions/SessionFile.js'
-import { RequestFile } from '../requests/RequestFile.js'
+import { RequestFile, inRange } from '../requests/RequestFile.js'
 import { UNATTRIBUTED } from '../../../bin/proxy.config.js'
 import { TranscriptInstructions } from '../requests/TranscriptInstructions.js'
 import { SessionParser, suffixLabels } from '../sessions/SessionParser.js'
@@ -32,6 +33,8 @@ function stripInternal({ seenMessageIds, ...meta }) {
 }
 
 export class SessionsService extends EventEmitter {
+  #branch = null // { key, source } of the last branch read
+
   constructor({ root, throttleMs = 100, scanner = null } = {}) {
     super()
     this.scanner = scanner ?? new SessionsScanner(root ? { root } : {})
@@ -57,23 +60,23 @@ export class SessionsService extends EventEmitter {
     const range = date ? periodBounds(date, granularity) : null
     const reader = new SessionFile(meta.filePath)
     const parser = new SessionParser({ sessionId: reader.sessionId, parentSessionId: reader.parentSessionId, filePath: reader.filePath, mtime: meta.mtime, range })
+    // what the side requests (title, auto-mode check, …) sent, which only the capture proxy saw
+    const sides = this.#requestFile(reader.sessionId, reader.parentSessionId).readInstructions(range)
+    const source = await this.#branchSource(meta)
     const items = []
     const transcript = new TranscriptInstructions()
     const loop = []
     let start = null // what the conversation's first request sent — its context on any day
-    const [, side] = await Promise.all([
-      reader.stream(obj => {
-        // read ahead of the range filter, so what was sent before the period isn't listed again
-        const strips = transcript.feed(obj)
-        if (obj.type === 'api-request') start ??= strips
-        if (parser.feed(obj)) {
-          items.push(obj)
-          loop.push(...strips)
-        }
-      }),
-      // what the side requests (title, auto-mode check, …) sent, which only the capture proxy saw
-      this.#requestFile(reader.sessionId, reader.parentSessionId).readInstructions(range),
-    ])
+    // fed ahead of the range filter, so what was sent before the period isn't listed again
+    const feed = (obj, shown) => {
+      const strips = transcript.feed(obj)
+      if (obj.type === 'api-request') start ??= strips
+      if (shown) loop.push(...strips)
+      return shown
+    }
+    for (const obj of source.records) feed(obj, inRange(obj.timestamp, range))
+    await reader.stream(obj => { if (feed(obj, parser.feed(obj))) items.push(obj) })
+    const side = [...await sides, ...source.side.filter(s => inRange(s.timestamp, range))]
     if (start?.length && !loop.includes(start[0])) loop.unshift(...start)
     items.sort((a, b) => a._ts - b._ts) // .jsonl lines aren't always in timestamp order
     const keys = new Set(loop.map(s => s.hash))
@@ -85,6 +88,28 @@ export class SessionsService extends EventEmitter {
     // Shipped apart from the transcript items, the renderer slots them in by timestamp: the loop's as
     // System rows, the side requests' as Proxy blocks
     return { items, instructions: { loop, side } }
+  }
+
+  // A branch copies its source's turns but not the requests that sent them: those come from the source, up to the
+  // branch point. That part of the source never changes, so the last one read is kept for the branch's live updates.
+  #branchSource({ filePath, forkedFrom, forkedAt }) {
+    if (!forkedFrom) return { records: [], side: [] }
+    const key = `${filePath} ${forkedAt}`
+    if (this.#branch?.key !== key) this.#branch = { key, source: this.#readBranchSource(filePath, forkedFrom.sessionId, forkedAt) }
+    return this.#branch.source
+  }
+
+  // The source's request records (shapes, blobs, requests) and side requests sent up to `at`; its transcript sits beside the branch.
+  async #readBranchSource(filePath, sessionId, at) {
+    const records = []
+    const [side] = await Promise.all([
+      new RequestFile(sessionId).readInstructions({ start: 0, end: at }),
+      new SessionFile(path.join(path.dirname(filePath), `${sessionId}.jsonl`)).stream(obj => {
+        if (obj.type?.startsWith('api-request')) records.push(obj)
+      }),
+    ])
+    // cut after the last request in time: the shapes and blobs logged past it belong to later ones
+    return { records: records.slice(0, records.findLastIndex(o => o.type === 'api-request' && Date.parse(o.timestamp) <= at) + 1), side }
   }
 
   // Captured API requests for a session (see bin/proxy.mjs), period-filtered like readSession.

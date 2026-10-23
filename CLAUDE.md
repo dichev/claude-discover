@@ -66,7 +66,7 @@ Three-process Electron split:
 
 Three independent data sources feed the UI:
 
-1. **Session transcripts** — `<CLAUDE_DIR>/projects/**/*.jsonl`, append-only, written by Claude Code. Since 2.1.300 they also log the loop's own API requests (`api-request-shape`/`-blob`/`api-request`); `TranscriptInstructions` reads what each request first sent (system prompt, tools, memory files, reminders) into System rows. Attachments whose text those already list (and prompt snapshots) are flagged `_listed`, which `flatten` skips.
+1. **Session transcripts** — `<CLAUDE_DIR>/projects/**/*.jsonl`, append-only, written by Claude Code. Since 2.1.300 they also log the loop's own API requests (`api-request-shape`/`-blob`/`api-request`); `TranscriptInstructions` reads what each request first sent (system prompt, tools, memory files, reminders) into System rows; a branch's copied turns take theirs from the source transcript, which logged them. Attachments whose text those already list (and prompt snapshots) are flagged `_listed`, which `flatten` skips.
 2. **Captured API requests** — `~/.claude-discover/requests/<sessionId>.requests.jsonl`, written by `bin/proxy.mjs` only while capture is on (requests without a session-id header go to `unattributed.requests.jsonl`, listed in the API Requests tab of every session active at the time). Feeds the API Requests tab and the Conversation view's Proxy blocks: what the side requests (title, auto-mode check, web search, …) sent, which the transcript doesn't log.
 3. **Model prices** — `src/main/config/prices.seed.json` seed, refreshed daily from LiteLLM into `~/.claude-discover/prices.current.json`.
 
@@ -82,7 +82,7 @@ Watching (`sessions/utils/FileWatcher.js`) is one recursive `fs.watch`, not chok
 
 Invariants — token totals break if any of these are bypassed:
 
-- Resume/fork duplicates message ids verbatim; `SessionsService._dedupSessions` excludes the overlap.
+- Resume/fork duplicates message ids verbatim; `SessionsService._dedupSessions` excludes the overlap. A branch (`/branch`, `--fork-session`) stamps its copies `forkedFrom`; `SessionParser` resets its metrics at the first record after them, so the branch starts (and counts) at the branch point.
 - A partial compaction re-logs the preserved records under their original uuids, with zeroed usage; `SessionParser` counts only the first and flags the copies `_relogged`, which `flatten` skips.
 - A streamed reply spans several jsonl lines sharing `message.id` with growing `output_tokens`; the parser counts only the growth per line, clamped at 0 (rewinds re-append zeroed usage that was still billed).
 - Sessions are always parsed from byte 0, never resumed at an offset.

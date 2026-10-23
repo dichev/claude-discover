@@ -457,3 +457,48 @@ describe('groupTurns — the instruction block', () => {
     expect(cycleDurations(groups)[2]).toBe(10_000)
   })
 })
+
+describe('SessionParser — a branch', () => {
+  const copy   = l => ({ ...l, forkedFrom: { sessionId: 'src', messageUuid: l.uuid } })
+  const prompt = (uuid, timestamp, content) => ({ type: 'user', uuid, timestamp, message: { role: 'user', content } })
+  const reply  = (uuid, timestamp) => ({ type: 'assistant', uuid, timestamp, message: { id: `m-${uuid}`, role: 'assistant', model: 'claude-opus-5-5', content: [], usage: { input_tokens: 10, output_tokens: 5 } } })
+  const lines  = [
+    copy(prompt('u1', '2026-10-22T10:00:00.000Z', 'hey')),
+    copy(reply('a1', '2026-10-22T10:00:01.000Z')),
+    { type: 'custom-title', customTitle: 'b' },
+    prompt('u2', '2026-10-22T11:00:00.000Z', 'go on'),
+    reply('a2', '2026-10-22T11:00:01.000Z'),
+  ]
+
+  it('starts at the branch point, counting only its own records, yet shows the copied ones with their running totals', () => {
+    const parser = new SessionParser({ sessionId: 's1', filePath: 's1.jsonl', mtime: Date.parse('2026-10-22T12:00:00.000Z') })
+    const items  = lines.map(l => structuredClone(l))
+    expect(items.map(l => parser.feed(l))).toEqual([true, true, true, true, true])
+    expect(parser.meta).toMatchObject({
+      startedAt: Date.parse('2026-10-22T11:00:00.000Z'), messageCount: 2, firstUserPrompt: 'go on',
+      tokens: { input: 10, output: 5 }, forkedFrom: { sessionId: 'src' }, forkedAt: Date.parse('2026-10-22T10:00:01.000Z'), activityPeriods: [{ start: Date.parse('2026-10-22T11:00:00.000Z') }],
+    })
+    expect([...parser.meta.seenMessageIds]).toEqual(['m-a2'])
+    expect(items[1]._tokenTotal).toBe(15)
+    expect(items[4]._tokenTotal).toBe(30)
+  })
+
+  it('isn\'t listed on the copied records\' day', () => {
+    const range  = { start: Date.parse('2026-10-21T00:00:00.000Z'), end: Date.parse('2026-10-22T10:30:00.000Z') }
+    const parser = new SessionParser({ sessionId: 's1', filePath: 's1.jsonl', range })
+    for (const l of lines) parser.feed(structuredClone(l))
+    expect(parser.meta).toMatchObject({ startedAt: null, messageCount: 0, continuesTo: Date.parse('2026-10-22T11:00:00.000Z') })
+  })
+
+  it('resets every field at the branch point but the session\'s identity', () => {
+    const parser = new SessionParser({ sessionId: 's1', filePath: 's1.jsonl' })
+    for (const k in parser.meta) parser.meta[k] = 'copied'
+    parser.resetMetrics()
+    const kept = Object.keys(parser.meta).filter(k => parser.meta[k] === 'copied')
+    expect(kept, 'a new count belongs in freshMetrics, or a branch counts its copies too').toEqual([
+      'sessionId', 'parentSessionId', 'filePath', 'parentFilePath', 'fileSize', 'mtime',
+      'entrypoint', 'project', 'gitBranch', 'version',
+      'summary', 'aiTitle', 'customTitle', 'agentName', 'tag', 'forkedFrom', 'forkedAt',
+    ])
+  })
+})

@@ -42,10 +42,18 @@ function classifySource(meta) {
 function freshMeta({ sessionId, parentSessionId, filePath, parentFilePath, fileSize, mtime }) {
   return {
     sessionId, parentSessionId, filePath, parentFilePath, fileSize, mtime,
-    startedAt: null, lastActivityAt: null, continuesFrom: null, continuesTo: null,
     entrypoint: null, project: null, gitBranch: null, version: null,
+    summary: null, aiTitle: null, customTitle: null, agentName: null, tag: null, forkedFrom: null, forkedAt: null,
+    ...freshMetrics(),
+  }
+}
+
+// What the records add up to — a branch resets it where its own records start
+function freshMetrics() {
+  return {
+    startedAt: null, lastActivityAt: null, continuesFrom: null, continuesTo: null,
     model: null, models: [], efforts: [], serviceTier: null, speed: null, fastPricingUnknown: false, priceUnknown: false,
-    summary: null, aiTitle: null, customTitle: null, agentName: null, tag: null, firstUserPrompt: null, firstUserCommand: null, forkedFrom: null,
+    firstUserPrompt: null, firstUserCommand: null,
     messageCount: 0, workflowAgents: 0, toolCalls: 0, skillCalls: 0,
     tokens: emptyBucket(), tokensByModel: {}, tokensByModelFast: {}, lastContextTokens: 0,
     serverToolUse: { webSearch: 0, webFetch: 0 },
@@ -73,12 +81,21 @@ export class SessionParser {
     // msgId -> the usage bucket we've already folded into the totals, so later
     // snapshots of a streamed reply can contribute only their growth.
     this.appliedById = new Map()
+    this.branchStarted = false
   }
 
   // Returns true if the item passes `this.range`.
   feed(obj) {
     const meta = this.meta
     const t = obj.type
+    // A branch opens with its source's records copied over, each stamped `forkedFrom` — they show in it but count only in the source
+    if (obj.forkedFrom?.sessionId) {
+      meta.forkedFrom ??= obj.forkedFrom
+      meta.forkedAt = Math.max(meta.forkedAt ?? 0, Date.parse(obj.timestamp) || 0)
+    } else if (meta.forkedAt != null && !this.branchStarted) {
+      this.branchStarted = true
+      this.resetMetrics()
+    }
     if (t === 'summary' && obj.summary) meta.summary = obj.summary
     if (t === 'ai-title' && obj.aiTitle) meta.aiTitle = obj.aiTitle
     if (t === 'custom-title' && obj.customTitle) meta.customTitle = obj.customTitle
@@ -168,10 +185,16 @@ export class SessionParser {
     return true
   }
 
+  // Forgets what the records so far added up to, but not the running totals the view stamps
+  resetMetrics() {
+    Object.assign(this.meta, freshMetrics())
+    this.lastSeenTs = null
+    this.appliedById.clear()
+  }
+
   // Capture the first user prompt / command for the session list.
   _feedUser(obj) {
     const meta = this.meta
-    if (!meta.forkedFrom && obj.forkedFrom?.sessionId) meta.forkedFrom = obj.forkedFrom
     const text = extractText(obj.message?.content)
     if (text.startsWith('<command-name>') || text.startsWith('<command-message>')) {
       if (!meta.firstUserCommand) meta.firstUserCommand = text
