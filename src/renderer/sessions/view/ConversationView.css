@@ -380,6 +380,7 @@ button.msg-summary:hover { color: var(--text); background: var(--bg-elev-2); bor
 .instruction-file.directive .aux-toggle, .instruction-file.directive pre, .listed .aux-toggle { color: #b9b9b9 }
 /* Context listed above the prompt: the user's @-files and a command's skill body */
 .listed { margin-bottom: 6px; }
+.msg-context > .listed { margin-bottom: 0; }
 
 /* Full-width toggle so the estimated token count can sit right-aligned, like msg-header-right. */
 /* Nested tool rows cancel the aux-body's right padding so their counts line up with the strips'. */

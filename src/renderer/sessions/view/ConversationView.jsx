@@ -189,18 +189,17 @@ const AUTHORS = {
 // Context and the CLI's routine notices — what the transcript model marks `folded`
 const isFolded = t => t.blocks.every(b => b.folded)
 
-// The user's own attachments that carry a token count (@-files, IDE selections) list above the prompt, like System's instruction files
+// Attachments that carry a token count (@-files, skill and agent listings) list above the message; only the uncounted rest fold
 const isCounted = b => b.type === 'attachment' && hasText(attachmentView(b.attachment, b.rendered))
 
 // A You or System row: its messages, with the context that came along folded behind the header
 function InputRow({ kind, turns, point, index }) {
   const [open, setOpen] = useCollapsed(false)
   const msgs            = turns.filter(t => !isFolded(t))
-  const listed          = [], ctxItems = []
-  for (const b of turns.filter(isFolded).flatMap(t => t.blocks)) {
-    (kind === 'user' && isCounted(b) ? listed : ctxItems).push(b)
-  }
-  const ts              = (msgs[0] ?? turns[0]).ts
+  const folded          = turns.filter(isFolded).flatMap(t => t.blocks)
+  const counted         = new Set(folded.filter(isCounted))
+  const ctxItems        = folded.filter(b => !counted.has(b))
+  const ts             = (msgs[0] ?? turns[0]).ts
   const { Icon, name }  = AUTHORS[kind]
   const count           = (type, noun) => { const n = ctxItems.filter(b => b.type === type).length; return n > 0 && plural(n, noun) }
   const summary         = [count('attachment', 'attachment'), count('system', 'notice')].filter(Boolean).join(', ')
@@ -221,12 +220,11 @@ function InputRow({ kind, turns, point, index }) {
           {ts != null && <span className="msg-time">{format(ts, 'HH:mm:ss')}</span>}
         </span>
       </div>
-      {open && ctxItems.length > 0 && (
+      {(open ? folded.length : counted.size) > 0 && (
         <div className="msg-context">
-          {ctxItems.map((b, i) => <Block key={i} block={b} />)}
+          {folded.map((b, i) => counted.has(b) ? <div key={i} className="listed"><Block block={b} /></div> : open && <Block key={i} block={b} />)}
         </div>
       )}
-      {listed.length > 0 && <div className="listed">{listed.map((b, i) => <Block key={i} block={b} />)}</div>}
       {msgs.map(t => <TurnRow key={t.uuid} turn={t} />)}
     </div>
   )
