@@ -53,7 +53,7 @@ function renderTurn(t) {
   }
   if (t.role === 'compact') {
     const b = t.blocks[0]
-    return `**${compactTitle(b)}**${b.summary ? `\n\nSummary:\n${fence(b.summary)}` : ''}`
+    return `**${compactTitle(b)}**${b.summary ? `\n\nCompact summary:\n${fence(b.summary)}` : ''}`
   }
   const role = t.role === 'system' ? 'System' : t.role === 'user' ? (t.queued ? 'User (queued)' : 'User') : `Assistant`
   const tokens = t.tokenTotal > 0 && t.tokenDelta != null

@@ -99,12 +99,12 @@ function branchPoint(groups, forkedFrom, forkedAt, continuesFrom) {
   return { from: forkedFrom.sessionId, index: i === -1 ? groups.length : i }
 }
 
-// From here on the history was replaced by a summary — folded under the divider.
+// From here on the history was replaced by a summary — open under the divider, unlike other aux blocks, since it is all the model still knows of it.
 function Compaction({ block }) {
   return (
     <>
       <Divider className="conv-divider">{compactTitle(block)}</Divider>
-      {block.summary && <Collapsible title="Summary" defaultOpen={false}><Markdown className="block-text" text={block.summary} autoFence /></Collapsible>}
+      {block.summary && <Collapsible title="Compact summary" tokens={countTokens(block.summary)}><Markdown className="block-text" text={block.summary} autoFence /></Collapsible>}
     </>
   )
 }
