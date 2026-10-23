@@ -1,5 +1,5 @@
 import { Suspense, use, useEffect, useMemo, useRef, useState } from 'react'
-import { Hourglass, Gauge, MessageSquare, Clock, Zap, DollarSign, Brain } from 'lucide-react'
+import { Hourglass, Gauge, MessageSquare, Clock, Zap, DollarSign, Brain, Bot, CornerDownRight } from 'lucide-react'
 import { SOURCE_COLORS } from '../utils/colors.js'
 import { fmtCompact, fmtNum, fmtUSD, fmtDuration, fmtAgo, tone } from '../utils/formatting.js'
 import { THRESHOLDS as T } from '../utils/thresholds.js'
@@ -107,6 +107,8 @@ export default function SessionList({ sessions, selectedId, deepLink, onSelect }
           const isFork = !!s.forkedFrom
           const linked = !!deepLink && s.filePath === selectedId // opened by a claude-discover:// link, see App.jsx
           const command = labelCommand(s)
+          const commandName = command && (command.name || command.message)
+          const commandArgs = command && command.args.trim()
           const topEffort = ['max', 'xhigh'].find(e => s.efforts?.includes(e))
           const sessionName = s.customTitle && s.agentName && s.customTitle !== s.agentName
             ? `${s.customTitle} [${s.agentName}]`
@@ -121,34 +123,37 @@ export default function SessionList({ sessions, selectedId, deepLink, onSelect }
             >
               <div className="session-row-main">
                 <div className="session-label">
-                  {s.avatar && <Suspense><Avatar session={s} /></Suspense>}
-                  {s.tokens?.cacheCreation1h > 0 && <Badge className="warn-badge" tip={`Used 1h extended cache (${fmtNum(s.tokens.cacheCreation1h)} tokens)\n${TIPS.cache1h}`} icon={Hourglass} />}
-                  {s.lastContextTokens > T.context.danger && <Badge className="danger-badge" tip={`Context size: ${fmtCompact(s.lastContextTokens)} tokens\n${TIPS.context}`} icon={Gauge} />}
-                  {s.lastContextTokens > T.context.warn && s.lastContextTokens <= T.context.danger && <Badge className="warn-badge" tip={`Context size: ${fmtCompact(s.lastContextTokens)} tokens\n${TIPS.context}`} icon={Gauge} />}
-                  {s.messageCount > T.messages.danger && <Badge className="danger-badge" tip={`${fmtNum(s.messageCount)} messages\n${TIPS.messages}`} icon={MessageSquare} />}
-                  {s.messageCount > T.messages.warn && s.messageCount <= T.messages.danger && <Badge className="warn-badge" tip={`${fmtNum(s.messageCount)} messages\n${TIPS.messages}`} icon={MessageSquare} />}
-                  {s.activeMs > T.workTime.danger && <Badge className="danger-badge" tip={`Working time: ${fmtDuration(s.activeMs)}\n${TIPS.time}`} icon={Clock} />}
-                  {s.activeMs > T.workTime.warn && s.activeMs <= T.workTime.danger && <Badge className="warn-badge" tip={`Working time: ${fmtDuration(s.activeMs)}\n${TIPS.time}`} icon={Clock} />}
-                  {topEffort && <Badge className={EFFORT_BADGE[topEffort]} tip={`Effort: ${topEffort}\n${TIPS.effort}`} icon={Brain} />}
-                  {s.speed === 'fast' && <Badge className={`fast-badge ${s.fastPricingUnknown ? 'fast-badge-unknown' : ''}`} tip={s.fastPricingUnknown ? 'Used fast mode — cost is INACCURATE: no fast-mode price multiplier known for this model' : 'Used fast mode (speed: fast)'} icon={Zap} />}
-                  {s.priceUnknown && <Badge className="danger-badge" tip={`No price entry for ${s.models?.join(', ') || 'this model'} — cost is missing or understated`} icon={DollarSign} />}
-                  {isSubagent && <span className="subagent-tag">[subagent]</span>}
-                  {journal && <span className="subagent-tag">[journal: {s.workflowAgents} subagent{s.workflowAgents === 1 ? '' : 's'}]</span>}
-                  {s.worktree && <span className="worktree-tag" data-tooltip-content={`Worktree of ${s.projectShort}`}>[{s.worktree}]</span>}
-                  {isFork && <span className="fork-tag" role="img" aria-label="Forked" data-tooltip-content={`Forked from session ${s.forkedFrom.sessionId}`}>↳</span>}
-                  {sessionName && <span className="session-name">{sessionName}</span>}
+                  {isSubagent && <span className="subagent-icon" role="img" aria-label="Subagent" data-tooltip-content="Subagent"><Bot size={18} /></span>}
                   <span className="session-label-text">
-                    {command ? <><span className="session-command">{command.name || command.message}</span> {command.args}</> : sessionLabel(s)}
+                    {command ? commandArgs || commandName : sessionLabel(s)}
                   </span>
                 </div>
                 <div className="session-time-bottom">
+                  {journal && <span className="subagent-tag">[journal: {s.workflowAgents} subagent{s.workflowAgents === 1 ? '' : 's'}]</span>}
+                  {s.worktree && <span className="worktree-tag" data-tooltip-content={`Worktree of ${s.projectShort}`}>[{s.worktree}]</span>}
+                  {isFork && <span className="fork-tag" role="img" aria-label="Forked" data-tooltip-content={`Forked from session ${s.forkedFrom.sessionId}`}><CornerDownRight size={12} /></span>}
+                  {sessionName && <span className="session-name">{sessionName}</span>}
+                  {command && <span className="session-command">{commandName}</span>}
                   {s.tag && <span className="session-tag">#{s.tag}</span>}
                   {s.project && <span className="session-project">{s.projectShort}{s.subdir && ` › ${s.subdir}`}</span>}
                   {s.models?.length > 0 && <span className="session-model">{s.models.map((m) => m.replace(/^claude-/, '')).join(', ')}{s.efforts?.length > 0 && ` ${s.efforts.join(', ')}`}</span>}
-                  <span>{fmtAgo(s.lastActivityAt)}</span>
                   {linked && <span className="deeplink-note">opened from deep link</span>}
                 </div>
               </div>
+              <div className="session-row-badges">
+                {s.avatar && <Suspense><Avatar session={s} /></Suspense>}
+                {s.tokens?.cacheCreation1h > 0 && <Badge className="warn-badge" tip={`Used 1h extended cache (${fmtNum(s.tokens.cacheCreation1h)} tokens)\n${TIPS.cache1h}`} icon={Hourglass} />}
+                {s.lastContextTokens > T.context.danger && <Badge className="danger-badge" tip={`Context size: ${fmtCompact(s.lastContextTokens)} tokens\n${TIPS.context}`} icon={Gauge} />}
+                {s.lastContextTokens > T.context.warn && s.lastContextTokens <= T.context.danger && <Badge className="warn-badge" tip={`Context size: ${fmtCompact(s.lastContextTokens)} tokens\n${TIPS.context}`} icon={Gauge} />}
+                {s.messageCount > T.messages.danger && <Badge className="danger-badge" tip={`${fmtNum(s.messageCount)} messages\n${TIPS.messages}`} icon={MessageSquare} />}
+                {s.messageCount > T.messages.warn && s.messageCount <= T.messages.danger && <Badge className="warn-badge" tip={`${fmtNum(s.messageCount)} messages\n${TIPS.messages}`} icon={MessageSquare} />}
+                {s.activeMs > T.workTime.danger && <Badge className="danger-badge" tip={`Working time: ${fmtDuration(s.activeMs)}\n${TIPS.time}`} icon={Clock} />}
+                {s.activeMs > T.workTime.warn && s.activeMs <= T.workTime.danger && <Badge className="warn-badge" tip={`Working time: ${fmtDuration(s.activeMs)}\n${TIPS.time}`} icon={Clock} />}
+                {topEffort && <Badge className={EFFORT_BADGE[topEffort]} tip={`Effort: ${topEffort}\n${TIPS.effort}`} icon={Brain} />}
+                {s.speed === 'fast' && <Badge className={`fast-badge ${s.fastPricingUnknown ? 'fast-badge-unknown' : ''}`} tip={s.fastPricingUnknown ? 'Used fast mode — cost is INACCURATE: no fast-mode price multiplier known for this model' : 'Used fast mode (speed: fast)'} icon={Zap} />}
+                {s.priceUnknown && <Badge className="danger-badge" tip={`No price entry for ${s.models?.join(', ') || 'this model'} — cost is missing or understated`} icon={DollarSign} />}
+              </div>
+              <span className="session-row-time">{fmtAgo(s.lastActivityAt)}</span>
               <div className="session-row-stats">
                 <span className={`${sortBy === 'tokens' ? 'stat-primary' : 'stat-secondary'} ${tone(s.totalTokens, T.tokens)}`}>
                   {fmtCompact(s.totalTokens)}

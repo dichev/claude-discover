@@ -119,13 +119,37 @@
 
 .session-row-main { flex: 1; min-width: 0; }
 
+.session-row-badges {
+  flex: none;
+  display: flex;
+  align-items: center;
+  gap: 3px;
+  height: 18px;
+
+  &:empty { display: none; }
+  & > span { background: none; } /* `span` outranks the global .warn-badge/.danger-badge, which load later */
+}
+
+/* 18px line height keeps it on the label's line */
+.session-row-time {
+  flex: none;
+  width: 24px;
+  margin: 0 -4px; /* trims the row's 10px gap to 6px on both sides */
+  text-align: right;
+  font-family: var(--font-mono), monospace;
+  font-size: 10px;
+  line-height: 18px;
+  color: var(--text-faint);
+  white-space: nowrap;
+}
+
 .session-row-stats {
   flex: none;
   display: flex;
   flex-direction: column;
   align-items: flex-end;
   gap: 2px;
-  min-width: 56px;
+  min-width: 40px;
   font-family: var(--font-mono), monospace;
 
   /* Line heights mirror the main column (18px label + 2px gap + 14px line) so both second lines align */
@@ -159,6 +183,8 @@
 
   & > * { flex: none; }
   & > * + *::before { content: ', '; }
+  & > .fork-tag + *::before { content: '\00a0'; }
+  & .subagent-tag, & .worktree-tag { font-size: inherit; }
 }
 .session-model { color: var(--text-dim); }
 
@@ -202,14 +228,16 @@
 
 .worktree-tag { color: #34d399; }
 
-.session-tag { color: #4ade80; }
-
+.subagent-icon,
 .fork-tag {
+  display: inline-flex;
+  align-items: center;
   color: var(--accent);
-  font-weight: bold;
 }
 
-/* Single flex line, 18px tall to fit the circular badges without growing the line box */
+.session-tag { color: #4ade80; }
+
+/* Single flex line, 18px tall to line up with the badge column */
 .session-label {
   font-size: 12px;
   display: flex;
