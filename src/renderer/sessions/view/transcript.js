@@ -111,7 +111,7 @@ export function flatten(items, { loop = [], side = [] } = {}) {
   }
   let lastTs = null
   for (let it of items) {
-    if (it._relogged) continue // the original already shows
+    if (it._relogged) continue // the original (or the command it typed) already shows
     const ts = it.timestamp ? Date.parse(it.timestamp) : null
     const prevTs = lastTs
     if (ts != null) lastTs = ts

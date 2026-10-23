@@ -279,6 +279,17 @@ describe('flatten — compaction', () => {
     expect(turns.filter(t => t.role === 'compact')).toMatchObject([{ blocks: [{ trigger: 'manual', summary: 'This session is being continued…' }] }])
   })
 
+  it('shows a typed /compact once, as its command', () => {
+    const typed   = { type: 'user', uuid: 'c0', promptId: 'p1', timestamp: '2026-06-12T02:58:00.000Z', message: { role: 'user', content: '/compact' } }
+    const command = { type: 'user', uuid: 'c1', promptId: 'p1', timestamp: '2026-06-12T02:58:00.000Z', message: { role: 'user', content: '<command-name>/compact</command-name>\n<command-message>compact</command-message>' } }
+    const prompt  = { type: 'user', uuid: 'c2', promptId: 'p2', timestamp: '2026-06-12T02:59:00.000Z', message: { role: 'user', content: '/compact is next' } }
+    const parser = new SessionParser({ sessionId: 's1', filePath: 's1.jsonl' })
+    const items  = [typed, command, prompt].map(l => structuredClone(l))
+    for (const l of items) parser.feed(l)
+    expect(flatten(items).map(t => t.uuid)).toEqual(['c1', 'c2'])
+    expect(parser.meta.messageCount).toBe(2)
+  })
+
   it('never takes the summary as the first prompt', () => {
     const prompt = { type: 'user', uuid: 'u2', timestamp: '2026-06-12T02:59:00.000Z', message: { role: 'user', content: 'next task' } }
     const parser = new SessionParser({ sessionId: 's1', filePath: 's1.jsonl' })

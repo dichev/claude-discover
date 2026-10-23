@@ -69,6 +69,7 @@ export class SessionParser {
     this.modelId = null
     this.commandUuids = new Set()
     this.seenUuids = new Set()
+    this.typedCommands = new Map() // `${promptId} /name` -> the record of it as typed
     // msgId -> the usage bucket we've already folded into the totals, so later
     // snapshots of a streamed reply can contribute only their growth.
     this.appliedById = new Map()
@@ -176,6 +177,12 @@ export class SessionParser {
       if (!meta.firstUserCommand) meta.firstUserCommand = text
       if (obj.uuid) this.commandUuids.add(obj.uuid)
       obj.isMeta = true
+      // Some commands (/compact) also log the text as typed, under the same promptId — the command shows it
+      const typed = this.typedCommands.get(`${obj.promptId} ${text.match(/<command-name>(.*?)<\/command-name>/)?.[1]}`)
+      if (typed && !typed._relogged) {
+        typed._relogged = true
+        meta.messageCount -= 1
+      }
     } else if (text.startsWith('<local-command-stdout>')) {
       // stdout arrives as a separate message after the command-name entry
       if (meta.firstUserCommand) meta.firstUserCommand += '\n' + text
@@ -186,6 +193,7 @@ export class SessionParser {
     } else if (text.startsWith('<scheduled-task')) {
       meta.hasScheduledTask = true
     } else if (text && !obj.isMeta && !obj.isCompactSummary) { // meta records (e.g. a slash-command skill's body) and compaction summaries aren't typed by the user
+      if (obj.promptId && text.startsWith('/')) this.typedCommands.set(`${obj.promptId} ${text.split(/\s/)[0]}`, obj)
       if (!meta.firstUserPrompt) meta.firstUserPrompt = text.slice(0, 300)
     }
   }
