@@ -190,7 +190,7 @@ const AUTHORS = {
 const isFolded = t => t.blocks.every(b => b.folded)
 
 // Attachments that carry a token count (@-files, skill and agent listings) list above the message; only the uncounted rest fold
-const isCounted = b => b.type === 'attachment' && hasText(attachmentView(b.attachment, b.rendered))
+const isCounted = b => b.type === 'attachment' && !b.unsent && hasText(attachmentView(b.attachment, b.rendered))
 
 // A You or System row: its messages, with the context that came along folded behind the header
 function InputRow({ kind, turns, point, index }) {
@@ -294,7 +294,7 @@ function TurnRow({ turn, hidden = false, speaker = null }) {
       <div className="turn-blocks">
         {contextBlocks.length > 0 && (
           <Collapsible className="attachment" defaultOpen={false} title={plural(contextBlocks.length, 'attachment')}>
-            {contextBlocks.map((b, i) => <Attachment key={i} att={b.attachment} rendered={b.rendered} folded={b.folded} />)}
+            {contextBlocks.map((b, i) => <Attachment key={i} att={b.attachment} rendered={b.rendered} folded={b.folded} unsent={b.unsent} />)}
           </Collapsible>
         )}
         {otherBlocks.map((b, i) => <Block key={i} block={b} speaker={speaker} ts={turn.ts} />)}
@@ -354,7 +354,7 @@ function Block({ block, speaker = null, ts = null }) {
     )
   }
   if (block.type === 'attachment') {
-    return <Attachment att={block.attachment} rendered={block.rendered} folded={block.folded} speaker={speaker} />
+    return <Attachment att={block.attachment} rendered={block.rendered} folded={block.folded} unsent={block.unsent} speaker={speaker} />
   }
   if (block.type === 'instruction') {
     return <InstructionFile it={block.it} model={block.it.model} tokens={countTokens(block.it.content, block.it.model)} speaker={speaker} className="directive" />
@@ -396,6 +396,11 @@ const ATTACHMENT_RENDERERS = {
   deferred_tools_delta: (a) => ({
     title: `${a.addedNames?.length || 0} deferred tools ${a.removedNames?.length ? `(removed: ${a.removedNames.length})` : ''}`,
     body: safeJson({ added: a.addedNames, removed: a.removedNames }),
+  }),
+  // The tools ToolSearch loaded — their schemas reach the model in the request's tools, not through this record
+  deferred_tools_record: a => ({
+    title: `Deferred tools record${a.entries?.length ? `: ${a.entries.map(e => e.name).join(', ')}` : ''}`,
+    body: safeJson(a.entries?.length ? a.entries : a),
   }),
   prompt_snapshot: a => ({
     title: `Prompt snapshot: system prompt, ${a.tools?.length ?? 0} tools`,
@@ -468,13 +473,13 @@ const attachmentView = (att, rendered) => (ATTACHMENT_RENDERERS[att?.type] ?? ge
 const hasText = view => view.body != null && !view.raw
 
 // An attachment the model didn't fold is a directive to Claude: open, and tinted apart
-function Attachment({ att, rendered, folded = true, speaker = null }) {
+function Attachment({ att, rendered, folded = true, unsent = false, speaker = null }) {
   const view            = attachmentView(att, rendered)
   const { title, body } = view
   const className       = `attachment${folded ? '' : ' directive'}`
   if (body == null) return <Label title={said(speaker, title)} className={className} />
   return (
-    <Collapsible title={said(speaker, title)} className={className} defaultOpen={!folded} tokens={hasText(view) && countTokens(body)}>
+    <Collapsible title={said(speaker, title)} className={className} defaultOpen={!folded} tokens={!unsent && hasText(view) && countTokens(body)}>
       {view.items?.length ? <ItemFolds {...view} /> : <pre>{body}</pre>}
     </Collapsible>
   )
