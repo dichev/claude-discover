@@ -284,14 +284,14 @@ function TurnRow({ turn, hidden = false, speaker = null }) {
             {contextBlocks.map((b, i) => <Attachment key={i} att={b.attachment} rendered={b.rendered} folded={b.folded} />)}
           </Collapsible>
         )}
-        {otherBlocks.map((b, i) => <Block key={i} block={b} speaker={speaker} />)}
+        {otherBlocks.map((b, i) => <Block key={i} block={b} speaker={speaker} ts={turn.ts} />)}
       </div>
     </div>
   )
 }
 
 // `speaker` prefixes the titles of top-level notes and attachments
-function Block({ block, speaker = null }) {
+function Block({ block, speaker = null, ts = null }) {
   if (block.type === 'text') {
     const cmd = parseCommand(block.text)
     if (cmd) {
@@ -315,11 +315,11 @@ function Block({ block, speaker = null }) {
   }
   if (block.type === 'thinking') {
     if (block.redacted) return <Label title={`Thinking (encrypted${block.redacted > 1 ? ` · ${block.redacted}` : ''})`} />
-    return <Collapsible title="Thinking" defaultOpen={false}><pre>{block.thinking}</pre></Collapsible>
+    return <Collapsible title="Thinking" defaultOpen={false} time={ts} duration={block.duration}><pre>{block.thinking}</pre></Collapsible>
   }
   if (block.type === 'tool_use') {
     return (
-      <Collapsible title={toolSummary(block.name, block.input)} defaultOpen={false}>
+      <Collapsible title={toolSummary(block.name, block.input)} defaultOpen={false} time={ts} duration={block.duration}>
         <JsonBlock value={block.input} />
         {block.result && <Block block={block.result} />}
       </Collapsible>
@@ -477,7 +477,7 @@ function Label({ title, className }) {
   )
 }
 
-function Collapsible({ title, children, className, defaultOpen = true, tokens }) {
+function Collapsible({ title, children, className, defaultOpen = true, tokens, time = null, duration }) {
   const [open, setOpen] = useCollapsed(defaultOpen)
   return (
     <div className={`aux ${className || ''}`}>
@@ -485,11 +485,15 @@ function Collapsible({ title, children, className, defaultOpen = true, tokens })
         <span className="aux-chevron">{open ? '▾' : '▸'}</span>
         <span>{title}</span>
         <ApproxTokens tokens={tokens} />
+        {duration >= 0 && <span className={`aux-duration${duration < 1000 ? ' instant' : ''}`} data-tooltip-content={format(time, 'HH:mm:ss')}>{fmtElapsed(duration)}</span>}
       </button>
       {open && <div className="aux-body">{children}</div>}
     </div>
   )
 }
+
+// Tool calls often finish in milliseconds, which fmtDuration would round to nothing
+const fmtElapsed = ms => ms < 1000 ? '<1s' : fmtDuration(ms)
 
 const ApproxTokens = ({ tokens }) => tokens > 0 && <span className="instruction-tokens" data-tooltip-content="Approx. tokens">~ {fmtCompact(tokens)}</span>
 

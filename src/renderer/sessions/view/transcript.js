@@ -81,6 +81,8 @@ function stateNote(it, state) {
   return null
 }
 
+const elapsed = (from, to) => from != null && to != null ? to - from : undefined
+
 const metaTurn = (it, role, blocks, uuid = it.uuid) => ({
   uuid,
   role,
@@ -96,6 +98,7 @@ const noteTurn = (it, note, uuid) => metaTurn(it, 'system', [{ type: 'system', f
 export function flatten(items, { loop = [], side = [] } = {}) {
   const turns = []
   const results = {}
+  const resultTs = {}
   const companions = {}
   const compactions = {}
   const state = { mode: null, cwd: null, artifacts: new Set() }
@@ -106,8 +109,12 @@ export function flatten(items, { loop = [], side = [] } = {}) {
     while (byUuid.get(p)?.type === 'attachment') p = byUuid.get(p).parentUuid
     return p ?? it.uuid
   }
+  let lastTs = null
   for (let it of items) {
     if (it._relogged) continue // the original already shows
+    const ts = it.timestamp ? Date.parse(it.timestamp) : null
+    const prevTs = lastTs
+    if (ts != null) lastTs = ts
     if (it._listed) continue // an attachment the request's System items already list
     // Rendered just before the record carrying the change, under its own key (state records have no uuid)
     const change = stateNote(it, state)
@@ -199,7 +206,9 @@ export function flatten(items, { loop = [], side = [] } = {}) {
     }
     if (it.type !== 'user' && it.type !== 'assistant') continue
     const msg = it.message || {}
+    // A thinking record is logged once the thinking ends, so it ran since the previous record
     const blocks = collapseRedactedThinking(normalizeContent(msg.content))
+      .map(b => b.type === 'thinking' && !b.redacted ? { ...b, duration: elapsed(prevTs, ts) } : b)
     if (blocks.length === 0) continue
     // Anthropic's API has no `tool` role — tool_result blocks ride inside user messages.
     // Re-tag those turns as `tool` so they group with the assistant's tool calls, not the user.
@@ -210,7 +219,7 @@ export function flatten(items, { loop = [], side = [] } = {}) {
       continue
     }
     for (const b of blocks) {
-      if (b.type === 'tool_result' && b.tool_use_id) results[b.tool_use_id] = b
+      if (b.type === 'tool_result' && b.tool_use_id) { results[b.tool_use_id] = b; resultTs[b.tool_use_id] = ts }
     }
     turns.push({
       uuid: it.uuid,
@@ -230,7 +239,7 @@ export function flatten(items, { loop = [], side = [] } = {}) {
   const calls = new Set(turns.flatMap(t => t.blocks.filter(b => b.type === 'tool_use').map(b => b.id)))
   for (const t of turns) {
     t.blocks = t.blocks
-      .map((b) => (b.type === 'tool_use' ? { ...b, result: withCompanion(results[b.id], companions[b.id]) } : b))
+      .map((b) => (b.type === 'tool_use' ? { ...b, result: withCompanion(results[b.id], companions[b.id]), duration: elapsed(t.ts, resultTs[b.id]) } : b))
       .filter((b) => !(b.type === 'tool_result' && calls.has(b.tool_use_id)))
   }
   const out = turns.filter((t) => t.blocks.length > 0)

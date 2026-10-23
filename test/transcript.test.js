@@ -38,6 +38,25 @@ describe('flatten — encrypted thinking', () => {
   })
 })
 
+describe('flatten — tool call and thinking durations', () => {
+  const prompt   = { type: 'user', uuid: 'u1', timestamp: '2026-09-21T09:00:00.000Z', message: { role: 'user', content: 'go' } }
+  const thinking = { type: 'assistant', uuid: 'a1', timestamp: '2026-09-21T09:00:12.000Z', message: { role: 'assistant', content: [{ type: 'thinking', thinking: 'hmm' }] } }
+  const call     = { type: 'assistant', uuid: 'a2', timestamp: '2026-09-21T09:00:12.010Z', message: { role: 'assistant', content: [{ type: 'tool_use', id: 'tu1', name: 'Bash', input: {} }] } }
+  const result   = { type: 'user', uuid: 'r1', timestamp: '2026-09-21T09:00:15.010Z', message: { role: 'user', content: [{ type: 'tool_result', tool_use_id: 'tu1', content: 'ok' }] } }
+
+  it('times thinking from the previous record and a tool call until its result', () => {
+    const turns = flatten([prompt, thinking, call, result])
+    expect(turns[1].blocks[0].duration).toBe(12_000)
+    expect(turns[2].blocks[0].duration).toBe(3_000)
+  })
+
+  it('leaves them untimed with nothing to measure from', () => {
+    const turns = flatten([thinking, call])
+    expect(turns[0].blocks[0].duration).toBeUndefined()
+    expect(turns[1].blocks[0].duration).toBeUndefined()
+  })
+})
+
 describe('flatten — skill companion records', () => {
   const call   = { type: 'assistant', uuid: 'a1', timestamp: '2026-09-22T00:02:00.000Z', message: { role: 'assistant', content: [{ type: 'tool_use', id: 'tu1', name: 'Skill', input: { skill: 'claude-api' } }] } }
   const result = { type: 'user', uuid: 'r1', timestamp: '2026-09-22T00:02:01.385Z', message: { role: 'user', content: [{ type: 'tool_result', tool_use_id: 'tu1', content: 'Launching skill: claude-api' }] } }
