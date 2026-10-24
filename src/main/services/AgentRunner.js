@@ -5,7 +5,7 @@ const USAGE_TIMEOUT = 30_000 // a hung session is closed, not left running while
 export class AgentRunner {
 
   // Chunks carry the run's id: runs for different sessions can stream at the same time
-  async run(id, text, sender) {
+  async run(id, text, systemPrompt, sender) {
     const { query } = await import('@anthropic-ai/claude-agent-sdk') // loaded on first run — 50ms off startup
     const send = chunk => {
       if (!sender.isDestroyed()) sender.send('agent:output', { id, chunk })
@@ -14,6 +14,7 @@ export class AgentRunner {
     const response = query({
       prompt: text,
       options: {
+        systemPrompt, // replaces Claude Code's coding-agent prompt, useless with no tools
         includePartialMessages: true,
         env: { ...process.env, DISABLE_PROMPT_CACHING: '1' }, // @macOS - process.env must be included
         tools: [],

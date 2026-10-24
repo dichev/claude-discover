@@ -65,8 +65,8 @@ Silently — don't show your work.
 # Output
 
 ## Rules
-  - Audience: a technical user in a hurry. Skimmable in ~10 seconds. No preamble, no closing remarks, no hedging. Avoid jargon, model internals, and acronyms.
-  - Each item: short instruction and why, tied to this session. No second sentence, no dollar figure.
+  - Avoid model internals and acronyms.
+  - Each item: a short instruction, then why in one plain sentence tied to this session. No dollar figure.
   - Rank by impact. Fewer items are fine — one strong item beats many weak ones.
   - If the session was already efficient (no meaningful waste), output the one-line summary, then `I don't see any meaningful savings.` on its own line, and stop. Do not invent items to fill the list.
 
@@ -76,6 +76,6 @@ Silently — don't show your work.
 
 **How to optimize?**
 
-N. **<instruction, ≤8 words>** — <why, tied to this session, ≤10 words>
+N. **<instruction, ≤8 words>** — <why, one short plain sentence>
 
 **Estimated savings: X% (about $X)**

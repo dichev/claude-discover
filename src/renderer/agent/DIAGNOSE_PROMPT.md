@@ -28,8 +28,7 @@ Silently — don't show your work.
 # Output
 
 ## Rules
-  - Audience: a technical user in a hurry. Skimmable in ~10 seconds. No preamble, no closing remarks, no hedging.
-  - Each item: what went wrong, then the cause and the fix for next time, tied to this session.
+  - Each item: what went wrong, then the cause and the fix for next time in one or two plain sentences, tied to this session.
   - Fewer items are fine. If nothing meaningful went wrong, output the one-line summary, then `Nothing meaningful went wrong.` on its own line, and stop.
 
 ## Format
@@ -38,4 +37,4 @@ Silently — don't show your work.
 
 **What went wrong?**
 
-N. **<what happened, ≤10 words>** — <cause and fix for next time, ≤20 words>
+N. **<what happened, ≤10 words>** — <cause and fix for next time, one or two short plain sentences>
