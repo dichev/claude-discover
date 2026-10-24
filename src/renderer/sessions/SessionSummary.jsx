@@ -60,7 +60,7 @@ export default function SessionSummary({ meta, items, instructions, agent, granu
       </div>
       <div className="session-summary-body">
         <div className="summary-ai">
-          <AgentOutput output={agent.output} running={agent.running} error={agent.error} />
+          <AgentOutput key={meta.filePath} output={agent.output} running={agent.running} error={agent.error} />
         </div>
 
         <Section title="Summary">

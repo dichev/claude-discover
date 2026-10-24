@@ -4,10 +4,11 @@ const USAGE_TIMEOUT = 30_000 // a hung session is closed, not left running while
 
 export class AgentRunner {
 
-  async run(text, sender) {
+  // Chunks carry the run's id: runs for different sessions can stream at the same time
+  async run(id, text, sender) {
     const { query } = await import('@anthropic-ai/claude-agent-sdk') // loaded on first run — 50ms off startup
     const send = chunk => {
-      if (!sender.isDestroyed()) sender.send('agent:output', chunk)
+      if (!sender.isDestroyed()) sender.send('agent:output', { id, chunk })
     }
 
     const response = query({

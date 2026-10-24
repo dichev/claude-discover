@@ -9,36 +9,30 @@ const analyzePrompt = String(ANALYZE_PROMPT).replace('{{TRUNCATION_NOTE}}', TRUN
 const askPrompt     = question => String(ASK_PROMPT).replace('{{TRUNCATION_NOTE}}', TRUNCATE_NOTE).replace('{{QUESTION}}', () => question)
 
 
-export function useAgent(resetKey) {
-  const [running, setRunning] = useState(false)
-  const [output, setOutput]   = useState('')
-  const [error, setError]     = useState('')
+const EMPTY = { running: false, output: '', error: '' }
 
-  useEffect(() => window.api.onAgentOutput(chunk => setOutput(p => p + chunk)), [])
+// One result per key, so switching back to a session shows its last answer (or the run still streaming)
+export function useAgent(key) {
+  const [results, setResults] = useState({})
+  const patch = (k, fn) => setResults(r => ({ ...r, [k]: { ...(r[k] ?? EMPTY), ...fn(r[k] ?? EMPTY) } }))
 
-  useEffect(() => {
-    setError('')
-    setRunning(false)
-    setOutput('')
-  }, [resetKey])
+  useEffect(() => window.api.onAgentOutput(({ id, chunk }) => patch(id, r => ({ output: r.output + chunk }))), [])
 
   const run = async (prompt, meta, items, instructions) => {
-    setError('')
-    setOutput('')
-    setRunning(true)
+    patch(key, () => ({ ...EMPTY, running: true }))
     try {
       const { body } = markdownSession(meta, items, instructions)
-      const { code } = await window.api.runAgentPrompt(`${prompt}\n\n---\n${body}`)
-      if (code !== 0) setError(`Claude exited with code ${code}`)
+      const { code } = await window.api.runAgentPrompt(key, `${prompt}\n\n---\n${body}`)
+      if (code !== 0) patch(key, () => ({ error: `Claude exited with code ${code}` }))
     } catch (err) {
-      setError(err.message || String(err))
+      patch(key, () => ({ error: err.message || String(err) }))
     } finally {
-      setRunning(false)
+      patch(key, () => ({ running: false }))
     }
   }
 
   const analyze = (meta, items, instructions) => run(analyzePrompt, meta, items, instructions)
   const ask     = (question, meta, items, instructions) => run(askPrompt(question), meta, items, instructions)
 
-  return { running, error, output, analyze, ask }
+  return { ...(results[key] ?? EMPTY), analyze, ask }
 }
