@@ -2,11 +2,13 @@ import { useEffect, useState } from 'react'
 import { MAX_LINES, MAX_LINE_CHARS, markdownSession } from '../sessions/MarkdownSession.js'
 import ANALYZE_PROMPT from './ANALYZE_PROMPT.md?raw'
 import ASK_PROMPT from './ASK_PROMPT.md?raw'
+import DIAGNOSE_PROMPT from './DIAGNOSE_PROMPT.md?raw'
 
 
 const TRUNCATE_NOTE = `  - Note: long content was truncated for display (lines >${MAX_LINE_CHARS} chars, blocks >${MAX_LINES} lines). The original session had the full content — base advice on what was clearly happening, not on the truncation.`
-const analyzePrompt = String(ANALYZE_PROMPT).replace('{{TRUNCATION_NOTE}}', TRUNCATE_NOTE)
-const askPrompt     = question => String(ASK_PROMPT).replace('{{TRUNCATION_NOTE}}', TRUNCATE_NOTE).replace('{{QUESTION}}', () => question)
+const analyzePrompt  = String(ANALYZE_PROMPT).replace('{{TRUNCATION_NOTE}}', TRUNCATE_NOTE)
+const diagnosePrompt = String(DIAGNOSE_PROMPT).replace('{{TRUNCATION_NOTE}}', TRUNCATE_NOTE)
+const askPrompt      = question => String(ASK_PROMPT).replace('{{TRUNCATION_NOTE}}', TRUNCATE_NOTE).replace('{{QUESTION}}', () => question)
 
 
 const EMPTY = { running: false, output: '', error: '' }
@@ -31,8 +33,9 @@ export function useAgent(key) {
     }
   }
 
-  const analyze = (meta, items, instructions) => run(analyzePrompt, meta, items, instructions)
-  const ask     = (question, meta, items, instructions) => run(askPrompt(question), meta, items, instructions)
+  const analyze  = (meta, items, instructions) => run(analyzePrompt, meta, items, instructions)
+  const diagnose = (meta, items, instructions) => run(diagnosePrompt, meta, items, instructions)
+  const ask      = (question, meta, items, instructions) => run(askPrompt(question), meta, items, instructions)
 
-  return { ...(results[key] ?? EMPTY), analyze, ask }
+  return { ...(results[key] ?? EMPTY), analyze, diagnose, ask }
 }

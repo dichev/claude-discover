@@ -30,18 +30,7 @@ export default function SessionSummary({ meta, items, instructions, agent, granu
   return (
     <div className="session-summary">
       <div className="summary-head">
-        <div className="summary-head-row">
-          <div className="summary-label">Session Analyze</div>
-          <button
-            type="button"
-            className="button-primary summary-ai-button"
-            onClick={() => agent.analyze(meta, items, instructions)}
-            disabled={agent.running || !items}
-          >
-            <span className={agent.running ? 'hidden' : ''}>⚡︎ AI Analyze</span>
-            <span className={agent.running ? '' : 'hidden'}>⚡︎ Analyzing…</span>
-          </button>
-        </div>
+        <div className="summary-label">Session Analyze</div>
         <form key={meta.filePath} className="summary-ask" onSubmit={ask}>
           <textarea
             name="question"
@@ -57,6 +46,10 @@ export default function SessionSummary({ meta, items, instructions, agent, granu
           />
           <button type="submit" className="button-primary" disabled={agent.running || !items}><WandSparkles size={12} /> Ask</button>
         </form>
+        <div className="summary-ask-presets">
+          <button type="button" onClick={() => agent.analyze(meta, items, instructions)} disabled={agent.running || !items}>How to optimize?</button>
+          <button type="button" onClick={() => agent.diagnose(meta, items, instructions)} disabled={agent.running || !items}>What went wrong?</button>
+        </div>
       </div>
       <div className="session-summary-body">
         <div className="summary-ai">

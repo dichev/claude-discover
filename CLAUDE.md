@@ -44,7 +44,7 @@ Not a hard constraint — restructure when it serves the code, just update this 
 │   ├── preload/                    contextBridge preload (main window)
 │   ├── shared/                     pure text helpers both main and renderer import (Claude Code's listing formats)
 │   └── renderer/                   React frontend (functional)
-│       ├── agent/                  AI Analyze hook, output + prompt template
+│       ├── agent/                  AI agent hook (analyze + ask), output + prompt templates
 │       ├── assets/                 images imported by the UI
 │       ├── sessions/               session list + detail views (Conversation/JSONL/Requests tabs)
 │       ├── timeline/               period views (Daily/Weekly/Monthly) + the work-hours band

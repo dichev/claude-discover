@@ -13,13 +13,7 @@
   border-bottom: 1px solid var(--border);
   display: flex;
   flex-direction: column;
-  gap: 12px;
-}
-
-.summary-head-row {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
+  gap: 10px;
 }
 
 .session-summary-body {
@@ -76,14 +70,23 @@
   &:empty { display: none; }
 }
 
-/* Both labels share one grid cell so the button keeps the wider label's width.
-   Doubled class: styles.css loads later and would re-center the text */
-.button-primary.summary-ai-button {
-  display: inline-grid;
-  text-align: left;
+.summary-ask-presets {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
 
-  & > span { grid-area: 1 / 1; }
-  & > .hidden { visibility: hidden; }
+.summary-ask-presets button {
+  background: transparent;
+  color: var(--text-dim);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  padding: 3px 10px;
+  font-size: 11px;
+  font-family: inherit;
+
+  &:hover:not(:disabled) { color: var(--text); border-color: var(--accent); background: transparent; }
+  &:disabled { opacity: 0.6; cursor: default; }
 }
 
 .summary-section {
