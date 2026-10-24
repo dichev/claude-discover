@@ -3,20 +3,34 @@
   flex-shrink: 0;
   display: flex;
   flex-direction: column;
-  gap: 10px;
-  padding: 12px 16px;
   border-left: 1px solid var(--border);
   background: var(--bg);
+}
+
+/* Outside the scrolling body, so it stays on top */
+.summary-head {
+  padding: 12px 16px 15px;
+  border-bottom: 1px solid var(--border);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.session-summary-body {
+  flex: 1;
+  min-height: 0;
   overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 10px 16px 12px;
 }
 
 .summary-ai {
-  display: flex;
-  flex-direction: column;
-  align-items: flex-end;
-  gap: 8px;
   padding-bottom: 15px;
   border-bottom: 1px solid var(--border);
+
+  &:empty { display: none; }
 }
 
 /* Both labels share one grid cell so the button keeps the wider label's width.

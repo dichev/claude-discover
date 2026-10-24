@@ -60,7 +60,7 @@ export default function MultiPicker({ options, value, onChange, allLabel = 'All'
       <button
         type="button"
         popoverTarget={id}
-        className={`multi-picker ${className}${value.length ? ' active' : ''}`}
+        className={`multi-picker ${className}${value.length ? ' filter-active' : ''}`}
         style={{ anchorName: anchor }}
       >
         <span className="multi-picker-label">{label}</span>

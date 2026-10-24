@@ -42,8 +42,7 @@ export function computeTicks({ viewStart, viewEnd, width, span }) {
   return ticks
 }
 
-export default function TimeAxis({ viewStart, viewEnd, width, span, headerHeight }) {
-  const ticks = computeTicks({ viewStart, viewEnd, width, span })
+export default function TimeAxis({ ticks, headerHeight }) {
   return (
     <g className="ticks">
       {ticks.map((tk, i) => (

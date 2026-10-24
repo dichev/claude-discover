@@ -172,6 +172,36 @@ export default function GanttChart({
         gutter={PROJECTS_WIDTH}
       />
       <div className="gantt-canvas" ref={containerRef}>
+        <svg className="gantt-header" width={width} height={HEADER_HEIGHT} style={{ marginBottom: -HEADER_HEIGHT }}>
+          <rect x={0} y={0} width={PROJECTS_WIDTH} height={HEADER_HEIGHT} className="gantt-gutter" />
+          <line x1={PROJECTS_WIDTH} x2={PROJECTS_WIDTH} y1={0} y2={HEADER_HEIGHT} className="gantt-divider" />
+          <line x1={0} x2={width} y1={HEADER_HEIGHT - 0.5} y2={HEADER_HEIGHT - 0.5} className="gantt-group-sep" />
+          <g transform={`translate(${PROJECTS_WIDTH},0)`}>
+            <TimeAxis ticks={ticks} headerHeight={HEADER_HEIGHT} />
+          </g>
+          {otherProjects > 0 && ( // the project picker hides the rest — point back to them from the axis row
+            <text
+              x={LABEL_X} y={HEADER_HEIGHT / 2}
+              dominantBaseline="central"
+              className="gantt-project-more"
+              onClick={e => { e.stopPropagation(); onShowAllProjects() }}
+            >
+              ({otherProjects} hidden project{otherProjects === 1 ? '' : 's'})
+            </text>
+          )}
+          {/* Its lines and shading are uniform down the chart, so pinning them with the axis looks the same */}
+          <WorkTimeOverlay
+            showWorkBand={granularity === 'day'}
+            dayStart={dayRange.start}
+            viewStart={view.start}
+            viewEnd={view.end}
+            chartLeft={PROJECTS_WIDTH}
+            chartWidth={chartWidth}
+            totalHeight={totalHeight}
+            headerHeight={HEADER_HEIGHT}
+            containerRef={containerRef}
+          />
+        </svg>
         <svg width={width} height={totalHeight}>
           <defs>
             <pattern id="gantt-subagent-hatch" patternUnits="userSpaceOnUse" width={5} height={5} patternTransform="rotate(45)">
@@ -189,18 +219,7 @@ export default function GanttChart({
                 className={`tick-vline ${tk.major ? 'tick-major' : 'tick-minor'}`}
               />
             ))}
-            <TimeAxis viewStart={view.start} viewEnd={view.end} width={chartWidth} span={span} headerHeight={HEADER_HEIGHT} />
           </g>
-          {otherProjects > 0 && ( // the project picker hides the rest — point back to them from the axis row
-            <text
-              x={LABEL_X} y={HEADER_HEIGHT / 2}
-              dominantBaseline="central"
-              className="gantt-project-more"
-              onClick={e => { e.stopPropagation(); onShowAllProjects() }}
-            >
-              ({otherProjects} hidden project{otherProjects === 1 ? '' : 's'})
-            </text>
-          )}
           {groups.map((g, gi) => (
             <g key={g.key}>
               {gi > 0 && (
@@ -271,17 +290,6 @@ export default function GanttChart({
               })}
             </g>
           ))}
-          <WorkTimeOverlay
-            showWorkBand={granularity === 'day'}
-            dayStart={dayRange.start}
-            viewStart={view.start}
-            viewEnd={view.end}
-            chartLeft={PROJECTS_WIDTH}
-            chartWidth={chartWidth}
-            totalHeight={totalHeight}
-            headerHeight={HEADER_HEIGHT}
-            containerRef={containerRef}
-          />
         </svg>
       </div>
     </div>

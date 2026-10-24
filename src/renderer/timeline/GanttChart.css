@@ -2,13 +2,13 @@
   display: flex;
   flex-direction: column;
   min-height: 0;
-  border-bottom: 1px solid var(--border);
   padding: 0 16px 8px;
   background: var(--bg);
 }
 
 .heat-strip {
   display: block;
+  box-sizing: content-box; /* its width attribute is the canvas's inner width; the border goes outside, as on .gantt-canvas */
   background: var(--bg-elev);
   border: 1px solid var(--border);
   border-bottom: none;
@@ -34,6 +34,15 @@
   border-top-left-radius: 0;
   border-top-right-radius: 0;
   border-top: none;
+}
+
+/* Pinned over the chart svg's own header rows; overflow lets the work-hours overlay run down the chart */
+.gantt-header {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  overflow: visible;
+  background: var(--bg-elev);
 }
 
 .gantt-gutter { fill: #0e1118; }

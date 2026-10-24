@@ -101,7 +101,7 @@
 }
 
 .session-row {
-  padding: 8px 10px;
+  padding: 8px 10px 8px 0;
   border-bottom: 1px solid var(--border);
   cursor: pointer;
   display: grid;
@@ -112,23 +112,27 @@
     "time bar chevron bottom bottom stats";
   align-items: start;
 
-  /* A timeline after the time: a source-colored dot on the label's line, over a track whose negative margins run it through the row's padding */
+  /* A timeline after the time: a dot on the label's line (accent while active), over a track whose negative margins run it through the row's padding */
   &::before, &::after {
     content: '';
     grid-area: bar;
-    width: 6px;
+    width: 5px;
   }
   &::before {
     align-self: stretch;
-    margin: -8px 11px -9px 7px; /* -9px also crosses the row's bottom border */
-    background: linear-gradient(#3a4253, #3a4253) center / 2px 100% no-repeat;
+    margin: -8px 11px -9px 8px; /* -9px also crosses the row's bottom border */
+    /* a 1px line drawn antialiased (a tent, not hard stops) across the dot-wide box, so it stays centered under the dot at fractional zoom */
+    background: linear-gradient(to right, transparent calc(50% - 1px), #3a4253 50%, transparent calc(50% + 1px));
   }
   &::after {
-    height: 6px;
-    margin: 6px 11px 0 7px;
+    height: 5px;
+    margin: 6.5px 11px 0 8px;
     border-radius: 50%;
-    background: var(--source-color);
+    background: var(--dot);
+    --dot: var(--text-faint);
   }
+  &.active::after { --dot: var(--accent); }
+  &.live::after { animation: pulse 2s ease-out infinite; }
 
   &:hover { background: var(--bg-elev-2); }
   &.selected { background: var(--selected); }

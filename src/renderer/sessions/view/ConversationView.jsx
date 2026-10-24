@@ -14,6 +14,7 @@ import ProgressBar from '../../ui/ProgressBar.jsx'
 import Tip from '../../ui/Tip.jsx'
 import { useFindActive } from '../../ui/useFindActive.js'
 import { useMouseFontScale } from '../../utils/useMouse.js'
+import { useActivity } from '../../utils/activity.js'
 import './ConversationView.css'
 import claudeIcon from '../../assets/claude-icon.svg'
 
@@ -30,9 +31,7 @@ function useCollapsed(defaultOpen) {
   return [open, setOpen]
 }
 
-// Slash-command invocation (`<command-name>…`): meta for most purposes, but still a user action.
-const isCommandTurn = t => t.blocks.some(b => b.type === 'text' && parseCommand(b.text)?.name)
-const isClearTurn   = t => t.blocks.some(b => b.type === 'text' && parseCommand(b.text)?.name === '/clear')
+const isClearTurn = t => t.blocks.some(b => b.type === 'text' && parseCommand(b.text)?.name === '/clear')
 
 export const FILTERS = [
   { value: 'user', label: 'User messages' },
@@ -83,9 +82,7 @@ export default function ConversationView({ items, instructions = {}, filePath = 
                  : g.kind === 'compact'   ? <Compaction block={g.turns[0].blocks[0]} />
                  :                        <InstructionRun turns={g.turns} model={model} />}
               </LazyMount>
-              {points[i] ? <TokenPoint point={points[i]} />
-               // Commands consume no tokens so they never get a real point — mark them with a plain dot.
-               : hasTimeline && g.kind === 'user' && g.turns.some(isCommandTurn) && <TokenPoint point={{ role: 'command', delta: 0 }} />}
+              {hasTimeline && <TokenPoint at={Math.max(...groups[i].turns.map(t => t.ts ?? 0))} />}
             </div>}
             {groups[i].kind === 'user' && groups[i].turns.some(isClearTurn) && <Divider className="conv-divider">Context cleared</Divider>}
           </React.Fragment>
@@ -132,9 +129,9 @@ const ClaudeIcon = () => <img className="msg-icon claude-icon" src={claudeIcon} 
 // Sits in the conversation's right gutter at the row's own position, so it scrolls with
 // the content — no scroll syncing or measurement needed. Just a dot; the numbers it used
 // to show in a tooltip now live in the assistant card header instead.
-function TokenPoint({ point: p }) {
+function TokenPoint({ at }) {
   return (
-    <div className={`token-point token-point-${p.role}${p.delta < 0 ? ' negative' : ''}`}>
+    <div className={`token-point ${useActivity(at)}`}>
       <span className="token-point-dot" />
     </div>
   )
@@ -534,6 +531,9 @@ function InstructionRun({ turns, model }) {
         <Globe className="msg-icon" />
         <span className="msg-author">Proxy</span>
         <span className="msg-summary">{SIDE_NOTE}</span>
+        <span className="msg-header-right">
+          <span className="msg-time">{format(Date.parse(strips[0].timestamp), 'HH:mm:ss')}</span>
+        </span>
       </div>
       {strips.map(it => <InstructionFile key={`${it.hash}-${it.timestamp}`} it={it} model={model} tokens={it.tokens} />)}
       {strips.length > 1 && (

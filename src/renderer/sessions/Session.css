@@ -112,7 +112,4 @@
   container-type: inline-size; /* lets the token timeline collapse to dots when the pane is narrow */
 }
 
-.view-tab-pane-row > .session-summary {
-  overflow-y: auto;
-  min-height: 0;
-}
+.view-tab-pane-row > .session-summary { min-height: 0; }

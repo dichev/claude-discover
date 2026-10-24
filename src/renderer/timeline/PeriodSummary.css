@@ -1,15 +1,31 @@
 .gantt-side {
   background: var(--bg-elev);
   border: 1px solid var(--border);
-  border-radius: 4px;
-  padding: 10px 12px;
-  margin: 0 16px 8px 0;
-  overflow-y: auto;
+  border-right: none; /* flush with the window edge, like .session-summary */
+  margin-bottom: 8px;
   font-size: 12px;
   color: var(--text-dim);
   display: flex;
   flex-direction: column;
+}
+
+/* The title and headline total, outside the scrolling body so they stay on top */
+.gantt-side-head {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 10px 12px;
+  border-bottom: 1px solid var(--border);
+}
+
+.gantt-side-body {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
   gap: 12px;
+  padding: 12px 12px 10px;
 }
 
 .gantt-side-section {
@@ -38,19 +54,11 @@
   font-size: 11px;
 }
 
-/* The period's headline: its name tied to the Day/Week/Month tabs above, and the total cost */
+/* The period's headline total, beside the cost/tokens switch */
 .period-total-head {
   display: flex;
   justify-content: space-between;
   align-items: center;
-}
-
-.period-total-name {
-  color: var(--accent);
-  font-size: 10px;
-  font-weight: 700;
-  letter-spacing: 0.8px;
-  text-transform: uppercase;
 }
 
 /* Cost/tokens switch for the whole panel: headline, chart and per-project values */

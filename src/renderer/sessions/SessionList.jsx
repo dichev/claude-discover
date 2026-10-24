@@ -1,11 +1,11 @@
 import { Suspense, use, useEffect, useMemo, useRef, useState } from 'react'
 import { Hourglass, Gauge, MessageSquare, Clock, Zap, DollarSign, Brain, GitBranch, ChevronDown, ChevronRight } from 'lucide-react'
-import { SOURCE_COLORS } from '../utils/colors.js'
 import { fmtCompact, fmtNum, fmtUSD, fmtDuration, fmtAgo, tone } from '../utils/formatting.js'
 import { THRESHOLDS as T } from '../utils/thresholds.js'
 import { parseCommand } from './view/labels.js'
 import { subagentClusters, isJournal } from '../utils/subagents.js'
 import { useLocalStorage } from '../utils/useLocalStorage.js'
+import { activity } from '../utils/activity.js'
 import './SessionList.css'
 
 const TIPS = {
@@ -61,9 +61,9 @@ export default function SessionList({ sessions, selectedId, deepLink, onSelect }
     selectedRef.current?.scrollIntoView({ block: 'nearest' })
   }, [selectedId])
 
-  // keep the relative "Xm ago" times fresh
+  // keep the relative "Xm ago" times and the live dots fresh
   useEffect(() => {
-    const t = setInterval(() => tick(n => n + 1), 60_000)
+    const t = setInterval(() => tick(n => n + 1), 10_000)
     return () => clearInterval(t)
   }, [])
 
@@ -108,7 +108,7 @@ export default function SessionList({ sessions, selectedId, deepLink, onSelect }
       <div className="session-list-header">
         <div className="filter-wrap">
           <input
-            className="filter"
+            className={`filter${q ? ' filter-active' : ''}`}
             placeholder="Filter sessions…"
             value={filter}
             onChange={(e) => setFilter(e.target.value)}
@@ -142,10 +142,9 @@ export default function SessionList({ sessions, selectedId, deepLink, onSelect }
                 type="button"
                 key={runKey}
                 ref={hidesSelected ? selectedRef : null}
-                className={`session-row subagent-run ${hidesSelected ? 'selected' : ''}`}
+                className={`session-row subagent-run ${hidesSelected ? 'selected' : ''} ${activity(Math.max(...run.map(c => c.lastActivityAt)))}`}
                 aria-expanded={!isCollapsed}
                 onClick={() => toggleRun(runKey)}
-                style={{ '--source-color': SOURCE_COLORS[run[0].source] || SOURCE_COLORS.other }}
               >
                 <span className="subagent-run-chevron"><Chevron size={14} aria-hidden="true" /></span>
                 <span className="session-label subagent-run-title">
@@ -173,9 +172,8 @@ export default function SessionList({ sessions, selectedId, deepLink, onSelect }
             <div
               key={s.filePath}
               ref={selectedId === s.filePath ? selectedRef : null}
-              className={`session-row ${selectedId === s.filePath ? 'selected' : ''} ${runKey ? 'is-subagent-child' : ''} ${linked ? 'deep-linked' : ''}`}
+              className={`session-row ${selectedId === s.filePath ? 'selected' : ''} ${runKey ? 'is-subagent-child' : ''} ${linked ? 'deep-linked' : ''} ${activity(s.lastActivityAt)}`}
               onClick={() => onSelect(selectedId === s.filePath ? null : s.filePath)}
-              style={{ '--source-color': SOURCE_COLORS[s.source] || SOURCE_COLORS.other }}
             >
               <div className="session-label">
                 <span className="session-label-text">

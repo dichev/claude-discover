@@ -3,8 +3,6 @@ import { fmtUSD, fmtCompact, fmtDuration } from '../utils/formatting.js'
 import CostBreakdownChart from './CostBreakdownChart.jsx'
 import './PeriodSummary.css'
 
-const PERIOD_NAMES = { day: 'Daily', week: 'Weekly', month: 'Monthly' }
-
 export default function PeriodSummary({ sessions, dayAnchor, granularity = 'day', expanded }) {
   const totals = useMemo(() => {
     const t = sessions.reduce((acc, s) => {
@@ -63,68 +61,72 @@ export default function PeriodSummary({ sessions, dayAnchor, granularity = 'day'
 
   return (
     <aside className="gantt-side">
-      <div className="gantt-side-section">
+      <div className="gantt-side-head">
+        <div className="summary-label">Period Summary</div>
         <div className="period-total-head">
-          <span className="period-total-name">{PERIOD_NAMES[granularity]} {stat}</span>
+          <div className="period-total-cost">{isCost ? fmtUSD(totals.cost) : fmtCompact(totals.totalTokens)}</div>
           <div className="stat-switch" role="group" aria-label="Show">
             <button type="button" aria-pressed={isCost} aria-label="Cost" onClick={() => setStat('cost')}>$</button>
             <button type="button" aria-pressed={!isCost} aria-label="Tokens" onClick={() => setStat('tokens')}>T</button>
           </div>
         </div>
-        <div className="period-total-cost">{isCost ? fmtUSD(totals.cost) : fmtCompact(totals.totalTokens)}</div>
-        {(isCost ? totals.cost : totals.totalTokens) > 0 && <CostBreakdownChart sessions={sessions} dayAnchor={dayAnchor} granularity={granularity} stat={stat} />}
-        {isCost
-          ? <div className="gantt-side-row"><span>Total tokens</span><b>{fmtCompact(totals.totalTokens)}</b></div>
-          : <div className="gantt-side-row"><span>Estimated cost</span><b>{fmtUSD(totals.cost)}</b></div>}
-        <div className="gantt-side-row"><span>Working time</span><b>{fmtDuration(totals.activeMs)}</b></div>
       </div>
-      {totals.savingsUsing5mCache > 0 && (
+      <div className="gantt-side-body">
         <div className="gantt-side-section">
-          <div className="gantt-side-heading">Potential savings</div>
-          <div className="gantt-side-row"><span>{totals.cost > 0 && <strong>-{(totals.savingsUsing5mCache / totals.cost * 100).toFixed(0)}% </strong>}with 5m cache</span><b>−{fmtUSD(totals.savingsUsing5mCache)}</b></div>
+          {(isCost ? totals.cost : totals.totalTokens) > 0 && <CostBreakdownChart sessions={sessions} dayAnchor={dayAnchor} granularity={granularity} stat={stat} />}
+          {isCost
+            ? <div className="gantt-side-row"><span>Total tokens</span><b>{fmtCompact(totals.totalTokens)}</b></div>
+            : <div className="gantt-side-row"><span>Estimated cost</span><b>{fmtUSD(totals.cost)}</b></div>}
+          <div className="gantt-side-row"><span>Working time</span><b>{fmtDuration(totals.activeMs)}</b></div>
         </div>
-      )}
-      {mixTotal > 0 && (
-        <div className="gantt-side-section">
-          <div className="gantt-side-heading">
-            {isCost ? 'Tokens (cost)' : 'Tokens'}
-            {totals.cacheHitRatio != null && <span className="gantt-side-heading-note">{Math.round(totals.cacheHitRatio * 100)}% cache hit</span>}
+        {totals.savingsUsing5mCache > 0 && (
+          <div className="gantt-side-section">
+            <div className="gantt-side-heading">Potential savings</div>
+            <div className="gantt-side-row"><span>{totals.cost > 0 && <strong>-{(totals.savingsUsing5mCache / totals.cost * 100).toFixed(0)}% </strong>}with 5m cache</span><b>−{fmtUSD(totals.savingsUsing5mCache)}</b></div>
           </div>
-          <div className="token-mix-bar" role="img" aria-label={tokenMix.map(m => `${m.label} ${Math.round(m.value / mixTotal * 100)}%`).join(', ')}>
-            {tokenMix.filter(m => m.value > 0).map(m => (
-              <div key={m.label} style={{ flexGrow: m.value, background: m.color }} data-tooltip-content={`${m.label} · ${(m.value / mixTotal * 100).toFixed(1)}%`} />
-            ))}
-          </div>
-          <div className="token-mix-legend">
-            {tokenMix.map(m => (
-              <div key={m.label} className="token-mix-item">
-                <span className="token-mix-swatch" style={{ background: m.color }} />
-                <span>{m.label}</span>
-                <b>{isCost ? fmtUSD(m.value) : fmtCompact(m.value)}</b>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
-      {sortedByProject.length > 0 && (
-        <div className="gantt-side-section">
-          <div className="gantt-side-heading">By project</div>
-          {sortedByProject.map((g) => (
-            <Fragment key={g.key}>
-              <div className="gantt-side-row">
-                <span>{g.projectShort}</span>
-                <b>{isCost ? fmtUSD(g.cost) : fmtCompact(g.totalTokens)}</b>
-              </div>
-              {expanded.includes(g.key) && g.byDir.size - g.byDir.has('') > 0 && [...g.byDir.values()].sort(byStat).map(d => (
-                <div key={d.dir} className="gantt-side-row gantt-side-subrow">
-                  <span data-tooltip-content={d.dir || undefined}>{d.dir || '(root)'}</span>
-                  <b>{isCost ? fmtUSD(d.cost) : fmtCompact(d.totalTokens)}</b>
+        )}
+        {mixTotal > 0 && (
+          <div className="gantt-side-section">
+            <div className="gantt-side-heading">
+              {isCost ? 'Tokens (cost)' : 'Tokens'}
+              {totals.cacheHitRatio != null && <span className="gantt-side-heading-note">{Math.round(totals.cacheHitRatio * 100)}% cache hit</span>}
+            </div>
+            <div className="token-mix-bar" role="img" aria-label={tokenMix.map(m => `${m.label} ${Math.round(m.value / mixTotal * 100)}%`).join(', ')}>
+              {tokenMix.filter(m => m.value > 0).map(m => (
+                <div key={m.label} style={{ flexGrow: m.value / mixTotal, background: m.color }} data-tooltip-content={`${m.label} · ${(m.value / mixTotal * 100).toFixed(1)}%`} />
+              ))}
+            </div>
+            <div className="token-mix-legend">
+              {tokenMix.map(m => (
+                <div key={m.label} className="token-mix-item">
+                  <span className="token-mix-swatch" style={{ background: m.color }} />
+                  <span>{m.label}</span>
+                  <b>{isCost ? fmtUSD(m.value) : fmtCompact(m.value)}</b>
                 </div>
               ))}
-            </Fragment>
-          ))}
-        </div>
-      )}
+            </div>
+          </div>
+        )}
+        {sortedByProject.length > 0 && (
+          <div className="gantt-side-section">
+            <div className="gantt-side-heading">By project</div>
+            {sortedByProject.map((g) => (
+              <Fragment key={g.key}>
+                <div className="gantt-side-row">
+                  <span>{g.projectShort}</span>
+                  <b>{isCost ? fmtUSD(g.cost) : fmtCompact(g.totalTokens)}</b>
+                </div>
+                {expanded.includes(g.key) && g.byDir.size - g.byDir.has('') > 0 && [...g.byDir.values()].sort(byStat).map(d => (
+                  <div key={d.dir} className="gantt-side-row gantt-side-subrow">
+                    <span data-tooltip-content={d.dir || undefined}>{d.dir || '(root)'}</span>
+                    <b>{isCost ? fmtUSD(d.cost) : fmtCompact(d.totalTokens)}</b>
+                  </div>
+                ))}
+              </Fragment>
+            ))}
+          </div>
+        )}
+      </div>
     </aside>
   )
 }
