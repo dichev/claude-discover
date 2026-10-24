@@ -1,4 +1,4 @@
-import { DollarSign } from 'lucide-react'
+import { DollarSign, WandSparkles } from 'lucide-react'
 import { format } from 'date-fns'
 import { fmtDuration, fmtNum, fmtUSD, fmtCompact, fmtToolCalls, tone } from '../utils/formatting.js'
 import { THRESHOLDS as T } from '../utils/thresholds.js'
@@ -21,19 +21,42 @@ export default function SessionSummary({ meta, items, instructions, agent, granu
   const ctxLimit = contextWindow(meta.models)
   const ctxTone = tone(meta.lastContextTokens, T.context)
 
+  const ask = e => {
+    e.preventDefault()
+    const question = e.currentTarget.elements.question.value.trim()
+    if (question) agent.ask(question, meta, items, instructions)
+  }
+
   return (
     <div className="session-summary">
       <div className="summary-head">
-        <div className="summary-label">Session Analyze</div>
-        <button
-          type="button"
-          className="button-primary summary-ai-button"
-          onClick={() => agent.analyze(meta, items, instructions)}
-          disabled={agent.running || !items}
-        >
-          <span className={agent.running ? 'hidden' : ''}>⚡︎ AI Analyze</span>
-          <span className={agent.running ? '' : 'hidden'}>⚡︎ Analyzing…</span>
-        </button>
+        <div className="summary-head-row">
+          <div className="summary-label">Session Analyze</div>
+          <button
+            type="button"
+            className="button-primary summary-ai-button"
+            onClick={() => agent.analyze(meta, items, instructions)}
+            disabled={agent.running || !items}
+          >
+            <span className={agent.running ? 'hidden' : ''}>⚡︎ AI Analyze</span>
+            <span className={agent.running ? '' : 'hidden'}>⚡︎ Analyzing…</span>
+          </button>
+        </div>
+        <form key={meta.filePath} className="summary-ask" onSubmit={ask}>
+          <textarea
+            name="question"
+            rows={3}
+            placeholder="Ask anything about this session…"
+            disabled={agent.running || !items}
+            onKeyDown={e => {
+              if (e.key === 'Enter' && !e.shiftKey) {
+                e.preventDefault()
+                e.currentTarget.form.requestSubmit()
+              }
+            }}
+          />
+          <button type="submit" className="button-primary" disabled={agent.running || !items}><WandSparkles size={12} /> Ask</button>
+        </form>
       </div>
       <div className="session-summary-body">
         <div className="summary-ai">

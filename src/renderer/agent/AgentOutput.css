@@ -28,9 +28,11 @@
 .agent-prompt-output {
   align-self: stretch;
   max-height: 320px;
-  overflow: auto;
+  overflow: hidden auto;
+  overflow-wrap: anywhere; /* break long paths and inline code so nothing needs a horizontal scroll */
   background: var(--bg-elev-1, var(--bg));
-  font-size: 12px;
+  font-size: 13.5px;
+  line-height: 1.5;
 
   /* This box is the one scroller (it auto-follows the stream), so lift Markdown's own cap */
   & .markdown { max-height: none; overflow: visible; }
