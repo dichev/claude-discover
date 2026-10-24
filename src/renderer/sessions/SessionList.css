@@ -102,28 +102,45 @@
 
 .session-row {
   padding: 8px 10px;
-  border-left: 3px solid transparent;
   border-bottom: 1px solid var(--border);
   cursor: pointer;
   display: grid;
-  grid-template-columns: auto minmax(0, 1fr) auto auto auto;
-  /* the second line runs on under the badges and time, up to the stats column */
+  grid-template-columns: auto auto auto minmax(0, 1fr) auto auto;
+  /* the second line runs on under the badges, up to the stats column */
   grid-template-areas:
-    "chevron label  badges time   stats"
-    "chevron bottom bottom bottom stats";
+    "time bar chevron label  badges stats"
+    "time bar chevron bottom bottom stats";
   align-items: start;
+
+  /* A timeline after the time: a source-colored dot on the label's line, over a track whose negative margins run it through the row's padding */
+  &::before, &::after {
+    content: '';
+    grid-area: bar;
+    width: 6px;
+  }
+  &::before {
+    align-self: stretch;
+    margin: -8px 11px -9px 7px; /* -9px also crosses the row's bottom border */
+    background: linear-gradient(#3a4253, #3a4253) center / 2px 100% no-repeat;
+  }
+  &::after {
+    height: 6px;
+    margin: 6px 11px 0 7px;
+    border-radius: 50%;
+    background: var(--source-color);
+  }
 
   &:hover { background: var(--bg-elev-2); }
   &.selected { background: var(--selected); }
-  &.is-subagent-child { padding-left: 29px; } /* under the run title text: 10px padding + 14px chevron + 5px gap */
+  /* under the run title text (14px chevron + 5px gap), while the time stays in line with the other rows */
+  &.is-subagent-child :is(.session-label, .session-time-bottom) { margin-left: 19px; }
   &.deep-linked { background: rgba(52, 211, 153, 0.12); } /* last, so it wins over :hover and .selected */
 }
 
 /* A .session-row reset as a button, so it lines up with the subagent rows below it */
 .subagent-run {
   width: 100%;
-  border-top: none;
-  border-right: none;
+  border-width: 0 0 1px;
   background: none;
   font: inherit;
   text-align: left;
@@ -155,7 +172,6 @@
 .session-row-time {
   grid-area: time;
   width: 24px;
-  margin-left: 6px;
   text-align: right;
   font-family: var(--font-mono), monospace;
   font-size: 10px;

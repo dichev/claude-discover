@@ -23,9 +23,8 @@ const sumOf = (sessions, key) => sessions.reduce((sum, s) => sum + (s[key] || 0)
 // Icon-only badge: its tip doubles as its accessible name
 const Badge = ({ className, tip, icon: Icon }) => <span className={className} role="img" aria-label={tip} data-tooltip-content={tip}><Icon size={11} /></span>
 
-// The row's time and tokens/cost columns; `toned` colors them against the per-session thresholds
+// The row's tokens/cost and time columns; `toned` colors the stats against the per-session thresholds
 const RowStats = ({ at, tokens, cost, sortBy, toned }) => <>
-  <span className="session-row-time">{fmtAgo(at)}</span>
   <span className="session-row-stats">
     <span className={`${sortBy === 'tokens' ? 'stat-primary' : 'stat-secondary'} ${toned ? tone(tokens, T.tokens) : ''}`}>
       {fmtCompact(tokens)}
@@ -34,6 +33,7 @@ const RowStats = ({ at, tokens, cost, sortBy, toned }) => <>
       {cost ? fmtUSD(cost) : '—'}
     </span>
   </span>
+  <span className="session-row-time">{fmtAgo(at)}</span>
 </>
 
 // The project and model(s) that end a row's second line
@@ -145,7 +145,7 @@ export default function SessionList({ sessions, selectedId, deepLink, onSelect }
                 className={`session-row subagent-run ${hidesSelected ? 'selected' : ''}`}
                 aria-expanded={!isCollapsed}
                 onClick={() => toggleRun(runKey)}
-                style={{ borderLeftColor: SOURCE_COLORS[run[0].source] || SOURCE_COLORS.other }}
+                style={{ '--source-color': SOURCE_COLORS[run[0].source] || SOURCE_COLORS.other }}
               >
                 <span className="subagent-run-chevron"><Chevron size={14} aria-hidden="true" /></span>
                 <span className="session-label subagent-run-title">
@@ -175,7 +175,7 @@ export default function SessionList({ sessions, selectedId, deepLink, onSelect }
               ref={selectedId === s.filePath ? selectedRef : null}
               className={`session-row ${selectedId === s.filePath ? 'selected' : ''} ${runKey ? 'is-subagent-child' : ''} ${linked ? 'deep-linked' : ''}`}
               onClick={() => onSelect(selectedId === s.filePath ? null : s.filePath)}
-              style={{ borderLeftColor: SOURCE_COLORS[s.source] || SOURCE_COLORS.other }}
+              style={{ '--source-color': SOURCE_COLORS[s.source] || SOURCE_COLORS.other }}
             >
               <div className="session-label">
                 <span className="session-label-text">
