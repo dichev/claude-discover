@@ -6,7 +6,11 @@ import DIAGNOSE_PROMPT from './DIAGNOSE_PROMPT.md?raw'
 import STYLE from './STYLE.md?raw'
 
 
-const TRUNCATE_NOTE = `  - Note: long content was truncated for display (lines >${MAX_LINE_CHARS} chars, blocks >${MAX_LINES} lines). The original session had the full content — base advice on what was clearly happening, not on the truncation.`
+const TRUNCATE_NOTE = `
+Note: long content was truncated (lines >${MAX_LINE_CHARS} chars, blocks >${MAX_LINES} lines). When a truncated block matters, read it in full:
+ - the transcript is at \`Log file\`, the raw API requests at \`Proxy log\` (when listed)
+ - both can be large: Grep for a distinctive string, then Read just those lines
+ - only records between Started and Last activity belong to this period`
 const fill = prompt => String(prompt).replace('{{TRUNCATION_NOTE}}', TRUNCATE_NOTE)
 const analyzePrompt  = fill(ANALYZE_PROMPT)
 const diagnosePrompt = fill(DIAGNOSE_PROMPT)
@@ -22,10 +26,10 @@ export function useAgent(key) {
 
   useEffect(() => window.api.onAgentOutput(({ id, chunk }) => patch(id, r => ({ output: r.output + chunk }))), [])
 
-  const run = async (prompt, tag, meta, items, instructions) => {
+  const run = async (prompt, tag, meta, items, instructions, requestLog) => {
     patch(key, () => ({ ...EMPTY, running: true }))
     try {
-      const { body } = markdownSession(meta, items, instructions)
+      const { body } = markdownSession(meta, items, instructions, requestLog)
       // The style goes in as the system prompt: it read briefer than inline, and kept the model from taking the transcript as its own
       const { code } = await window.api.runAgentPrompt(key, `${prompt}\n\n---\n${body}`, String(STYLE), tag)
       if (code !== 0) patch(key, () => ({ error: `Claude exited with code ${code}` }))
@@ -37,9 +41,9 @@ export function useAgent(key) {
   }
 
   // Tagged apart, so the app's own preset runs can be told from the user's questions in the session list
-  const analyze  = (meta, items, instructions) => run(analyzePrompt, 'claude-discover:analyze', meta, items, instructions)
-  const diagnose = (meta, items, instructions) => run(diagnosePrompt, 'claude-discover:diagnose', meta, items, instructions)
-  const ask      = (question, meta, items, instructions) => run(askPrompt(question), 'claude-discover:ask', meta, items, instructions)
+  const analyze  = (...session) => run(analyzePrompt, 'claude-discover:analyze', ...session)
+  const diagnose = (...session) => run(diagnosePrompt, 'claude-discover:diagnose', ...session)
+  const ask      = (question, ...session) => run(askPrompt(question), 'claude-discover:ask', ...session)
 
   return { ...(results[key] ?? EMPTY), analyze, diagnose, ask }
 }

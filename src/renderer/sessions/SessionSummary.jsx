@@ -7,7 +7,7 @@ import AgentOutput from '../agent/AgentOutput.jsx'
 import ProgressBar from '../ui/ProgressBar.jsx'
 import './SessionSummary.css'
 
-export default function SessionSummary({ meta, items, instructions, agent, granularity = 'day' }) {
+export default function SessionSummary({ meta, items, instructions, requestLog, agent, granularity = 'day' }) {
   const timeFormat = granularity === 'day' ? 'pp' : 'MMM d, pp'
   const t = meta.tokens
   const totalTokens = meta.totalTokens
@@ -24,7 +24,7 @@ export default function SessionSummary({ meta, items, instructions, agent, granu
   const ask = e => {
     e.preventDefault()
     const question = e.currentTarget.elements.question.value.trim()
-    if (question) agent.ask(question, meta, items, instructions)
+    if (question) agent.ask(question, meta, items, instructions, requestLog)
   }
 
   return (
@@ -47,8 +47,8 @@ export default function SessionSummary({ meta, items, instructions, agent, granu
           <button type="submit" className="button-primary" disabled={agent.running || !items}><WandSparkles size={12} /> Ask</button>
         </form>
         <div className="summary-ask-presets">
-          <button type="button" onClick={() => agent.analyze(meta, items, instructions)} disabled={agent.running || !items}>How to optimize?</button>
-          <button type="button" onClick={() => agent.diagnose(meta, items, instructions)} disabled={agent.running || !items}>What went wrong?</button>
+          <button type="button" onClick={() => agent.analyze(meta, items, instructions, requestLog)} disabled={agent.running || !items}>How to optimize?</button>
+          <button type="button" onClick={() => agent.diagnose(meta, items, instructions, requestLog)} disabled={agent.running || !items}>What went wrong?</button>
         </div>
       </div>
       <div className="session-summary-body">
@@ -124,7 +124,9 @@ export default function SessionSummary({ meta, items, instructions, agent, granu
           <Field label="Project" value={meta.project || '—'} mono full autoselect />
           {meta.subdir && <Field label="Subfolder" value={meta.subdir} mono full autoselect />}
           {meta.worktreePath && <Field label="Worktree" value={meta.worktreePath} mono full autoselect />}
-          <Field label="Log file" value={meta.filePath} mono full autoselect />      </Section>
+          <Field label="Log file" value={meta.filePath} mono full autoselect />
+          {requestLog && <Field label="Proxy log" value={requestLog} mono full autoselect />}
+        </Section>
       </div>
     </div>
   )

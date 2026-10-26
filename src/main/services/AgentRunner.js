@@ -1,4 +1,6 @@
 import { withTimeout } from '../utils.js'
+import { CLAUDE_PROJECTS_DIR } from '../paths.js'
+import { REQUESTS_DIR } from '../../../bin/proxy.config.js'
 
 const USAGE_TIMEOUT = 30_000 // a hung session is closed, not left running while the next refresh spawns another
 
@@ -14,12 +16,16 @@ export class AgentRunner {
     const response = query({
       prompt: text,
       options: {
-        systemPrompt, // replaces Claude Code's coding-agent prompt, useless with no tools
+        systemPrompt, // replaces Claude Code's coding-agent prompt, made for editing code
         model: 'claude-opus-5-5',
         effort: 'high',
         includePartialMessages: true,
         env: { ...process.env, DISABLE_PROMPT_CACHING: '1' }, // @macOS - process.env must be included
-        tools: [],
+        // Read-only, for the full text behind the transcript's truncated blocks. Reads inside these dirs (and the
+        // cwd) are auto-allowed; anything else reaches canUseTool and is refused
+        tools: ['Read', 'Grep'],
+        additionalDirectories: [CLAUDE_PROJECTS_DIR, REQUESTS_DIR],
+        canUseTool: async () => ({ behavior: 'deny', message: 'Only the session transcripts and proxy logs are readable' }),
         settingSources: [],
         verbatimPrompts: true, // the transcript quotes the user's @file mentions, which would attach today's version of those files
         settings: { autoMemoryEnabled: false }, // the app's cwd memory has nothing to do with the session analyzed

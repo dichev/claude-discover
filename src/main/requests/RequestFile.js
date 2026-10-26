@@ -30,6 +30,10 @@ export class RequestFile {
     return agentKey(rec.requestHeaders?.['x-claude-code-agent-id'] ?? null) === this.agentKey
   }
 
+  async exists() {
+    return fsp.access(this.filePath).then(() => true, () => false)
+  }
+
   async lines() {
     const raw = await fsp.readFile(this.filePath, 'utf8').catch(() => '')
     return raw.split('\n').filter(Boolean)

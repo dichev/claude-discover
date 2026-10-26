@@ -19,6 +19,7 @@ const TABS = [
 export default function Session({ meta, missing, date, granularity = 'day', onShowPeriodOf }) {
   const [items, setItems]               = useState(null)
   const [instructions, setInstructions] = useState({})
+  const [requestLog, setRequestLog]     = useState(null)
   const [error, setError]               = useState(null)
   const [mode, setMode]               = useLocalStorage('session.view-mode', 'conversation')
   const [expandAll, setExpandAll]       = useState(null)
@@ -33,6 +34,7 @@ export default function Session({ meta, missing, date, granularity = 'day', onSh
   useEffect(() => {
     setItems(null)
     setInstructions({})
+    setRequestLog(null)
     setError(null)
   }, [filePath, date, granularity])
 
@@ -45,6 +47,7 @@ export default function Session({ meta, missing, date, granularity = 'day', onSh
       if (cancelled || !res) return
       setItems(res.items)
       setInstructions(res.instructions || {})
+      setRequestLog(res.requestLog)
       setError(null)
     }, err => {
       if (!cancelled) setError(err)
@@ -102,7 +105,7 @@ export default function Session({ meta, missing, date, granularity = 'day', onSh
                   <RequestsView filePath={filePath} items={items} date={date} granularity={granularity} fileSize={fileSize} desktop={desktop} expandAll={expandAll} />
                 )}
               </div>
-              <SessionSummary meta={meta} items={items} instructions={instructions} agent={agent} granularity={granularity} />
+              <SessionSummary meta={meta} items={items} instructions={instructions} requestLog={requestLog} agent={agent} granularity={granularity} />
             </div>
           </div>
         </div>

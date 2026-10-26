@@ -62,7 +62,7 @@ function renderTurn(t) {
   return `**${role}${tokens}:**\n\n${t.blocks.map(renderBlock).join('\n\n')}`
 }
 
-export function markdownSession(meta, items, instructions = {}) {
+export function markdownSession(meta, items, instructions = {}, requestLog = null) {
   const t = meta.tokens
   const stu = meta.serverToolUse
   const wallDuration = meta.lastActivityAt - meta.startedAt
@@ -97,8 +97,8 @@ export function markdownSession(meta, items, instructions = {}) {
 
 ## Activity
 ${meta.continuesFrom ? `- Continues from: ${format(meta.continuesFrom, 'PPpp')} (earlier messages not included)
-` : ''}- Started: ${format(meta.startedAt, 'pp')}
-- Last activity: ${format(meta.lastActivityAt, 'pp')}
+` : ''}- Started: ${format(meta.startedAt, 'pp')} (${new Date(meta.startedAt).toISOString()})
+- Last activity: ${format(meta.lastActivityAt, 'pp')} (${new Date(meta.lastActivityAt).toISOString()})
 ${meta.continuesTo ? `- Continues on: ${format(meta.continuesTo, 'PPpp')} (later messages not included)
 ` : ''}- Wall duration: ${fmtDuration(wallDuration)}
 - Active periods: ${fmtNum(meta.activityPeriods.length)}
@@ -118,7 +118,8 @@ ${meta.tag ? `- Tag: ${meta.tag}
 - CLI version: ${meta.version || '—'}
 - Project: ${meta.project || '—'}
 ${meta.subdir ? `- Subfolder: ${meta.subdir}\n` : ''}${meta.worktreePath ? `- Worktree: ${meta.worktreePath}\n` : ''}- Log file: ${meta.filePath}
-`
+${requestLog ? `- Proxy log: ${requestLog}
+` : ''}`
 
   const body = `
 <summary>
