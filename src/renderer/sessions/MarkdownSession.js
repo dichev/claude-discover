@@ -17,9 +17,15 @@ function truncate(text) {
   return lines.slice(0, MAX_LINES).join('\n') + `\n--- ${lines.length - MAX_LINES} lines truncated ---`
 }
 
+// One backtick longer than any run inside, so the text's own code fences can't close it
 function fence(text, lang = '') {
-  return '```' + lang + '\n' + truncate(text) + '\n```'
+  const body = truncate(text)
+  const ticks = '`'.repeat(Math.max(2, ...(body.match(/`+/g) ?? []).map(r => r.length)) + 1)
+  return ticks + lang + '\n' + body + '\n' + ticks
 }
+
+// The session's own copies of the tags framing it would end the frame early
+const escapeFrame = text => text.replace(/<(\/?)(summary|transcript)\b/gi, '&lt;$1$2')
 
 function resultText(r) {
   const parts = Array.isArray(r?.content) ? r.content : [r?.content]
@@ -171,12 +177,12 @@ ${requestLog ? `- Proxy log: ${requestLog}
 
   const body = `
 <summary>
-${summary}
+${escapeFrame(summary)}
 </summary>
 
 
 <transcript>
-${conversation}
+${escapeFrame(conversation)}
 </transcript>`.trim()
 
   return { body }

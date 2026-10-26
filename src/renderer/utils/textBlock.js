@@ -56,9 +56,9 @@ export function fenceTags(text) {
   if (typeof text !== 'string' || !text.includes('<')) return text
 
   // <tag> opening a line … matching </tag> ending a line -> one ````xml fence around the whole block
-  // (four backticks, so ``` fences inside it, e.g. a transcript's, stay literal).
+  // (four backticks at least, and more than any run inside, so fences inside it, e.g. a transcript's, stay literal).
   const startRe = /^<([A-Za-z][\w-]*)(?:\s[^<>`\n]*)?>/gm
-  let out = '', cursor = 0, m
+  let out = '', cursor = 0, m, start = -1, body = '' // the last fence: where it starts in `out`, and what it holds
   while ((m = startRe.exec(text)) !== null) {
     if (insideFence(text, m.index)) continue
     const close = text.indexOf(`</${m[1]}>`, m.index)
@@ -67,8 +67,10 @@ export function fenceTags(text) {
     if (end !== text.length && text[end] !== '\n' && text[end] !== '\r') continue
     const gap = text.slice(cursor, m.index)
     // Pairs separated only by blank lines share the previous fence instead of stacking one block per tag.
-    if (out && !gap.trim()) out = out.slice(0, -5) + gap + text.slice(m.index, end) + '\n````'
-    else out += gap + '````xml\n' + text.slice(m.index, end) + '\n````'
+    if (start >= 0 && !gap.trim()) body += gap + text.slice(m.index, end)
+    else { out += gap; start = out.length; body = text.slice(m.index, end) }
+    const ticks = '`'.repeat(Math.max(3, ...(body.match(/`+/g) ?? []).map(r => r.length)) + 1)
+    out = out.slice(0, start) + ticks + 'xml\n' + body + '\n' + ticks
     cursor = startRe.lastIndex = end
   }
   out += text.slice(cursor)

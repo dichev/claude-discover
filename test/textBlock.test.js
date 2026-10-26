@@ -72,6 +72,12 @@ describe('fenceTags', () => {
     expect(splitMarkdown(fenceTags(text), 2)).toEqual(['````xml\n' + text + '\n````'])
   })
 
+  it('fences a pair holding ```` fences with a longer run', () => {
+    const text = '<transcript>\n````\n```\nx\n```\n````\n</transcript>'
+    expect(fenceTags(text)).toBe('`````xml\n' + text + '\n`````')
+    expect(fenceTags(text + '\n\n<a_tag>y</a_tag>')).toBe('`````xml\n' + text + '\n\n<a_tag>y</a_tag>\n`````') // a merged pair keeps the longer run
+  })
+
   it('wraps stray tags in inline code spans', () => {
     expect(fenceTags('a <br/> b')).toBe('a `<br/>` b')
     expect(fenceTags('mid-sentence <b>bold</b> here')).toBe('mid-sentence `<b>`bold`</b>` here')
