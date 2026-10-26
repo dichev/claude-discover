@@ -1,9 +1,9 @@
-import { Fragment, useMemo, useState } from 'react'
+import { memo, Fragment, useMemo, useState } from 'react'
 import { fmtUSD, fmtCompact, fmtDuration } from '../utils/formatting.js'
 import CostBreakdownChart from './CostBreakdownChart.jsx'
 import './PeriodSummary.css'
 
-export default function PeriodSummary({ sessions, dayAnchor, granularity = 'day', expanded }) {
+export default memo(function PeriodSummary({ sessions, dayAnchor, granularity = 'day', expanded }) {
   const totals = useMemo(() => {
     const t = sessions.reduce((acc, s) => {
       acc.cost += s.cost || 0
@@ -129,4 +129,4 @@ export default function PeriodSummary({ sessions, dayAnchor, granularity = 'day'
       </div>
     </aside>
   )
-}
+})

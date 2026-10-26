@@ -5,6 +5,7 @@ import StatusSwitch, { useSwitch } from './StatusSwitch'
 import ProgressBar from './ProgressBar.jsx'
 import Tip from './Tip.jsx'
 import { tone } from '../utils/formatting'
+import { useScanProgress } from '../utils/useScanProgress.js'
 import { THRESHOLDS } from '../utils/thresholds'
 import './StatusBar.css'
 
@@ -145,7 +146,7 @@ function useRateLimits() {
   return limits
 }
 
-export default function StatusBar({ progress, sessionCount = 0 }) {
+export default function StatusBar({ sessionCount = 0 }) {
   const { claudeDir } = window.api.claudeSettings
   // Status shapes come from the matching *Switch in src/main/services/switchers/:
   // proxy { running, configured } · statusline { installed } · settings { applied, total } · claudedir { dir }
@@ -156,6 +157,7 @@ export default function StatusBar({ progress, sessionCount = 0 }) {
   const [update, setUpdate]     = useState(null) // { type: 'update', current, latest, spec } when a global install is outdated, or { type: 'install', spec } for an npx run
   const [updating, setUpdating] = useState(false)
   const limits                  = useRateLimits()
+  const progress                = useScanProgress()
   useEffect(() => {
     window.api.checkUpdate().then(setUpdate)
     const timer = setInterval(() => window.api.checkUpdate().then(setUpdate), 6 * 60 * 60_000) // an app left open for days still hears of new releases

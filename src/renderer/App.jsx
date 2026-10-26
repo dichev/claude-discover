@@ -11,13 +11,14 @@ import { closeFind } from './ui/useFindActive.js'
 import { format, parse } from 'date-fns'
 import { startOfPeriod, endOfPeriod, addPeriod } from './utils/period.js'
 import { useLocalStorage } from './utils/useLocalStorage.js'
+import { useScanProgress, resetScanProgress } from './utils/useScanProgress.js'
 import './App.css'
 
 export default function App() {
   const [sessions, setSessions]                 = useState([])
   const [loading, setLoading]                   = useState(true)
   const [listError, setListError]               = useState(null)
-  const [scanProgress, setScanProgress]         = useState(null)
+  const scanDone                                = useScanProgress(p => p?.scanning === false)
   const [granularity, setGranularity]           = useLocalStorage('gantt.granularity', 'day')
   const [anchor, setAnchor]                     = useState(() => startOfPeriod(Date.now(), granularity))
   const [selectedId, setSelectedId]             = useState(null)
@@ -48,8 +49,7 @@ export default function App() {
   useEffect(() => {
     const date = format(anchor, 'yyyy-MM-dd')
     let cancelled = false
-    setScanProgress(null) // fresh scan for this period
-    const offP = window.api.onScanProgress((p) => { if (!cancelled) setScanProgress(p) }) // before listSessions so the initial done:0 isn't missed
+    resetScanProgress() // fresh scan for this period
     const timer = setTimeout(() => {
       window.api.listSessions(date, granularity)
         .then((s) => {
@@ -64,7 +64,6 @@ export default function App() {
     return () => { cancelled = true
      clearTimeout(timer)
      off()
-     offP()
      }
   }, [anchor, granularity])
 
@@ -90,7 +89,7 @@ export default function App() {
   // Say why the detail pane is empty instead of just showing nothing
   let missing = null
   if (listError) missing = { text: "Couldn't load sessions", error: listError }
-  else if (!selected && scanProgress?.scanning === false) { // only once the scan is done, or it flashes "not found"
+  else if (!selected && scanDone) { // only once the scan is done, or it flashes "not found"
     const when = granularity === 'day' ? `on ${format(anchor, 'MMM d, yyyy')}` : `in this ${granularity}`
     if (!sessions.length) missing = { text: `No sessions recorded ${when}.` }
     // Only a deep link explains itself — a hand-picked session missing from another date is just deselected
@@ -124,6 +123,10 @@ export default function App() {
     setAnchor((a) => startOfPeriod(addPeriod(a, granularity, delta), granularity))
   }, [granularity])
 
+  // Stable, so the memoized GanttChart skips App renders that don't touch it
+  const toggleExpanded  = useCallback(key => setExpandedProjects(cur => cur.includes(key) ? cur.filter(k => k !== key) : [...cur, key]), [setExpandedProjects])
+  const showAllProjects = useCallback(() => setProjectFilter([]), [setProjectFilter])
+
   const changeGranularity = useCallback((g) => {
     // Snap to the LAST sub-period of the current window (e.g. month → its final week/day), capped at today
     setAnchor((a) => startOfPeriod(Math.min(endOfPeriod(a, granularity), Date.now()), g))
@@ -138,6 +141,7 @@ export default function App() {
     <div className="app">
     <Group
       orientation="vertical"
+      disableCursor
       className="app-main"
       defaultLayout={rootLayout}
       onLayoutChanged={onRootLayoutChanged}
@@ -165,9 +169,9 @@ export default function App() {
             dayAnchor={anchor}
             granularity={granularity}
             expanded={expandedProjects}
-            onToggleExpanded={key => setExpandedProjects(cur => cur.includes(key) ? cur.filter(k => k !== key) : [...cur, key])}
+            onToggleExpanded={toggleExpanded}
             otherProjects={projectFilter.length ? dayItems.projects.filter(p => !projectFilter.includes(p.key)).length : 0}
-            onShowAllProjects={() => setProjectFilter([])}
+            onShowAllProjects={showAllProjects}
           />
           <PeriodSummary sessions={dayItems.past} dayAnchor={anchor} granularity={granularity} expanded={expandedProjects} />
         </div>
@@ -176,6 +180,7 @@ export default function App() {
       <Panel id="body" minSize={20} className="body-outer">
         <Group
           orientation="horizontal"
+          disableCursor
           className="body"
           defaultLayout={defaultLayout}
           onLayoutChanged={onLayoutChanged}
@@ -198,7 +203,7 @@ export default function App() {
         </Group>
       </Panel>
     </Group>
-    <StatusBar progress={scanProgress} sessionCount={sessions.length} />
+    <StatusBar sessionCount={sessions.length} />
     </div>
   )
 }

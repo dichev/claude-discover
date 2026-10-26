@@ -1,4 +1,4 @@
-import { Suspense, use, useEffect, useMemo, useRef, useState } from 'react'
+import { memo, Suspense, use, useEffect, useMemo, useRef, useState } from 'react'
 import { Hourglass, Gauge, MessageSquare, Clock, Zap, DollarSign, Brain, GitBranch, ChevronDown, ChevronRight, CornerDownRight } from 'lucide-react'
 import { fmtCompact, fmtNum, fmtUSD, fmtDuration, fmtAgo, tone } from '../utils/formatting.js'
 import { THRESHOLDS as T } from '../utils/thresholds.js'
@@ -6,6 +6,7 @@ import { parseCommand } from './view/labels.js'
 import { subagentClusters, isJournal } from '../utils/subagents.js'
 import { useLocalStorage } from '../utils/useLocalStorage.js'
 import { activity } from '../utils/activity.js'
+import { useClock } from '../utils/useClock.js'
 import './SessionList.css'
 
 const TIPS = {
@@ -23,8 +24,11 @@ const sumOf = (sessions, key) => sessions.reduce((sum, s) => sum + (s[key] || 0)
 // Icon-only badge: its tip doubles as its accessible name
 const Badge = ({ className, tip, icon: Icon }) => <span className={className} role="img" aria-label={tip} data-tooltip-content={tip}><Icon size={11} /></span>
 
+// Re-renders itself when its text changes, so the clock doesn't re-render the whole list
+const Ago = ({ at }) => useClock(() => fmtAgo(at))
+
 // The row's tokens/cost and time columns; `toned` colors the stats against the per-session thresholds
-const RowStats = ({ at, tokens, cost, sortBy, toned }) => <>
+const RowStats = memo(({ at, tokens, cost, sortBy, toned }) => <>
   <span className="session-row-stats">
     <span className={`${sortBy === 'tokens' ? 'stat-primary' : 'stat-secondary'} ${toned ? tone(tokens, T.tokens) : ''}`}>
       {fmtCompact(tokens)}
@@ -33,39 +37,35 @@ const RowStats = ({ at, tokens, cost, sortBy, toned }) => <>
       {cost ? fmtUSD(cost) : '—'}
     </span>
   </span>
-  <span className="session-row-time">{fmtAgo(at)}</span>
-</>
+  <span className="session-row-time"><Ago at={at} /></span>
+</>)
 
 // The project and model(s) that end a row's second line
-const ProjectModels = ({ project, projectShort, subdir, models, efforts }) => <>
+const ProjectModels = memo(({ project, projectShort, subdir, models, efforts }) => <>
   {project && <span className="session-project">{projectShort}{subdir && ` › ${subdir}`}</span>}
   {models?.length > 0 && <span className="session-model">{models.map(m => m.replace(/^claude-/, '')).join(', ')}{efforts?.length > 0 && ` ${efforts.join(', ')}`}</span>}
-</>
+</>)
 
 // Read once per avatar file, however many sessions share it
 const avatars = new Map()
-const Avatar = ({ session }) => {
+const Avatar = memo(({ session }) => {
   if (!avatars.has(session.avatar)) avatars.set(session.avatar, window.api.readAvatar(session.filePath))
   const src = use(avatars.get(session.avatar))
   return src && <span className="session-avatar"><img src={src} alt="" /></span>
-}
+})
 
-export default function SessionList({ sessions, selectedId, deepLink, onSelect }) {
+export default memo(function SessionList({ sessions, selectedId, deepLink, onSelect }) {
   const selectedRef             = useRef(null)
   const [sortBy, setSortBy]     = useLocalStorage('session-list.sort', 'time')
   const [filter, setFilter]     = useState('')
   const [expanded, setExpanded] = useState(() => new Map())
-  const [, tick]                = useState(0)
 
   useEffect(() => {
     selectedRef.current?.scrollIntoView({ block: 'nearest' })
   }, [selectedId])
 
-  // keep the relative "Xm ago" times and the live dots fresh
-  useEffect(() => {
-    const t = setInterval(() => tick(n => n + 1), 10_000)
-    return () => clearInterval(t)
-  }, [])
+  // Keep the live dots fresh: re-render only when some row's activity changes
+  useClock(() => sessions.map(s => activity(s.lastActivityAt)).join())
 
 
   // The first command, when nothing better names the session.
@@ -211,5 +211,5 @@ export default function SessionList({ sessions, selectedId, deepLink, onSelect }
       </div>
     </div>
   )
-}
+})
 

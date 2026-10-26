@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { memo, useEffect, useMemo, useRef, useState } from 'react'
 import { SOURCE_COLORS, SOURCE_LABELS } from '../utils/colors.js'
 import { useLocalStorage } from '../utils/useLocalStorage.js'
 import { useMouse } from '../utils/useMouse.js'
@@ -38,7 +38,7 @@ function packLanes(items) {
   return { placed, laneCount: Math.max(1, lanes.length) }
 }
 
-export default function GanttChart({
+export default memo(function GanttChart({
   dayRange, sessions, onSelect, selectedId, dayAnchor,
   granularity = 'day', expanded, onToggleExpanded, otherProjects, onShowAllProjects,
 }) {
@@ -294,4 +294,4 @@ export default function GanttChart({
       </div>
     </div>
   )
-}
+})

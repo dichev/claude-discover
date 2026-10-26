@@ -74,7 +74,7 @@
   transition: background 120ms;
 
   &:hover,
-  &[data-resize-handle-active] {
+  &[data-separator="active"] {
     background: var(--text-faint);
   }
 
