@@ -15,7 +15,9 @@ if (process.env.ELECTRON_RENDERER_URL) {
 }
 
 // Enable React DevTools
-app.whenReady().then(async () => {
-  const { installExtension, REACT_DEVELOPER_TOOLS } = await import('@tomjs/electron-devtools-installer')
-  await installExtension(REACT_DEVELOPER_TOOLS)
-})
+if (process.env.REACT_DEVTOOLS) {
+  app.whenReady().then(async () => {
+    const { installExtension, REACT_DEVELOPER_TOOLS } = await import('@tomjs/electron-devtools-installer')
+    await installExtension(REACT_DEVELOPER_TOOLS)
+  })
+}

@@ -104,7 +104,7 @@ Optional features, secondary to the core timeline. The switchable ones are a cla
 
 ### Dev-only bits
 
-`src/main/debug.js` is dynamically imported only under `import.meta.env.DEV`; it opens the CDP port `9333` that `.mcp.json`'s playwright server attaches to, and uses a separate `userData` profile so dev and the packaged app don't fight. `test/prod-build.test.js` asserts it is compiled entirely out of the production bundle.
+`src/main/debug.js` is dynamically imported only under `import.meta.env.DEV`; it opens the CDP port `9333` that `.mcp.json`'s playwright server attaches to, uses a separate `userData` profile so dev and the packaged app don't fight, and installs React DevTools only when `REACT_DEVTOOLS` is set (see UI testing below). `test/prod-build.test.js` asserts it is compiled entirely out of the production bundle.
 
 ## Code Conventions
 
@@ -123,3 +123,5 @@ Optional features, secondary to the core timeline. The switchable ones are a cla
 ## UI testing / debugging
 
 **Ask before running Playwright UI testing** — don't drive the app via Playwright MCP unless the user has confirmed.
+
+React DevTools is off in dev by default (it slows the UI); when you need it, start dev with `REACT_DEVTOOLS=1 npm run dev`.

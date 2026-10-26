@@ -111,6 +111,9 @@
     "time bar icon label  badges stats"
     "time bar icon bottom bottom stats";
   align-items: start;
+  /* A month lists thousands of rows: skip laying out the off-screen ones, or every panel resize frame relayouts them all */
+  content-visibility: auto;
+  contain-intrinsic-size: auto 51px;
 
   /* A timeline after the time: a dot on the label's line (accent while active), over a track whose negative margins run it through the row's padding */
   &::before, &::after {
