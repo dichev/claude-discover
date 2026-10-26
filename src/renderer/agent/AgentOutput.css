@@ -31,4 +31,7 @@
   overflow: auto;
   background: var(--bg-elev-1, var(--bg));
   font-size: 12px;
+
+  /* This box is the one scroller (it auto-follows the stream), so lift Markdown's own cap */
+  & .markdown { max-height: none; overflow: visible; }
 }

@@ -22,7 +22,7 @@
 }
 
 .gantt-pane {
-  --gantt-side-width: 247px;
+  --gantt-side-width: 280px; /* .session-summary's width, so the two line up */
   display: flex;
   flex-direction: column;
   min-height: 0;
@@ -34,9 +34,15 @@
   flex: 1;
   min-height: 0;
   overflow: hidden;
+  border-bottom: 1px solid var(--border); /* here, not on .gantt-wrap, so it also runs under the period panel */
 
   & > * { min-width: 0; min-height: 0; }
-  & > .gantt-wrap { flex: 1; }
+  /* The chart and the period panel join into one card, the panel's left border as the divider */
+  & > .gantt-wrap {
+    flex: 1;
+    padding-right: 0;
+    & .heat-strip, & .gantt-canvas { border-top-right-radius: 0; border-bottom-right-radius: 0; border-right: none; }
+  }
   & > .gantt-side { flex: 0 0 var(--gantt-side-width); }
 }
 

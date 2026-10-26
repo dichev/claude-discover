@@ -50,7 +50,7 @@ export default function Toolbar({
           const active = sourceFilter === k
           const dim = sourceFilter && !active
           return (
-            <button key={k} type="button" className={`legend-chip ${active ? 'active' : ''} ${dim ? 'dim' : ''}`} onClick={() => onToggleSourceFilter?.(k)}>
+            <button key={k} type="button" className={`legend-chip ${active ? 'filter-active' : ''} ${dim ? 'dim' : ''}`} onClick={() => onToggleSourceFilter?.(k)}>
               <span className="swatch" style={{ background: SOURCE_COLORS[k] || SOURCE_COLORS.other }} />
               {SOURCE_LABELS[k] || k}
             </button>

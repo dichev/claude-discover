@@ -54,7 +54,7 @@ export default function JsonlView({ items, expandAll = null }) {
   return (
     <div className="jsonl-viewer">
       <div className="jsonl-viewer-toolbar">
-        <input className="jsonl-viewer-search" type="search" placeholder="Filter…" onInput={(e) => setQuery(e.target.value)} />
+        <input className={`jsonl-viewer-search${q ? ' filter-active' : ''}`} type="search" placeholder="Filter…" onInput={(e) => setQuery(e.target.value)} />
       </div>
       <div className="jsonl-viewer-content">
         {entries.length > 0 && (

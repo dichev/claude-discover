@@ -101,31 +101,97 @@
 }
 
 .session-row {
-  padding: 8px 10px;
-  border-left: 3px solid transparent;
+  padding: 8px 10px 8px 0;
   border-bottom: 1px solid var(--border);
   cursor: pointer;
-  display: flex;
-  align-items: flex-start;
-  gap: 10px;
+  display: grid;
+  grid-template-columns: auto auto auto minmax(0, 1fr) auto auto;
+  /* the second line runs on under the badges, up to the stats column */
+  grid-template-areas:
+    "time bar chevron label  badges stats"
+    "time bar chevron bottom bottom stats";
+  align-items: start;
+
+  /* A timeline after the time: a dot on the label's line (accent while active), over a track whose negative margins run it through the row's padding */
+  &::before, &::after {
+    content: '';
+    grid-area: bar;
+    width: 5px;
+  }
+  &::before {
+    align-self: stretch;
+    margin: -8px 11px -9px 8px; /* -9px also crosses the row's bottom border */
+    /* a 1px line drawn antialiased (a tent, not hard stops) across the dot-wide box, so it stays centered under the dot at fractional zoom */
+    background: linear-gradient(to right, transparent calc(50% - 1px), #3a4253 50%, transparent calc(50% + 1px));
+  }
+  &::after {
+    height: 5px;
+    margin: 6.5px 11px 0 8px;
+    border-radius: 50%;
+    background: var(--dot);
+    --dot: var(--text-faint);
+  }
+  &.active::after { --dot: var(--accent); }
+  &.live::after { animation: pulse 2s ease-out infinite; }
 
   &:hover { background: var(--bg-elev-2); }
   &.selected { background: var(--selected); }
-  &.is-subagent-child { padding-left: 20px; }
+  /* under the run title text (14px chevron + 5px gap), while the time stays in line with the other rows */
+  &.is-subagent-child :is(.session-label, .session-time-bottom) { margin-left: 19px; }
   &.deep-linked { background: rgba(52, 211, 153, 0.12); } /* last, so it wins over :hover and .selected */
+}
+
+/* A .session-row reset as a button, so it lines up with the subagent rows below it */
+.subagent-run {
+  width: 100%;
+  border-width: 0 0 1px;
+  background: none;
+  font: inherit;
+  text-align: left;
+}
+
+/* 18px tall to center on the title's line */
+.subagent-run-chevron { grid-area: chevron; display: flex; align-items: center; height: 18px; margin-right: 5px; color: var(--text); }
+
+.subagent-run-title {
+  font-weight: 600;
+  color: var(--text);
 }
 
 .deeplink-note { color: #34d399; }
 
-.session-row-main { flex: 1; min-width: 0; }
+.session-row-badges {
+  grid-area: badges;
+  margin-left: 10px;
+  display: flex;
+  align-items: center;
+  gap: 3px;
+  height: 18px;
+
+  &:empty { display: none; }
+  & > span { background: none; } /* `span` outranks the global .warn-badge/.danger-badge, which load later */
+}
+
+/* 18px line height keeps it on the label's line */
+.session-row-time {
+  grid-area: time;
+  width: 24px;
+  text-align: right;
+  font-family: var(--font-mono), monospace;
+  font-size: 10px;
+  line-height: 18px;
+  color: var(--text-faint);
+  white-space: nowrap;
+}
 
 .session-row-stats {
-  flex: none;
+  grid-area: stats;
+  margin-left: 6px;
   display: flex;
   flex-direction: column;
   align-items: flex-end;
   gap: 2px;
-  min-width: 56px;
+  min-width: 40px;
   font-family: var(--font-mono), monospace;
 
   /* Line heights mirror the main column (18px label + 2px gap + 14px line) so both second lines align */
@@ -149,23 +215,27 @@
 }
 
 .session-time-bottom {
+  grid-area: bottom;
   margin-top: 2px;
   display: flex;
-  gap: 0px;
+  overflow: hidden;
   font-family: var(--font-mono), monospace;
   font-size: 10px;
   line-height: 14px;
   color: var(--text-faint);
 
   & > * { flex: none; }
+  & > :last-child { flex: 0 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   & > * + *::before { content: ', '; }
+  & > .fork-tag + *::before { content: '\00a0'; }
+  & .subagent-tag, & .worktree-tag { font-size: inherit; }
 }
 .session-model { color: var(--text-dim); }
 
-/* the only part of the line that gives way when the list pane narrows */
+/* the part of the line that gives way first when the list pane narrows; the huge factor leaves the ellipsized last item untouched until it's gone */
 .session-project {
   color: var(--text-dim);
-  flex: 0 1 auto;
+  flex: 0 1e6 auto;
   min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -202,15 +272,17 @@
 
 .worktree-tag { color: #34d399; }
 
-.session-tag { color: #4ade80; }
-
 .fork-tag {
+  display: inline-flex;
+  align-items: center;
   color: var(--accent);
-  font-weight: bold;
 }
 
-/* Single flex line, 18px tall to fit the circular badges without growing the line box */
+.session-tag { color: #4ade80; }
+
+/* Single flex line, 18px tall to line up with the badge column */
 .session-label {
+  grid-area: label;
   font-size: 12px;
   display: flex;
   align-items: center;

@@ -30,8 +30,10 @@
   position: absolute;
   top: 0;
   bottom: 0;
-  right: 13px;
-  border-left: 1px solid var(--border);
+  right: 10px;
+  width: 5px; /* the dots' box (.token-point), so both snap to the same device pixels */
+  /* a 1px line drawn antialiased (a tent, not a border) across that box, so it stays centered under the dots at fractional zoom */
+  background: linear-gradient(to right, transparent calc(50% - 1px), var(--border) 50%, transparent calc(50% + 1px));
 }
 
 .conv-row { position: relative; }
@@ -42,7 +44,7 @@
 
 .token-point {
   position: absolute;
-  right: -18px; /* dot centered on the line: gutter 28 − line offset 13 + dot radius 2.5 ≈ 18 */
+  right: -18px; /* over the line's box: gutter 28 − its right 10 */
   top: 10px;
   z-index: 1; /* paint the dots over the timeline line (.conversation::after comes later in tree order) */
 }
@@ -52,14 +54,11 @@
   width: 5px;
   height: 5px;
   border-radius: 50%;
+  background: var(--dot);
+  --dot: var(--text-faint);
 }
-
-.token-point-user      .token-point-dot,
-.token-point-compact   .token-point-dot { background: #5da9c9; } /* the summary is input, like a user message */
-.token-point-assistant .token-point-dot { background: #9aa3b2; }
-.token-point-system    .token-point-dot { background: var(--text-faint); } /* the least of the three: no color of its own */
-.token-point-command   .token-point-dot { background: var(--accent); } /* slash commands: no tokens, just a marker */
-.token-point.negative  .token-point-dot { background: #63a76b; } /* compaction shrank the context — good news, so green */
+.token-point.active .token-point-dot { --dot: var(--accent); }
+.token-point.live   .token-point-dot { animation: pulse 2s ease-out infinite; }
 
 /* Context fill bar in assistant headers (ContextStat): a slim, borderless inline ProgressBar. */
 .msg-ctx .progress-bar {
@@ -219,7 +218,7 @@ button.msg-summary:hover { color: var(--text); background: var(--bg-elev-2); bor
 
 .turn-system {
   & .turn-blocks > .aux { align-self: flex-start; }
-  & .turn-blocks > .instruction-file { align-self: stretch; } /* full width, so its token count lines up right */
+  & .turn-blocks > :is(.instruction-file, .aux:has(> .aux-toggle > .instruction-tokens)) { align-self: stretch; } /* full width, so its token count lines up right */
   & .turn-blocks > .block-text {
     border: 1px dashed var(--border);
     border-radius: 6px;
@@ -380,6 +379,7 @@ button.msg-summary:hover { color: var(--text); background: var(--bg-elev-2); bor
 .instruction-file.directive .aux-toggle, .instruction-file.directive pre, .listed .aux-toggle { color: #b9b9b9 }
 /* Context listed above the prompt: the user's @-files and a command's skill body */
 .listed { margin-bottom: 6px; }
+.msg-context > .listed { margin-bottom: 0; }
 
 /* Full-width toggle so the estimated token count can sit right-aligned, like msg-header-right. */
 /* Nested tool rows cancel the aux-body's right padding so their counts line up with the strips'. */

@@ -1,8 +1,9 @@
 import { useEffect, useState } from 'react'
-import ConversationView from './view/ConversationView.jsx'
+import ConversationView, { FILTERS } from './view/ConversationView.jsx'
 import JsonlView from './view/JsonlView.jsx'
 import RequestsView from './view/RequestsView.jsx'
 import SessionSummary from './SessionSummary.jsx'
+import MultiPicker from '../ui/MultiPicker.jsx'
 import Toggle from '../ui/Toggle.jsx'
 import { ErrorMessage } from '../ui/Errors.jsx'
 import { useAgent } from '../agent/Agent.js'
@@ -21,6 +22,7 @@ export default function Session({ meta, missing, date, granularity = 'day', onSh
   const [error, setError]               = useState(null)
   const [mode, setMode]               = useLocalStorage('session.view-mode', 'conversation')
   const [expandAll, setExpandAll]       = useState(null)
+  const [filter, setFilter]             = useState([])
   const filePath = meta?.filePath // not the session id, which can cover several transcripts
   const fileSize = meta?.fileSize
   const desktop  = meta?.entrypoint === 'claude-desktop' // the capture proxy can't reach desktop sessions yet (see ProxySwitch)
@@ -80,15 +82,18 @@ export default function Session({ meta, missing, date, granularity = 'day', onSh
                       >{label}</button>
                     ))}
                   </div>
-                  <Toggle
-                    checked={!!expandAll}
-                    onChange={(v) => setExpandAll(v)}
-                    label={mode === 'conversation' ? 'Expand all' : 'Full text'}
-                  />
+                  <div className="view-tabs-tools">
+                    {mode === 'conversation' && <MultiPicker className="view-filter" options={FILTERS} value={filter} onChange={setFilter} allLabel="All messages" />}
+                    <Toggle
+                      checked={!!expandAll}
+                      onChange={(v) => setExpandAll(v)}
+                      label={mode === 'conversation' ? 'Expand all' : 'Full text'}
+                    />
+                  </div>
                 </div>
                 {mode === 'conversation' ? (
                   <div className="view-tab-pane-content">
-                    {items ? <ConversationView items={items} instructions={instructions} filePath={meta.parentFilePath ?? meta.filePath} expandAll={expandAll} continuesFrom={meta.continuesFrom} continuesTo={meta.continuesTo} forkedFrom={meta.forkedFrom} forkedAt={meta.forkedAt} onShowPeriodOf={onShowPeriodOf} />
+                    {items ? <ConversationView items={items} instructions={instructions} filePath={meta.parentFilePath ?? meta.filePath} expandAll={expandAll} filter={filter} continuesFrom={meta.continuesFrom} continuesTo={meta.continuesTo} forkedFrom={meta.forkedFrom} forkedAt={meta.forkedAt} onShowPeriodOf={onShowPeriodOf} />
                            : loadError || <div className="empty">Loading conversation…</div>}
                   </div>
                 ) : mode === 'jsonl' ? (

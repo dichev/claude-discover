@@ -5,6 +5,16 @@ function emptyBucket() {
   return Object.fromEntries(TOKEN_FIELDS.map(k => [k, 0]))
 }
 
+// Each token type's slice of a bucket, priced alone; rates are linear, so the slices' costs sum to the bucket's
+const COST_PARTS = {
+  input: b => ({ input: b.input }),
+  output: b => ({ output: b.output }),
+  cacheRead: b => ({ cacheRead: b.cacheRead }),
+  cacheWrite: b => ({ cacheCreation: b.cacheCreation - b.cacheCreation1h, cacheCreation5m: b.cacheCreation5m }),
+  cacheWrite1h: b => ({ cacheCreation: b.cacheCreation1h, cacheCreation1h: b.cacheCreation1h }),
+}
+const pickParts = (byModel, part) => Object.fromEntries(Object.entries(byModel).map(([m, b]) => [m, part(b)]))
+
 function addUsage(target, delta) {
   for (const k of TOKEN_FIELDS) target[k] += delta[k]
 }
@@ -291,9 +301,10 @@ export class SessionParser {
     addUsage(meta.tokens, growth)
     addUsage(byModel[model] ??= emptyBucket(), growth)
     const cost = this.pricing && obj._ts != null ? this.pricing.costForDelta(model, growth, { fast }) : null
-    if (cost > 0) {
+    if (obj._ts != null) {
       const prevTs = this.prevMessage?._ts
-      meta.costSamples.push({ start: prevTs != null && prevTs < obj._ts ? prevTs : obj._ts, end: obj._ts, cost })
+      const tokens = growth.input + growth.output + growth.cacheRead + growth.cacheCreation
+      meta.costSamples.push({ start: prevTs != null && prevTs < obj._ts ? prevTs : obj._ts, end: obj._ts, cost: cost || 0, tokens })
     }
   }
 
@@ -307,9 +318,10 @@ export class SessionParser {
     meta.totalTokens = t.input + t.output + t.cacheRead + t.cacheCreation
     const cacheDenom = t.cacheRead + t.cacheCreation
     meta.cacheHitRatio = cacheDenom > 0 ? t.cacheRead / cacheDenom : null
-    const costOf = opts => !this.pricing ? 0
-      : (this.pricing.costUSD(meta.tokensByModel, opts) || 0) + (this.pricing.costUSD(meta.tokensByModelFast, { ...opts, fast: true }) || 0)
+    const costOf = (opts, part = b => b) => !this.pricing ? 0
+      : (this.pricing.costUSD(pickParts(meta.tokensByModel, part), opts) || 0) + (this.pricing.costUSD(pickParts(meta.tokensByModelFast, part), { ...opts, fast: true }) || 0)
     meta.cost = costOf({})
+    meta.costByType = Object.fromEntries(Object.entries(COST_PARTS).map(([type, part]) => [type, costOf({}, part)]))
     // What the session would have cost with only 5m cache (no 1h premium); the gap is the potential saving.
     meta.savings = { using5mCache: meta.cost - costOf({ ignoreCache1hPremium: true }) }
     return meta

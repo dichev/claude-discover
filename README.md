@@ -6,7 +6,12 @@ Ever wondered what Claude Code is **actually** doing all day?
 <img width="1660" alt="claude-discover-dimmed-screenshot" src="https://github.com/user-attachments/assets/708d05c7-8769-47d8-b5bd-14337d1d6037" />
 <br><br>
 
-**Claude Discover** is a desktop tool that shows you what **Claude Code** is actually doing. It collects all your sessions (from the CLI, Desktop, or SDK) and puts them on one timeline, where you can read every conversation, peek at the system prompts, memories, and tools, inspect the raw API traffic behind it all, and see exactly where your tokens - and your money - went. (Spoiler: mostly on re-sending tool definitions.)
+**Claude Discover** is a desktop app for exploring your local Claude Code data. Every session - from the CLI, Desktop, or SDK - lands on one timeline, where you can:
+
+- read each conversation, with every tool call the terminal scrolled past
+- see what was sent behind it: system prompt, memory files, tool definitions, injected reminders
+- inspect the raw API traffic, including the side requests transcripts never record
+- find where your tokens - and your money - went (spoiler: mostly on re-sending tool definitions)
 
 No configuration, no API keys, and **everything stays on your machine**.
 

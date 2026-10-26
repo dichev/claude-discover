@@ -14,6 +14,7 @@ import ProgressBar from '../../ui/ProgressBar.jsx'
 import Tip from '../../ui/Tip.jsx'
 import { useFindActive } from '../../ui/useFindActive.js'
 import { useMouseFontScale } from '../../utils/useMouse.js'
+import { useActivity } from '../../utils/activity.js'
 import './ConversationView.css'
 import claudeIcon from '../../assets/claude-icon.svg'
 
@@ -30,12 +31,25 @@ function useCollapsed(defaultOpen) {
   return [open, setOpen]
 }
 
-// Slash-command invocation (`<command-name>…`): meta for most purposes, but still a user action.
-const isCommandTurn = t => t.blocks.some(b => b.type === 'text' && parseCommand(b.text)?.name)
-const isClearTurn   = t => t.blocks.some(b => b.type === 'text' && parseCommand(b.text)?.name === '/clear')
+const isClearTurn = t => t.blocks.some(b => b.type === 'text' && parseCommand(b.text)?.name === '/clear')
 
+export const FILTERS = [
+  { value: 'user', label: 'User messages' },
+  { value: 'assistant', label: 'Claude messages' },
+  { value: 'system', label: 'System & memory files' },
+  { value: 'other', label: 'Everything else' },
+]
+const CATEGORY = { compact: 'system', instruction: 'other' }
 
-export default function ConversationView({ items, instructions = {}, filePath = null, expandAll = null, continuesFrom = null, continuesTo = null, forkedFrom = null, forkedAt = null, onShowPeriodOf }) {
+// System's turns count as `system` even mid-cycle inside a Claude card; a card left with only those shows as System's row
+function filtered(g, filter) {
+  if (!filter.length) return g
+  const turns = g.turns.filter(t => filter.includes(CATEGORY[g.kind] ?? (t.role === 'system' ? 'system' : g.kind)))
+  if (!turns.length) return null
+  return { kind: turns.every(t => t.role === 'system') ? 'system' : g.kind, turns }
+}
+
+export default function ConversationView({ items, instructions = {}, filePath = null, expandAll = null, filter = [], continuesFrom = null, continuesTo = null, forkedFrom = null, forkedAt = null, onShowPeriodOf }) {
   const turns            = useMemo(() => flatten(items, instructions), [items, instructions])
   const groups           = useMemo(() => groupTurns(turns), [turns])
   const points           = useMemo(() => tokenPoints(groups), [groups])
@@ -46,6 +60,7 @@ export default function ConversationView({ items, instructions = {}, filePath = 
   const model = currentModel(turns)
   const ctxLimit = contextWindow([model]) // bar scale: fraction of this model's context window
   const hasTimeline = points.some(Boolean)
+  const shown = groups.map(g => filtered(g, filter))
   const branch = branchPoint(groups, forkedFrom, forkedAt, continuesFrom)
   const branchDivider = branch && <Divider className="conv-divider" title={branch.from}>Branched from session {branch.from.slice(0, 8)}</Divider>
   return (
@@ -57,23 +72,22 @@ export default function ConversationView({ items, instructions = {}, filePath = 
             Continues from {format(continuesFrom, 'MMM d, yyyy HH:mm')}
           </Divider>
         )}
-        {groups.map((g, i) => (
-          <React.Fragment key={g.turns[0].uuid}>
+        {shown.map((g, i) => (
+          <React.Fragment key={groups[i].turns[0].uuid}>
             {i === branch?.index && branchDivider}
-            <div className={`conv-row conv-row-${g.kind}`}>
+            {g && <div className={`conv-row conv-row-${g.kind}`}>
               <LazyMount eager={i < 8} forceMount={findOpen} placeholderMinHeight={80}>
                 {g.kind === 'user' || g.kind === 'system' ? <InputRow kind={g.kind} turns={g.turns} point={points[i]} index={i} />
                  : g.kind === 'assistant' ? <AssistantCard turns={g.turns} point={points[i]} index={i} duration={durations[i]} ctxLimit={ctxLimit} showAuthor={groups[i - 1]?.kind !== 'assistant'} />
                  : g.kind === 'compact'   ? <Compaction block={g.turns[0].blocks[0]} />
                  :                        <InstructionRun turns={g.turns} model={model} />}
               </LazyMount>
-              {points[i] ? <TokenPoint point={points[i]} />
-               // Commands consume no tokens so they never get a real point — mark them with a plain dot.
-               : hasTimeline && g.kind === 'user' && g.turns.some(isCommandTurn) && <TokenPoint point={{ role: 'command', delta: 0 }} />}
-            </div>
-            {g.kind === 'user' && g.turns.some(isClearTurn) && <Divider className="conv-divider">Context cleared</Divider>}
+              {hasTimeline && <TokenPoint at={Math.max(...groups[i].turns.map(t => t.ts ?? 0))} />}
+            </div>}
+            {groups[i].kind === 'user' && groups[i].turns.some(isClearTurn) && <Divider className="conv-divider">Context cleared</Divider>}
           </React.Fragment>
         ))}
+        {filter.length > 0 && !shown.some(Boolean) && <div className="empty">Nothing in this session matches the filter.</div>}
         {branch?.index === groups.length && branchDivider}
         {continuesTo != null && (
           <Divider className="conv-continues-to" onClick={() => onShowPeriodOf(continuesTo)} title="Show the later period">
@@ -115,9 +129,9 @@ const ClaudeIcon = () => <img className="msg-icon claude-icon" src={claudeIcon} 
 // Sits in the conversation's right gutter at the row's own position, so it scrolls with
 // the content — no scroll syncing or measurement needed. Just a dot; the numbers it used
 // to show in a tooltip now live in the assistant card header instead.
-function TokenPoint({ point: p }) {
+function TokenPoint({ at }) {
   return (
-    <div className={`token-point token-point-${p.role}${p.delta < 0 ? ' negative' : ''}`}>
+    <div className={`token-point ${useActivity(at)}`}>
       <span className="token-point-dot" />
     </div>
   )
@@ -172,18 +186,17 @@ const AUTHORS = {
 // Context and the CLI's routine notices — what the transcript model marks `folded`
 const isFolded = t => t.blocks.every(b => b.folded)
 
-// The user's own attachments that carry a token count (@-files, IDE selections) list above the prompt, like System's instruction files
-const isCounted = b => b.type === 'attachment' && hasText(attachmentView(b.attachment, b.rendered))
+// Attachments that carry a token count (@-files, skill and agent listings) list above the message; only the uncounted rest fold
+const isCounted = b => b.type === 'attachment' && !b.unsent && hasText(attachmentView(b.attachment, b.rendered))
 
 // A You or System row: its messages, with the context that came along folded behind the header
 function InputRow({ kind, turns, point, index }) {
   const [open, setOpen] = useCollapsed(false)
   const msgs            = turns.filter(t => !isFolded(t))
-  const listed          = [], ctxItems = []
-  for (const b of turns.filter(isFolded).flatMap(t => t.blocks)) {
-    (kind === 'user' && isCounted(b) ? listed : ctxItems).push(b)
-  }
-  const ts              = (msgs[0] ?? turns[0]).ts
+  const folded          = turns.filter(isFolded).flatMap(t => t.blocks)
+  const counted         = new Set(folded.filter(isCounted))
+  const ctxItems        = folded.filter(b => !counted.has(b))
+  const ts             = (msgs[0] ?? turns[0]).ts
   const { Icon, name }  = AUTHORS[kind]
   const count           = (type, noun) => { const n = ctxItems.filter(b => b.type === type).length; return n > 0 && plural(n, noun) }
   const summary         = [count('attachment', 'attachment'), count('system', 'notice')].filter(Boolean).join(', ')
@@ -204,12 +217,11 @@ function InputRow({ kind, turns, point, index }) {
           {ts != null && <span className="msg-time">{format(ts, 'HH:mm:ss')}</span>}
         </span>
       </div>
-      {open && ctxItems.length > 0 && (
+      {(open ? folded.length : counted.size) > 0 && (
         <div className="msg-context">
-          {ctxItems.map((b, i) => <Block key={i} block={b} />)}
+          {folded.map((b, i) => counted.has(b) ? <div key={i} className="listed"><Block block={b} /></div> : open && <Block key={i} block={b} />)}
         </div>
       )}
-      {listed.length > 0 && <div className="listed">{listed.map((b, i) => <Block key={i} block={b} />)}</div>}
       {msgs.map(t => <TurnRow key={t.uuid} turn={t} />)}
     </div>
   )
@@ -279,7 +291,7 @@ function TurnRow({ turn, hidden = false, speaker = null }) {
       <div className="turn-blocks">
         {contextBlocks.length > 0 && (
           <Collapsible className="attachment" defaultOpen={false} title={plural(contextBlocks.length, 'attachment')}>
-            {contextBlocks.map((b, i) => <Attachment key={i} att={b.attachment} rendered={b.rendered} folded={b.folded} />)}
+            {contextBlocks.map((b, i) => <Attachment key={i} att={b.attachment} rendered={b.rendered} folded={b.folded} unsent={b.unsent} />)}
           </Collapsible>
         )}
         {otherBlocks.map((b, i) => <Block key={i} block={b} speaker={speaker} ts={turn.ts} />)}
@@ -339,7 +351,7 @@ function Block({ block, speaker = null, ts = null }) {
     )
   }
   if (block.type === 'attachment') {
-    return <Attachment att={block.attachment} rendered={block.rendered} folded={block.folded} speaker={speaker} />
+    return <Attachment att={block.attachment} rendered={block.rendered} folded={block.folded} unsent={block.unsent} speaker={speaker} />
   }
   if (block.type === 'instruction') {
     return <InstructionFile it={block.it} model={block.it.model} tokens={countTokens(block.it.content, block.it.model)} speaker={speaker} className="directive" />
@@ -381,6 +393,11 @@ const ATTACHMENT_RENDERERS = {
   deferred_tools_delta: (a) => ({
     title: `${a.addedNames?.length || 0} deferred tools ${a.removedNames?.length ? `(removed: ${a.removedNames.length})` : ''}`,
     body: safeJson({ added: a.addedNames, removed: a.removedNames }),
+  }),
+  // The tools ToolSearch loaded — their schemas reach the model in the request's tools, not through this record
+  deferred_tools_record: a => ({
+    title: `Deferred tools record${a.entries?.length ? `: ${a.entries.map(e => e.name).join(', ')}` : ''}`,
+    body: safeJson(a.entries?.length ? a.entries : a),
   }),
   prompt_snapshot: a => ({
     title: `Prompt snapshot: system prompt, ${a.tools?.length ?? 0} tools`,
@@ -453,13 +470,13 @@ const attachmentView = (att, rendered) => (ATTACHMENT_RENDERERS[att?.type] ?? ge
 const hasText = view => view.body != null && !view.raw
 
 // An attachment the model didn't fold is a directive to Claude: open, and tinted apart
-function Attachment({ att, rendered, folded = true, speaker = null }) {
+function Attachment({ att, rendered, folded = true, unsent = false, speaker = null }) {
   const view            = attachmentView(att, rendered)
   const { title, body } = view
   const className       = `attachment${folded ? '' : ' directive'}`
   if (body == null) return <Label title={said(speaker, title)} className={className} />
   return (
-    <Collapsible title={said(speaker, title)} className={className} defaultOpen={!folded} tokens={hasText(view) && countTokens(body)}>
+    <Collapsible title={said(speaker, title)} className={className} defaultOpen={!folded} tokens={!unsent && hasText(view) && countTokens(body)}>
       {view.items?.length ? <ItemFolds {...view} /> : <pre>{body}</pre>}
     </Collapsible>
   )
@@ -514,6 +531,9 @@ function InstructionRun({ turns, model }) {
         <Globe className="msg-icon" />
         <span className="msg-author">Proxy</span>
         <span className="msg-summary">{SIDE_NOTE}</span>
+        <span className="msg-header-right">
+          <span className="msg-time">{format(Date.parse(strips[0].timestamp), 'HH:mm:ss')}</span>
+        </span>
       </div>
       {strips.map(it => <InstructionFile key={`${it.hash}-${it.timestamp}`} it={it} model={model} tokens={it.tokens} />)}
       {strips.length > 1 && (

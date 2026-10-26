@@ -29,6 +29,12 @@ const queuedPrompt = it =>
   && it.attachment.commandMode === 'prompt' && (it.attachment.origin?.kind ?? 'human') === 'human'
   && it.attachment.prompt?.trim() ? it.attachment.prompt : null
 
+// Since 2.1.260 every attachment the model reads is logged with its `rendered` text — one without it never reached the context
+const logsRendered = version => {
+  const [major, minor, patch] = (version ?? '').split('.').map(Number)
+  return major > 2 || major === 2 && (minor > 1 || minor === 1 && patch >= 260)
+}
+
 // Context the user brought in themselves (IDE state, @-mentions) — every other attachment is Claude Code's own
 const USER_ATTACHMENTS = new Set(['opened_file_in_ide', 'selected_lines_in_ide', 'selected_lines_in_diff', 'file', 'already_read_file'])
 
@@ -161,7 +167,7 @@ export function flatten(items, { loop = [], side = [] } = {}) {
     if (it.type === 'attachment' && it.attachment) {
       // Echoes the StructuredOutput call's input verbatim — the call already shows it.
       if (it.attachment.type === 'structured_output' && it.attachment.toolUseID) continue
-      const block = { type: 'attachment', attachment: it.attachment, rendered: it.rendered, folded: !isDirective(it.attachment) }
+      const block = { type: 'attachment', attachment: it.attachment, rendered: it.rendered, folded: !isDirective(it.attachment), unsent: !it.rendered && logsRendered(it.version) }
       const role = speaker(it)
       const last = turns[turns.length - 1]
       // Coalesce consecutive attachments of one side into one meta turn; a directive keeps its own.

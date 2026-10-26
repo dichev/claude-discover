@@ -100,7 +100,6 @@
   transition: opacity 0.15s, border-color 0.15s, background 0.15s;
 
   &:hover { background: rgba(255,255,255,0.04); }
-  &.active { border-color: var(--text-dim); background: rgba(255,255,255,0.06); }
   &.dim { opacity: 0.4; }
 }
 
@@ -111,10 +110,10 @@
   border-radius: 2px;
 }
 
-/* Spans the period summary panel below it, so the tabs sit centered over it. */
+/* Starts at the period summary panel's left edge; the panel runs flush to the window, past the toolbar's padding. */
 .gantt-granularity {
   justify-self: end;
-  width: var(--gantt-side-width);
+  width: calc(var(--gantt-side-width) - 16px);
   display: flex;
   gap: 3px;
   padding: 3px;

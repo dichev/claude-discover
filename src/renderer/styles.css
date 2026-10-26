@@ -87,6 +87,22 @@ button:hover { background: var(--border); }
 }
 .button-primary:disabled { opacity: 0.6; cursor: default; }
 
+/* A filter narrowing the view (options picked, text typed): one look for pickers and search boxes */
+.filter-active, .filter-active:hover {
+  background: rgb(74 158 255 / 0.15);
+  border-color: rgb(74 158 255 / 0.7);
+  color: #fff;
+}
+
+/* Names what a summary panel covers */
+.summary-label {
+  color: var(--accent);
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+}
+
 .empty { padding: 20px; color: var(--text-faint); text-align: center; }
 
 .warn-badge {
@@ -166,4 +182,10 @@ button:hover { background: var(--border); }
   &.tone-danger { border-color: #c45a5a; background: rgb(179 66 66 / 0.2); }
   &.tone-warn .progress-bar-fill { background: var(--warn); }
   &.tone-danger .progress-bar-fill { background: var(--danger); }
+}
+
+/* A live timeline dot (utils/activity.js): a ring spreading out of it in its --dot color and fading */
+@keyframes pulse {
+  from { box-shadow: 0 0 0 0 color-mix(in srgb, var(--dot), transparent 40%); }
+  to   { box-shadow: 0 0 0 5px transparent; }
 }

@@ -142,7 +142,7 @@ export default function App() {
       defaultLayout={rootLayout}
       onLayoutChanged={onRootLayoutChanged}
     >
-      <Panel id="gantt" defaultSize={400} minSize={180} className="gantt-pane">
+      <Panel id="gantt" defaultSize={450} minSize={180} className="gantt-pane">
         <Toolbar
           granularity={granularity}
           onSetGranularity={changeGranularity}
@@ -180,7 +180,7 @@ export default function App() {
           defaultLayout={defaultLayout}
           onLayoutChanged={onLayoutChanged}
         >
-        <Panel id="list" defaultSize={350} minSize={200} maxSize={700} className="body-pane">
+        <Panel id="list" defaultSize={450} minSize={200} maxSize={700} className="body-pane">
           <SessionList
             sessions={dayItems.past}
             selectedId={selected?.filePath ?? null}

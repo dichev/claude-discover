@@ -3,7 +3,7 @@ export const isJournal = s => s.sessionId.endsWith('-journal')
 
 // Group subagents under their parent (orphans, whose parent is outside the period, are dropped). Map<parentFilePath, child[]>.
 // Paired on file path, not session id: one id can cover several transcripts, one per cwd.
-export function subagentsByParent(sessions) {
+function subagentsByParent(sessions) {
   const parents = new Set(sessions.map(s => s.filePath))
   const byParent = new Map()
   for (const s of sessions) {
@@ -15,8 +15,10 @@ export function subagentsByParent(sessions) {
   return byParent
 }
 
+const SPLIT_GAP = 5 * 60_000 // a longer pause between subagents (user working) splits them into separate runs
+
 // Split each parent's subagents into time-separated runs (a pause > gap ms = the user worked in between).
-export function subagentClusters(sessions, gap) {
+export function subagentClusters(sessions, gap = SPLIT_GAP) {
   return [...subagentsByParent(sessions).values()].flatMap(subs =>
     subs.sort((a, b) => a.startedAt - b.startedAt).reduce((runs, s, i, arr) => {
       if (i && s.startedAt - arr[i - 1].lastActivityAt <= gap) runs.at(-1).push(s)

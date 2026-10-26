@@ -73,6 +73,20 @@
   display: flex;
 }
 
+.view-tabs-tools {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+/* Sized to the Expand all pill beside it */
+.multi-picker.view-filter {
+  width: 150px;
+  padding: 3px 10px;
+  font-size: 12px;
+  font-weight: normal;
+}
+
 .view-tab {
   background: transparent;
   border: 0;
@@ -98,7 +112,4 @@
   container-type: inline-size; /* lets the token timeline collapse to dots when the pane is narrow */
 }
 
-.view-tab-pane-row > .session-summary {
-  overflow-y: auto;
-  min-height: 0;
-}
+.view-tab-pane-row > .session-summary { min-height: 0; }

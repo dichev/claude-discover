@@ -1,15 +1,31 @@
 .gantt-side {
   background: var(--bg-elev);
   border: 1px solid var(--border);
-  border-radius: 4px;
-  padding: 10px 12px;
-  margin: 0 16px 8px 0;
-  overflow-y: auto;
+  border-right: none; /* flush with the window edge, like .session-summary */
+  margin-bottom: 8px;
   font-size: 12px;
   color: var(--text-dim);
   display: flex;
   flex-direction: column;
+}
+
+/* The title and headline total, outside the scrolling body so they stay on top */
+.gantt-side-head {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 10px 12px;
+  border-bottom: 1px solid var(--border);
+}
+
+.gantt-side-body {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
   gap: 12px;
+  padding: 12px 12px 10px;
 }
 
 .gantt-side-section {
@@ -31,21 +47,91 @@
   gap: 6px;
 }
 
-.stats-toggle {
-  background: none;
-  border: 1px solid var(--border);
-  border-radius: 3px;
-  color: var(--text-dim);
-  font-size: 10px;
-  font-family: var(--font-mono), monospace;
-  padding: 1px 6px;
-  line-height: 14px;
-  cursor: pointer;
-  letter-spacing: 0;
-  text-transform: none;
+.gantt-side-heading-note {
   margin-left: auto;
+  text-transform: none;
+  letter-spacing: 0;
+  font-size: 11px;
+}
 
-  &:hover { color: var(--text); border-color: var(--text-dim); }
+/* The period's headline total, beside the cost/tokens switch */
+.period-total-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+/* Cost/tokens switch for the whole panel: headline, chart and per-project values */
+.stat-switch {
+  display: flex;
+  gap: 2px;
+  padding: 2px;
+  background: var(--bg);
+  border: 1px solid var(--border-strong);
+  border-radius: 6px;
+
+  & button {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 26px;
+    height: 22px;
+    padding: 0;
+    background: transparent;
+    border: none;
+    border-radius: 4px;
+    color: var(--text-dim);
+    font: inherit;
+    font-size: 12px;
+    font-weight: 600;
+    cursor: pointer;
+
+    &:hover { color: var(--text); }
+    &[aria-pressed="true"] { background: var(--selected); color: var(--text); }
+  }
+}
+
+.period-total-cost {
+  color: var(--text);
+  font-family: var(--font-mono), monospace;
+  font-size: 28px;
+  font-weight: 600;
+  letter-spacing: -0.5px;
+  line-height: 1.15;
+}
+
+.token-mix-bar {
+  display: flex;
+  gap: 1px;
+  height: 8px;
+  margin: 2px 0 4px;
+  border-radius: 2px;
+  overflow: hidden;
+
+  & > div { flex-basis: 3px; flex-shrink: 0; }
+}
+
+.token-mix-legend {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.token-mix-item {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 11px;
+
+  & > span:nth-child(2) { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  & b { color: var(--text); font-family: var(--font-mono), monospace; font-weight: 500; white-space: nowrap; }
+}
+
+.token-mix-swatch {
+  width: 8px;
+  height: 8px;
+  border-radius: 2px;
+  flex-shrink: 0;
 }
 
 .gantt-side-row {
@@ -69,20 +155,6 @@
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
-  }
-
-  /* Text badge — undo the circular icon-badge sizing from styles.css */
-  & .warn-badge {
-    font-size: inherit;
-    font-weight: inherit;
-    letter-spacing: 0;
-    line-height: 1;
-    width: auto;
-    height: auto;
-    border-radius: 3px;
-    padding: 0 5px;
-    margin: 0 -5px;
-    color: var(--warn);
   }
 }
 
