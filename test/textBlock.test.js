@@ -13,6 +13,10 @@ describe('fenceBlocks', () => {
     expect(out).toContain('```python')
   })
 
+  it('still fences JSON after an empty fence', () => {
+    expect(fenceBlocks('```\n```\nresult:\n{"a": 1}')).toContain('```json\n{"a": 1}\n```')
+  })
+
   it('leaves JSON that is already fenced untouched (no double-wrap)', () => {
     const input = '```json\n{ "about": { "name": "" } }\n```'
     expect(fenceBlocks(input)).toBe(input)
@@ -52,18 +56,30 @@ describe('fenceBlocks', () => {
 
 describe('fenceTags', () => {
   it('fences a <tag>…</tag> block as xml', () => {
-    expect(fenceTags('<conversation>\nhello\n</conversation>')).toBe('```xml\n<conversation>\nhello\n</conversation>\n```')
-    expect(fenceTags('<client_record> id: 1 </client_record>')).toBe('```xml\n<client_record> id: 1 </client_record>\n```')
+    expect(fenceTags('<conversation>\nhello\n</conversation>')).toBe('````xml\n<conversation>\nhello\n</conversation>\n````')
+    expect(fenceTags('<client_record> id: 1 </client_record>')).toBe('````xml\n<client_record> id: 1 </client_record>\n````')
   })
 
   it('fences each pair separately and keeps the prose between them', () => {
     const out = fenceTags('intro\n<a_tag>\nx\n</a_tag>\n\nmiddle\n\n<b_tag> y </b_tag>')
-    expect(out).toBe('intro\n```xml\n<a_tag>\nx\n</a_tag>\n```\n\nmiddle\n\n```xml\n<b_tag> y </b_tag>\n```')
+    expect(out).toBe('intro\n````xml\n<a_tag>\nx\n</a_tag>\n````\n\nmiddle\n\n````xml\n<b_tag> y </b_tag>\n````')
   })
 
   it('fences adjacent pairs (only blank lines between) as one block', () => {
     expect(fenceTags('<a_tag>x</a_tag>\n\n<b_tag>\ny\n</b_tag>\nafter'))
-      .toBe('```xml\n<a_tag>x</a_tag>\n\n<b_tag>\ny\n</b_tag>\n```\nafter')
+      .toBe('````xml\n<a_tag>x</a_tag>\n\n<b_tag>\ny\n</b_tag>\n````\nafter')
+  })
+
+  it('keeps ``` fences and tags inside a fenced pair literal', () => {
+    const text = '<transcript>\n```\n<b>x</b>\n\n{"a": 1}\n```\n</transcript>'
+    expect(fenceBlocks(fenceTags(text))).toBe('````xml\n' + text + '\n````')
+    expect(splitMarkdown(fenceTags(text), 2)).toEqual(['````xml\n' + text + '\n````'])
+  })
+
+  it('fences a pair holding ```` fences with a longer run', () => {
+    const text = '<transcript>\n````\n```\nx\n```\n````\n</transcript>'
+    expect(fenceTags(text)).toBe('`````xml\n' + text + '\n`````')
+    expect(fenceTags(text + '\n\n<a_tag>y</a_tag>')).toBe('`````xml\n' + text + '\n\n<a_tag>y</a_tag>\n`````') // a merged pair keeps the longer run
   })
 
   it('wraps stray tags in inline code spans', () => {

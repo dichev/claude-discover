@@ -1,5 +1,5 @@
 import { Suspense, use, useEffect, useMemo, useRef, useState } from 'react'
-import { Hourglass, Gauge, MessageSquare, Clock, Zap, DollarSign, Brain, GitBranch, ChevronDown, ChevronRight } from 'lucide-react'
+import { Hourglass, Gauge, MessageSquare, Clock, Zap, DollarSign, Brain, GitBranch, ChevronDown, ChevronRight, CornerDownRight } from 'lucide-react'
 import { fmtCompact, fmtNum, fmtUSD, fmtDuration, fmtAgo, tone } from '../utils/formatting.js'
 import { THRESHOLDS as T } from '../utils/thresholds.js'
 import { parseCommand } from './view/labels.js'
@@ -146,9 +146,10 @@ export default function SessionList({ sessions, selectedId, deepLink, onSelect }
                 aria-expanded={!isCollapsed}
                 onClick={() => toggleRun(runKey)}
               >
-                <span className="subagent-run-chevron"><Chevron size={14} aria-hidden="true" /></span>
+                <span className="subagent-run-arrow"><CornerDownRight size={14} aria-hidden="true" /></span>
                 <span className="session-label subagent-run-title">
                   Subagents ({run.length})
+                  <Chevron size={14} aria-hidden="true" />
                 </span>
                 <span className="session-time-bottom">
                   <ProjectModels {...run[0]} models={[...new Set(run.flatMap(c => c.models ?? []))]} efforts={[...new Set(run.flatMap(c => c.efforts ?? []))]} />

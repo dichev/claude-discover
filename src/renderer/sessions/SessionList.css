@@ -108,8 +108,8 @@
   grid-template-columns: auto auto auto minmax(0, 1fr) auto auto;
   /* the second line runs on under the badges, up to the stats column */
   grid-template-areas:
-    "time bar chevron label  badges stats"
-    "time bar chevron bottom bottom stats";
+    "time bar icon label  badges stats"
+    "time bar icon bottom bottom stats";
   align-items: start;
 
   /* A timeline after the time: a dot on the label's line (accent while active), over a track whose negative margins run it through the row's padding */
@@ -136,7 +136,7 @@
 
   &:hover { background: var(--bg-elev-2); }
   &.selected { background: var(--selected); }
-  /* under the run title text (14px chevron + 5px gap), while the time stays in line with the other rows */
+  /* under the run title text (14px arrow + 5px gap), while the time stays in line with the other rows */
   &.is-subagent-child :is(.session-label, .session-time-bottom) { margin-left: 19px; }
   &.deep-linked { background: rgba(52, 211, 153, 0.12); } /* last, so it wins over :hover and .selected */
 }
@@ -151,7 +151,7 @@
 }
 
 /* 18px tall to center on the title's line */
-.subagent-run-chevron { grid-area: chevron; display: flex; align-items: center; height: 18px; margin-right: 5px; color: var(--text); }
+.subagent-run-arrow { grid-area: icon; display: flex; align-items: center; height: 18px; margin-right: 5px; color: var(--text); }
 
 .subagent-run-title {
   font-weight: 600;

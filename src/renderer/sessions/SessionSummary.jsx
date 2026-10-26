@@ -1,4 +1,4 @@
-import { DollarSign } from 'lucide-react'
+import { DollarSign, WandSparkles } from 'lucide-react'
 import { format } from 'date-fns'
 import { fmtDuration, fmtNum, fmtUSD, fmtCompact, fmtToolCalls, tone } from '../utils/formatting.js'
 import { THRESHOLDS as T } from '../utils/thresholds.js'
@@ -7,7 +7,7 @@ import AgentOutput from '../agent/AgentOutput.jsx'
 import ProgressBar from '../ui/ProgressBar.jsx'
 import './SessionSummary.css'
 
-export default function SessionSummary({ meta, items, instructions, agent, granularity = 'day' }) {
+export default function SessionSummary({ meta, items, requestLog, agent, granularity = 'day' }) {
   const timeFormat = granularity === 'day' ? 'pp' : 'MMM d, pp'
   const t = meta.tokens
   const totalTokens = meta.totalTokens
@@ -21,19 +21,36 @@ export default function SessionSummary({ meta, items, instructions, agent, granu
   const ctxLimit = contextWindow(meta.models)
   const ctxTone = tone(meta.lastContextTokens, T.context)
 
+  const busy = agent.running || !items
+  const ask = e => {
+    e.preventDefault()
+    const question = e.currentTarget.elements.question.value.trim()
+    if (question) agent.ask(question)
+  }
+
   return (
     <div className="session-summary">
       <div className="summary-head">
         <div className="summary-label">Session Analyze</div>
-        <button
-          type="button"
-          className="button-primary summary-ai-button"
-          onClick={() => agent.analyze(meta, items, instructions)}
-          disabled={agent.running || !items}
-        >
-          <span className={agent.running ? 'hidden' : ''}>⚡︎ AI Analyze</span>
-          <span className={agent.running ? '' : 'hidden'}>⚡︎ Analyzing…</span>
-        </button>
+        <form className="summary-ask" onSubmit={ask}>
+          <textarea
+            name="question"
+            rows={3}
+            placeholder="Ask anything about this session…"
+            disabled={busy}
+            onKeyDown={e => {
+              if (e.key === 'Enter' && !e.shiftKey) {
+                e.preventDefault()
+                e.currentTarget.form.requestSubmit()
+              }
+            }}
+          />
+          <button type="submit" className="button-primary" disabled={busy}><WandSparkles size={12} /> Ask</button>
+        </form>
+        <div className="summary-ask-presets">
+          <button type="button" onClick={() => agent.analyze()} disabled={busy}>How to optimize?</button>
+          <button type="button" onClick={() => agent.diagnose()} disabled={busy}>What went wrong?</button>
+        </div>
       </div>
       <div className="session-summary-body">
         <div className="summary-ai">
@@ -108,7 +125,9 @@ export default function SessionSummary({ meta, items, instructions, agent, granu
           <Field label="Project" value={meta.project || '—'} mono full autoselect />
           {meta.subdir && <Field label="Subfolder" value={meta.subdir} mono full autoselect />}
           {meta.worktreePath && <Field label="Worktree" value={meta.worktreePath} mono full autoselect />}
-          <Field label="Log file" value={meta.filePath} mono full autoselect />      </Section>
+          <Field label="Log file" value={meta.filePath} mono full autoselect />
+          {requestLog && <Field label="Proxy log" value={requestLog} mono full autoselect />}
+        </Section>
       </div>
     </div>
   )

@@ -22,7 +22,7 @@ contextBridge.exposeInMainWorld('api', {
   getWorkHours: () => ipcRenderer.invoke('work-hours:get'),
   setWorkHours: (data) => ipcRenderer.invoke('work-hours:set', data),
 
-  runAgentPrompt: text => ipcRenderer.invoke('agent:run', text),
+  runAgentPrompt: run => ipcRenderer.invoke('agent:run', run),
   onAgentOutput: subscribe('agent:output'),
 
   checkUpdate: () => ipcRenderer.invoke('auto-update:check'),

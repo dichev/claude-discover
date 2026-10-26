@@ -188,7 +188,8 @@ export class RequestParser {
   reminderStrips(rec) {
     const strips = []
     for (const text of injectedTexts(rec.request)) {
-      for (const [, inner] of text.matchAll(/<system-reminder>([\s\S]*?)<\/system-reminder>/g)) {
+      // The harness ends the opening tag with a newline; a tag mid-sentence is prompt text quoting one
+      for (const [, inner] of text.matchAll(/<system-reminder>\r?\n([\s\S]*?)<\/system-reminder>/g)) {
         if (DEFERRED_INTRO.test(inner)) continue
         const content = splitClaudeMd(inner).rest.trim()
         if (!content) continue

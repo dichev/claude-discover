@@ -61,7 +61,8 @@ export class SessionsService extends EventEmitter {
     const reader = new SessionFile(meta.filePath)
     const parser = new SessionParser({ sessionId: reader.sessionId, parentSessionId: reader.parentSessionId, filePath: reader.filePath, mtime: meta.mtime, range })
     // what the side requests (title, auto-mode check, …) sent, which only the capture proxy saw
-    const sides = this.#requestFile(reader.sessionId, reader.parentSessionId).readInstructions(range)
+    const requests = this.#requestFile(reader.sessionId, reader.parentSessionId)
+    const sides = requests.readInstructions(range)
     const source = await this.#branchSource(meta)
     const items = []
     const transcript = new TranscriptInstructions()
@@ -86,8 +87,8 @@ export class SessionsService extends EventEmitter {
       if (o.type === 'attachment' && TranscriptInstructions.listed(o, keys)) o._listed = true
     }
     // Shipped apart from the transcript items, the renderer slots them in by timestamp: the loop's as
-    // System rows, the side requests' as Proxy blocks
-    return { items, instructions: { loop, side } }
+    // System rows, the side requests' as Proxy blocks. The proxy's log is passed on for the AI agent to read.
+    return { items, instructions: { loop, side }, requestLog: await requests.exists() ? requests.filePath : null }
   }
 
   // A branch copies its source's turns but not the requests that sent them: those come from the source, up to the

@@ -279,6 +279,14 @@ describe('RequestParser.strips', () => {
       items: [{ name: 'Docs', content: 'Create the doc first.' }, { name: 'pw', content: 'Ask before driving.' }] }])
   })
 
+  it('leaves a prompt that quotes a reminder tag mid-sentence alone', async () => {
+    const text = 'Agent types are listed in <system-reminder> messages in the conversation.\n\nMore prompt.\n</system-reminder>'
+    fs.writeFileSync(path.join(dir, 'sess-q.requests.jsonl'), JSON.stringify({ type: 'api-request', url: 'POST /v1/messages',
+      status: 200, timestamp: '2026-07-14T10:00:00.000Z', request: { model: 'claude-sonnet-5', tools: [],
+        messages: [{ role: 'user', content: [{ type: 'text', text }] }] } }) + '\n')
+    expect(await stripsOf('sess-q')).toEqual([])
+  })
+
   // An Agent SDK app appends its own files to the system prompt in Claude Code's reminder shape
   it('reads a CLAUDE.md section from the system prompt too, and leaves it out of the System Prompt strip', async () => {
     const appended = 'You are Claude Code\n\nCodebase and user instructions are shown below. Be sure to adhere to these instructions.\n\n'

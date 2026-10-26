@@ -363,6 +363,18 @@ export function cycleDurations(groups) {
   })
 }
 
+// What one API call read: its fresh input plus the cached prefix, read or written
+export const contextSize = u => (u.input_tokens || 0) + (u.cache_read_input_tokens || 0) + (u.cache_creation_input_tokens || 0)
+
+// A branch (/branch, --fork-session) opens with the source's records copied over, up to `forkedAt` —
+// returns the source session and the index of the first group after them (groups.length when none yet).
+// The copies don't count as earlier activity, so the period holding the branch's start has no `continuesFrom`.
+export function branchPoint(groups, forkedFrom, forkedAt, continuesFrom) {
+  if (!forkedFrom || continuesFrom != null) return null
+  const i = groups.findIndex(g => g.turns.some(t => t.ts > forkedAt))
+  return { from: forkedFrom.sessionId, index: i === -1 ? groups.length : i }
+}
+
 // One timeline point per group with usage: `+delta / total`. The delta is derived from
 // consecutive running totals (not the stamped per-turn deltas) so the numbers always
 // telescope — flatten drops turns whose blocks get absorbed elsewhere (e.g. tool_results
@@ -379,7 +391,7 @@ export function tokenPoints(groups) {
       if (t.tokenTotal != null) total = t.tokenTotal
       const u = t.usage
       if (u) {
-        ctx = (u.input_tokens || 0) + (u.cache_read_input_tokens || 0) + (u.cache_creation_input_tokens || 0)
+        ctx = contextSize(u)
         byMsg.set(t.msgId ?? t.uuid, u)
       }
     }
