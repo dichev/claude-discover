@@ -21,8 +21,11 @@ const findMatchingClose = (text, start) => {
   return -1
 }
 
-// Odd number of ``` lines before an offset => it's inside an open fence; leave it alone (already highlighted).
-const insideFence = (text, i) => (text.slice(0, i).match(/^```/gm)?.length ?? 0) % 2
+// A fence closes only on a backtick run at least as long as its opener, so ``` lines stay literal inside ````.
+const FENCED = /^(`{3,})[^`\n]*\n[\s\S]*?\n\1/gm
+
+// A ``` line left after dropping the closed fences => the offset is inside an open one; leave it alone (already highlighted).
+const insideFence = (text, i) => /^```/m.test(text.slice(0, i).replace(FENCED, ''))
 
 export function fenceBlocks(text) {
   if (typeof text !== 'string') return text
@@ -52,7 +55,8 @@ export function fenceBlocks(text) {
 export function fenceTags(text) {
   if (typeof text !== 'string' || !text.includes('<')) return text
 
-  // <tag> opening a line … matching </tag> ending a line -> one ```xml fence around the whole block.
+  // <tag> opening a line … matching </tag> ending a line -> one ````xml fence around the whole block
+  // (four backticks, so ``` fences inside it, e.g. a transcript's, stay literal).
   const startRe = /^<([A-Za-z][\w-]*)(?:\s[^<>`\n]*)?>/gm
   let out = '', cursor = 0, m
   while ((m = startRe.exec(text)) !== null) {
@@ -63,17 +67,15 @@ export function fenceTags(text) {
     if (end !== text.length && text[end] !== '\n' && text[end] !== '\r') continue
     const gap = text.slice(cursor, m.index)
     // Pairs separated only by blank lines share the previous fence instead of stacking one block per tag.
-    if (out && !gap.trim()) out = out.slice(0, -4) + gap + text.slice(m.index, end) + '\n```'
-    else out += gap + '```xml\n' + text.slice(m.index, end) + '\n```'
+    if (out && !gap.trim()) out = out.slice(0, -5) + gap + text.slice(m.index, end) + '\n````'
+    else out += gap + '````xml\n' + text.slice(m.index, end) + '\n````'
     cursor = startRe.lastIndex = end
   }
   out += text.slice(cursor)
 
   // Tags left outside a fenced pair render as monospace chips instead of triggering markdown's raw-HTML mode.
-  return out
-    .split(/(^```[^\n]*\n[\s\S]*?\n```|`[^`\n]+`)/m) // odd parts are fenced blocks / inline code spans — keep verbatim
-    .map((part, i) => i % 2 ? part : part.replace(/<\/?[A-Za-z][\w-]*(?:\s[^<>`\n]*)?\/?>/g, '`$&`'))
-    .join('')
+  // Fenced blocks and inline code spans match first and stay verbatim.
+  return out.replace(/^(`{3,})[^`\n]*\n[\s\S]*?\n\1|`[^`\n]+`|<\/?[A-Za-z][\w-]*(?:\s[^<>`\n]*)?\/?>/gm, m => m[0] === '<' ? '`' + m + '`' : m)
 }
 
 
@@ -83,10 +85,11 @@ export function fenceTags(text) {
 export function splitMarkdown(text, size = 10_000) {
   if (typeof text !== 'string' || text.length <= size) return [text]
   const chunks = []
-  let buf = [], len = 0, inFence = false
+  let buf = [], len = 0, fence = '' // the open fence's backtick run
   for (const line of text.split('\n')) {
-    if (line.startsWith('```')) inFence = !inFence
-    if (len > size && !inFence && line.trim() === '') {
+    const run = line.match(/^`{3,}/)?.[0]
+    if (run) fence = !fence ? run : run.length >= fence.length ? '' : fence
+    if (len > size && !fence && line.trim() === '') {
       chunks.push(buf.join('\n'))
       buf = []; len = 0
       continue // the blank separator is dropped; chunks stay standalone paragraphs

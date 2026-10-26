@@ -52,18 +52,24 @@ describe('fenceBlocks', () => {
 
 describe('fenceTags', () => {
   it('fences a <tag>…</tag> block as xml', () => {
-    expect(fenceTags('<conversation>\nhello\n</conversation>')).toBe('```xml\n<conversation>\nhello\n</conversation>\n```')
-    expect(fenceTags('<client_record> id: 1 </client_record>')).toBe('```xml\n<client_record> id: 1 </client_record>\n```')
+    expect(fenceTags('<conversation>\nhello\n</conversation>')).toBe('````xml\n<conversation>\nhello\n</conversation>\n````')
+    expect(fenceTags('<client_record> id: 1 </client_record>')).toBe('````xml\n<client_record> id: 1 </client_record>\n````')
   })
 
   it('fences each pair separately and keeps the prose between them', () => {
     const out = fenceTags('intro\n<a_tag>\nx\n</a_tag>\n\nmiddle\n\n<b_tag> y </b_tag>')
-    expect(out).toBe('intro\n```xml\n<a_tag>\nx\n</a_tag>\n```\n\nmiddle\n\n```xml\n<b_tag> y </b_tag>\n```')
+    expect(out).toBe('intro\n````xml\n<a_tag>\nx\n</a_tag>\n````\n\nmiddle\n\n````xml\n<b_tag> y </b_tag>\n````')
   })
 
   it('fences adjacent pairs (only blank lines between) as one block', () => {
     expect(fenceTags('<a_tag>x</a_tag>\n\n<b_tag>\ny\n</b_tag>\nafter'))
-      .toBe('```xml\n<a_tag>x</a_tag>\n\n<b_tag>\ny\n</b_tag>\n```\nafter')
+      .toBe('````xml\n<a_tag>x</a_tag>\n\n<b_tag>\ny\n</b_tag>\n````\nafter')
+  })
+
+  it('keeps ``` fences and tags inside a fenced pair literal', () => {
+    const text = '<transcript>\n```\n<b>x</b>\n\n{"a": 1}\n```\n</transcript>'
+    expect(fenceBlocks(fenceTags(text))).toBe('````xml\n' + text + '\n````')
+    expect(splitMarkdown(fenceTags(text), 2)).toEqual(['````xml\n' + text + '\n````'])
   })
 
   it('wraps stray tags in inline code spans', () => {
