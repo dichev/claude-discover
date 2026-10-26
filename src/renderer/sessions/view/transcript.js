@@ -29,11 +29,20 @@ const queuedPrompt = it =>
   && it.attachment.commandMode === 'prompt' && (it.attachment.origin?.kind ?? 'human') === 'human'
   && it.attachment.prompt?.trim() ? it.attachment.prompt : null
 
-// Since 2.1.260 every attachment the model reads is logged with its `rendered` text — one without it never reached the context
-const logsRendered = version => {
-  const [major, minor, patch] = (version ?? '').split('.').map(Number)
-  return major > 2 || major === 2 && (minor > 1 || minor === 1 && patch >= 260)
+// Whether a record's Claude Code `version` is `min` or newer
+const since = (version, min) => {
+  const v = (version ?? '').split('.').map(Number)
+  const m = min.split('.').map(Number)
+  const i = m.findIndex((n, j) => v[j] !== n)
+  return i === -1 || v[i] > m[i]
 }
+
+// Since 2.1.260 every attachment the model reads is logged with its `rendered` text — one without it never reached the context
+const logsRendered = version => since(version, '2.1.260')
+
+// Since 2.1.300 the transcript logs what the loop's requests sent (system prompt, tools, memory files) —
+// the first older version among `items`, whose part of the session has no System rows
+export const unloggedRequestsVersion = items => items.find(it => it.version && !since(it.version, '2.1.300'))?.version ?? null
 
 // Context the user brought in themselves (IDE state, @-mentions) — every other attachment is Claude Code's own
 const USER_ATTACHMENTS = new Set(['opened_file_in_ide', 'selected_lines_in_ide', 'selected_lines_in_diff', 'file', 'already_read_file'])

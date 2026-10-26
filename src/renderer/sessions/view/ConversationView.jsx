@@ -3,7 +3,7 @@ import { format } from 'date-fns'
 import { Globe, LaptopMinimal, Terminal } from 'lucide-react'
 import { fmtCompact, fmtDuration, plural, tone } from '../../utils/formatting'
 import { THRESHOLDS as T } from '../../utils/thresholds.js'
-import { flatten, groupTurns, cycleDurations, tokenPoints, branchPoint, currentModel, contextWindow, countTokens } from './transcript.js'
+import { flatten, groupTurns, cycleDurations, tokenPoints, branchPoint, currentModel, contextWindow, countTokens, unloggedRequestsVersion } from './transcript.js'
 import { toolSummary, parseCommand, isClearTurn, instructionTitle, compactTitle, persistedOutput, attachmentView, hasText, safeJson, SIDE_NOTE } from './labels.js'
 import Divider from '../../ui/Divider.jsx'
 import LazyMount from '../../ui/LazyMount.jsx'
@@ -51,6 +51,7 @@ export default function ConversationView({ items, instructions = {}, filePath = 
   const groups           = useMemo(() => groupTurns(turns), [turns])
   const points           = useMemo(() => tokenPoints(groups), [groups])
   const durations        = useMemo(() => cycleDurations(groups), [groups])
+  const oldCli           = useMemo(() => unloggedRequestsVersion(items), [items])
   const findOpen         = useFindActive()
   const [scale, zoomRef] = useMouseFontScale('font-scale.conversation')
 
@@ -64,6 +65,12 @@ export default function ConversationView({ items, instructions = {}, filePath = 
     <ExpandAllContext.Provider value={expandAll}>
     <TranscriptFileContext.Provider value={filePath}>
       <div ref={zoomRef} className={`conversation${hasTimeline ? ' has-token-timeline' : ''}`} style={{ '--font-scale': scale }}>
+        {oldCli && (
+          <div className="conv-notice">
+            <span className="conv-notice-icon">⚠</span> This session ran Claude Code {oldCli}, which doesn't save memory files, the system prompt or tools.
+            Update to 2.1.300+ with <code>claude update</code> to see them in new sessions.
+          </div>
+        )}
         {continuesFrom != null && (
           <Divider className="conv-continues-from" onClick={() => onShowPeriodOf(continuesFrom)} title="Show the earlier period">
             Continues from {format(continuesFrom, 'MMM d, yyyy HH:mm')}

@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { flatten, groupTurns, tokenPoints, cycleDurations, isContextTurn } from '../src/renderer/sessions/view/transcript.js'
+import { flatten, groupTurns, tokenPoints, cycleDurations, isContextTurn, unloggedRequestsVersion } from '../src/renderer/sessions/view/transcript.js'
 import { parseCommand, compactTitle, persistedOutput } from '../src/renderer/sessions/view/labels.js'
 import { SessionParser } from '../src/main/sessions/SessionParser.js'
 
@@ -500,5 +500,18 @@ describe('SessionParser — a branch', () => {
       'entrypoint', 'project', 'gitBranch', 'version',
       'summary', 'aiTitle', 'customTitle', 'agentName', 'tag', 'forkedFrom', 'forkedAt',
     ])
+  })
+})
+
+describe('unloggedRequestsVersion', () => {
+  const at = version => ({ type: 'user', version })
+
+  it('names the first CLI version before 2.1.300 — its part of the session has no System rows', () => {
+    expect(unloggedRequestsVersion([at(null), at('2.1.299'), at('2.1.300')])).toBe('2.1.299')
+    expect(unloggedRequestsVersion([at('2.0.999')])).toBe('2.0.999')
+  })
+
+  it('is null once every record comes from 2.1.300 or newer', () => {
+    expect(unloggedRequestsVersion([at('2.1.300'), at('2.1.310'), at('2.2.0'), at('3.0.0'), {}])).toBe(null)
   })
 })
