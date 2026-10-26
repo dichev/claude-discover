@@ -7,7 +7,7 @@ import AgentOutput from '../agent/AgentOutput.jsx'
 import ProgressBar from '../ui/ProgressBar.jsx'
 import './SessionSummary.css'
 
-export default function SessionSummary({ meta, items, instructions, requestLog, agent, granularity = 'day' }) {
+export default function SessionSummary({ meta, items, requestLog, agent, granularity = 'day' }) {
   const timeFormat = granularity === 'day' ? 'pp' : 'MMM d, pp'
   const t = meta.tokens
   const totalTokens = meta.totalTokens
@@ -21,22 +21,23 @@ export default function SessionSummary({ meta, items, instructions, requestLog, 
   const ctxLimit = contextWindow(meta.models)
   const ctxTone = tone(meta.lastContextTokens, T.context)
 
+  const busy = agent.running || !items
   const ask = e => {
     e.preventDefault()
     const question = e.currentTarget.elements.question.value.trim()
-    if (question) agent.ask(question, meta, items, instructions, requestLog)
+    if (question) agent.ask(question)
   }
 
   return (
     <div className="session-summary">
       <div className="summary-head">
         <div className="summary-label">Session Analyze</div>
-        <form key={meta.filePath} className="summary-ask" onSubmit={ask}>
+        <form className="summary-ask" onSubmit={ask}>
           <textarea
             name="question"
             rows={3}
             placeholder="Ask anything about this session…"
-            disabled={agent.running || !items}
+            disabled={busy}
             onKeyDown={e => {
               if (e.key === 'Enter' && !e.shiftKey) {
                 e.preventDefault()
@@ -44,16 +45,16 @@ export default function SessionSummary({ meta, items, instructions, requestLog, 
               }
             }}
           />
-          <button type="submit" className="button-primary" disabled={agent.running || !items}><WandSparkles size={12} /> Ask</button>
+          <button type="submit" className="button-primary" disabled={busy}><WandSparkles size={12} /> Ask</button>
         </form>
         <div className="summary-ask-presets">
-          <button type="button" onClick={() => agent.analyze(meta, items, instructions, requestLog)} disabled={agent.running || !items}>How to optimize?</button>
-          <button type="button" onClick={() => agent.diagnose(meta, items, instructions, requestLog)} disabled={agent.running || !items}>What went wrong?</button>
+          <button type="button" onClick={() => agent.analyze()} disabled={busy}>How to optimize?</button>
+          <button type="button" onClick={() => agent.diagnose()} disabled={busy}>What went wrong?</button>
         </div>
       </div>
       <div className="session-summary-body">
         <div className="summary-ai">
-          <AgentOutput key={meta.filePath} output={agent.output} running={agent.running} error={agent.error} />
+          <AgentOutput output={agent.output} running={agent.running} error={agent.error} />
         </div>
 
         <Section title="Summary">

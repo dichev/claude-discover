@@ -13,6 +13,10 @@ describe('fenceBlocks', () => {
     expect(out).toContain('```python')
   })
 
+  it('still fences JSON after an empty fence', () => {
+    expect(fenceBlocks('```\n```\nresult:\n{"a": 1}')).toContain('```json\n{"a": 1}\n```')
+  })
+
   it('leaves JSON that is already fenced untouched (no double-wrap)', () => {
     const input = '```json\n{ "about": { "name": "" } }\n```'
     expect(fenceBlocks(input)).toBe(input)

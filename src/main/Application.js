@@ -48,7 +48,7 @@ export class Application {
     ipcMain.handle('auto-update:check', () => updater.check())
     ipcMain.handle('auto-update:install', () => updater.install())
     ipcMain.handle('rate-limits:get', (_e, opts) => rateLimits.get(opts))
-    ipcMain.handle('agent:run', (e, id, text, systemPrompt, tag) => agentRunner.run(id, text, systemPrompt, tag, e.sender))
+    ipcMain.handle('agent:run', (e, run) => agentRunner.run(run, e.sender))
     ipcMain.handle('shell:open-link', (_e, href, baseFile) => openLinkSafely(href, baseFile))
     ipcMain.handle('deeplink:take-pending', () => deepLink?.takePending() ?? null)
     ipcMain.on('find:close', () => win.findBar?.hide())

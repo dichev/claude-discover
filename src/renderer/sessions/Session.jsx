@@ -10,6 +10,8 @@ import { useAgent } from '../agent/Agent.js'
 import { useLocalStorage } from '../utils/useLocalStorage.js'
 import './Session.css'
 
+const NOT_READ = { items: null, instructions: {}, requestLog: null }
+
 const TABS = [
   { key: 'conversation', label: 'Conversation' },
   { key: 'jsonl', label: 'Raw Logs' },
@@ -17,9 +19,7 @@ const TABS = [
 ]
 
 export default function Session({ meta, missing, date, granularity = 'day', onShowPeriodOf }) {
-  const [items, setItems]               = useState(null)
-  const [instructions, setInstructions] = useState({})
-  const [requestLog, setRequestLog]     = useState(null)
+  const [read, setRead]                 = useState(NOT_READ)
   const [error, setError]               = useState(null)
   const [mode, setMode]               = useLocalStorage('session.view-mode', 'conversation')
   const [expandAll, setExpandAll]       = useState(null)
@@ -27,14 +27,14 @@ export default function Session({ meta, missing, date, granularity = 'day', onSh
   const filePath = meta?.filePath // not the session id, which can cover several transcripts
   const fileSize = meta?.fileSize
   const desktop  = meta?.entrypoint === 'claude-desktop' // the capture proxy can't reach desktop sessions yet (see ProxySwitch)
-  const agent = useAgent(`${filePath}|${date}`)
+  const { items, instructions, requestLog } = read
+  const viewKey = `${filePath}|${date}|${granularity}` // what the read (and so an agent answer) covers
+  const agent = useAgent(viewKey, meta, read)
 
   // Clear only when the session identity changes — live growth (fileSize) swaps
   // the content in place below, without flashing the loading state.
   useEffect(() => {
-    setItems(null)
-    setInstructions({})
-    setRequestLog(null)
+    setRead(NOT_READ)
     setError(null)
   }, [filePath, date, granularity])
 
@@ -45,9 +45,7 @@ export default function Session({ meta, missing, date, granularity = 'day', onSh
     let cancelled = false
     window.api.readSession(filePath, date || null, granularity).then((res) => {
       if (cancelled || !res) return
-      setItems(res.items)
-      setInstructions(res.instructions || {})
-      setRequestLog(res.requestLog)
+      setRead({ ...res, instructions: res.instructions || {} })
       setError(null)
     }, err => {
       if (!cancelled) setError(err)
@@ -105,7 +103,7 @@ export default function Session({ meta, missing, date, granularity = 'day', onSh
                   <RequestsView filePath={filePath} items={items} date={date} granularity={granularity} fileSize={fileSize} desktop={desktop} expandAll={expandAll} />
                 )}
               </div>
-              <SessionSummary meta={meta} items={items} instructions={instructions} requestLog={requestLog} agent={agent} granularity={granularity} />
+              <SessionSummary key={viewKey} meta={meta} items={items} requestLog={requestLog} agent={agent} granularity={granularity} />
             </div>
           </div>
         </div>

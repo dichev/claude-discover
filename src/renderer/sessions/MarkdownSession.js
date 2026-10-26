@@ -2,6 +2,7 @@ import { format } from 'date-fns'
 import { fmtDuration, fmtNum, fmtUSD, fmtCompact, fmtToolCalls } from '../utils/formatting.js'
 import { flatten, groupTurns, branchPoint, contextSize, currentModel, contextWindow, countTokens } from './view/transcript.js'
 import { toolSummary, parseCommand, isClearTurn, instructionTitle, compactTitle, attachmentView, hasText, safeJson, SIDE_NOTE } from './view/labels.js'
+import { fenced } from '../utils/textBlock.js'
 
 export const MAX_LINES = 10
 export const MAX_LINE_CHARS = 200
@@ -17,12 +18,7 @@ function truncate(text) {
   return lines.slice(0, MAX_LINES).join('\n') + `\n--- ${lines.length - MAX_LINES} lines truncated ---`
 }
 
-// One backtick longer than any run inside, so the text's own code fences can't close it
-function fence(text, lang = '') {
-  const body = truncate(text)
-  const ticks = '`'.repeat(Math.max(2, ...(body.match(/`+/g) ?? []).map(r => r.length)) + 1)
-  return ticks + lang + '\n' + body + '\n' + ticks
-}
+const fence = (text, lang = '') => fenced(truncate(text), lang)
 
 // The session's own copies of the tags framing it would end the frame early
 const escapeFrame = text => text.replace(/<(\/?)(summary|transcript)\b/gi, '&lt;$1$2')
@@ -33,7 +29,10 @@ function resultText(r) {
 }
 
 // The view's `~ 12k` badge: the full size of what the truncated text stands for
-const size = (text, model) => { const n = countTokens(text, model); return n > 0 ? ` (~${fmtCompact(n)} tokens)` : '' }
+function size(text, model) {
+  const n = countTokens(text, model)
+  return n > 0 ? ` (~${fmtCompact(n)} tokens)` : ''
+}
 const took = ms => ms >= 1000 ? ` · ${fmtDuration(ms)}` : ''
 
 // A listing's entries by name and size, in place of its text cut off after the first few
