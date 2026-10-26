@@ -3,9 +3,8 @@ import { format } from 'date-fns'
 import { Globe, LaptopMinimal, Terminal } from 'lucide-react'
 import { fmtCompact, fmtDuration, plural, tone } from '../../utils/formatting'
 import { THRESHOLDS as T } from '../../utils/thresholds.js'
-import { listedEntries, mcpSections } from '../../../shared/listings.js'
-import { flatten, groupTurns, cycleDurations, tokenPoints, currentModel, contextWindow, countTokens } from './transcript.js'
-import { toolSummary, parseCommand, instructionTitle, compactTitle, persistedOutput, humanize, SIDE_NOTE } from './labels.js'
+import { flatten, groupTurns, cycleDurations, tokenPoints, branchPoint, currentModel, contextWindow, countTokens } from './transcript.js'
+import { toolSummary, parseCommand, isClearTurn, instructionTitle, compactTitle, persistedOutput, attachmentView, hasText, safeJson, SIDE_NOTE } from './labels.js'
 import Divider from '../../ui/Divider.jsx'
 import LazyMount from '../../ui/LazyMount.jsx'
 import Markdown from '../../ui/Markdown.jsx'
@@ -30,8 +29,6 @@ function useCollapsed(defaultOpen) {
   useEffect(() => { if (expandAll != null) setOpen(expandAll) }, [expandAll])
   return [open, setOpen]
 }
-
-const isClearTurn = t => t.blocks.some(b => b.type === 'text' && parseCommand(b.text)?.name === '/clear')
 
 export const FILTERS = [
   { value: 'user', label: 'User messages' },
@@ -102,15 +99,6 @@ export default function ConversationView({ items, instructions = {}, filePath = 
     </TranscriptFileContext.Provider>
     </ExpandAllContext.Provider>
   )
-}
-
-// A branch (/branch, --fork-session) opens with the source's records copied over, up to `forkedAt` —
-// returns the source session and the index of the first group after them (groups.length when none yet).
-// The copies don't count as earlier activity, so the period holding the branch's start has no `continuesFrom`.
-function branchPoint(groups, forkedFrom, forkedAt, continuesFrom) {
-  if (!forkedFrom || continuesFrom != null) return null
-  const i = groups.findIndex(g => g.turns.some(t => t.ts > forkedAt))
-  return { from: forkedFrom.sessionId, index: i === -1 ? groups.length : i }
 }
 
 // From here on the history was replaced by a summary — open under the divider, unlike other aux blocks, since it is all the model still knows of it.
@@ -378,97 +366,6 @@ function SavedOutputLink({ text }) {
   return <div className="tool-result-label saved-output">Full output: <OpenLink href={saved.href} basePath={baseFile}>{saved.path}</OpenLink></div>
 }
 
-const ATTACHMENT_RENDERERS = {
-  selected_lines_in_ide: (a) => {
-    const path = a.displayPath || a.filename || ''
-    const range = a.lineStart === a.lineEnd ? `L${a.lineStart}` : `L${a.lineStart}-${a.lineEnd}`
-    return { title: `Selection in ${a.ideName || 'IDE'}: ${path}:${range}`, body: a.content || '' }
-  },
-  opened_file_in_ide: (a) => ({ title: `Opened in IDE: ${a.displayPath || a.filename || ''}`, body: null }),
-  file: (a) => {
-    const f = a.content?.file
-    return { title: `File: ${a.displayPath || f?.filePath || a.filename || ''}`, body: f?.content ?? safeJson(a.content) }
-  },
-  skill_listing: (a) => ({ title: `${a.skillCount} skills`, body: a.content || '', ...listedEntries(a.content || '') }),
-  deferred_tools_delta: (a) => ({
-    title: `${a.addedNames?.length || 0} deferred tools ${a.removedNames?.length ? `(removed: ${a.removedNames.length})` : ''}`,
-    body: safeJson({ added: a.addedNames, removed: a.removedNames }),
-  }),
-  // The tools ToolSearch loaded — their schemas reach the model in the request's tools, not through this record
-  deferred_tools_record: a => ({
-    title: `Deferred tools record${a.entries?.length ? `: ${a.entries.map(e => e.name).join(', ')}` : ''}`,
-    body: safeJson(a.entries?.length ? a.entries : a),
-  }),
-  prompt_snapshot: a => ({
-    title: `Prompt snapshot: system prompt, ${a.tools?.length ?? 0} tools`,
-    body: [...(a.systemPrompt ?? []), `Tools: ${(a.tools ?? []).map(t => t.name).join(', ')}`].join('\n\n'),
-  }),
-  // The one nested shape the fallback below can't flatten: files → diagnostics → range.
-  diagnostics: (a) => {
-    const lines = (a.files || []).flatMap(f => (f.diagnostics || [])
-      .map(d => `${f.uri}:${(d.range?.start?.line ?? 0) + 1} ${d.severity}: ${d.message}${d.source ? ` (${d.source})` : ''}`))
-    return { title: `Diagnostics: ${lines.length} in ${a.files?.length || 0} file${a.files?.length === 1 ? '' : 's'}`, body: lines.join('\n') }
-  },
-  // Directives whose text the fallback below would bury in raw JSON or drop
-  hook_success:              a => ({ title: `Hook: ${a.hookName}`, body: a.content || safeJson(a) }),
-  hook_additional_context:   a => ({ title: `Hook context: ${a.hookName}`, body: [a.content].flat().join('\n\n') }),
-  hook_blocking_error:       a => ({ title: `Hook blocked: ${a.hookName}`, body: a.blockingError?.blockingError ?? safeJson(a.blockingError) }),
-  hook_stopped_continuation: a => ({ title: `Hook stopped: ${a.hookName}`, body: a.message }),
-  queued_command:            a => ({
-    title: a.origin?.from ? `Message from ${a.origin.from}` : humanize(a.origin?.kind ?? a.commandMode ?? 'queued_command'),
-    body: typeof a.prompt === 'string' ? a.prompt : safeJson(a.prompt),
-  }),
-  max_turns_reached:         a => ({ title: `Max turns reached (${a.maxTurns})`, body: null }),
-  // addedLines carry each agent's one-line description; only the rendered text has the list's intro and closing
-  // (concurrency) note, so it's read from that when the record has it.
-  agent_listing_delta: (a, rendered) => {
-    const body = rendered || (a.addedLines || a.addedTypes || []).join('\n')
-    return {
-      title: `${a.addedTypes?.length || 0} agent types${a.removedTypes?.length ? ` (removed: ${a.removedTypes.length})` : ''}`,
-      body,
-      ...listedEntries(body),
-    }
-  },
-  // addedBlocks are each server's instructions under a `## <server>` heading
-  mcp_instructions_delta: a => {
-    const body = (a.addedBlocks || []).join('\n\n')
-    return {
-      title: `MCP instructions: ${plural(a.addedNames?.length || 0, 'server')}${a.removedNames?.length ? ` (removed: ${a.removedNames.length})` : ''}`,
-      body,
-      ...mcpSections(body),
-    }
-  },
-}
-
-// Everything else — Claude Code keeps adding attachment types (reminders, mode switches, tips, …), so the
-// fallback reads them structurally instead of growing a renderer per type: the first short string
-// names the thing (a path, a hook, a date), long ones are the content, and if several short strings
-// carry the payload nothing is hidden — the raw record stays as the body.
-function genericAttachment(att) {
-  const short = [], long = []
-  const collect = (v, key) => {
-    if (typeof v === 'string') { if (v.trim()) (v.length > 100 ? long : short).push([key, v]) }
-    else if (Array.isArray(v)) { for (const x of v) collect(x, key) }
-    else if (v && typeof v === 'object') { for (const [k, x] of Object.entries(v)) collect(x, k) }
-  }
-  for (const [k, v] of Object.entries(att || {})) { if (k !== 'type') collect(v, k) }
-  const detail = short.find(([k]) => /path|file|name|dir|uri|url|date/i.test(k))?.[1] // what the attachment is about
-  const label = humanize(att?.type || 'attachment')
-  const raw   = !long.length && short.length > 1
-  return {
-    title: detail ? `${label}: ${detail}` : label,
-    body: long.length ? long.map(([, v]) => v).join('\n\n') : raw ? safeJson(att) : null,
-    raw,
-  }
-}
-
-// The text the model actually read for an attachment, minus the system-reminder wrapper
-const renderedText = rendered => (rendered ?? []).map(r => r?.content).filter(c => typeof c === 'string').join('\n')
-  .replace(/<\/?system-reminder>/g, '').trim()
-const attachmentView = (att, rendered) => (ATTACHMENT_RENDERERS[att?.type] ?? genericAttachment)(att, renderedText(rendered))
-// A raw record dump is our rendering, not text the model read — counting it would be noise
-const hasText = view => view.body != null && !view.raw
-
 // An attachment the model didn't fold is a directive to Claude: open, and tinted apart
 function Attachment({ att, rendered, folded = true, unsent = false, speaker = null }) {
   const view            = attachmentView(att, rendered)
@@ -511,12 +408,6 @@ function Collapsible({ title, children, className, defaultOpen = true, tokens, t
 const fmtElapsed = ms => ms < 1000 ? '<1s' : fmtDuration(ms)
 
 const ApproxTokens = ({ tokens }) => tokens > 0 && <span className="instruction-tokens" data-tooltip-content="Approx. tokens">~ {fmtCompact(tokens)}</span>
-
-function safeJson(x) {
-  try { return JSON.stringify(x, null, 2)
-   } catch { return String(x)
-   }
-}
 
 function JsonBlock({ value }) {
   return <Markdown className="block-text" text={'```json\n' + safeJson(value) + '\n```'} />

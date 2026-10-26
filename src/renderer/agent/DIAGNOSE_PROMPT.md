@@ -15,7 +15,7 @@ For each, name the cause the user could change next time: a vague or missing det
 
 # Input
 
-`<summary>` holds the session's numbers. `<transcript>` shows the turns, labeled with per-turn token deltas like `(+12k / 340k tokens)` — use them to say how much each wrong turn cost. **Proxy** blocks are side requests, not part of the conversation.
+`<summary>` holds the session's numbers. `<transcript>` shows the turns, each header with its time and token delta like `· 14:03:12 (+12k / 340k tokens)` — use the deltas to say how much each wrong turn cost. **Proxy** blocks are side requests, not part of the conversation.
 {{TRUNCATION_NOTE}}
 
 # How to analyze
