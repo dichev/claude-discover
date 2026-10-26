@@ -22,12 +22,12 @@ export function useAgent(key) {
 
   useEffect(() => window.api.onAgentOutput(({ id, chunk }) => patch(id, r => ({ output: r.output + chunk }))), [])
 
-  const run = async (prompt, meta, items, instructions) => {
+  const run = async (prompt, tag, meta, items, instructions) => {
     patch(key, () => ({ ...EMPTY, running: true }))
     try {
       const { body } = markdownSession(meta, items, instructions)
       // The style goes in as the system prompt: it read briefer than inline, and kept the model from taking the transcript as its own
-      const { code } = await window.api.runAgentPrompt(key, `${prompt}\n\n---\n${body}`, String(STYLE))
+      const { code } = await window.api.runAgentPrompt(key, `${prompt}\n\n---\n${body}`, String(STYLE), tag)
       if (code !== 0) patch(key, () => ({ error: `Claude exited with code ${code}` }))
     } catch (err) {
       patch(key, () => ({ error: err.message || String(err) }))
@@ -36,9 +36,10 @@ export function useAgent(key) {
     }
   }
 
-  const analyze  = (meta, items, instructions) => run(analyzePrompt, meta, items, instructions)
-  const diagnose = (meta, items, instructions) => run(diagnosePrompt, meta, items, instructions)
-  const ask      = (question, meta, items, instructions) => run(askPrompt(question), meta, items, instructions)
+  // Tagged apart, so the app's own preset runs can be told from the user's questions in the session list
+  const analyze  = (meta, items, instructions) => run(analyzePrompt, 'claude-discover:analyze', meta, items, instructions)
+  const diagnose = (meta, items, instructions) => run(diagnosePrompt, 'claude-discover:diagnose', meta, items, instructions)
+  const ask      = (question, meta, items, instructions) => run(askPrompt(question), 'claude-discover:ask', meta, items, instructions)
 
   return { ...(results[key] ?? EMPTY), analyze, diagnose, ask }
 }

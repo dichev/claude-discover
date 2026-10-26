@@ -5,8 +5,8 @@ const USAGE_TIMEOUT = 30_000 // a hung session is closed, not left running while
 export class AgentRunner {
 
   // Chunks carry the run's id: runs for different sessions can stream at the same time
-  async run(id, text, systemPrompt, sender) {
-    const { query } = await import('@anthropic-ai/claude-agent-sdk') // loaded on first run — 50ms off startup
+  async run(id, text, systemPrompt, tag, sender) {
+    const { query, tagSession } = await import('@anthropic-ai/claude-agent-sdk') // loaded on first run — 50ms off startup
     const send = chunk => {
       if (!sender.isDestroyed()) sender.send('agent:output', { id, chunk })
     }
@@ -15,17 +15,25 @@ export class AgentRunner {
       prompt: text,
       options: {
         systemPrompt, // replaces Claude Code's coding-agent prompt, useless with no tools
+        model: 'claude-opus-5-5',
+        effort: 'high',
         includePartialMessages: true,
         env: { ...process.env, DISABLE_PROMPT_CACHING: '1' }, // @macOS - process.env must be included
         tools: [],
         settingSources: [],
+        verbatimPrompts: true, // the transcript quotes the user's @file mentions, which would attach today's version of those files
+        settings: { autoMemoryEnabled: false }, // the app's cwd memory has nothing to do with the session analyzed
       }
     })
+    let tagged
     for await (const message of response) {
       if (message.type === 'stream_event') {
+        // The transcript file only exists once the prompt is sent, so the first stream event is the earliest moment to tag it
+        tagged ??= tagSession(message.session_id, tag).catch(console.error) // a failed tag shouldn't fail the answer
         const delta = message.event.delta
         if (delta?.type === 'text_delta' && delta.text) send(delta.text)
       } else if (message.type === 'result') {
+        await tagged
         return { code: message.is_error ? 1 : 0 }
       }
     }
