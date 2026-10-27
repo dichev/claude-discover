@@ -17,7 +17,7 @@ export default function LazyMount({ children, eager = false, forceMount = false,
     }, { root: rootRef?.current ?? null, rootMargin: '600px 0px' })
     io.observe(ref.current)
     return () => io.disconnect()
-  }, [mounted])
+  }, [mounted, rootRef])
 
   return (
     <div ref={ref} style={render ? style : { ...style, minHeight: placeholderMinHeight }} {...rest}>

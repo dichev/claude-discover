@@ -20,7 +20,7 @@ export function useSwitch({ name, isOn = () => false }) {
     check()
     const timer = setInterval(check, 5000)
     return () => { alive = false; clearInterval(timer) }
-  }, [])
+  }, [name])
   const toggle = async () => {
     setBusy(true)
     const next = await (isOn(status) ? window.api.deactivateSwitch(name) : window.api.activateSwitch(name))

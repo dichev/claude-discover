@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react'
+import { useEffect, useEffectEvent, useRef } from 'react'
 import { useLocalStorage } from './useLocalStorage.js'
 
 // Font zoom: Shift/Ctrl + wheel changes the scale, middle click with the modifier resets it.
@@ -23,15 +23,14 @@ export function useMouseFontScale(storageKey) {
 //   onReset — Shift/Ctrl + middle click
 //   onPan   — plain horizontal wheel or plain drag, reported as onPan(dx) in pixels
 // Uses native non-passive listeners (React's onWheel is passive, so it can't preventDefault);
-// handlers live in a ref, so they see fresh state without re-attaching.
+// handlers are read through an effect event, so they see fresh state without re-attaching.
 export function useMouse(ref, handlers) {
-  const fns = useRef(handlers)
-  fns.current = handlers
+  const latest = useEffectEvent(() => handlers)
   useEffect(() => {
     const el = ref.current
 
     const wheel = e => {
-      const { onZoom, onPan } = fns.current
+      const { onZoom, onPan } = latest()
       if (e.shiftKey || e.ctrlKey) {
         if (!onZoom) return
         e.preventDefault()
@@ -45,7 +44,7 @@ export function useMouse(ref, handlers) {
     const dragToPan = e => {
       let startX = e.clientX
       const move = me => {
-        fns.current.onPan(startX - me.clientX) // dragging right moves the view left
+        latest().onPan(startX - me.clientX) // dragging right moves the view left
         startX = me.clientX
       }
       const up = () => {
@@ -57,7 +56,7 @@ export function useMouse(ref, handlers) {
     }
 
     const mousedown = e => {
-      const { onReset, onPan } = fns.current
+      const { onReset, onPan } = latest()
       if (e.shiftKey || e.ctrlKey) {
         if (e.button !== 1 || !onReset) return
         e.preventDefault() // keep Windows autoscroll from kicking in

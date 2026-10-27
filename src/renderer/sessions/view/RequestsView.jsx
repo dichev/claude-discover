@@ -41,7 +41,7 @@ function Tree({ value, expandAll, collapsed = false, seen = null }) {
   // over props render one record behind when the tree is reused for another record. The ref keeps
   // whatever closure the store holds reading the current props instead.
   const live = useRef({})
-  live.current = { collapsed, seen }
+  live.current = { collapsed, seen } // eslint-disable-line react-hooks/refs -- the workaround above; leaves Tree uncompiled
   // Initial collapse is per-node, everything else starts expanded: `collapsed` folds just the
   // root, `seen` (a Set of dot-paths) folds just those nodes — so unfolding one reveals its content.
   const expandInitially = (_, { keys }) => {
@@ -146,11 +146,14 @@ export default function RequestsView({ filePath, items, date, granularity = 'day
 
   // Clear only when the session identity changes; live refetches (fileSize) swap the
   // list in place — records only append, so the selected index stays valid.
-  useEffect(() => {
+  const viewKey = `${filePath}|${date}|${granularity}`
+  const [readKey, setReadKey] = useState(viewKey)
+  if (readKey !== viewKey) {
+    setReadKey(viewKey)
     setRecords(null)
     setSelected(0)
     setError(null)
-  }, [filePath, date, granularity])
+  }
 
   // fileSize is the transcript's size — a growth signal for the request log too, since
   // the proxy appends its record around the time the transcript gets the reply.

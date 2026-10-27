@@ -116,11 +116,9 @@ export default function GanttChart({
   const [width, setWidth] = useState(1200)
   const [view, setView]   = useLocalStorage('gantt-chart.view', { dayAnchor, granularity, start: dayRange.start, end: dayRange.end })
 
-  useEffect(() => {
-    if (view.dayAnchor !== dayAnchor || view.granularity !== granularity) {
-      setView({ dayAnchor, granularity, start: dayRange.start, end: dayRange.end })
-    }
-  }, [dayAnchor, granularity])
+  if (view.dayAnchor !== dayAnchor || view.granularity !== granularity) {
+    setView({ dayAnchor, granularity, start: dayRange.start, end: dayRange.end })
+  }
 
   useEffect(() => {
     if (!containerRef.current) return

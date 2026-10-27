@@ -5,7 +5,7 @@ import { THRESHOLDS as T } from '../utils/thresholds.js'
 import { parseCommand } from './view/labels.js'
 import { subagentClusters, isJournal } from '../utils/subagents.js'
 import { useLocalStorage } from '../utils/useLocalStorage.js'
-import { activity } from '../utils/activity.js'
+import { activity, lastChange } from '../utils/activity.js'
 import { useClock } from '../utils/useClock.js'
 import './SessionList.css'
 
@@ -78,7 +78,7 @@ export default function SessionList({ sessions, selectedId, deepLink, onSelect }
   }, [selectedId])
 
   // Keep the live dots fresh: re-render only when some row's activity changes
-  useClock(() => sessions.map(s => activity(s.lastActivityAt)).join())
+  const now = useClock(() => lastChange(sessions.map(s => s.lastActivityAt)))
 
 
   // The first command, when nothing better names the session.
@@ -145,7 +145,7 @@ export default function SessionList({ sessions, selectedId, deepLink, onSelect }
                 type="button"
                 key={runKey}
                 ref={hidesSelected ? selectedRef : null}
-                className={`session-row subagent-run ${hidesSelected ? 'selected' : ''} ${activity(Math.max(...run.map(c => c.lastActivityAt)))}`}
+                className={`session-row subagent-run ${hidesSelected ? 'selected' : ''} ${activity(Math.max(...run.map(c => c.lastActivityAt)), now)}`}
                 aria-expanded={!isCollapsed}
                 onClick={() => toggleRun(runKey)}
               >
@@ -178,7 +178,7 @@ export default function SessionList({ sessions, selectedId, deepLink, onSelect }
             <div
               key={s.filePath}
               ref={selectedId === s.filePath ? selectedRef : null}
-              className={`session-row ${selectedId === s.filePath ? 'selected' : ''} ${runKey ? 'is-subagent-child' : ''} ${linked ? 'deep-linked' : ''} ${activity(s.lastActivityAt)}`}
+              className={`session-row ${selectedId === s.filePath ? 'selected' : ''} ${runKey ? 'is-subagent-child' : ''} ${linked ? 'deep-linked' : ''} ${activity(s.lastActivityAt, now)}`}
               onClick={() => onSelect(selectedId === s.filePath ? null : s.filePath)}
             >
               <div className="session-label">

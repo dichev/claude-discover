@@ -2,6 +2,7 @@ import { join } from 'node:path'
 import { includeIgnoreFile } from 'eslint/config'
 import stylistic from '@stylistic/eslint-plugin'
 import globals from 'globals'
+import reactHooks from 'eslint-plugin-react-hooks'
 
 export default [
   includeIgnoreFile(join(import.meta.dirname, '.gitignore')),
@@ -20,5 +21,9 @@ export default [
     },
   },
   { files: ['src/main/**', 'src/preload/**', 'src/shared/**', 'test/**', 'bin/**', '*.js'], languageOptions: { globals: globals.node } },
-  { files: ['src/renderer/**'], languageOptions: { globals: globals.browser } },
+  {
+    files: ['src/renderer/**'],
+    languageOptions: { globals: globals.browser },
+    ...reactHooks.configs.flat.recommended,
+  },
 ]

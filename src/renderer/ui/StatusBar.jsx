@@ -6,6 +6,7 @@ import ProgressBar from './ProgressBar.jsx'
 import Tip from './Tip.jsx'
 import { tone } from '../utils/formatting'
 import { useScanProgress } from '../utils/useScanProgress.js'
+import { useClock } from '../utils/useClock.js'
 import { THRESHOLDS } from '../utils/thresholds'
 import './StatusBar.css'
 
@@ -66,7 +67,7 @@ const fmtTime = ts => format(ts, isToday(ts) ? 'h:mm a' : 'EEE h:mm a')
 function LimitRow({ label, w }) {
   const pct     = Math.floor(w.utilization)
   const pctTone = tone(pct, THRESHOLDS.limit)
-  const resets  = w.resetsAt > Date.now() ? `resets ${isToday(w.resetsAt) ? 'at ' : ''}${fmtTime(w.resetsAt)}` : ''
+  const resets  = useClock(() => w.resetsAt > Date.now() ? `resets ${isToday(w.resetsAt) ? 'at ' : ''}${fmtTime(w.resetsAt)}` : '')
   return <>
     <span>{label}</span>
     <ProgressBar pct={pct} tone={pctTone} />

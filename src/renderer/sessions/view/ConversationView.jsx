@@ -1,4 +1,4 @@
-import React, { useContext, useEffect, useState } from 'react'
+import React, { useContext, useState } from 'react'
 import { format } from 'date-fns'
 import { Globe, LaptopMinimal, Terminal } from 'lucide-react'
 import { fmtCompact, fmtDuration, plural, tone } from '../../utils/formatting'
@@ -24,9 +24,13 @@ const ExpandAllContext = React.createContext(null)
 const TranscriptFileContext = React.createContext(null)
 
 function useCollapsed(defaultOpen) {
-  const [open, setOpen] = useState(defaultOpen)
-  const expandAll       = useContext(ExpandAllContext)
-  useEffect(() => { if (expandAll != null) setOpen(expandAll) }, [expandAll])
+  const expandAll             = useContext(ExpandAllContext)
+  const [open, setOpen]       = useState(expandAll ?? defaultOpen)
+  const [applied, setApplied] = useState(expandAll)
+  if (applied !== expandAll) {
+    setApplied(expandAll)
+    if (expandAll != null) setOpen(expandAll)
+  }
   return [open, setOpen]
 }
 
@@ -237,7 +241,7 @@ function AssistantCard({ turns, point, index, duration, ctxLimit, showAuthor = t
   // Once opened, keep aux turns mounted while folded (hidden via CSS) so each tool's expanded state
   // survives a fold/unfold. Never-opened cards stay unmounted so we don't eagerly render every tool.
   const [everOpen, setEverOpen] = useState(false)
-  useEffect(() => { if (open) setEverOpen(true) }, [open])
+  if (open && !everOpen) setEverOpen(true)
   const hidden     = t => !open && foldable && isAux(t)
   const anyVisible = turns.some(t => !hidden(t))
   const parts = [

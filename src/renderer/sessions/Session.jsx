@@ -33,10 +33,12 @@ export default function Session({ meta, missing, date, granularity = 'day', onSh
 
   // Clear only when the session identity changes — live growth (fileSize) swaps
   // the content in place below, without flashing the loading state.
-  useEffect(() => {
+  const [readKey, setReadKey] = useState(viewKey)
+  if (readKey !== viewKey) {
+    setReadKey(viewKey)
     setRead(NOT_READ)
     setError(null)
-  }, [filePath, date, granularity])
+  }
 
   // Re-read the whole session whenever it grows: rows are keyed by turn uuid, so
   // replacing `items` wholesale keeps the expanded/collapsed state of existing rows.

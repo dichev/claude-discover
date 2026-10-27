@@ -1,5 +1,6 @@
 import { format } from 'date-fns'
 import { endOfPeriod, isSamePeriod } from '../utils/period.js'
+import { useClock } from '../utils/useClock.js'
 import { SOURCE_COLORS, SOURCE_LABELS, SOURCE_ORDER } from '../utils/colors.js'
 import MultiPicker from '../ui/MultiPicker.jsx'
 import './Toolbar.css'
@@ -32,7 +33,7 @@ export default function Toolbar({
   sourceFilter, availableSources, onToggleSourceFilter,
   projects, projectFilter, onSetProjectFilter,
 }) {
-  const onToday = isSamePeriod(dayAnchor, Date.now(), granularity)
+  const onToday = useClock(() => isSamePeriod(dayAnchor, Date.now(), granularity))
 
   return (
     <div className="gantt-toolbar">

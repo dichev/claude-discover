@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useEffectEvent, useState } from 'react'
 import { Group, Panel, Separator, useDefaultLayout } from 'react-resizable-panels'
 import GanttChart from './timeline/GanttChart.jsx'
 import Toolbar from './timeline/Toolbar.jsx'
@@ -54,6 +54,8 @@ export default function App() {
     return () => clearInterval(id)
   }, [anchor, granularity])
 
+  // The 120ms debounce is for arrowing through periods — don't make the first scan wait for it
+  const debounce = useEffectEvent(() => loading ? 0 : 120)
   useEffect(() => {
     const date = format(anchor, 'yyyy-MM-dd')
     let cancelled = false
@@ -65,14 +67,15 @@ export default function App() {
         }, err => { // clear the list too — the previous period's sessions would pass for this one's
           if (!cancelled) { setSessions([]); setListError(err); setLoading(false) }
         })
-    }, loading ? 0 : 120) // the 120ms debounce is for arrowing through periods — don't make the first scan wait for it
+    }, debounce())
     const off = window.api.onSessionsUpdate(u => { // a previous period's update can land after the switch
       if (!cancelled && u.date === date && u.granularity === granularity) setSessions(u.sessions)
     })
-    return () => { cancelled = true
-     clearTimeout(timer)
-     off()
-     }
+    return () => {
+      cancelled = true
+      clearTimeout(timer)
+      off()
+    }
   }, [anchor, granularity])
 
   const dayItems = filterItems(sessions, sourceFilter, projectFilter)
@@ -99,20 +102,20 @@ export default function App() {
   }
 
   // Deep link (claude-discover://session?id=…&date=…): jump to the session's day and select it
-  useEffect(() => {
-    const open = ({ id, date }) => {
-      const day = date && parse(date, 'yyyy-MM-dd', new Date())
-      if (day && !isNaN(day)) { // without a usable date just select within the period already shown
-        setGranularity('day')
-        setAnchor(startOfPeriod(day, 'day'))
-        setSourceFilter(null) // filters could hide the session from the list
-        setProjectFilter([])
-      }
-      selectSession(id, { id, date })
+  const openDeepLink = useEffectEvent(({ id, date }) => {
+    const day = date && parse(date, 'yyyy-MM-dd', new Date())
+    if (day && !isNaN(day)) { // without a usable date just select within the period already shown
+      setGranularity('day')
+      setAnchor(startOfPeriod(day, 'day'))
+      setSourceFilter(null) // filters could hide the session from the list
+      setProjectFilter([])
     }
-    window.api.takeDeepLink().then(target => target && open(target)) // the link that cold-started us
-    return window.api.onDeepLink(open)
-  }, [selectSession, setGranularity])
+    selectSession(id, { id, date })
+  })
+  useEffect(() => {
+    window.api.takeDeepLink().then(target => target && openDeepLink(target)) // the link that cold-started us
+    return window.api.onDeepLink(target => openDeepLink(target))
+  }, [])
 
   const shiftPeriod = delta => {
     setAnchor(a => startOfPeriod(addPeriod(a, granularity, delta), granularity))
