@@ -1,7 +1,8 @@
 import { Suspense, use, useEffect, useRef, useState } from 'react'
-import { Hourglass, Gauge, MessageSquare, Clock, Zap, DollarSign, Brain, GitBranch, ChevronDown, ChevronRight, CornerDownRight } from 'lucide-react'
+import { Gauge, MessageSquare, Clock, Zap, DollarSign, Brain, GitBranch, ChevronDown, ChevronRight, CornerDownRight } from 'lucide-react'
 import { fmtCompact, fmtNum, fmtUSD, fmtDuration, fmtAgo, tone } from '../utils/formatting.js'
 import { THRESHOLDS as T } from '../utils/thresholds.js'
+import { cacheAdvice, CACHE_LABELS } from '../utils/cacheAdvice.js'
 import { parseCommand } from './view/labels.js'
 import { subagentClusters, isJournal } from '../utils/subagents.js'
 import { useLocalStorage } from '../utils/useLocalStorage.js'
@@ -10,7 +11,10 @@ import { useClock } from '../utils/useClock.js'
 import './SessionList.css'
 
 const TIPS = {
-  cache1h: 'Billed 2× — prefer the default 5m cache',
+  cache: {
+    '5m': 'Its 1h cache writes, billed 2×, were mostly reused within 5 min',
+    '1h': 'Its pauses outlived the 5m cache, so the context was rewritten',
+  },
   context: `Consider keeping it below ${fmtCompact(T.context.warn)} tokens`,
   messages: `Consider sessions below ${fmtCompact(T.messages.warn)} messages`,
   time: `Consider sessions under ${T.workTime.warn / 60_000}m`,
@@ -21,8 +25,8 @@ const EFFORT_BADGE = { xhigh: 'warn-badge', max: 'danger-badge' }
 
 const sumOf = (sessions, key) => sessions.reduce((sum, s) => sum + (s[key] || 0), 0)
 
-// Icon-only badge: its tip doubles as its accessible name
-const Badge = ({ className, tip, icon: Icon }) => <span className={className} role="img" aria-label={tip} data-tooltip-content={tip}><Icon size={11} /></span>
+// Icon (or short text) badge: its tip doubles as its accessible name
+const Badge = ({ className, tip, icon: Icon, text }) => <span className={className} role="img" aria-label={tip} data-tooltip-content={tip}>{text ?? <Icon size={11} />}</span>
 
 // Re-renders itself when its text changes, so the clock doesn't re-render the whole list
 const Ago = ({ at }) => useClock(() => fmtAgo(at))
@@ -170,6 +174,7 @@ export default function SessionList({ sessions, selectedId, deepLink, onSelect }
           const command = labelCommand(s)
           const commandName = command && (command.name || command.message)
           const commandArgs = command && command.args.trim()
+          const advice = cacheAdvice(s)
           const topEffort = ['max', 'xhigh'].find(e => s.efforts?.includes(e))
           const sessionName = s.customTitle && s.agentName && s.customTitle !== s.agentName
             ? `${s.customTitle} [${s.agentName}]`
@@ -198,7 +203,7 @@ export default function SessionList({ sessions, selectedId, deepLink, onSelect }
               </div>
               <div className="session-row-badges">
                 {s.avatar && <Suspense><Avatar session={s} /></Suspense>}
-                {s.tokens?.cacheCreation1h > 0 && <Badge className="warn-badge" tip={`Used 1h extended cache (${fmtNum(s.tokens.cacheCreation1h)} tokens)\n${TIPS.cache1h}`} icon={Hourglass} />}
+                {advice && <Badge className="warn-badge" tip={`−${advice.pct.toFixed(0)}% (${fmtUSD(advice.saving)}) ${CACHE_LABELS[advice.policy]}\n${TIPS.cache[advice.policy]}`} text={advice.policy} />}
                 {s.lastContextTokens > T.context.danger && <Badge className="danger-badge" tip={`Context size: ${fmtCompact(s.lastContextTokens)} tokens\n${TIPS.context}`} icon={Gauge} />}
                 {s.lastContextTokens > T.context.warn && s.lastContextTokens <= T.context.danger && <Badge className="warn-badge" tip={`Context size: ${fmtCompact(s.lastContextTokens)} tokens\n${TIPS.context}`} icon={Gauge} />}
                 {s.messageCount > T.messages.danger && <Badge className="danger-badge" tip={`${fmtNum(s.messageCount)} messages\n${TIPS.messages}`} icon={MessageSquare} />}

@@ -3,6 +3,7 @@ import fs from 'node:fs'
 import path from 'node:path'
 import { DATA_DIR } from '../src/main/paths.js'
 import { Pricing } from '../src/main/services/Pricing.js'
+import { SessionParser } from '../src/main/sessions/SessionParser.js'
 import seed from '../src/main/config/prices.seed.json' with { type: 'json' }
 
 // pinned to the committed seed — a live prices.current.json would make these assertions machine-dependent
@@ -107,6 +108,67 @@ describe('fast mode', () => {
     expect(pricing.fastMultiplier('claude-opus-4-5')).toBeNull()
     const std = pricing.costForDelta('claude-opus-4-5', bucket)
     expect(pricing.costForDelta('claude-opus-4-5', bucket, { fast: true })).toBeCloseTo(std, 6)
+  })
+})
+
+describe('SessionParser — cache costs', () => {
+  // claude-opus-4-7: input $5, cache read $0.5, write $6.25 (5m) / $10 (1h) per 1M
+  const at = minute => new Date(Date.UTC(2026, 9, 1, 0, 0, minute * 60)).toISOString()
+  // A prompt sent at `minute`, its reply's first line `thinking` minutes later
+  const turn = (id, minute, { read = 0, write5m = 0, write1h = 0, thinking = 0, model = 'claude-opus-4-7' }) => [
+    { type: 'user', uuid: `u-${id}`, timestamp: at(minute), message: { role: 'user', content: 'go' } },
+    { type: 'assistant', uuid: id, timestamp: at(minute + thinking), message: { id, role: 'assistant', model, content: [], usage: {
+      input_tokens: 0, output_tokens: 1000, cache_read_input_tokens: read, cache_creation_input_tokens: write5m + write1h,
+      cache_creation: { ephemeral_5m_input_tokens: write5m, ephemeral_1h_input_tokens: write1h },
+    } } },
+  ]
+  const costsOf = turns => {
+    const parser = new SessionParser({ sessionId: 's1', filePath: 's1.jsonl', pricing })
+    for (const r of turns.flat()) parser.feed(r)
+    const meta = parser.finalize(0)
+    return Object.fromEntries(Object.entries(meta.cacheCosts).map(([k, v]) => [k, +(v - meta.costByType.output).toFixed(4)]))
+  }
+
+  it('keeps a 5m cache warm across a 20 min pause under 1h', () => {
+    expect(costsOf([
+      turn('a1', 0, { write5m: 100_000 }),
+      turn('a2', 20, { write5m: 100_000 }), // expired
+      turn('a3', 21, { read: 100_000 }),
+    ])).toEqual({ '5m': 1.3, '1h': 1.1 })
+  })
+
+  it('lets a 1h cache expire across a 10 min pause under 5m', () => {
+    expect(costsOf([
+      turn('a1', 0, { write1h: 100_000 }),
+      turn('a2', 1, { read: 100_000 }),
+      turn('a3', 11, { read: 100_000 }),
+    ])).toEqual({ '5m': 1.3, '1h': 1.1 })
+  })
+
+  it('times a call by its prompt, not its reply after a long think', () => {
+    expect(costsOf([
+      turn('a1', 0, { write1h: 100_000 }),
+      turn('a2', 3, { read: 100_000, thinking: 2.5 }),
+    ])).toEqual({ '5m': 0.675, '1h': 1.05 })
+  })
+
+  it('credits no kept cache to a context that shrank', () => {
+    expect(costsOf([
+      turn('a1', 0, { write5m: 100_000 }),
+      turn('a2', 30, { read: 10_000, write5m: 40_000 }), // compacted
+    ])['1h']).toBe(1.405) // 1 + 0.005 + 0.4: only the observed 10K read
+  })
+
+  it('tracks the cache per model', () => {
+    expect(costsOf([
+      turn('a1', 0, { write5m: 100_000 }),
+      turn('a2', 2, { write5m: 20_000, model: 'claude-sonnet-4-6' }),
+      turn('a3', 10, { write5m: 100_000 }), // expired under 5m, warm under 1h since a1
+    ])['1h']).toBe(1.17) // 1 + 0.12 (sonnet's own write) + 0.05: a1's 100K read back
+  })
+
+  it('prices a single call cheapest with 5m', () => {
+    expect(costsOf([turn('a1', 0, { write5m: 100_000 })])).toEqual({ '5m': 0.625, '1h': 1 })
   })
 })
 

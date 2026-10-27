@@ -34,7 +34,7 @@ claude-discover
   Your Claude sessions laid out on a daily, weekly, or monthly timeline. One glance tells you where your tokens went; the second finds the session that quietly spawned 100+ agents.
 
 - **Sessions list**\
-  Filter and sort every session in the selected period. Warning badges flag the expensive habits: oversized context, extended 1h cache, fast mode, marathon sessions - and more to come.
+  Filter and sort every session in the selected period. Warning badges flag the expensive habits: oversized context, a cache TTL (5m or 1h) that would have cost less, fast mode, marathon sessions - and more to come.
 
 - **Session preview**
   - **Conversation view**\

@@ -19,6 +19,32 @@ function addUsage(target, delta) {
   for (const k of TOKEN_FIELDS) target[k] += delta[k]
 }
 
+const CACHE_TTL_MS = { '5m': 5 * 60_000, '1h': 60 * 60_000 }
+
+const writeTtl = u => u.cacheCreation1h ? CACHE_TTL_MS['1h'] : u.cacheCreation ? CACHE_TTL_MS['5m'] : null
+
+// Reprices each call's prompt under each TTL: a call whose warm/expired outcome a TTL flips reads the
+// previous prompt's prefix (kept warm, unless the context shrank, e.g. compacted) or rewrites it all (expired).
+function promptCosts(calls, pricing) {
+  const costs = { '5m': 0, '1h': 0 }
+  const prevByModel = new Map() // the cache is per model
+  let ttl = writeTtl(calls.find(c => c.usage.cacheCreation)?.usage ?? {}) ?? CACHE_TTL_MS['5m'] // of the cache in use
+  for (const { ts, model, fast, usage: u } of calls) {
+    const price = bucket => pricing.costForDelta(model, bucket, { fast }) || 0
+    const prefix = u.cacheRead + u.cacheCreation
+    const prev = prevByModel.get(model)
+    const gap = prev ? ts - prev.ts : Infinity
+    for (const [policy, ms] of Object.entries(CACHE_TTL_MS)) {
+      const warm = gap <= ms
+      const read = warm === gap <= ttl ? u.cacheRead : !warm ? 0 : prefix >= prev.prefix ? Math.max(u.cacheRead, prev.prefix) : u.cacheRead
+      costs[policy] += price({ input: u.input, cacheRead: read, cacheCreation: prefix - read, [`cacheCreation${policy}`]: prefix - read })
+    }
+    ttl = writeTtl(u) ?? ttl
+    prevByModel.set(model, { ts, prefix })
+  }
+  return costs
+}
+
 function extractText(content) {
   if (typeof content === 'string') return content
   if (!Array.isArray(content)) return ''
@@ -91,6 +117,7 @@ export class SessionParser {
     // msgId -> the usage bucket we've already folded into the totals, so later
     // snapshots of a streamed reply can contribute only their growth.
     this.appliedById = new Map()
+    this.calls = [] // one per API call, holding its final usage, for repricing the cache
     this.branchStarted = false
   }
 
@@ -200,6 +227,7 @@ export class SessionParser {
     Object.assign(this.meta, freshMetrics())
     this.lastSeenTs = null
     this.appliedById.clear()
+    this.calls = []
   }
 
   // Capture the first user prompt / command for the session list.
@@ -274,6 +302,9 @@ export class SessionParser {
 
     const applied = this.appliedById.get(msgId)
     if (!applied) { // first non-excluded line of this reply — record stream-stable metadata once
+      // Timed by the record that sent it: a reply's first line can land minutes later, after the thinking
+      const sentAt = this.prevMessage?.type === 'user' ? Math.min(this.prevMessage._ts, obj._ts) : obj._ts
+      this.calls.push({ ts: sentAt, model, fast, usage })
       meta.lastContextTokens = contextSize // prompt size on this turn; last assistant message wins
       if (u.service_tier) meta.serviceTier = u.service_tier
       if (this.pricing && this.pricing.priceFor(model) == null) meta.priceUnknown = true
@@ -323,8 +354,9 @@ export class SessionParser {
         + (this.pricing.costUSD(pickParts(meta.tokensByModelFast, part), { ...opts, fast: true }) || 0)
     meta.cost = costOf({})
     meta.costByType = Object.fromEntries(Object.entries(COST_PARTS).map(([type, part]) => [type, costOf({}, part)]))
-    // What the session would have cost with only 5m cache (no 1h premium); the gap is the potential saving.
-    meta.savings = { using5mCache: meta.cost - costOf({ ignoreCache1hPremium: true }) }
+    // What the session would have cost had every call used one cache TTL, or no cache
+    const prompt = this.pricing ? promptCosts(this.calls, this.pricing) : null
+    meta.cacheCosts = prompt && Object.fromEntries(Object.entries(prompt).map(([p, c]) => [p, meta.costByType.output + c]))
     return meta
   }
 }

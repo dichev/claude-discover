@@ -40,7 +40,7 @@ Visible in `<summary>`.
 
   - **Model**: Opus used for work Sonnet or Haiku could have done.
   - **Caching**: a low cache-hit ratio means re-paying for the same context every turn. Bursty sessions, mid-session CLAUDE.md edits, tool-list changes, or long idle gaps bust the cache.
-  - **5m vs 1h cache**: 5m is the right default for almost all sessions and should be used most of the time. A 1h write costs ~2× a 5m write, so it only pays off in narrow cases — when the session reliably has gaps >5 min between turns (scheduled / background tasks, long manual review breaks, sessions resumed hours later). Most interactive coding does NOT qualify. Only flag 1h-caching as a fix when the activity timestamps in `<summary>` clearly show long gaps AND the cache-hit ratio is poor. Conversely, if the session is tight (<5 min gaps) but `Cache write (1h)` is non-trivial, that's overspend — recommend dropping back to 5m.
+  - **5m vs 1h cache**: `Potential savings` in `<summary>` replays the session's calls under each cache TTL, so take its verdict as is instead of estimating one from the gaps. When it's absent the other TTL wouldn't have saved over 10% (or over $0.50) — don't flag it.
   - **Unused system tools** (web search/fetch, MCP, bash, etc.) add tokens every turn even when they don't fire — disable what wasn't needed. Expensive web-search/fetch loops can also be short-circuited by pasting a URL or doc.
   - **Context cap**: 1M-context for work that fits in 200k makes every cached token more expensive.
 

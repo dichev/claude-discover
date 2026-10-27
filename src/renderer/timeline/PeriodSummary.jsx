@@ -1,12 +1,15 @@
 import { Fragment, useState } from 'react'
 import { fmtUSD, fmtCompact, fmtDuration } from '../utils/formatting.js'
+import { cheaperCache, CACHE_LABELS } from '../utils/cacheAdvice.js'
+import { THRESHOLDS as T } from '../utils/thresholds.js'
 import CostBreakdownChart from './CostBreakdownChart.jsx'
 import './PeriodSummary.css'
 
 function sumTotals(sessions) {
   const t = sessions.reduce((acc, s) => {
     acc.cost += s.cost || 0
-    acc.savingsUsing5mCache += s.savings?.using5mCache || 0
+    const cheaper = cheaperCache(s) // every session's, so many small savings still add up
+    if (cheaper) acc.cacheSavings[cheaper.policy] = (acc.cacheSavings[cheaper.policy] || 0) + cheaper.saving
     acc.totalTokens += s.totalTokens || 0
     acc.input += s.tokens.input
     acc.output += s.tokens.output
@@ -16,9 +19,10 @@ function sumTotals(sessions) {
     for (const k in s.costByType) acc.costByType[k] = (acc.costByType[k] || 0) + s.costByType[k]
     acc.activeMs += s.activeMs || 0
     return acc
-  }, { cost: 0, savingsUsing5mCache: 0, totalTokens: 0, input: 0, output: 0, cacheRead: 0, cacheCreation: 0, cacheCreation1h: 0, activeMs: 0, costByType: {} })
+  }, { cost: 0, cacheSavings: {}, totalTokens: 0, input: 0, output: 0, cacheRead: 0, cacheCreation: 0, cacheCreation1h: 0, activeMs: 0, costByType: {} })
   const cacheDenom = t.cacheRead + t.cacheCreation
   t.cacheHitRatio = cacheDenom > 0 ? t.cacheRead / cacheDenom : null
+  t.cacheSavings = Object.entries(t.cacheSavings).filter(([, saving]) => saving > T.cacheSaving.min)
   return t
 }
 
@@ -85,10 +89,12 @@ export default function PeriodSummary({ sessions, dayAnchor, granularity = 'day'
             : <div className="gantt-side-row"><span>Estimated cost</span><b>{fmtUSD(totals.cost)}</b></div>}
           <div className="gantt-side-row"><span>Working time</span><b>{fmtDuration(totals.activeMs)}</b></div>
         </div>
-        {totals.savingsUsing5mCache > 0 && (
+        {totals.cacheSavings.length > 0 && (
           <div className="gantt-side-section">
             <div className="gantt-side-heading">Potential savings</div>
-            <div className="gantt-side-row"><span>{totals.cost > 0 && <strong>-{(totals.savingsUsing5mCache / totals.cost * 100).toFixed(0)}% </strong>}with 5m cache</span><b>−{fmtUSD(totals.savingsUsing5mCache)}</b></div>
+            {totals.cacheSavings.map(([policy, saving]) => (
+              <div key={policy} className="gantt-side-row"><span><strong>-{(saving / totals.cost * 100).toFixed(0)}% </strong>{CACHE_LABELS[policy]}</span><b>−{fmtUSD(saving)}</b></div>
+            ))}
           </div>
         )}
         {mixTotal > 0 && (

@@ -3,6 +3,7 @@ import { fmtDuration, fmtNum, fmtUSD, fmtCompact, fmtToolCalls } from '../utils/
 import { flatten, groupTurns, branchPoint, contextSize, currentModel, contextWindow, countTokens } from './view/transcript.js'
 import { toolSummary, parseCommand, isClearTurn, instructionTitle, compactTitle, attachmentView, hasText, safeJson, SIDE_NOTE } from './view/labels.js'
 import { fenced } from '../utils/textBlock.js'
+import { cacheAdvice, CACHE_LABELS } from '../utils/cacheAdvice.js'
 
 export const MAX_LINES = 10
 export const MAX_LINE_CHARS = 200
@@ -123,6 +124,7 @@ export function markdownSession(meta, items, instructions = {}, requestLog = nul
   const wallDuration = meta.lastActivityAt - meta.startedAt
   const ctxLimit = contextWindow(meta.models)
   const contextPct = Math.round((meta.lastContextTokens / ctxLimit) * 100)
+  const advice = cacheAdvice(meta)
   const cacheHitPct = (meta.cacheHitRatio * 100).toFixed(0)
   const transcript = items ? renderTranscript(flatten(items, instructions), meta) : '_Loading…_'
   const conversation = `\n# Conversation\n\n${transcript}`
@@ -134,10 +136,10 @@ export function markdownSession(meta, items, instructions = {}, requestLog = nul
 - Estimated cost: ${fmtUSD(meta.cost)}
 - Total tokens: ${fmtCompact(meta.totalTokens)}
 - Working time: ${fmtDuration(meta.activeMs)}
-- Context size: ${fmtCompact(meta.lastContextTokens)} / ${fmtCompact(ctxLimit)} (${contextPct}%)${meta.savings.using5mCache > 0 ? `
+- Context size: ${fmtCompact(meta.lastContextTokens)} / ${fmtCompact(ctxLimit)} (${contextPct}%)${advice ? `
 
 ## Potential savings
-- with 5m cache: ${meta.cost > 0 ? `(${(meta.savings.using5mCache / meta.cost * 100).toFixed(0)}%) ` : ''}−${fmtUSD(meta.savings.using5mCache)}` : ''}
+- ${CACHE_LABELS[advice.policy]}: (${advice.pct.toFixed(0)}%) −${fmtUSD(advice.saving)}` : ''}
 
 ## Tokens
 - Input: ${fmtNum(t.input)}

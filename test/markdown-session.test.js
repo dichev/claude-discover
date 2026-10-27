@@ -3,7 +3,7 @@ import { describe, it, expect } from 'vitest'
 import { markdownSession } from '../src/renderer/sessions/MarkdownSession.js'
 
 const meta = {
-  tokens: {}, serverToolUse: {}, models: [], savings: {}, activityPeriods: [], efforts: [],
+  tokens: {}, serverToolUse: {}, models: [], activityPeriods: [], efforts: [],
   startedAt: 0, lastActivityAt: 0, cacheHitRatio: 0, lastContextTokens: 0, filePath: 'a.jsonl',
 }
 const msg = (type, uuid, timestamp, content) => ({ type, uuid, timestamp, message: { role: type, content } })

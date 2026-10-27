@@ -49,11 +49,11 @@ export class Pricing extends EventEmitter {
     return this.priceFor(model)?.fastModeMplr ?? null
   }
 
-  costForDelta(model, bucket, { ignoreCache1hPremium = false, fast = false } = {}) {
+  costForDelta(model, bucket, { fast = false } = {}) {
     const p = this.priceFor(model)
     if (!p || !bucket) return null
-    const tokens5m = ignoreCache1hPremium ? 0 : (bucket.cacheCreation5m || 0)
-    const tokens1h = ignoreCache1hPremium ? 0 : (bucket.cacheCreation1h || 0)
+    const tokens5m = bucket.cacheCreation5m || 0
+    const tokens1h = bucket.cacheCreation1h || 0
     const tokensUnknown = (bucket.cacheCreation || 0) - tokens5m - tokens1h
     const base = (
       (bucket.input || 0) * p.input +

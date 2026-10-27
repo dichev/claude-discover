@@ -2,6 +2,7 @@ import { DollarSign, WandSparkles } from 'lucide-react'
 import { format } from 'date-fns'
 import { fmtDuration, fmtNum, fmtUSD, fmtCompact, fmtToolCalls, tone } from '../utils/formatting.js'
 import { THRESHOLDS as T } from '../utils/thresholds.js'
+import { cacheAdvice, CACHE_LABELS } from '../utils/cacheAdvice.js'
 import { contextWindow } from './view/transcript.js'
 import AgentOutput from '../agent/AgentOutput.jsx'
 import ProgressBar from '../ui/ProgressBar.jsx'
@@ -18,6 +19,7 @@ export default function SessionSummary({ meta, items, requestLog, agent, granula
   const stu = meta.serverToolUse
   const hasServerTools = stu.webSearch > 0 || stu.webFetch > 0
   const modelLabel = meta.models.join(', ') || '—'
+  const advice = cacheAdvice(meta)
   const ctxLimit = contextWindow(meta.models)
   const ctxTone = tone(meta.lastContextTokens, T.context)
 
@@ -73,11 +75,11 @@ export default function SessionSummary({ meta, items, requestLog, agent, granula
           }/>
         </Section>
 
-        {meta.savings.using5mCache > 0 && (
+        {advice && (
           <Section title="Potential savings">
             <Field
-              label={<>{cost > 0 && <strong>-{(meta.savings.using5mCache / cost * 100).toFixed(0)}% </strong>}with 5m cache</>}
-              value={`−${fmtUSD(meta.savings.using5mCache)}`}
+              label={<><strong>-{advice.pct.toFixed(0)}% </strong>{CACHE_LABELS[advice.policy]}</>}
+              value={`−${fmtUSD(advice.saving)}`}
             />
           </Section>
         )}
@@ -86,10 +88,7 @@ export default function SessionSummary({ meta, items, requestLog, agent, granula
           <Field label="Input" value={fmtNum(t.input)} />
           <Field label="Output" value={fmtNum(t.output)} />
           <Field label="Cache write (5m)" value={fmtNum(t.cacheCreation5m || 0)} />
-          <Field
-            label="Cache write (1h)"
-            value={<span className={t.cacheCreation1h > 0 ? 'warn' : ''}>{fmtNum(t.cacheCreation1h || 0)}</span>}
-          />
+          <Field label="Cache write (1h)" value={fmtNum(t.cacheCreation1h || 0)} />
 
           <Field label="Cache read" value={fmtNum(t.cacheRead)} />
           <Field label="Cache hit ratio" value={`${(cacheHitRatio * 100).toFixed(0)}%`} />
