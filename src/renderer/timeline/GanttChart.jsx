@@ -18,7 +18,7 @@ const BARS = {
   month: { height: 10, min_width: 2, row_gap: 2, group_gap: 2, radius: 1 },
 }
 
-const endOf = (s) => Math.max(s.lastActivityAt, s.startedAt + 60_000)
+const endOf = s => Math.max(s.lastActivityAt, s.startedAt + 60_000)
 const clipLeft = (s, n = 29) => s.length > n ? '…' + s.slice(1 - n) : s // keep the distinctive tail of a long subfolder
 
 function packLanes(items) {
@@ -26,8 +26,8 @@ function packLanes(items) {
   const placed = items
     .slice()
     .sort((a, b) => a.start - b.start)
-    .map((item) => {
-      let lane = lanes.findIndex((endTs) => endTs <= item.start)
+    .map(item => {
+      let lane = lanes.findIndex(endTs => endTs <= item.start)
       if (lane === -1) { lane = lanes.length
        lanes.push(item.end)
        }
@@ -40,8 +40,8 @@ function packLanes(items) {
 
 function layoutGroups(sessions, bar, expanded) {
   // Subagents split into time-separated runs; a run of 2+ collapses into one labelled bar.
-  const clusters = subagentClusters(sessions).filter((c) => c.length >= 2)
-  const collapsed = new Set(clusters.flat().map((s) => s.filePath))
+  const clusters = subagentClusters(sessions).filter(c => c.length >= 2)
+  const collapsed = new Set(clusters.flat().map(s => s.filePath))
 
   const byKey = new Map()
   const addItem = (s, item, cost) => {
@@ -70,11 +70,11 @@ function layoutGroups(sessions, bar, expanded) {
   }
 
   for (const subs of clusters) {
-    const periods = subs.map((c) => ({ start: c.startedAt, end: endOf(c) }))
+    const periods = subs.map(c => ({ start: c.startedAt, end: endOf(c) }))
     addItem(subs[0], {
       id: `${subs[0].filePath}::subagents`,
       start: periods[0].start,
-      end: Math.max(...periods.map((p) => p.end)),
+      end: Math.max(...periods.map(p => p.end)),
       source: subs[0].source,
       activityPeriods: periods,
       subs,
@@ -124,7 +124,7 @@ export default function GanttChart({
 
   useEffect(() => {
     if (!containerRef.current) return
-    const ro = new ResizeObserver((entries) => {
+    const ro = new ResizeObserver(entries => {
       for (const e of entries) setWidth(Math.max(400, e.contentRect.width))
     })
     ro.observe(containerRef.current)
@@ -135,12 +135,12 @@ export default function GanttChart({
 
   const chartWidth = Math.max(100, width - PROJECTS_WIDTH)
   const span = view.end - view.start
-  const xFor = (ts) => PROJECTS_WIDTH + ((ts - view.start) / span) * chartWidth
+  const xFor = ts => PROJECTS_WIDTH + ((ts - view.start) / span) * chartWidth
 
   const ticks = computeTicks({ viewStart: view.start, viewEnd: view.end, width: chartWidth, span })
 
   useMouse(containerRef, {
-    onZoom: (e) => { // cursor-anchored: the timestamp under the pointer stays put
+    onZoom: e => { // cursor-anchored: the timestamp under the pointer stays put
       const rect = containerRef.current.getBoundingClientRect()
       const xInCanvas = e.clientX - rect.left
       const ratio = Math.min(1, Math.max(0, (xInCanvas - PROJECTS_WIDTH) / chartWidth))
@@ -148,12 +148,12 @@ export default function GanttChart({
       const center = view.start + ratio * span
       const start = Math.max(dayRange.start, center - ratio * newSpan)
       const end = Math.min(dayRange.end, center + (1 - ratio) * newSpan)
-      setView((v) => ({ ...v, start, end }))
+      setView(v => ({ ...v, start, end }))
     },
-    onReset: () => setView((v) => ({ ...v, start: dayRange.start, end: dayRange.end })),
-    onPan: (dx) => {
+    onReset: () => setView(v => ({ ...v, start: dayRange.start, end: dayRange.end })),
+    onPan: dx => {
       const dt = (dx / chartWidth) * span
-      setView((v) => {
+      setView(v => {
         const newStart = Math.max(dayRange.start, v.start + dt)
         const newEnd = Math.min(dayRange.end, v.end + dt)
         return newEnd - newStart < span ? v : { ...v, start: newStart, end: newEnd }
@@ -251,7 +251,7 @@ export default function GanttChart({
               ))}
               {g.placed.map(({ item, y }) => {
                 const color = SOURCE_COLORS[item.source] || SOURCE_COLORS.other
-                const isSelected = item.subs ? item.subs.some((c) => c.filePath === selectedId) : item.id === selectedId
+                const isSelected = item.subs ? item.subs.some(c => c.filePath === selectedId) : item.id === selectedId
                 const periods = item.activityPeriods?.length
                   ? item.activityPeriods
                   : [{ start: item.start, end: item.end }]

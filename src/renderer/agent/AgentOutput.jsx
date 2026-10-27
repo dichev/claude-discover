@@ -7,7 +7,7 @@ export default function AgentOutput({ output, running, error }) {
   const [displayed, setDisplayed] = useState(output)
   const lastOutputRef = useRef(output)
   const scrollRef     = useRef(null)
-  const typer         = useRef(createTypewriter((chunk) => setDisplayed(p => p + chunk)))
+  const typer         = useRef(createTypewriter(chunk => setDisplayed(p => p + chunk)))
 
   useEffect(() => {
     const prev = lastOutputRef.current

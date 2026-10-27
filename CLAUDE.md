@@ -11,6 +11,7 @@ npm run dev           # electron-vite dev — hot reload, renderer on :5555, CDP
 npm run build         # electron-vite build → out/{main,preload,renderer}
 npm start             # run the built app (electron .)
 npm test              # vitest run --reporter=tree
+npm run lint          # eslint . — must pass after every change (style rules live in eslint.config.js)
 npm run proxy         # run the capture proxy standalone (bin/proxy.mjs --restart)
 npm run smoke:local   # npm pack + launch the tarball via npx (npx cache, no shortcuts)
 npm run smoke:global  # npm pack + npm i -g the tarball and launch it (npm uninstall -g claude-discover after)
@@ -53,7 +54,8 @@ Not a hard constraint — restructure when it serves the code, just update this 
 ├── test/                           Vitest suites + fixtures
 │   └── scripts/                    repo-only CLIs, never shipped in the npm tarball
 │       └── usage.mjs               per-period token usage/cost table (imports src/)
-└── electron.vite.config.js         build config: main, preload, renderer
+├── electron.vite.config.js         build config: main, preload, renderer
+└── eslint.config.js                lint rules
 ```
 
 ## Architecture
@@ -115,11 +117,10 @@ Optional features, secondary to the core timeline. The switchable ones are a cla
 - Every markdown surface renders through `ui/Markdown.jsx` — never instantiate ReactMarkdown directly
 - `MarkdownSession.js` duplicates fields from `ConversationView.jsx`/`SessionSummary.jsx` by hand — changing either means updating it too
 - IPC channel names are `namespace:kebab-case-action` (e.g. `sessions:read-requests`)
-- No semicolons; single-argument arrows omit parens (`x => ...`, not `(x) => ...`)
 - Align consecutive `use*` hook declarations so the `=` signs line up in a column
 - Comments are clean single lines that explain *why* (races, platform quirks, billing subtleties), not *what*
 - Tag OS-specific fixes with a `// @macOS` or `// @linux` comment
-- No lint or typecheck configured
+- No typecheck configured
 
 ## UI testing / debugging
 

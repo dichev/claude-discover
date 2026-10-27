@@ -24,9 +24,9 @@ export class SessionFile {
   // (no newline yet) is skipped, so reading a live session never sees a half record.
   async stream(onLine) {
     let leftover = ''
-    await new Promise((resolve) => {
+    await new Promise(resolve => {
       const stream = fs.createReadStream(this.filePath, { encoding: 'utf8' })
-      stream.on('data', (chunk) => {
+      stream.on('data', chunk => {
         leftover += chunk
         let idx
         while ((idx = leftover.indexOf('\n')) !== -1) {

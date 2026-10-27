@@ -46,7 +46,7 @@ export default function Toolbar({
         {(availableSources ?? []).slice().sort((a, b) => {
           const ia = SOURCE_ORDER.indexOf(a), ib = SOURCE_ORDER.indexOf(b)
           return (ia === -1 ? SOURCE_ORDER.length : ia) - (ib === -1 ? SOURCE_ORDER.length : ib)
-        }).map((k) => {
+        }).map(k => {
           const active = sourceFilter === k
           const dim = sourceFilter && !active
           return (

@@ -206,7 +206,8 @@ Contents of C:\\Users\\me\\.claude\\projects\\p\\memory\\MEMORY.md (user's auto-
 // Every request's first-sent strips, read off the log the way readInstructions reads the side requests'
 const stripsOf = async (sessionId, opts = {}) => {
   const parser = new RequestParser()
-  return (await new RequestFile(sessionId, { dir, ...opts }).read()).filter(r => r.request).flatMap(r => parser.strips(r).map(f => ({ timestamp: r.timestamp, ...f })))
+  const records = await new RequestFile(sessionId, { dir, ...opts }).read()
+  return records.filter(r => r.request).flatMap(r => parser.strips(r).map(f => ({ timestamp: r.timestamp, ...f })))
 }
 
 describe('RequestParser.strips', () => {

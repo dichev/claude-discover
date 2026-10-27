@@ -47,7 +47,7 @@ function parseCli(argv) {
 
   const timezone = arg('--timezone')
   if (timezone) {
-    try { Intl.DateTimeFormat(undefined, { timeZone: timezone }) }
+    try { new Intl.DateTimeFormat(undefined, { timeZone: timezone }) }
     catch { die(`Invalid timezone: ${timezone} (expected an IANA name like UTC or Area/City)`) }
   }
   const inTz = timezone ? { in: tz(timezone) } : {} // date-fns context; {} → local time
@@ -114,6 +114,6 @@ const rows = await collectRows(cfg)
 if (!rows.length) { console.log('No usage found.'); process.exit(0) }
 
 const width = render(rows)
-const localTz = Intl.DateTimeFormat().resolvedOptions().timeZone
+const localTz = new Intl.DateTimeFormat().resolvedOptions().timeZone
 console.log('\n' + `Timezone is ${cfg.timezone || `${localTz} (local)`}`.padStart(width))
 process.exit(0)

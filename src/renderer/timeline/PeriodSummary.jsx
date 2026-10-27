@@ -77,7 +77,9 @@ export default function PeriodSummary({ sessions, dayAnchor, granularity = 'day'
       </div>
       <div className="gantt-side-body">
         <div className="gantt-side-section">
-          {(isCost ? totals.cost : totals.totalTokens) > 0 && <CostBreakdownChart sessions={sessions} dayAnchor={dayAnchor} granularity={granularity} stat={stat} />}
+          {(isCost ? totals.cost : totals.totalTokens) > 0 && (
+            <CostBreakdownChart sessions={sessions} dayAnchor={dayAnchor} granularity={granularity} stat={stat} />
+          )}
           {isCost
             ? <div className="gantt-side-row"><span>Total tokens</span><b>{fmtCompact(totals.totalTokens)}</b></div>
             : <div className="gantt-side-row"><span>Estimated cost</span><b>{fmtUSD(totals.cost)}</b></div>}
@@ -114,7 +116,7 @@ export default function PeriodSummary({ sessions, dayAnchor, granularity = 'day'
         {sortedByProject.length > 0 && (
           <div className="gantt-side-section">
             <div className="gantt-side-heading">By project</div>
-            {sortedByProject.map((g) => (
+            {sortedByProject.map(g => (
               <Fragment key={g.key}>
                 <div className="gantt-side-row">
                   <span>{g.projectShort}</span>

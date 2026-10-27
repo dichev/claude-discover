@@ -24,10 +24,11 @@ export const countTokens = (text, model = '') => {
 
 // The user's own prompt, typed while Claude was working and recorded nowhere else — so it renders as
 // a real user turn. Harness- and agent-queued ones (task notifications, peer messages) stay attachments.
-const queuedPrompt = it =>
-  it.type === 'attachment' && it.attachment?.type === 'queued_command'
-  && it.attachment.commandMode === 'prompt' && (it.attachment.origin?.kind ?? 'human') === 'human'
-  && it.attachment.prompt?.trim() ? it.attachment.prompt : null
+const queuedPrompt = it => {
+  return it.type === 'attachment' && it.attachment?.type === 'queued_command'
+    && it.attachment.commandMode === 'prompt' && (it.attachment.origin?.kind ?? 'human') === 'human'
+    && it.attachment.prompt?.trim() ? it.attachment.prompt : null
+}
 
 // Whether a record's Claude Code `version` is `min` or newer
 const since = (version, min) => {
@@ -254,10 +255,10 @@ export function flatten(items, { loop = [], side = [] } = {}) {
   const calls = new Set(turns.flatMap(t => t.blocks.filter(b => b.type === 'tool_use').map(b => b.id)))
   for (const t of turns) {
     t.blocks = t.blocks
-      .map((b) => (b.type === 'tool_use' ? { ...b, result: withCompanion(results[b.id], companions[b.id]), duration: elapsed(t.ts, resultTs[b.id]) } : b))
-      .filter((b) => !(b.type === 'tool_result' && calls.has(b.tool_use_id)))
+      .map(b => (b.type === 'tool_use' ? { ...b, result: withCompanion(results[b.id], companions[b.id]), duration: elapsed(t.ts, resultTs[b.id]) } : b))
+      .filter(b => !(b.type === 'tool_result' && calls.has(b.tool_use_id)))
   }
-  const out = turns.filter((t) => t.blocks.length > 0)
+  const out = turns.filter(t => t.blocks.length > 0)
   const slot = turn => {
     const i = out.findIndex(t => t.ts != null && t.ts > turn.ts)
     i === -1 ? out.push(turn) : out.splice(i, 0, turn)
@@ -318,7 +319,7 @@ const withCompanion = (result, text) => text
 function normalizeContent(content) {
   if (typeof content === 'string') return [{ type: 'text', text: content }]
   if (!Array.isArray(content)) return []
-  return content.map((b) => (typeof b === 'string' ? { type: 'text', text: b } : b))
+  return content.map(b => (typeof b === 'string' ? { type: 'text', text: b } : b))
 }
 
 // Injected context is a turn whose blocks are all attachments (the "N attachments" payload) — directives show as messages instead.

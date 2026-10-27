@@ -6,7 +6,7 @@ export default function Toggle({ checked, onChange, label, className = '' }) {
       <input
         type="checkbox"
         checked={checked}
-        onChange={(e) => onChange(e.target.checked)}
+        onChange={e => onChange(e.target.checked)}
       />
       {label && <span className="toggle-label">{label}</span>}
     </label>

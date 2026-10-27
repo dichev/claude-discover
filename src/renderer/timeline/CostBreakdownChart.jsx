@@ -24,7 +24,7 @@ function buckets(sessions, dayAnchor, granularity, stat) {
       bs[i].value += sample[stat] || 0
     }
   }
-  return { bs, max: Math.max(0, ...bs.map((b) => b.value)) }
+  return { bs, max: Math.max(0, ...bs.map(b => b.value)) }
 }
 
 // Cost (or tokens) over time: hourly (daily view), or daily (weekly/monthly view) buckets.

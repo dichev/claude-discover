@@ -9,7 +9,7 @@ export function createTypewriter(onText) {
     buffer = buffer.slice(n)
     if (buffer) requestAnimationFrame(tick)
   }
-  const push = (chunk) => {
+  const push = chunk => {
     if (!chunk) return
     const wasIdle = !buffer
     buffer += chunk

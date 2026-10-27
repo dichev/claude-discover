@@ -26,7 +26,8 @@ function ShortText({ text, ...rest }) {
 
 // JsonView.String render — use with shortenTextAfterLength={0} (the library's shortening stays off);
 // returning undefined falls through to the default string rendering.
-export const renderShortened = shorten => ({ children, ...rest }, { type, value }) =>
-  shorten && type === 'value' && typeof value === 'string' && value.length > SHORTEN_AT
+export const renderShortened = shorten => ({ children, ...rest }, { type, value }) => {
+  return shorten && type === 'value' && typeof value === 'string' && value.length > SHORTEN_AT
     ? <ShortText {...rest} text={value} />
     : undefined
+}

@@ -89,18 +89,18 @@ export function safeJson(x) {
 
 // An attachment's title and the text the model read (`body`), plus its listed `items` when it lists tools, skills or servers
 const ATTACHMENT_RENDERERS = {
-  selected_lines_in_ide: (a) => {
+  selected_lines_in_ide: a => {
     const path = a.displayPath || a.filename || ''
     const range = a.lineStart === a.lineEnd ? `L${a.lineStart}` : `L${a.lineStart}-${a.lineEnd}`
     return { title: `Selection in ${a.ideName || 'IDE'}: ${path}:${range}`, body: a.content || '' }
   },
-  opened_file_in_ide: (a) => ({ title: `Opened in IDE: ${a.displayPath || a.filename || ''}`, body: null }),
-  file: (a) => {
+  opened_file_in_ide: a => ({ title: `Opened in IDE: ${a.displayPath || a.filename || ''}`, body: null }),
+  file: a => {
     const f = a.content?.file
     return { title: `File: ${a.displayPath || f?.filePath || a.filename || ''}`, body: f?.content ?? safeJson(a.content) }
   },
-  skill_listing: (a) => ({ title: `${a.skillCount} skills`, body: a.content || '', ...listedEntries(a.content || '') }),
-  deferred_tools_delta: (a) => ({
+  skill_listing: a => ({ title: `${a.skillCount} skills`, body: a.content || '', ...listedEntries(a.content || '') }),
+  deferred_tools_delta: a => ({
     title: `${a.addedNames?.length || 0} deferred tools ${a.removedNames?.length ? `(removed: ${a.removedNames.length})` : ''}`,
     body: safeJson({ added: a.addedNames, removed: a.removedNames }),
   }),
@@ -114,7 +114,7 @@ const ATTACHMENT_RENDERERS = {
     body: [...(a.systemPrompt ?? []), `Tools: ${(a.tools ?? []).map(t => t.name).join(', ')}`].join('\n\n'),
   }),
   // The one nested shape the fallback below can't flatten: files → diagnostics → range.
-  diagnostics: (a) => {
+  diagnostics: a => {
     const lines = (a.files || []).flatMap(f => (f.diagnostics || [])
       .map(d => `${f.uri}:${(d.range?.start?.line ?? 0) + 1} ${d.severity}: ${d.message}${d.source ? ` (${d.source})` : ''}`))
     return { title: `Diagnostics: ${lines.length} in ${a.files?.length || 0} file${a.files?.length === 1 ? '' : 's'}`, body: lines.join('\n') }

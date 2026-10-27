@@ -29,11 +29,12 @@ const body = {
 const headers = { 'anthropic-beta': 'claude-code-20250219, effort-2025-11-24', 'user-agent': 'claude-cli/2.1.207' }
 
 // test-side mirror of RequestParser.resolve — strips { $hash, value } wrappers back to plain values
-const unwrap = x =>
-  x?.$hash != null ? unwrap(x.value)
-  : Array.isArray(x) ? x.map(unwrap)
-  : x && typeof x === 'object' ? Object.fromEntries(Object.entries(x).map(([k, v]) => [k, unwrap(v)]))
-  : x
+const unwrap = x => {
+  return x?.$hash != null ? unwrap(x.value)
+    : Array.isArray(x) ? x.map(unwrap)
+    : x && typeof x === 'object' ? Object.fromEntries(Object.entries(x).map(([k, v]) => [k, unwrap(v)]))
+    : x
+}
 
 describe('dedupeRequest', () => {
   it('keeps params verbatim, wraps bulk fields as { $hash, value } on first sight', () => {

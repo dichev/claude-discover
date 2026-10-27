@@ -59,7 +59,9 @@ export class SessionsService extends EventEmitter {
     if (!meta) return null
     const range = date ? periodBounds(date, granularity) : null
     const reader = new SessionFile(meta.filePath)
-    const parser = new SessionParser({ sessionId: reader.sessionId, parentSessionId: reader.parentSessionId, filePath: reader.filePath, mtime: meta.mtime, range })
+    const parser = new SessionParser({
+      sessionId: reader.sessionId, parentSessionId: reader.parentSessionId, filePath: reader.filePath, mtime: meta.mtime, range,
+    })
     // what the side requests (title, auto-mode check, …) sent, which only the capture proxy saw
     const requests = this.#requestFile(reader.sessionId, reader.parentSessionId)
     const sides = requests.readInstructions(range)

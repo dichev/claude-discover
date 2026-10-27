@@ -5,7 +5,7 @@ import {CLAUDE_PROJECTS_DIR} from '../paths.js'
 import { StatCache } from './StatCache.js'
 import { FileWatcher, listFiles } from './utils/FileWatcher.js'
 
-const isJsonl = (p) => p.endsWith('.jsonl')
+const isJsonl = p => p.endsWith('.jsonl')
 
 export class SessionsScanner {
   constructor({ root = CLAUDE_PROJECTS_DIR } = {}) {

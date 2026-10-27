@@ -46,7 +46,10 @@ function filtered(g, filter) {
   return { kind: turns.every(t => t.role === 'system') ? 'system' : g.kind, turns }
 }
 
-export default function ConversationView({ items, instructions = {}, filePath = null, expandAll = null, filter = [], continuesFrom = null, continuesTo = null, forkedFrom = null, forkedAt = null, onShowPeriodOf }) {
+export default function ConversationView({
+  items, instructions = {}, filePath = null, expandAll = null, filter = [],
+  continuesFrom = null, continuesTo = null, forkedFrom = null, forkedAt = null, onShowPeriodOf,
+}) {
   const turns            = flatten(items, instructions)
   const groups           = groupTurns(turns)
   const points           = tokenPoints(groups)
@@ -278,7 +281,7 @@ function TurnRow({ turn, hidden = false, speaker = null }) {
   const contextBlocks = [], otherBlocks = []
   const groupAttachments = turn.role === 'user'
   for (const b of turn.blocks) {
-    if (b.type === 'attachment' && groupAttachments) contextBlocks.push(b); else otherBlocks.push(b);
+    if (b.type === 'attachment' && groupAttachments) contextBlocks.push(b); else otherBlocks.push(b)
   }
   const hasError = turn.blocks.some(b => b.type === 'tool_use' && b.result?.is_error)
   return (
@@ -400,7 +403,7 @@ function Collapsible({ title, children, className, defaultOpen = true, tokens, t
   const [open, setOpen] = useCollapsed(defaultOpen)
   return (
     <div className={`aux ${className || ''}`}>
-      <button className="aux-toggle" onClick={() => setOpen((v) => !v)}>
+      <button className="aux-toggle" onClick={() => setOpen(v => !v)}>
         <span className="aux-chevron">{open ? '▾' : '▸'}</span>
         <span>{title}</span>
         <ApproxTokens tokens={tokens} />

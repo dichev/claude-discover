@@ -38,23 +38,23 @@ export default function JsonlView({ items, expandAll = null }) {
   const [scale, bodyRef]  = useMouseFontScale('font-scale.jsonl')
   const findOpen          = useFindActive()
 
-  const scrollTo = (i) => {
+  const scrollTo = i => {
     const el = bodyRef.current?.querySelector(`[data-entry="${i}"]`)
     if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' })
   }
 
   const q = query.trim().toLowerCase()
   const entries = (items ?? [])
-    .map((parsed) => {
+    .map(parsed => {
       const value = q ? prune(parsed, q) : parsed
       return value === undefined ? undefined : { value, label: labelFor(parsed) }
     })
-    .filter((e) => e !== undefined)
+    .filter(e => e !== undefined)
 
   return (
     <div className="jsonl-viewer">
       <div className="jsonl-viewer-toolbar">
-        <input className={`jsonl-viewer-search${q ? ' filter-active' : ''}`} type="search" placeholder="Filter…" onInput={(e) => setQuery(e.target.value)} />
+        <input className={`jsonl-viewer-search${q ? ' filter-active' : ''}`} type="search" placeholder="Filter…" onInput={e => setQuery(e.target.value)} />
       </div>
       <div className="jsonl-viewer-content">
         {entries.length > 0 && (

@@ -60,13 +60,13 @@ export default function App() {
     resetScanProgress() // fresh scan for this period
     const timer = setTimeout(() => {
       window.api.listSessions(date, granularity)
-        .then((s) => {
+        .then(s => {
           if (!cancelled) { setSessions(s || []); setListError(null); setLoading(false) }
-        }, (err) => { // clear the list too — the previous period's sessions would pass for this one's
+        }, err => { // clear the list too — the previous period's sessions would pass for this one's
           if (!cancelled) { setSessions([]); setListError(err); setLoading(false) }
         })
     }, loading ? 0 : 120) // the 120ms debounce is for arrowing through periods — don't make the first scan wait for it
-    const off = window.api.onSessionsUpdate((u) => { // a previous period's update can land after the switch
+    const off = window.api.onSessionsUpdate(u => { // a previous period's update can land after the switch
       if (!cancelled && u.date === date && u.granularity === granularity) setSessions(u.sessions)
     })
     return () => { cancelled = true
@@ -79,7 +79,7 @@ export default function App() {
 
   // `selectedId` is a file path, or a session id when the selection came from a deep
   // link — one id can cover several transcripts, one per cwd.
-  const selected = sessions.find((s) => s.filePath === selectedId || s.sessionId === selectedId) || null
+  const selected = sessions.find(s => s.filePath === selectedId || s.sessionId === selectedId) || null
 
   // Say why the detail pane is empty instead of just showing nothing
   let missing = null
@@ -114,13 +114,13 @@ export default function App() {
     return window.api.onDeepLink(open)
   }, [selectSession, setGranularity])
 
-  const shiftPeriod = (delta) => {
-    setAnchor((a) => startOfPeriod(addPeriod(a, granularity, delta), granularity))
+  const shiftPeriod = delta => {
+    setAnchor(a => startOfPeriod(addPeriod(a, granularity, delta), granularity))
   }
 
-  const changeGranularity = (g) => {
+  const changeGranularity = g => {
     // Snap to the LAST sub-period of the current window (e.g. month → its final week/day), capped at today
-    setAnchor((a) => startOfPeriod(Math.min(endOfPeriod(a, granularity), Date.now()), g))
+    setAnchor(a => startOfPeriod(Math.min(endOfPeriod(a, granularity), Date.now()), g))
     setGranularity(g)
   }
 
@@ -146,7 +146,7 @@ export default function App() {
           onResetToday={() => setAnchor(startOfPeriod(Date.now(), granularity))}
           sourceFilter={sourceFilter}
           availableSources={dayItems.availableSources}
-          onToggleSourceFilter={(src) => setSourceFilter((cur) => (cur === src ? null : src))}
+          onToggleSourceFilter={src => setSourceFilter(cur => (cur === src ? null : src))}
           projects={dayItems.projects}
           projectFilter={projectFilter}
           onSetProjectFilter={setProjectFilter}

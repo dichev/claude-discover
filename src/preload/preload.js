@@ -20,7 +20,7 @@ contextBridge.exposeInMainWorld('api', {
   onScanProgress: subscribe('sessions:scan-progress'),
 
   getWorkHours: () => ipcRenderer.invoke('work-hours:get'),
-  setWorkHours: (data) => ipcRenderer.invoke('work-hours:set', data),
+  setWorkHours: data => ipcRenderer.invoke('work-hours:set', data),
 
   runAgentPrompt: run => ipcRenderer.invoke('agent:run', run),
   onAgentOutput: subscribe('agent:output'),

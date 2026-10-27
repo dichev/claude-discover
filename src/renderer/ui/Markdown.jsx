@@ -27,8 +27,7 @@ function buildLinkComponents(basePath) {
 
 // react-markdown's default transform blanks `data:` URLs; inline images are safe to keep since
 // an <img> never runs script (and the CSP blocks remote ones anyway).
-const urlTransform = (url, key, node) =>
-  node.tagName === 'img' && /^data:image\//i.test(url) ? url : defaultUrlTransform(url)
+const urlTransform = (url, key, node) => node.tagName === 'img' && /^data:image\//i.test(url) ? url : defaultUrlTransform(url)
 
 // Memoized per chunk: when streaming output grows, earlier chunks keep their exact string,
 // so only the tail chunk re-parses on each update.

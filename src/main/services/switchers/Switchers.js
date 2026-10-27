@@ -24,8 +24,13 @@ export class Switchers {
     return name in this.#keepActive ? { ...s, keepActive: this.#keepActive[name], ephemeral: LAUNCH_MODE === LAUNCH_MODES.NPX_TEMP } : s
   }
 
-  activate(name, ...args) { return this.#attempt(name, async s => { await s.activate(...args); this.#keepActive[name] &&= LAUNCH_MODE !== LAUNCH_MODES.NPX_TEMP }) } // an npx-cache run undoes what it activated
-  deactivate(name)        { return this.#attempt(name, s => s.deactivate()) }
+  activate(name, ...args) {
+    return this.#attempt(name, async s => {
+      await s.activate(...args)
+      this.#keepActive[name] &&= LAUNCH_MODE !== LAUNCH_MODES.NPX_TEMP // an npx-cache run undoes what it activated
+    })
+  }
+  deactivate(name) { return this.#attempt(name, s => s.deactivate()) }
   setKeepActive(name, value) { return this.#attempt(name, () => this.#keepActive[name] = !!value) }
 
   // Deactivate every switch not marked keep-active

@@ -67,11 +67,9 @@ function Tree({ value, expandAll, collapsed = false, seen = null }) {
       }} />
       {/* mark nodes whose content repeats an earlier request — CSS fades their subtree.
           Always mounted (conditional mounting would register in the store a pass too late) */}
-      <JsonView.KeyName render={(props, { keys }) =>
-        live.current.seen?.has(keys.join('.'))
-          ? <span {...props} className="requests-seen-key" />
-          : undefined
-      } />
+      <JsonView.KeyName render={(props, { keys }) => {
+        return live.current.seen?.has(keys.join('.')) ? <span {...props} className="requests-seen-key" /> : undefined
+      }} />
     </JsonView>
   )
 }

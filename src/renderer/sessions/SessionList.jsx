@@ -82,15 +82,16 @@ export default function SessionList({ sessions, selectedId, deepLink, onSelect }
 
 
   // The first command, when nothing better names the session.
-  const labelCommand = (s) => !(s.aiTitle || s.summary || s.firstUserPrompt) && parseCommand(s.firstUserCommand)
-  const sessionLabel = (s) => {
+  const labelCommand = s => !(s.aiTitle || s.summary || s.firstUserPrompt) && parseCommand(s.firstUserCommand)
+  const sessionLabel = s => {
     const c = labelCommand(s)
     return c ? `${c.name || c.message} ${c.args}` : (s.aiTitle || s.summary || s.firstUserPrompt || s.sessionId || '')
   }
 
   const q = filter.trim().toLowerCase()
-  const filtered = q ? sessions.filter((s) => [
-    s.customTitle, s.agentName, s.tag, s.aiTitle, s.summary, s.firstUserPrompt, s.firstUserCommand, s.project, s.subdir, s.worktree, s.tempPath, s.sessionId, s.model, s.gitBranch
+  const filtered = q ? sessions.filter(s => [
+    s.customTitle, s.agentName, s.tag, s.aiTitle, s.summary, s.firstUserPrompt, s.firstUserCommand,
+    s.project, s.subdir, s.worktree, s.tempPath, s.sessionId, s.model, s.gitBranch,
   ].filter(Boolean).join(' ').toLowerCase().includes(q)) : sessions
 
   const sorted = sortBy === 'cost'   ? [...filtered].sort((a, b) => (b.cost || 0) - (a.cost || 0))
@@ -113,7 +114,7 @@ export default function SessionList({ sessions, selectedId, deepLink, onSelect }
             className={`filter${q ? ' filter-active' : ''}`}
             placeholder="Filter sessions…"
             value={filter}
-            onChange={(e) => setFilter(e.target.value)}
+            onChange={e => setFilter(e.target.value)}
           />
           {filter && (
             <button type="button" className="filter-clear" aria-label="Clear filter" onClick={() => setFilter('')}>×</button>
@@ -154,7 +155,9 @@ export default function SessionList({ sessions, selectedId, deepLink, onSelect }
                   <Chevron size={14} aria-hidden="true" />
                 </span>
                 <span className="session-time-bottom">
-                  <ProjectModels {...run[0]} models={[...new Set(run.flatMap(c => c.models ?? []))]} efforts={[...new Set(run.flatMap(c => c.efforts ?? []))]} />
+                  <ProjectModels
+                    {...run[0]} models={[...new Set(run.flatMap(c => c.models ?? []))]} efforts={[...new Set(run.flatMap(c => c.efforts ?? []))]}
+                  />
                 </span>
                 <RowStats at={Math.max(...run.map(c => c.lastActivityAt))} tokens={sumOf(run, 'totalTokens')} cost={sumOf(run, 'cost')} sortBy={sortBy} />
               </button>

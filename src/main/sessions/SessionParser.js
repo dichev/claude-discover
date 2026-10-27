@@ -23,7 +23,7 @@ function extractText(content) {
   if (typeof content === 'string') return content
   if (!Array.isArray(content)) return ''
   return content
-    .map((b) => (typeof b === 'string' ? b : b?.type === 'text' ? b.text : ''))
+    .map(b => (typeof b === 'string' ? b : b?.type === 'text' ? b.text : ''))
     .filter(Boolean)
     .join('\n')
 }
@@ -319,7 +319,8 @@ export class SessionParser {
     const cacheDenom = t.cacheRead + t.cacheCreation
     meta.cacheHitRatio = cacheDenom > 0 ? t.cacheRead / cacheDenom : null
     const costOf = (opts, part = b => b) => !this.pricing ? 0
-      : (this.pricing.costUSD(pickParts(meta.tokensByModel, part), opts) || 0) + (this.pricing.costUSD(pickParts(meta.tokensByModelFast, part), { ...opts, fast: true }) || 0)
+      : (this.pricing.costUSD(pickParts(meta.tokensByModel, part), opts) || 0)
+        + (this.pricing.costUSD(pickParts(meta.tokensByModelFast, part), { ...opts, fast: true }) || 0)
     meta.cost = costOf({})
     meta.costByType = Object.fromEntries(Object.entries(COST_PARTS).map(([type, part]) => [type, costOf({}, part)]))
     // What the session would have cost with only 5m cache (no 1h premium); the gap is the potential saving.

@@ -143,7 +143,7 @@ function Section({ title, children }) {
 }
 
 function Field({ label, value, mono, full, below, autoselect }) {
-  const selectAll = autoselect ? (e) => {
+  const selectAll = autoselect ? e => {
     const range = document.createRange()
     range.selectNodeContents(e.currentTarget)
     const sel = window.getSelection()

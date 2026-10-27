@@ -19,10 +19,11 @@ const SPLIT_GAP = 5 * 60_000 // a longer pause between subagents (user working) 
 
 // Split each parent's subagents into time-separated runs (a pause > gap ms = the user worked in between).
 export function subagentClusters(sessions, gap = SPLIT_GAP) {
-  return [...subagentsByParent(sessions).values()].flatMap(subs =>
-    subs.sort((a, b) => a.startedAt - b.startedAt).reduce((runs, s, i, arr) => {
+  return [...subagentsByParent(sessions).values()].flatMap(subs => {
+    return subs.sort((a, b) => a.startedAt - b.startedAt).reduce((runs, s, i, arr) => {
       if (i && s.startedAt - arr[i - 1].lastActivityAt <= gap) runs.at(-1).push(s)
       else runs.push([s])
       return runs
-    }, []))
+    }, [])
+  })
 }

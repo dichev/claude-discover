@@ -43,7 +43,7 @@ export default function Session({ meta, missing, date, granularity = 'day', onSh
   useEffect(() => {
     if (!filePath) return
     let cancelled = false
-    window.api.readSession(filePath, date || null, granularity).then((res) => {
+    window.api.readSession(filePath, date || null, granularity).then(res => {
       if (cancelled || !res) return
       setRead({ ...res, instructions: res.instructions || {} })
       setError(null)
@@ -87,20 +87,26 @@ export default function Session({ meta, missing, date, granularity = 'day', onSh
                     {mode === 'conversation' && <MultiPicker className="view-filter" options={FILTERS} value={filter} onChange={setFilter} allLabel="All messages" />}
                     <Toggle
                       checked={!!expandAll}
-                      onChange={(v) => setExpandAll(v)}
+                      onChange={v => setExpandAll(v)}
                       label={mode === 'conversation' ? 'Expand all' : 'Full text'}
                     />
                   </div>
                 </div>
                 {mode === 'conversation' ? (
                   <div className="view-tab-pane-content">
-                    {items ? <ConversationView items={items} instructions={instructions} filePath={meta.parentFilePath ?? meta.filePath} expandAll={expandAll} filter={filter} continuesFrom={meta.continuesFrom} continuesTo={meta.continuesTo} forkedFrom={meta.forkedFrom} forkedAt={meta.forkedAt} onShowPeriodOf={onShowPeriodOf} />
+                    {items ? <ConversationView
+                               items={items} instructions={instructions} filePath={meta.parentFilePath ?? meta.filePath} expandAll={expandAll} filter={filter}
+                               continuesFrom={meta.continuesFrom} continuesTo={meta.continuesTo} forkedFrom={meta.forkedFrom} forkedAt={meta.forkedAt}
+                               onShowPeriodOf={onShowPeriodOf}
+                             />
                            : loadError || <div className="empty">Loading conversation…</div>}
                   </div>
                 ) : mode === 'jsonl' ? (
                   (!items && loadError) || <JsonlView items={items} expandAll={expandAll} />
                 ) : (
-                  <RequestsView filePath={filePath} items={items} date={date} granularity={granularity} fileSize={fileSize} desktop={desktop} expandAll={expandAll} />
+                  <RequestsView
+                    filePath={filePath} items={items} date={date} granularity={granularity} fileSize={fileSize} desktop={desktop} expandAll={expandAll}
+                  />
                 )}
               </div>
               <SessionSummary key={viewKey} meta={meta} items={items} requestLog={requestLog} agent={agent} granularity={granularity} />

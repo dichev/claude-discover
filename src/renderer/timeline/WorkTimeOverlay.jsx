@@ -4,8 +4,8 @@ import './WorkTimeOverlay.css'
 const SNAP_MIN = 5
 
 const clamp = (v, lo, hi) => Math.min(Math.max(v, lo), hi)
-const fmtHM = (m) => `${String(Math.floor(m / 60)).padStart(2, '0')}:${String(m % 60).padStart(2, '0')}`
-const parseHM = (s) => { const [h, m] = s.split(':').map(Number); return h * 60 + m }
+const fmtHM = m => `${String(Math.floor(m / 60)).padStart(2, '0')}:${String(m % 60).padStart(2, '0')}`
+const parseHM = s => { const [h, m] = s.split(':').map(Number); return h * 60 + m }
 
 // Saturday/Sunday spans (clamped to the view) for the Weekly/Monthly overlay.
 const weekendSpans = (viewStart, viewEnd) => {
@@ -43,16 +43,16 @@ export default function WorkTimeOverlay({
   }, [])
 
   const chartRight = chartLeft + chartWidth
-  const xForMin = (min) => chartLeft + ((dayStart + min * 60_000 - viewStart) / (viewEnd - viewStart)) * chartWidth
+  const xForMin = min => chartLeft + ((dayStart + min * 60_000 - viewStart) / (viewEnd - viewStart)) * chartWidth
   const xStart = workTime ? xForMin(workTime.startMin) : 0
   const xEnd = workTime ? xForMin(workTime.endMin) : 0
 
-  const startDrag = (which) => (e) => {
+  const startDrag = which => e => {
     e.stopPropagation()
     e.preventDefault()
     setDragging(which)
     let next = null
-    const onMove = (m) => {
+    const onMove = m => {
       const rect = containerRef.current.getBoundingClientRect()
       const ratio = clamp((m.clientX - rect.left - chartLeft) / chartWidth, 0, 1)
       const ts = viewStart + ratio * (viewEnd - viewStart)
@@ -98,7 +98,7 @@ export default function WorkTimeOverlay({
   const shadeL = clamp(xStart, chartLeft, chartRight)
   const shadeR = clamp(xEnd, chartLeft, chartRight)
 
-  const xForTs = (ts) => chartLeft + ((ts - viewStart) / (viewEnd - viewStart)) * chartWidth
+  const xForTs = ts => chartLeft + ((ts - viewStart) / (viewEnd - viewStart)) * chartWidth
   const showNow = now >= viewStart && now <= viewEnd
 
   return (

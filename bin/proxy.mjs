@@ -192,10 +192,11 @@ export function dedupeRequest(body, seen = new Set()) {
   // Inside a newly-seen value, array elements (content blocks, tool schemas, …) are deduped
   // individually too, at any depth — one injected/updated element (e.g. a system-reminder)
   // must not re-log its siblings. Primitive elements stay inline: a $ref would outweigh them.
-  const deep = v =>
-    Array.isArray(v) ? v.map(el => el && typeof el === 'object' ? dedupe(el) : el)
-    : v && typeof v === 'object' ? Object.fromEntries(Object.entries(v).map(([k, x]) => [k, deep(x)]))
-    : v
+  const deep = v => {
+    return Array.isArray(v) ? v.map(el => el && typeof el === 'object' ? dedupe(el) : el)
+      : v && typeof v === 'object' ? Object.fromEntries(Object.entries(v).map(([k, x]) => [k, deep(x)]))
+      : v
+  }
   const out = { ...body }
   if (out.system != null) out.system = dedupe(out.system)
   if (out.tools != null) out.tools = dedupe(out.tools)
