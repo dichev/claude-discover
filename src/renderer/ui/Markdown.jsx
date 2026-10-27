@@ -1,4 +1,4 @@
-import React, { useMemo, useRef } from 'react'
+import React, { useRef } from 'react'
 import ReactMarkdown, { defaultUrlTransform } from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 import rehypeHighlight from 'rehype-highlight'
@@ -43,8 +43,8 @@ const Chunk = React.memo(({ text, components }) => (
 export default function Markdown({ text, basePath = null, autoFence = false, className = '', ...rest }) {
   const ref        = useRef(null)
   const findOpen   = useFindActive()
-  const components = useMemo(() => buildLinkComponents(basePath), [basePath])
-  const chunks     = useMemo(() => splitMarkdown(autoFence ? fenceBlocks(fenceTags(text)) : text), [text, autoFence])
+  const components = buildLinkComponents(basePath)
+  const chunks     = splitMarkdown(autoFence ? fenceBlocks(fenceTags(text)) : text)
   const cls        = `markdown${className ? ' ' + className : ''}`
   if (chunks.length === 1) return (
     <div className={cls} {...rest}><Chunk text={chunks[0]} components={components} /></div>

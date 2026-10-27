@@ -64,7 +64,7 @@ export default defineConfig({
       }
     },
     server: { port: 5555, strictPort: true }, // npm run dev
-    plugins: [react(), cspMeta()],
+    plugins: [react({ compiler: true }), cspMeta()],
     define: {
       __APP_VERSION__: JSON.stringify(pkg.version)
     }

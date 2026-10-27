@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, useCallback } from 'react'
+import { useEffect, useState } from 'react'
 import { Group, Panel, Separator, useDefaultLayout } from 'react-resizable-panels'
 import GanttChart from './timeline/GanttChart.jsx'
 import Toolbar from './timeline/Toolbar.jsx'
@@ -13,6 +13,18 @@ import { startOfPeriod, endOfPeriod, addPeriod } from './utils/period.js'
 import { useLocalStorage } from './utils/useLocalStorage.js'
 import { useScanProgress, resetScanProgress } from './utils/useScanProgress.js'
 import './App.css'
+
+function filterItems(sessions, sourceFilter, projectFilter) {
+  const sourceFiltered = sourceFilter ? sessions.filter(s => (s.source || 'other') === sourceFilter) : sessions
+  const past = projectFilter.length ? sourceFiltered.filter(s => projectFilter.includes(s.project || '(no project)')) : sourceFiltered
+  const availableSources = [...new Set(sessions.map(s => s.source || 'other'))]
+  const byProject = new Map()
+  for (const s of sourceFiltered) {
+    const key = s.project || '(no project)'
+    if (!byProject.has(key)) byProject.set(key, { key, projectShort: s.projectShort, temp: !!s.tempPath })
+  }
+  return { past, availableSources, projects: [...byProject.values()] }
+}
 
 export default function App() {
   const [sessions, setSessions]                 = useState([])
@@ -29,11 +41,7 @@ export default function App() {
   const { defaultLayout, onLayoutChanged } = useDefaultLayout({ id: 'app.body', panelIds: ['list', 'detail'], storage: localStorage })
   const { defaultLayout: rootLayout, onLayoutChanged: onRootLayoutChanged } = useDefaultLayout({ id: 'app.root', panelIds: ['gantt', 'body'], storage: localStorage })
 
-  const dayRange = useMemo(() => {
-    const start = anchor
-    const end = endOfPeriod(anchor, granularity)
-    return { start, end }
-  }, [anchor, granularity])
+  const dayRange = { start: anchor, end: endOfPeriod(anchor, granularity) }
 
   // Left open across midnight, a view of the current period must follow the clock into the new one
   useEffect(() => {
@@ -67,24 +75,11 @@ export default function App() {
      }
   }, [anchor, granularity])
 
-  const dayItems = useMemo(() => {
-    const sourceFiltered = sourceFilter ? sessions.filter(s => (s.source || 'other') === sourceFilter) : sessions
-    const past = projectFilter.length ? sourceFiltered.filter(s => projectFilter.includes(s.project || '(no project)')) : sourceFiltered
-    const availableSources = [...new Set(sessions.map(s => s.source || 'other'))]
-    const byProject = new Map()
-    for (const s of sourceFiltered) {
-      const key = s.project || '(no project)'
-      if (!byProject.has(key)) byProject.set(key, { key, projectShort: s.projectShort, temp: !!s.tempPath })
-    }
-    return { past, availableSources, projects: [...byProject.values()] }
-  }, [sessions, sourceFilter, projectFilter])
+  const dayItems = filterItems(sessions, sourceFilter, projectFilter)
 
   // `selectedId` is a file path, or a session id when the selection came from a deep
   // link — one id can cover several transcripts, one per cwd.
-  const selected = useMemo(
-    () => sessions.find((s) => s.filePath === selectedId || s.sessionId === selectedId) || null,
-    [sessions, selectedId]
-  )
+  const selected = sessions.find((s) => s.filePath === selectedId || s.sessionId === selectedId) || null
 
   // Say why the detail pane is empty instead of just showing nothing
   let missing = null
@@ -97,11 +92,11 @@ export default function App() {
   }
 
   // `link` is set only by the deep-link handler below — picking a session by hand clears the notice
-  const selectSession = useCallback((id, link = null) => {
+  const selectSession = (id, link = null) => {
     closeFind() // Close find synchronously on switch so the new transcript renders with forceMount off (no lag)
     setSelectedId(id)
     setDeepLink(link)
-  }, [])
+  }
 
   // Deep link (claude-discover://session?id=…&date=…): jump to the session's day and select it
   useEffect(() => {
@@ -119,19 +114,15 @@ export default function App() {
     return window.api.onDeepLink(open)
   }, [selectSession, setGranularity])
 
-  const shiftPeriod = useCallback((delta) => {
+  const shiftPeriod = (delta) => {
     setAnchor((a) => startOfPeriod(addPeriod(a, granularity, delta), granularity))
-  }, [granularity])
+  }
 
-  // Stable, so the memoized GanttChart skips App renders that don't touch it
-  const toggleExpanded  = useCallback(key => setExpandedProjects(cur => cur.includes(key) ? cur.filter(k => k !== key) : [...cur, key]), [setExpandedProjects])
-  const showAllProjects = useCallback(() => setProjectFilter([]), [setProjectFilter])
-
-  const changeGranularity = useCallback((g) => {
+  const changeGranularity = (g) => {
     // Snap to the LAST sub-period of the current window (e.g. month → its final week/day), capped at today
     setAnchor((a) => startOfPeriod(Math.min(endOfPeriod(a, granularity), Date.now()), g))
     setGranularity(g)
-  }, [granularity, setGranularity])
+  }
 
   if (loading) {
     return <div className="app-loading">Loading sessions…</div>
@@ -169,9 +160,9 @@ export default function App() {
             dayAnchor={anchor}
             granularity={granularity}
             expanded={expandedProjects}
-            onToggleExpanded={toggleExpanded}
+            onToggleExpanded={key => setExpandedProjects(cur => cur.includes(key) ? cur.filter(k => k !== key) : [...cur, key])}
             otherProjects={projectFilter.length ? dayItems.projects.filter(p => !projectFilter.includes(p.key)).length : 0}
-            onShowAllProjects={showAllProjects}
+            onShowAllProjects={() => setProjectFilter([])}
           />
           <PeriodSummary sessions={dayItems.past} dayAnchor={anchor} granularity={granularity} expanded={expandedProjects} />
         </div>

@@ -1,53 +1,57 @@
-import { memo, Fragment, useMemo, useState } from 'react'
+import { Fragment, useState } from 'react'
 import { fmtUSD, fmtCompact, fmtDuration } from '../utils/formatting.js'
 import CostBreakdownChart from './CostBreakdownChart.jsx'
 import './PeriodSummary.css'
 
-export default memo(function PeriodSummary({ sessions, dayAnchor, granularity = 'day', expanded }) {
-  const totals = useMemo(() => {
-    const t = sessions.reduce((acc, s) => {
-      acc.cost += s.cost || 0
-      acc.savingsUsing5mCache += s.savings?.using5mCache || 0
-      acc.totalTokens += s.totalTokens || 0
-      acc.input += s.tokens.input
-      acc.output += s.tokens.output
-      acc.cacheRead += s.tokens.cacheRead
-      acc.cacheCreation += s.tokens.cacheCreation
-      acc.cacheCreation1h += s.tokens.cacheCreation1h || 0
-      for (const k in s.costByType) acc.costByType[k] = (acc.costByType[k] || 0) + s.costByType[k]
-      acc.activeMs += s.activeMs || 0
-      return acc
-    }, { cost: 0, savingsUsing5mCache: 0, totalTokens: 0, input: 0, output: 0, cacheRead: 0, cacheCreation: 0, cacheCreation1h: 0, activeMs: 0, costByType: {} })
-    const cacheDenom = t.cacheRead + t.cacheCreation
-    t.cacheHitRatio = cacheDenom > 0 ? t.cacheRead / cacheDenom : null
-    return t
-  }, [sessions])
+function sumTotals(sessions) {
+  const t = sessions.reduce((acc, s) => {
+    acc.cost += s.cost || 0
+    acc.savingsUsing5mCache += s.savings?.using5mCache || 0
+    acc.totalTokens += s.totalTokens || 0
+    acc.input += s.tokens.input
+    acc.output += s.tokens.output
+    acc.cacheRead += s.tokens.cacheRead
+    acc.cacheCreation += s.tokens.cacheCreation
+    acc.cacheCreation1h += s.tokens.cacheCreation1h || 0
+    for (const k in s.costByType) acc.costByType[k] = (acc.costByType[k] || 0) + s.costByType[k]
+    acc.activeMs += s.activeMs || 0
+    return acc
+  }, { cost: 0, savingsUsing5mCache: 0, totalTokens: 0, input: 0, output: 0, cacheRead: 0, cacheCreation: 0, cacheCreation1h: 0, activeMs: 0, costByType: {} })
+  const cacheDenom = t.cacheRead + t.cacheCreation
+  t.cacheHitRatio = cacheDenom > 0 ? t.cacheRead / cacheDenom : null
+  return t
+}
 
-  const byProject = useMemo(() => {
-    const map = new Map()
-    for (const s of sessions) {
-      const key = s.project || '(no project)'
-      let g = map.get(key)
-      if (!g) {
-        g = { key, projectShort: s.projectShort, cost: 0, totalTokens: 0, byDir: new Map() }
-        map.set(key, g)
-      }
-      const dir = s.subdir ?? ''
-      let d = g.byDir.get(dir)
-      if (!d) g.byDir.set(dir, d = { dir, cost: 0, totalTokens: 0 })
-      for (const t of [g, d]) {
-        t.cost += s.cost || 0
-        t.totalTokens += s.totalTokens || 0
-      }
+function groupByProject(sessions) {
+  const map = new Map()
+  for (const s of sessions) {
+    const key = s.project || '(no project)'
+    let g = map.get(key)
+    if (!g) {
+      g = { key, projectShort: s.projectShort, cost: 0, totalTokens: 0, byDir: new Map() }
+      map.set(key, g)
     }
-    return [...map.values()]
-  }, [sessions])
+    const dir = s.subdir ?? ''
+    let d = g.byDir.get(dir)
+    if (!d) g.byDir.set(dir, d = { dir, cost: 0, totalTokens: 0 })
+    for (const t of [g, d]) {
+      t.cost += s.cost || 0
+      t.totalTokens += s.totalTokens || 0
+    }
+  }
+  return [...map.values()]
+}
+
+export default function PeriodSummary({ sessions, dayAnchor, granularity = 'day', expanded }) {
+  const totals = sumTotals(sessions)
+
+  const byProject = groupByProject(sessions)
 
   const [stat, setStat] = useState('cost')
   const isCost = stat === 'cost'
 
   const byStat = (a, b) => isCost ? b.cost - a.cost : b.totalTokens - a.totalTokens
-  const sortedByProject = useMemo(() => [...byProject].sort(byStat), [byProject, stat])
+  const sortedByProject = byProject.toSorted(byStat)
 
   const c = totals.costByType
   const tokenMix = [
@@ -129,4 +133,4 @@ export default memo(function PeriodSummary({ sessions, dayAnchor, granularity = 
       </div>
     </aside>
   )
-})
+}

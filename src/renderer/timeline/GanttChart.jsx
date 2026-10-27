@@ -1,4 +1,4 @@
-import { memo, useEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { SOURCE_COLORS, SOURCE_LABELS } from '../utils/colors.js'
 import { useLocalStorage } from '../utils/useLocalStorage.js'
 import { useMouse } from '../utils/useMouse.js'
@@ -38,7 +38,76 @@ function packLanes(items) {
   return { placed, laneCount: Math.max(1, lanes.length) }
 }
 
-export default memo(function GanttChart({
+function layoutGroups(sessions, bar, expanded) {
+  // Subagents split into time-separated runs; a run of 2+ collapses into one labelled bar.
+  const clusters = subagentClusters(sessions).filter((c) => c.length >= 2)
+  const collapsed = new Set(clusters.flat().map((s) => s.filePath))
+
+  const byKey = new Map()
+  const addItem = (s, item, cost) => {
+    const key = s.project || '(no project)'
+    let group = byKey.get(key)
+    if (!group) byKey.set(key, group = { key, projectShort: s.projectShort, temp: false, byDir: new Map(), cost: 0 })
+    group.temp = group.temp || !!s.tempPath
+    item.dir = s.subdir ?? ''
+    let row = group.byDir.get(item.dir)
+    if (!row) group.byDir.set(item.dir, row = { dir: item.dir, items: [], cost: 0 })
+    row.items.push(item)
+    row.cost += cost || 0
+    group.cost += cost || 0
+  }
+
+  for (const s of sessions) {
+    if (collapsed.has(s.filePath)) continue
+    addItem(s, {
+      id: s.filePath,
+      label: s.summary || s.firstUserPrompt || s.firstUserCommand || s.sessionId,
+      start: s.startedAt,
+      end: endOf(s),
+      source: s.source,
+      activityPeriods: s.activityPeriods,
+    }, s.cost)
+  }
+
+  for (const subs of clusters) {
+    const periods = subs.map((c) => ({ start: c.startedAt, end: endOf(c) }))
+    addItem(subs[0], {
+      id: `${subs[0].filePath}::subagents`,
+      start: periods[0].start,
+      end: Math.max(...periods.map((p) => p.end)),
+      source: subs[0].source,
+      activityPeriods: periods,
+      subs,
+      subCount: subs.filter(c => !isJournal(c)).length, // journals are workflow logs, not subagents
+    }, subs.reduce((sum, c) => sum + (c.cost || 0), 0))
+  }
+  const lane = bar.height + bar.row_gap
+  const arr = [...byKey.values()].sort((a, b) => a.temp - b.temp || b.cost - a.cost)
+  let y = HEADER_HEIGHT
+  for (const g of arr) {
+    g.yOffset = y
+    g.dirs = g.byDir.size - g.byDir.has('')
+    g.expanded = g.dirs > 0 && expanded.includes(g.key)
+    const rows = g.expanded
+      ? [...g.byDir.values()].sort((a, b) => !!a.dir - !!b.dir || b.cost - a.cost)
+      : [{ items: [...g.byDir.values()].flatMap(r => r.items) }]
+    // Expanded, the project name gets a line of its own above the per-subfolder rows
+    let rowY = g.expanded ? y + Math.max(LABEL_LINE, lane) : y
+    g.placed = []
+    g.labels = g.dirs > 0 && !g.expanded ? [{ text: `${g.dirs} dir${g.dirs === 1 ? '' : 's'} grouped`, x: LABEL_X, y: y + bar.height / 2 + LABEL_LINE }] : []
+    for (const row of rows) {
+      const { placed, laneCount } = packLanes(row.items)
+      if (g.expanded) g.labels.push({ text: clipLeft(row.dir || '(root)'), title: row.dir, x: LABEL_X + 8, y: rowY + bar.height / 2 })
+      for (const p of placed) g.placed.push({ item: p.item, y: rowY + p.lane * lane })
+      rowY += g.expanded ? Math.max(laneCount * lane, LABEL_LINE) : laneCount * lane // month lanes are shorter than a label
+    }
+    g.height = Math.max(rowY - y, ...g.labels.map(l => l.y + 6 - y)) // tall enough for the lowest label
+    y += g.height + bar.group_gap
+  }
+  return { groups: arr, totalHeight: Math.max(HEADER_HEIGHT + bar.height + 12, y + 4) }
+}
+
+export default function GanttChart({
   dayRange, sessions, onSelect, selectedId, dayAnchor,
   granularity = 'day', expanded, onToggleExpanded, otherProjects, onShowAllProjects,
 }) {
@@ -62,83 +131,13 @@ export default memo(function GanttChart({
     return () => ro.disconnect()
   }, [])
 
-  const { groups, totalHeight } = useMemo(() => {
-    // Subagents split into time-separated runs; a run of 2+ collapses into one labelled bar.
-    const clusters = subagentClusters(sessions).filter((c) => c.length >= 2)
-    const collapsed = new Set(clusters.flat().map((s) => s.filePath))
-
-    const byKey = new Map()
-    const addItem = (s, item, cost) => {
-      const key = s.project || '(no project)'
-      let group = byKey.get(key)
-      if (!group) byKey.set(key, group = { key, projectShort: s.projectShort, temp: false, byDir: new Map(), cost: 0 })
-      group.temp ||= !!s.tempPath
-      item.dir = s.subdir ?? ''
-      let row = group.byDir.get(item.dir)
-      if (!row) group.byDir.set(item.dir, row = { dir: item.dir, items: [], cost: 0 })
-      row.items.push(item)
-      row.cost += cost || 0
-      group.cost += cost || 0
-    }
-
-    for (const s of sessions) {
-      if (collapsed.has(s.filePath)) continue
-      addItem(s, {
-        id: s.filePath,
-        label: s.summary || s.firstUserPrompt || s.firstUserCommand || s.sessionId,
-        start: s.startedAt,
-        end: endOf(s),
-        source: s.source,
-        activityPeriods: s.activityPeriods,
-      }, s.cost)
-    }
-
-    for (const subs of clusters) {
-      const periods = subs.map((c) => ({ start: c.startedAt, end: endOf(c) }))
-      addItem(subs[0], {
-        id: `${subs[0].filePath}::subagents`,
-        start: periods[0].start,
-        end: Math.max(...periods.map((p) => p.end)),
-        source: subs[0].source,
-        activityPeriods: periods,
-        subs,
-        subCount: subs.filter(c => !isJournal(c)).length, // journals are workflow logs, not subagents
-      }, subs.reduce((sum, c) => sum + (c.cost || 0), 0))
-    }
-    const lane = bar.height + bar.row_gap
-    const arr = [...byKey.values()].sort((a, b) => a.temp - b.temp || b.cost - a.cost)
-    let y = HEADER_HEIGHT
-    for (const g of arr) {
-      g.yOffset = y
-      g.dirs = g.byDir.size - g.byDir.has('')
-      g.expanded = g.dirs > 0 && expanded.includes(g.key)
-      const rows = g.expanded
-        ? [...g.byDir.values()].sort((a, b) => !!a.dir - !!b.dir || b.cost - a.cost)
-        : [{ items: [...g.byDir.values()].flatMap(r => r.items) }]
-      // Expanded, the project name gets a line of its own above the per-subfolder rows
-      let rowY = g.expanded ? y + Math.max(LABEL_LINE, lane) : y
-      g.placed = []
-      g.labels = g.dirs > 0 && !g.expanded ? [{ text: `${g.dirs} dir${g.dirs === 1 ? '' : 's'} grouped`, x: LABEL_X, y: y + bar.height / 2 + LABEL_LINE }] : []
-      for (const row of rows) {
-        const { placed, laneCount } = packLanes(row.items)
-        if (g.expanded) g.labels.push({ text: clipLeft(row.dir || '(root)'), title: row.dir, x: LABEL_X + 8, y: rowY + bar.height / 2 })
-        for (const p of placed) g.placed.push({ item: p.item, y: rowY + p.lane * lane })
-        rowY += g.expanded ? Math.max(laneCount * lane, LABEL_LINE) : laneCount * lane // month lanes are shorter than a label
-      }
-      g.height = Math.max(rowY - y, ...g.labels.map(l => l.y + 6 - y)) // tall enough for the lowest label
-      y += g.height + bar.group_gap
-    }
-    return { groups: arr, totalHeight: Math.max(HEADER_HEIGHT + bar.height + 12, y + 4) }
-  }, [sessions, granularity, expanded])
+  const { groups, totalHeight } = layoutGroups(sessions, bar, expanded)
 
   const chartWidth = Math.max(100, width - PROJECTS_WIDTH)
   const span = view.end - view.start
   const xFor = (ts) => PROJECTS_WIDTH + ((ts - view.start) / span) * chartWidth
 
-  const ticks = useMemo(
-    () => computeTicks({ viewStart: view.start, viewEnd: view.end, width: chartWidth, span }),
-    [view.start, view.end, chartWidth, span],
-  )
+  const ticks = computeTicks({ viewStart: view.start, viewEnd: view.end, width: chartWidth, span })
 
   useMouse(containerRef, {
     onZoom: (e) => { // cursor-anchored: the timestamp under the pointer stays put
@@ -294,4 +293,4 @@ export default memo(function GanttChart({
       </div>
     </div>
   )
-})
+}

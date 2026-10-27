@@ -110,6 +110,7 @@ Optional features, secondary to the core timeline. The switchable ones are a cla
 
 - **Backend (`src/main/`) is OOP** — every service/module is a class
 - **Frontend (`src/renderer/`) is functional** — function components, hooks for state, shared logic in custom hooks
+- The React Compiler (`react({ compiler: true })`, the plugin's Rust port) memoizes the renderer — don't add `memo`/`useMemo`/`useCallback` by hand, except `memo` on a component rendered in a list's loop (the compiler doesn't cache per item)
 - Renderer never imports from `bin/` or `src/main/`; the only channel is `window.api` (`src/shared/` pure helpers excepted)
 - Every markdown surface renders through `ui/Markdown.jsx` — never instantiate ReactMarkdown directly
 - `MarkdownSession.js` duplicates fields from `ConversationView.jsx`/`SessionSummary.jsx` by hand — changing either means updating it too

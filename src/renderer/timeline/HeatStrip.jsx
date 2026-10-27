@@ -1,5 +1,3 @@
-import { useMemo } from 'react'
-
 const BIN_HEIGHT_PX = 4
 const BIN_WIDTH_MINUTES = 5
 const BIN_WIDTH_MS = BIN_WIDTH_MINUTES * 60_000
@@ -12,6 +10,23 @@ const STOPS = [
   [Infinity, 'rgb(185  28  28 / 1.00)'], // outlier
 ]
 
+function binCosts(sessions, slotStart, binCount) {
+  const arr = new Float64Array(binCount)
+  for (const s of sessions) {
+    for (const { start, end, cost } of s.costSamples ?? []) {
+      const turnEnd = Math.max(end, start + 1)
+      const ratePerMs = cost / (turnEnd - start)
+      const b0 = Math.max(0, Math.floor((start - slotStart) / BIN_WIDTH_MS))
+      const b1 = Math.min(binCount - 1, Math.floor((turnEnd - slotStart) / BIN_WIDTH_MS))
+      for (let b = b0; b <= b1; b++) {
+        const bs = slotStart + b * BIN_WIDTH_MS
+        arr[b] += ratePerMs * (Math.min(turnEnd, bs + BIN_WIDTH_MS) - Math.max(start, bs))
+      }
+    }
+  }
+  return arr
+}
+
 export default function HeatStrip({ sessions, viewStart, viewEnd, width, gutter }) {
   const chartWidth = width - gutter
   // Snap to absolute 5-min wall-clock slots so a slice keeps the same color at any zoom.
@@ -20,22 +35,7 @@ export default function HeatStrip({ sessions, viewStart, viewEnd, width, gutter 
   const binW      = (BIN_WIDTH_MS / (viewEnd - viewStart)) * chartWidth
   const x0        = ((slotStart - viewStart) / (viewEnd - viewStart)) * chartWidth
 
-  const bins = useMemo(() => {
-    const arr = new Float64Array(binCount)
-    for (const s of sessions) {
-      for (const { start, end, cost } of s.costSamples ?? []) {
-        const turnEnd = Math.max(end, start + 1)
-        const ratePerMs = cost / (turnEnd - start)
-        const b0 = Math.max(0, Math.floor((start - slotStart) / BIN_WIDTH_MS))
-        const b1 = Math.min(binCount - 1, Math.floor((turnEnd - slotStart) / BIN_WIDTH_MS))
-        for (let b = b0; b <= b1; b++) {
-          const bs = slotStart + b * BIN_WIDTH_MS
-          arr[b] += ratePerMs * (Math.min(turnEnd, bs + BIN_WIDTH_MS) - Math.max(start, bs))
-        }
-      }
-    }
-    return arr
-  }, [sessions, slotStart, binCount])
+  const bins = binCosts(sessions, slotStart, binCount)
 
   return (
     <svg width={width} height={BIN_HEIGHT_PX} className="heat-strip">

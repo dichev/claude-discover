@@ -1,4 +1,4 @@
-import { memo, Suspense, use, useEffect, useMemo, useRef, useState } from 'react'
+import { Suspense, use, useEffect, useRef, useState } from 'react'
 import { Hourglass, Gauge, MessageSquare, Clock, Zap, DollarSign, Brain, GitBranch, ChevronDown, ChevronRight, CornerDownRight } from 'lucide-react'
 import { fmtCompact, fmtNum, fmtUSD, fmtDuration, fmtAgo, tone } from '../utils/formatting.js'
 import { THRESHOLDS as T } from '../utils/thresholds.js'
@@ -28,7 +28,7 @@ const Badge = ({ className, tip, icon: Icon }) => <span className={className} ro
 const Ago = ({ at }) => useClock(() => fmtAgo(at))
 
 // The row's tokens/cost and time columns; `toned` colors the stats against the per-session thresholds
-const RowStats = memo(({ at, tokens, cost, sortBy, toned }) => <>
+const RowStats = ({ at, tokens, cost, sortBy, toned }) => <>
   <span className="session-row-stats">
     <span className={`${sortBy === 'tokens' ? 'stat-primary' : 'stat-secondary'} ${toned ? tone(tokens, T.tokens) : ''}`}>
       {fmtCompact(tokens)}
@@ -38,23 +38,36 @@ const RowStats = memo(({ at, tokens, cost, sortBy, toned }) => <>
     </span>
   </span>
   <span className="session-row-time"><Ago at={at} /></span>
-</>)
+</>
 
 // The project and model(s) that end a row's second line
-const ProjectModels = memo(({ project, projectShort, subdir, models, efforts }) => <>
+const ProjectModels = ({ project, projectShort, subdir, models, efforts }) => <>
   {project && <span className="session-project">{projectShort}{subdir && ` › ${subdir}`}</span>}
   {models?.length > 0 && <span className="session-model">{models.map(m => m.replace(/^claude-/, '')).join(', ')}{efforts?.length > 0 && ` ${efforts.join(', ')}`}</span>}
-</>)
+</>
 
 // Read once per avatar file, however many sessions share it
 const avatars = new Map()
-const Avatar = memo(({ session }) => {
+const Avatar = ({ session }) => {
   if (!avatars.has(session.avatar)) avatars.set(session.avatar, window.api.readAvatar(session.filePath))
   const src = use(avatars.get(session.avatar))
   return src && <span className="session-avatar"><img src={src} alt="" /></span>
-})
+}
 
-export default memo(function SessionList({ sessions, selectedId, deepLink, onSelect }) {
+function groupRuns(sorted) {
+  // Subagents list under a header per run they were spawned in, newest run first, each run in the list's order
+  const runsOf = Map.groupBy(subagentClusters(sorted), run => run[0].parentFilePath)
+  const rank   = new Map(sorted.map((s, i) => [s, i]))
+  return sorted.flatMap(s => runsOf.has(s.parentFilePath) ? [] : [
+    { session: s },
+    ...(runsOf.get(s.filePath) ?? []).toReversed().flatMap(run => {
+      const runKey = `${run[0].filePath}::run`
+      return [{ run, runKey }, ...run.toSorted((a, b) => rank.get(a) - rank.get(b)).map(c => ({ session: c, runKey }))]
+    }),
+  ])
+}
+
+export default function SessionList({ sessions, selectedId, deepLink, onSelect }) {
   const selectedRef             = useRef(null)
   const [sortBy, setSortBy]     = useLocalStorage('session-list.sort', 'time')
   const [filter, setFilter]     = useState('')
@@ -85,18 +98,7 @@ export default memo(function SessionList({ sessions, selectedId, deepLink, onSel
                : sortBy === 'name'   ? [...filtered].sort((a, b) => sessionLabel(a).toLowerCase().localeCompare(sessionLabel(b).toLowerCase()))
                : filtered
 
-  const grouped = useMemo(() => {
-    // Subagents list under a header per run they were spawned in, newest run first, each run in the list's order
-    const runsOf = Map.groupBy(subagentClusters(sorted), run => run[0].parentFilePath)
-    const rank   = new Map(sorted.map((s, i) => [s, i]))
-    return sorted.flatMap(s => runsOf.has(s.parentFilePath) ? [] : [
-      { session: s },
-      ...(runsOf.get(s.filePath) ?? []).toReversed().flatMap(run => {
-        const runKey = `${run[0].filePath}::run`
-        return [{ run, runKey }, ...run.toSorted((a, b) => rank.get(a) - rank.get(b)).map(c => ({ session: c, runKey }))]
-      }),
-    ])
-  }, [sorted])
+  const grouped = groupRuns(sorted)
 
   // Runs start collapsed, except the one holding the selected subagent; a click overrides either
   const selectedRun = grouped.find(i => i.runKey && i.session?.filePath === selectedId)?.runKey
@@ -211,5 +213,4 @@ export default memo(function SessionList({ sessions, selectedId, deepLink, onSel
       </div>
     </div>
   )
-})
-
+}

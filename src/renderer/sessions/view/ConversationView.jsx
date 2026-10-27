@@ -1,4 +1,4 @@
-import React, { useContext, useEffect, useMemo, useState } from 'react'
+import React, { useContext, useEffect, useState } from 'react'
 import { format } from 'date-fns'
 import { Globe, LaptopMinimal, Terminal } from 'lucide-react'
 import { fmtCompact, fmtDuration, plural, tone } from '../../utils/formatting'
@@ -47,11 +47,11 @@ function filtered(g, filter) {
 }
 
 export default function ConversationView({ items, instructions = {}, filePath = null, expandAll = null, filter = [], continuesFrom = null, continuesTo = null, forkedFrom = null, forkedAt = null, onShowPeriodOf }) {
-  const turns            = useMemo(() => flatten(items, instructions), [items, instructions])
-  const groups           = useMemo(() => groupTurns(turns), [turns])
-  const points           = useMemo(() => tokenPoints(groups), [groups])
-  const durations        = useMemo(() => cycleDurations(groups), [groups])
-  const oldCli           = useMemo(() => unloggedRequestsVersion(items), [items])
+  const turns            = flatten(items, instructions)
+  const groups           = groupTurns(turns)
+  const points           = tokenPoints(groups)
+  const durations        = cycleDurations(groups)
+  const oldCli           = unloggedRequestsVersion(items)
   const findOpen         = useFindActive()
   const [scale, zoomRef] = useMouseFontScale('font-scale.conversation')
 
