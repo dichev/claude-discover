@@ -1,0 +1,44 @@
+/* Floats over the gantt canvas's bottom-right corner, outside its scroll area so it stays put; clears the 5px scrollbar */
+.source-legend {
+  position: absolute;
+  right: 14px;
+  bottom: 16px;
+  z-index: 2;
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 2px;
+  max-width: calc(100% - 260px);
+  padding: 3px;
+  background: rgb(17 20 27 / 0.7);
+  border: 1px solid rgb(127 162 205 / 0.15);
+  border-radius: 6px;
+  backdrop-filter: blur(3px);
+  white-space: nowrap;
+  font-size: 12px;
+  color: var(--text-dim);
+
+  & .legend-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    background: transparent;
+    border: 1px solid transparent;
+    color: inherit;
+    font: inherit;
+    padding: 2px 6px;
+    border-radius: 4px;
+    cursor: pointer;
+    transition: opacity 0.15s, border-color 0.15s, background 0.15s;
+
+    &:hover { background: rgba(255,255,255,0.06); }
+    &.dim { opacity: 0.4; }
+  }
+
+  & .swatch {
+    display: inline-block;
+    width: 12px;
+    height: 12px;
+    border-radius: 2px;
+  }
+}

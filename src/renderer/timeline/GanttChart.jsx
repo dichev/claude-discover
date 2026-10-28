@@ -5,6 +5,7 @@ import { useMouse } from '../utils/useMouse.js'
 import { subagentClusters, isJournal } from '../utils/subagents.js'
 import MultiPicker from '../ui/MultiPicker.jsx'
 import HeatStrip from './HeatStrip.jsx'
+import SourceLegend from './SourceLegend.jsx'
 import TimeAxis, { computeTicks } from './TimeAxis.jsx'
 import WorkTimeOverlay from './WorkTimeOverlay.jsx'
 import './GanttChart.css'
@@ -121,6 +122,7 @@ export default function GanttChart({
   dayRange, sessions, onSelect, selectedId, dayAnchor,
   granularity = 'day', expanded, onToggleExpanded,
   projects, projectFilter, onSetProjectFilter,
+  sourceFilter, availableSources, onToggleSourceFilter,
 }) {
   const bar = BARS[granularity] ?? BARS.day
   const containerRef = useRef(null)
@@ -300,6 +302,7 @@ export default function GanttChart({
           ))}
         </svg>
       </div>
+      <SourceLegend sources={availableSources} filter={sourceFilter} onToggle={onToggleSourceFilter} />
     </div>
   )
 }

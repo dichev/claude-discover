@@ -148,9 +148,6 @@ export default function App() {
             dayAnchor={anchor}
             onShiftDay={shiftPeriod}
             onResetToday={() => setAnchor(startOfPeriod(Date.now(), granularity))}
-            sourceFilter={sourceFilter}
-            availableSources={dayItems.availableSources}
-            onToggleSourceFilter={src => setSourceFilter(cur => (cur === src ? null : src))}
           />
         </header>
         <div className="gantt-body">
@@ -166,6 +163,9 @@ export default function App() {
             projects={dayItems.projects}
             projectFilter={projectFilter}
             onSetProjectFilter={setProjectFilter}
+            sourceFilter={sourceFilter}
+            availableSources={dayItems.availableSources}
+            onToggleSourceFilter={src => setSourceFilter(cur => (cur === src ? null : src))}
           />
           <PeriodSummary sessions={dayItems.past} dayAnchor={anchor} granularity={granularity} expanded={expandedProjects} />
         </div>
