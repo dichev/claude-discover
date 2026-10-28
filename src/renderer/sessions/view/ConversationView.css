@@ -225,7 +225,7 @@ button.msg-summary:hover { color: var(--text); background: var(--bg-elev-2); bor
 
 .turn-system {
   & .turn-blocks > .aux { align-self: flex-start; }
-  & .turn-blocks > :is(.instruction-file, .aux:has(> .aux-toggle > .instruction-tokens)) { align-self: stretch; } /* full width, so its token count lines up right */
+  & .turn-blocks > :is(.instruction-file, .instruction-total, .aux:has(> .aux-toggle > .instruction-tokens)) { align-self: stretch; } /* full width, so its token count lines up right */
   & .turn-blocks > .block-text {
     border: 1px dashed var(--border);
     border-radius: 6px;

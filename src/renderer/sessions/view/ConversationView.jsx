@@ -287,7 +287,8 @@ function TurnRow({ turn, hidden = false, speaker = null }) {
   for (const b of turn.blocks) {
     if (b.type === 'attachment' && groupAttachments) contextBlocks.push(b); else otherBlocks.push(b)
   }
-  const hasError = turn.blocks.some(b => b.type === 'tool_use' && b.result?.is_error)
+  const hasError     = turn.blocks.some(b => b.type === 'tool_use' && b.result?.is_error)
+  const instructions = turn.blocks.filter(b => b.type === 'instruction')
   return (
     <div className={`turn turn-${turn.role} ${hasError ? 'turn-error' : ''} ${hidden ? 'turn-hidden' : ''}`}>
       <div className="turn-blocks">
@@ -297,6 +298,9 @@ function TurnRow({ turn, hidden = false, speaker = null }) {
           </Collapsible>
         )}
         {otherBlocks.map((b, i) => <Block key={i} block={b} speaker={speaker} ts={turn.ts} />)}
+        {instructions.length > 1 && (
+          <div className="aux instruction-total"><ApproxTokens tokens={instructions.reduce((a, b) => a + countTokens(b.it.content, b.it.model), 0)} tip="Approx. total tokens" /></div>
+        )}
       </div>
     </div>
   )
@@ -421,15 +425,15 @@ function Collapsible({ title, children, className, defaultOpen = true, tokens, t
 // Tool calls often finish in milliseconds, which fmtDuration would round to nothing
 const fmtElapsed = ms => ms < 1000 ? '<1s' : fmtDuration(ms)
 
-const ApproxTokens = ({ tokens }) => tokens > 0 && <span className="instruction-tokens" data-tooltip-content="Approx. tokens">~ {fmtCompact(tokens)}</span>
+const ApproxTokens = ({ tokens, tip = 'Approx. tokens' }) => tokens > 0 && <span className="instruction-tokens" data-tooltip-content={tip}>~ {fmtCompact(tokens)}</span>
 
 function JsonBlock({ value }) {
   return <Markdown className="block-text" text={'```json\n' + safeJson(value) + '\n```'} />
 }
 
-// A side request's instruction files, in request order, with a summed token total once there's more than one file
+// A side request's instruction files, in request order
 function InstructionRun({ turns, model }) {
-  const strips = turns.flatMap(t => t.blocks).map(({ it }) => ({ ...it, tokens: countTokens(it.content, it.model ?? model) }))
+  const strips = turns.flatMap(t => t.blocks).map(({ it }) => it)
   return (
     <>
       <div className="msg-header msg-proxy">
@@ -440,10 +444,7 @@ function InstructionRun({ turns, model }) {
           <span className="msg-time">{format(Date.parse(strips[0].timestamp), 'HH:mm:ss')}</span>
         </span>
       </div>
-      {strips.map(it => <InstructionFile key={`${it.hash}-${it.timestamp}`} it={it} model={model} tokens={it.tokens} />)}
-      {strips.length > 1 && (
-        <div className="aux instruction-total"><ApproxTokens tokens={strips.reduce((a, it) => a + it.tokens, 0)} /></div>
-      )}
+      {strips.map(it => <InstructionFile key={`${it.hash}-${it.timestamp}`} it={it} model={model} tokens={countTokens(it.content, it.model ?? model)} />)}
     </>
   )
 }
