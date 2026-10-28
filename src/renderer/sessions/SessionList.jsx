@@ -1,5 +1,5 @@
 import { Suspense, use, useEffect, useRef, useState } from 'react'
-import { Gauge, MessageSquare, Clock, Zap, DollarSign, Brain, GitBranch, ChevronDown, ChevronRight, CornerDownRight } from 'lucide-react'
+import { Gauge, MessageSquare, Clock, Zap, DollarSign, Brain, GitBranch, ChevronDown, ChevronRight } from 'lucide-react'
 import { fmtCompact, fmtNum, fmtUSD, fmtDuration, fmtAgo, tone } from '../utils/formatting.js'
 import { THRESHOLDS as T } from '../utils/thresholds.js'
 import { cacheAdvice, CACHE_LABELS } from '../utils/cacheAdvice.js'
@@ -109,6 +109,7 @@ export default function SessionList({ sessions, selectedId, deepLink, onSelect }
   const selectedRun = grouped.find(i => i.runKey && i.session?.filePath === selectedId)?.runKey
   const isOpen      = key => expanded.get(key) ?? key === selectedRun
   const toggleRun   = key => setExpanded(prev => new Map(prev).set(key, !isOpen(key)))
+  const rows        = grouped.filter(i => i.run || !i.runKey || isOpen(i.runKey))
 
   return (
     <div className="session-list">
@@ -139,9 +140,11 @@ export default function SessionList({ sessions, selectedId, deepLink, onSelect }
         {sorted.length === 0 && (
           <div className="empty">No sessions on this day.</div>
         )}
-        {grouped.map(({ session: s, run, runKey }) => {
-          const isCollapsed = !!runKey && !isOpen(runKey)
+        {rows.map(({ session: s, run, runKey }, i) => {
+          // The branch stroke runs on below a row while a run's row follows it: from the parent (its start) or within its runs
+          const branch = rows[i + 1]?.runKey ? (runKey ? 'branch-below' : 'branch-start') : ''
           if (run) {
+            const isCollapsed = !isOpen(runKey)
             const Chevron = isCollapsed ? ChevronRight : ChevronDown
             const hidesSelected = isCollapsed && runKey === selectedRun
             return (
@@ -149,11 +152,11 @@ export default function SessionList({ sessions, selectedId, deepLink, onSelect }
                 type="button"
                 key={runKey}
                 ref={hidesSelected ? selectedRef : null}
-                className={`session-row subagent-run ${hidesSelected ? 'selected' : ''} ${activity(Math.max(...run.map(c => c.lastActivityAt)), now)}`}
+                className={`session-row subagent-run ${branch} ${hidesSelected ? 'selected' : ''} ${activity(Math.max(...run.map(c => c.lastActivityAt)), now)}`}
                 aria-expanded={!isCollapsed}
                 onClick={() => toggleRun(runKey)}
               >
-                <span className="subagent-run-arrow"><CornerDownRight size={14} aria-hidden="true" /></span>
+                <span className="subagent-run-arrow" aria-hidden="true" />
                 <span className="session-label subagent-run-title">
                   Subagents ({run.length})
                   <Chevron size={14} aria-hidden="true" />
@@ -167,7 +170,6 @@ export default function SessionList({ sessions, selectedId, deepLink, onSelect }
               </button>
             )
           }
-          if (isCollapsed) return null
           const journal = isJournal(s)
           const isFork = !!s.forkedFrom
           const linked = !!deepLink && s.filePath === selectedId // opened by a claude-discover:// link, see App.jsx
@@ -183,7 +185,7 @@ export default function SessionList({ sessions, selectedId, deepLink, onSelect }
             <div
               key={s.filePath}
               ref={selectedId === s.filePath ? selectedRef : null}
-              className={`session-row ${selectedId === s.filePath ? 'selected' : ''} ${runKey ? 'is-subagent-child' : ''} ${linked ? 'deep-linked' : ''} ${activity(s.lastActivityAt, now)}`}
+              className={`session-row ${branch} ${selectedId === s.filePath ? 'selected' : ''} ${runKey ? 'is-subagent-child' : ''} ${linked ? 'deep-linked' : ''} ${activity(s.lastActivityAt, now)}`}
               onClick={() => onSelect(selectedId === s.filePath ? null : s.filePath)}
             >
               <div className="session-label">

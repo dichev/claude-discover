@@ -5,6 +5,7 @@
   min-width: 0;
   min-height: 0;
   overflow: hidden;
+  --branch: var(--text-faint); /* the stroke from a session to its subagent runs */
 }
 
 .session-list-header {
@@ -137,11 +138,13 @@
   &.active::after { --dot: var(--accent); }
   &.live::after { animation: pulse 2s ease-out infinite; }
 
-  &:hover { background: var(--bg-elev-2); }
-  &.selected { background: var(--selected); }
-  /* under the run title text (14px arrow + 5px gap), while the time stays in line with the other rows */
-  &.is-subagent-child :is(.session-label, .session-time-bottom) { margin-left: 19px; }
-  &.deep-linked { background: rgba(52, 211, 153, 0.12); } /* last, so it wins over :hover and .selected */
+  &:hover { background-color: var(--bg-elev-2); }
+  &.selected { background-color: var(--selected); }
+  /* indented 12px past the run title text (14px arrow + 5px gap), while the time stays in line with the other rows */
+  &.is-subagent-child :is(.session-label, .session-time-bottom) { margin-left: 31px; }
+  /* no divider above a run's rows, so they read as part of the session they branch off (transparent keeps the row heights) */
+  &:is(.branch-start, .branch-below) { border-bottom-color: transparent; }
+  &.deep-linked { background-color: rgba(52, 211, 153, 0.12); } /* last, so it wins over :hover and .selected */
 }
 
 /* A .session-row reset as a button, so it lines up with the subagent rows below it */
@@ -153,13 +156,51 @@
   text-align: left;
 }
 
-/* 18px tall to center on the title's line */
-.subagent-run-arrow { grid-area: icon; display: flex; align-items: center; height: 18px; margin-right: 5px; color: var(--text); }
+/* The branch stroke at x 50px, from under the parent's label down every row of its runs; a background, since content-visibility clips overflow */
+.session-row:is(.branch-start, .branch-below, .is-subagent-child) {
+  background-image: linear-gradient(var(--branch), var(--branch));
+  background-repeat: no-repeat;
+  background-origin: border-box;
+  background-position: 50px 100%;
+  background-size: 1px 100%;
+  &.branch-start { background-size: 1px 9px; } /* the parent: just its bottom padding */
+}
+
+/* Each run's turn off the stroke into an arrowhead at its title; on the last row it's also where the stroke ends */
+.subagent-run-arrow {
+  grid-area: icon;
+  position: relative;
+  width: 14px;
+  height: 18px;
+  margin-right: 5px;
+
+  &::before, &::after { content: ''; position: absolute; }
+  &::before {
+    left: 2px;
+    top: -8px;
+    width: 10px;
+    height: 17px;
+    border: solid var(--branch);
+    border-width: 0 0 1px 1px;
+    border-bottom-left-radius: 6px;
+  }
+  &::after {
+    left: 12px;
+    top: 5px;
+    border-left: 5px solid var(--branch);
+    border-block: 3.5px solid transparent;
+  }
+}
 
 .subagent-run-title {
   font-weight: 600;
   color: var(--text);
 }
+
+/* A toggle, not a session: hover lights up its branch and title rather than the whole row */
+.subagent-run:not(.selected):hover { background-color: transparent; }
+.subagent-run:hover .subagent-run-arrow { --branch: var(--accent); }
+.subagent-run:hover .subagent-run-title { color: var(--accent); }
 
 .deeplink-note { color: #34d399; }
 
