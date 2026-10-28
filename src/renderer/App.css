@@ -55,6 +55,31 @@
   & > * { flex: 1; min-height: 0; min-width: 0; }
 }
 
+/* Bold, color-coded bars so the period and the session halves can't be mistaken for each other */
+.section-title {
+  flex: none;
+  display: flex;
+  align-items: center;
+  box-sizing: border-box;
+  padding: 8px 16px;
+  background: var(--bg-elev);
+  border-left: 4px solid var(--section-accent);
+  border-bottom: 1px solid var(--border);
+  user-select: none;
+}
+
+.section.period { --section-accent: var(--accent); }
+.section.session { --section-accent: var(--claude-orange); }
+
+.section-title-text {
+  margin: 0;
+  font-size: 17px;
+  font-weight: 700;
+  letter-spacing: 0.01em;
+  color: var(--text);
+  white-space: nowrap;
+}
+
 .body {
   flex: 1;
   min-height: 0;
@@ -62,11 +87,14 @@
 
 .body-pane {
   display: flex;
+  flex-direction: column;
   min-width: 0;
   min-height: 0;
   overflow: hidden;
 
-  & > * { flex: 1; min-width: 0; min-height: 0; }
+  & > * { min-width: 0; min-height: 0; }
+  & > :last-child { flex: 1; } /* the pane's content, under its optional title bar */
+  & > .section-title { height: var(--pane-header-height); }
 }
 
 .resize-handle {

@@ -1,13 +1,12 @@
-/* Legend on the left, centered nav group (‹ date › plus a floating "Today"
-   link), granularity tabs on the right. The equal 1fr side cells keep the nav
+/* Section title on the left, centered nav group (‹ date › plus a floating "Today"
+   link), source filters and granularity tabs on the right. The equal 1fr side cells keep the nav
    group truly centered. */
 .gantt-toolbar {
+  flex: 1;
   display: grid;
   grid-template-columns: 1fr auto 1fr;
   align-items: center;
   gap: 16px;
-  padding: 12px 16px 0;
-  margin-bottom: 8px;
 }
 
 .gantt-toolbar-nav {
@@ -74,16 +73,26 @@
   border: 1px solid rgb(127 162 205 / 0.25);
 }
 
+/* Source filters, then the granularity tabs */
+.gantt-toolbar-end {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 12px;
+  min-width: 0;
+
+  & > .gantt-granularity { flex: none; }
+}
+
 .gantt-legend {
   display: flex;
-  flex-wrap: nowrap;
-  justify-content: flex-start;
-  white-space: nowrap;
-  gap: 14px;
-  font-size: 12px;
-  color: var(--text-dim);
+  justify-content: flex-end;
+  gap: 4px;
   min-width: 0;
   overflow: hidden;
+  white-space: nowrap;
+  font-size: 12px;
+  color: var(--text-dim);
 }
 
 .legend-chip {
@@ -110,9 +119,8 @@
   border-radius: 2px;
 }
 
-/* Starts at the period summary panel's left edge; the panel runs flush to the window, past the toolbar's padding. */
+/* Starts at the period summary panel's left edge; the panel runs flush to the window, past the title bar's 16px padding. */
 .gantt-granularity {
-  justify-self: end;
   width: calc(var(--gantt-side-width) - 16px);
   display: flex;
   gap: 3px;

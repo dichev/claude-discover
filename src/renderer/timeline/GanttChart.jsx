@@ -3,6 +3,7 @@ import { SOURCE_COLORS, SOURCE_LABELS } from '../utils/colors.js'
 import { useLocalStorage } from '../utils/useLocalStorage.js'
 import { useMouse } from '../utils/useMouse.js'
 import { subagentClusters, isJournal } from '../utils/subagents.js'
+import MultiPicker from '../ui/MultiPicker.jsx'
 import HeatStrip from './HeatStrip.jsx'
 import TimeAxis, { computeTicks } from './TimeAxis.jsx'
 import WorkTimeOverlay from './WorkTimeOverlay.jsx'
@@ -20,6 +21,15 @@ const BARS = {
 
 const endOf = s => Math.max(s.lastActivityAt, s.startedAt + 60_000)
 const clipLeft = (s, n = 29) => s.length > n ? '…' + s.slice(1 - n) : s // keep the distinctive tail of a long subfolder
+
+// Picked projects survive period changes, so keep them listed even where they have no sessions.
+// Temp-dir projects go last, behind a divider.
+function projectOptions(projects, picked) {
+  const missing = picked.filter(k => !projects.some(p => p.key === k)).map(k => ({ key: k, projectShort: k.split(/[\\/]/).pop() }))
+  return [...projects, ...missing]
+    .sort((a, b) => !!a.temp - !!b.temp || a.projectShort.localeCompare(b.projectShort) || a.key.localeCompare(b.key))
+    .map(p => ({ value: p.key, label: p.projectShort, detail: p.key !== p.projectShort && p.key, group: !!p.temp }))
+}
 
 function packLanes(items) {
   const lanes = []
@@ -109,7 +119,8 @@ function layoutGroups(sessions, bar, expanded) {
 
 export default function GanttChart({
   dayRange, sessions, onSelect, selectedId, dayAnchor,
-  granularity = 'day', expanded, onToggleExpanded, otherProjects, onShowAllProjects,
+  granularity = 'day', expanded, onToggleExpanded,
+  projects, projectFilter, onSetProjectFilter,
 }) {
   const bar = BARS[granularity] ?? BARS.day
   const containerRef = useRef(null)
@@ -169,36 +180,36 @@ export default function GanttChart({
         gutter={PROJECTS_WIDTH}
       />
       <div className="gantt-canvas" ref={containerRef}>
-        <svg className="gantt-header" width={width} height={HEADER_HEIGHT} style={{ marginBottom: -HEADER_HEIGHT }}>
-          <rect x={0} y={0} width={PROJECTS_WIDTH} height={HEADER_HEIGHT} className="gantt-gutter" />
-          <line x1={PROJECTS_WIDTH} x2={PROJECTS_WIDTH} y1={0} y2={HEADER_HEIGHT} className="gantt-divider" />
-          <line x1={0} x2={width} y1={HEADER_HEIGHT - 0.5} y2={HEADER_HEIGHT - 0.5} className="gantt-group-sep" />
-          <g transform={`translate(${PROJECTS_WIDTH},0)`}>
-            <TimeAxis ticks={ticks} headerHeight={HEADER_HEIGHT} />
-          </g>
-          {otherProjects > 0 && ( // the project picker hides the rest — point back to them from the axis row
-            <text
-              x={LABEL_X} y={HEADER_HEIGHT / 2}
-              dominantBaseline="central"
-              className="gantt-project-more"
-              onClick={e => { e.stopPropagation(); onShowAllProjects() }}
-            >
-              ({otherProjects} hidden project{otherProjects === 1 ? '' : 's'})
-            </text>
-          )}
-          {/* Its lines and shading are uniform down the chart, so pinning them with the axis looks the same */}
-          <WorkTimeOverlay
-            showWorkBand={granularity === 'day'}
-            dayStart={dayRange.start}
-            viewStart={view.start}
-            viewEnd={view.end}
-            chartLeft={PROJECTS_WIDTH}
-            chartWidth={chartWidth}
-            totalHeight={totalHeight}
-            headerHeight={HEADER_HEIGHT}
-            containerRef={containerRef}
-          />
-        </svg>
+        <div className="gantt-header" style={{ marginBottom: -HEADER_HEIGHT }}>
+          <svg width={width} height={HEADER_HEIGHT}>
+            <rect x={0} y={0} width={PROJECTS_WIDTH} height={HEADER_HEIGHT} className="gantt-gutter" />
+            <line x1={PROJECTS_WIDTH} x2={PROJECTS_WIDTH} y1={0} y2={HEADER_HEIGHT} className="gantt-divider" />
+            <line x1={0} x2={width} y1={HEADER_HEIGHT - 0.5} y2={HEADER_HEIGHT - 0.5} className="gantt-group-sep" />
+            <g transform={`translate(${PROJECTS_WIDTH},0)`}>
+              <TimeAxis ticks={ticks} headerHeight={HEADER_HEIGHT} />
+            </g>
+            {/* Its lines and shading are uniform down the chart, so pinning them with the axis looks the same */}
+            <WorkTimeOverlay
+              showWorkBand={granularity === 'day'}
+              dayStart={dayRange.start}
+              viewStart={view.start}
+              viewEnd={view.end}
+              chartLeft={PROJECTS_WIDTH}
+              chartWidth={chartWidth}
+              totalHeight={totalHeight}
+              headerHeight={HEADER_HEIGHT}
+              containerRef={containerRef}
+            />
+          </svg>
+          <div className="gantt-project-picker" data-no-pan style={{ width: PROJECTS_WIDTH - 12, height: HEADER_HEIGHT }}>
+            <MultiPicker
+              options={projectOptions(projects, projectFilter)}
+              value={projectFilter}
+              onChange={onSetProjectFilter}
+              allLabel="All projects"
+            />
+          </div>
+        </div>
         <svg width={width} height={totalHeight}>
           <defs>
             <pattern id="gantt-subagent-hatch" patternUnits="userSpaceOnUse" width={5} height={5} patternTransform="rotate(45)">

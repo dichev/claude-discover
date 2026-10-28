@@ -21,7 +21,7 @@
    Totals (and, on assistant cards, context size) live in the message headers; usage in their tooltip (TokenTip). */
 .conversation.has-token-timeline {
   position: relative;
-  max-width: calc(848px * var(--font-scale, 1));
+  max-width: calc(var(--conversation-width) * var(--font-scale, 1));
   padding-right: 28px;
 }
 

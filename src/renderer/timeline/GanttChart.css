@@ -41,8 +41,20 @@
   position: sticky;
   top: 0;
   z-index: 1;
-  overflow: visible;
   background: var(--bg-elev);
+
+  & svg { overflow: visible; }
+}
+
+/* Sits in the project gutter of the time-axis row (sized inline from it), 6px in from either side */
+.gantt-project-picker {
+  position: absolute;
+  top: 0;
+  left: 6px;
+  display: flex;
+  align-items: center;
+
+  & .multi-picker { width: 100%; padding: 2px 8px; font-size: 12px; }
 }
 
 .gantt-gutter { fill: #0e1118; }
@@ -54,12 +66,6 @@
   cursor: pointer;
   &:hover .gantt-project { fill: #ffffff; }
   &:hover .gantt-project-toggle { fill: #7aa2f7; }
-}
-.gantt-project-more {
-  fill: #7aa2f7;
-  font-size: 11px;
-  cursor: pointer;
-  &:hover { fill: #ffffff; }
 }
 .gantt-project-dir { fill: #8f97a8; font-size: 11px; }
 

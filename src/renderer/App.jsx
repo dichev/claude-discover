@@ -140,20 +140,19 @@ export default function App() {
       defaultLayout={rootLayout}
       onLayoutChanged={onRootLayoutChanged}
     >
-      <Panel id="gantt" defaultSize={450} minSize={180} className="gantt-pane">
-        <Toolbar
-          granularity={granularity}
-          onSetGranularity={changeGranularity}
-          dayAnchor={anchor}
-          onShiftDay={shiftPeriod}
-          onResetToday={() => setAnchor(startOfPeriod(Date.now(), granularity))}
-          sourceFilter={sourceFilter}
-          availableSources={dayItems.availableSources}
-          onToggleSourceFilter={src => setSourceFilter(cur => (cur === src ? null : src))}
-          projects={dayItems.projects}
-          projectFilter={projectFilter}
-          onSetProjectFilter={setProjectFilter}
-        />
+      <Panel id="gantt" defaultSize={450} minSize={180} className="gantt-pane section period">
+        <header className="section-title">
+          <Toolbar
+            granularity={granularity}
+            onSetGranularity={changeGranularity}
+            dayAnchor={anchor}
+            onShiftDay={shiftPeriod}
+            onResetToday={() => setAnchor(startOfPeriod(Date.now(), granularity))}
+            sourceFilter={sourceFilter}
+            availableSources={dayItems.availableSources}
+            onToggleSourceFilter={src => setSourceFilter(cur => (cur === src ? null : src))}
+          />
+        </header>
         <div className="gantt-body">
           <GanttChart
             dayRange={dayRange}
@@ -164,14 +163,15 @@ export default function App() {
             granularity={granularity}
             expanded={expandedProjects}
             onToggleExpanded={key => setExpandedProjects(cur => cur.includes(key) ? cur.filter(k => k !== key) : [...cur, key])}
-            otherProjects={projectFilter.length ? dayItems.projects.filter(p => !projectFilter.includes(p.key)).length : 0}
-            onShowAllProjects={() => setProjectFilter([])}
+            projects={dayItems.projects}
+            projectFilter={projectFilter}
+            onSetProjectFilter={setProjectFilter}
           />
           <PeriodSummary sessions={dayItems.past} dayAnchor={anchor} granularity={granularity} expanded={expandedProjects} />
         </div>
       </Panel>
       <Separator className="resize-handle resize-handle-h" />
-      <Panel id="body" minSize={20} className="body-outer">
+      <Panel id="body" minSize={20} className="body-outer section session">
         <Group
           orientation="horizontal"
           disableCursor
@@ -180,6 +180,9 @@ export default function App() {
           onLayoutChanged={onLayoutChanged}
         >
         <Panel id="list" defaultSize={450} minSize={200} maxSize={700} className="body-pane">
+          <header className="section-title">
+            <h2 className="section-title-text">Sessions</h2>
+          </header>
           <SessionList
             sessions={dayItems.past}
             selectedId={selected?.filePath ?? null}
