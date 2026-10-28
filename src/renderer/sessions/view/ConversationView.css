@@ -304,6 +304,17 @@ button.msg-summary:hover { color: var(--text); background: var(--bg-elev-2); bor
   color: var(--text-faint);
 }
 
+.block-interrupt {
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 4px 10px;
+  border: 1px solid color-mix(in srgb, var(--warn) 45%, transparent);
+  border-radius: 6px;
+  background: color-mix(in srgb, var(--warn) 10%, transparent);
+  color: var(--warn);
+  font-weight: 600;
+}
+.block-interrupt-icon { width: 1.1em; height: 1.1em; flex: none; }
+
 .cmd-name { color: var(--accent); font-weight: 600; }
 .cmd-args { color: var(--text-dim); white-space: pre-wrap; }
 

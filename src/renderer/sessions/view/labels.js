@@ -57,7 +57,10 @@ export function parseCommand(text) {
   }
 }
 
-export const isClearTurn = t => t.blocks.some(b => b.type === 'text' && parseCommand(b.text)?.name === '/clear')
+// Claude Code logs an Esc (or a rejected permission prompt) as this plain user text
+export const interruptLabel = text => typeof text === 'string' && text.match(/^\[(Request interrupted by user(?: for tool use)?)\]$/)?.[1]
+
+export const isClearTurn =t => t.blocks.some(b => b.type === 'text' && parseCommand(b.text)?.name === '/clear')
 
 // Saved as `<sessionId>/tool-results/<file>` beside the top-level transcript (subagents save into their parent's) —
 // linked relative to it so WSL paths resolve

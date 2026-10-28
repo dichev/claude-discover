@@ -1,10 +1,10 @@
 import React, { useContext, useState } from 'react'
 import { format } from 'date-fns'
-import { Globe, LaptopMinimal, Terminal } from 'lucide-react'
+import { Globe, LaptopMinimal, OctagonX, Terminal } from 'lucide-react'
 import { fmtCompact, fmtDuration, plural, tone } from '../../utils/formatting'
 import { THRESHOLDS as T } from '../../utils/thresholds.js'
 import { flatten, groupTurns, cycleDurations, tokenPoints, branchPoint, currentModel, contextWindow, countTokens, unloggedRequestsVersion } from './transcript.js'
-import { toolSummary, parseCommand, isClearTurn, instructionTitle, compactTitle, persistedOutput, attachmentView, hasText, safeJson, SIDE_NOTE } from './labels.js'
+import { toolSummary, parseCommand, interruptLabel, isClearTurn, instructionTitle, compactTitle, persistedOutput, attachmentView, hasText, safeJson, SIDE_NOTE } from './labels.js'
 import Divider from '../../ui/Divider.jsx'
 import LazyMount from '../../ui/LazyMount.jsx'
 import Markdown from '../../ui/Markdown.jsx'
@@ -327,6 +327,8 @@ function Block({ block, speaker = null, ts = null }) {
         </>
       )
     }
+    const interrupt = interruptLabel(block.text)
+    if (interrupt) return <div className="block-interrupt"><OctagonX className="block-interrupt-icon" />{interrupt}</div>
     return <Markdown className="block-text" text={block.text} autoFence />
   }
   if (block.type === 'thinking') {
