@@ -1,6 +1,6 @@
 {
   "name": "claude-discover",
-  "version": "1.10.11",
+  "version": "1.10.12",
   "type": "module",
   "description": "Claude Discover - a desktop tool to explore local Claude Code CLI and SDK sessions on a timeline: conversations, token usage and cost, system prompts, and raw API traffic.",
   "license": "MIT",
