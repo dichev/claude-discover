@@ -8,6 +8,7 @@ import { ErrorMessage } from '../../ui/Errors.jsx'
 import { useFindActive } from '../../ui/useFindActive.js'
 import { renderShortened } from '../../ui/ShortText.jsx'
 import { useMouseFontScale } from '../../utils/useMouse.js'
+import { usageTotal } from './labels.js'
 import './RequestsView.css'
 
 const time = ts => ts ? new Date(ts).toLocaleTimeString([], { hour12: false }) : ''
@@ -15,12 +16,7 @@ const duration = ms => ms == null ? '' : ms < 1000 ? `${ms}ms` : `${(ms / 1000).
 const splitUrl = url => { const [method, ...path] = (url || '').split(' '); return [method, path.join(' ')] }
 const tokens = n => n == null ? '' : n < 1000 ? `${n}` : `${(n / 1000).toFixed(1)}k`
 
-// Total tokens billed for a request: input + output + both cache tiers, from the response usage.
-const totalTokens = rec => {
-  const u = rec?.response?.usage
-  if (!u) return null
-  return (u.input_tokens || 0) + (u.output_tokens || 0) + (u.cache_creation_input_tokens || 0) + (u.cache_read_input_tokens || 0)
-}
+const totalTokens = rec => rec?.response?.usage ? usageTotal(rec.response.usage) : null
 
 // What a collapsed node shows instead of the bare '...': role + content block types for
 // messages, element counts for arrays. Anything else falls back to the default ellipsis.

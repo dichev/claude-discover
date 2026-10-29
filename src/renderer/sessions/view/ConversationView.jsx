@@ -4,7 +4,7 @@ import { Globe, LaptopMinimal, OctagonX, Terminal } from 'lucide-react'
 import { fmtCompact, fmtDuration, plural, tone } from '../../utils/formatting'
 import { THRESHOLDS as T } from '../../utils/thresholds.js'
 import { flatten, groupTurns, cycleDurations, tokenPoints, branchPoint, currentModel, contextWindow, countTokens, unloggedRequestsVersion } from './transcript.js'
-import { toolSummary, parseCommand, interruptLabel, isClearTurn, instructionTitle, compactTitle, persistedOutput, attachmentView, hasText, safeJson, SIDE_NOTE } from './labels.js'
+import { toolSummary, parseCommand, interruptLabel, isClearTurn, instructionTitle, compactTitleParts, persistedOutput, attachmentView, hasText, safeJson, SIDE_NOTE } from './labels.js'
 import Divider from '../../ui/Divider.jsx'
 import LazyMount from '../../ui/LazyMount.jsx'
 import Markdown from '../../ui/Markdown.jsx'
@@ -117,9 +117,12 @@ export default function ConversationView({
 
 // From here on the history was replaced by a summary — open under the divider, unlike other aux blocks, since it is all the model still knows of it.
 function Compaction({ block }) {
+  const [head, note, tail] = compactTitleParts(block)
   return (
     <>
-      <Divider className="conv-divider">{compactTitle(block)}</Divider>
+      <Divider className="conv-divider">
+        <span>{head}<span className={block.summarizing ? 'proxy-text' : undefined}>{note}</span>{tail}</span>
+      </Divider>
       {block.summary && <Collapsible title="Compact summary" tokens={countTokens(block.summary)}><Markdown className="block-text" text={block.summary} autoFence /></Collapsible>}
     </>
   )

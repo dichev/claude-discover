@@ -80,11 +80,19 @@ export function instructionTitle(it, model) {
   return parts ? `${it.name ?? it.file_path} (${parts})` : (it.name ?? it.file_path)
 }
 
-// "Conversation compacted (manual · 188.4k context tokens before)" for a `compact` block
-export function compactTitle({ trigger, preTokens }) {
-  const detail = [trigger, preTokens && `${fmtCompact(preTokens)} context tokens before`].filter(Boolean).join(' · ')
-  return detail ? `Conversation compacted (${detail})` : 'Conversation compacted'
+// "Conversation compacted (manual · 188.4k context tokens before · summarizing cost not logged)" for a `compact` block
+export const compactTitle = block => compactTitleParts(block).join('')
+
+// The title as [head, note, tail], so the view can style the note on its own. Claude Code logs no usage for
+// the summarizing request, so the totals can't include it — only the capture proxy sees it.
+export function compactTitleParts({ trigger, preTokens, summarizing: u }) {
+  const detail = [trigger, preTokens && `${fmtCompact(preTokens)} context tokens before`].filter(Boolean)
+  const note = u ? `summarizing ${fmtCompact(usageTotal(u))} tokens${u.cache_read_input_tokens ? '' : ', no cache hit'}` : 'summarizing cost not logged'
+  return [`Conversation compacted (${detail.map(d => `${d} · `).join('')}`, note, ')']
 }
+
+// Total tokens billed for a request: input + output + both cache tiers, from its response usage
+export const usageTotal = u => (u.input_tokens || 0) + (u.output_tokens || 0) + (u.cache_creation_input_tokens || 0) + (u.cache_read_input_tokens || 0)
 
 export function safeJson(x) {
   try { return JSON.stringify(x, null, 2) } catch { return String(x) }

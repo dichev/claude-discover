@@ -46,9 +46,9 @@ export const classifyRequest = (req, url) => {
   return continues ? ['tools', 'Tool turn'] : ['main', 'User message']
 }
 
-// A classifyRequest kind that is the conversation's own loop (a subagent's included) — every other
-// kind (title gen, auto-mode check, …) is a separate call beside it, outside its context.
-export const isLoop = kind => !kind || ['main', 'tools', 'agent'].includes(kind[0])
+// A classifyRequest kind that sends the conversation's own context: its loop (a subagent's included) or
+// /compact summarizing it — every other kind (title gen, auto-mode check, …) is a separate call beside it.
+export const isLoop = kind => !kind || ['main', 'tools', 'agent', 'compact'].includes(kind[0])
 
 // The reminders Claude Code injects into user messages, named by their opening line; an unlisted
 // one is named after that line itself. A listing also names its items and how to split them apart.

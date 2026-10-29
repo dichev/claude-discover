@@ -55,15 +55,19 @@ export class RequestFile {
 
   // What the side requests (title, auto-mode check, …) first sent, which the transcript doesn't log.
   // The loop's requests still claim theirs, so a fork of the conversation (suggestions) adds nothing.
+  // `compacts` is what /compact's summarizing calls used, which the transcript logs no usage for either.
   async readInstructions(range = null) {
     const parser = new RequestParser() // holds the dedup state
     const strips = []
+    const compacts = []
     for (const rec of await this.read()) {
       // body-less (older proxy, unparsable body) has nothing to read; a count_tokens probe would claim the loop's strips
       if (!rec.request || rec.kind?.[0] === 'count') continue
       const found = parser.strips(rec)
-      if (!isLoop(rec.kind) && inRange(rec.timestamp, range)) strips.push(...found.map(f => ({ timestamp: rec.timestamp, ...f })))
+      if (!inRange(rec.timestamp, range)) continue
+      if (rec.kind?.[0] === 'compact' && rec.response?.usage) compacts.push({ timestamp: rec.timestamp, usage: rec.response.usage })
+      if (!isLoop(rec.kind)) strips.push(...found.map(f => ({ timestamp: rec.timestamp, ...f })))
     }
-    return strips
+    return { strips, compacts }
   }
 }

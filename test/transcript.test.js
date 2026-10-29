@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { flatten, groupTurns, tokenPoints, cycleDurations, isContextTurn, unloggedRequestsVersion } from '../src/renderer/sessions/view/transcript.js'
+import { flatten, groupTurns, tokenPoints, cycleDurations, isContextTurn, unloggedRequestsVersion, contextTokens, countTokens } from '../src/renderer/sessions/view/transcript.js'
 import { parseCommand, compactTitle, persistedOutput } from '../src/renderer/sessions/view/labels.js'
 import { SessionParser } from '../src/main/sessions/SessionParser.js'
 
@@ -269,7 +269,39 @@ describe('flatten — compaction', () => {
     const turns = flatten([summary, boundary])
     expect(turns).toMatchObject([{ role: 'compact', tokenTotal: 200000, blocks: [{ type: 'compact', trigger: 'manual', preTokens: 188391, summary: 'This session is being continued…' }] }])
     expect(groupTurns(turns).map(g => g.kind)).toEqual(['compact'])
-    expect(compactTitle(turns[0].blocks[0])).toBe('Conversation compacted (manual · 188.4k context tokens before)')
+    expect(compactTitle(turns[0].blocks[0])).toBe('Conversation compacted (manual · 188.4k context tokens before · summarizing cost not logged)')
+  })
+
+  it('names what the proxy saw the summarizing call use, instead of a Proxy block', () => {
+    const call = { timestamp: '2026-06-12T02:58:10.000Z', usage: { input_tokens: 57857, cache_creation_input_tokens: 33335, output_tokens: 2667 } }
+    const turns = flatten([summary, boundary], { compacts: [call] })
+    expect(turns).toHaveLength(1)
+    expect(compactTitle(turns[0].blocks[0])).toBe('Conversation compacted (manual · 188.4k context tokens before · summarizing 93.9k tokens, no cache hit)')
+  })
+
+  it('takes the context size from what the compaction left, until the next reply', () => {
+    const reply = { type: 'assistant', uuid: 'a2', timestamp: '2026-06-12T02:59:30.000Z', message: { id: 'm2', role: 'assistant', model: 'claude-opus-5-5', content: [], usage: { input_tokens: 2, cache_read_input_tokens: 20000, output_tokens: 10 } } }
+    const parser = new SessionParser({ sessionId: 's1', filePath: 's1.jsonl' })
+    parser.feed(structuredClone({ ...boundary, compactMetadata: { ...boundary.compactMetadata, postTokens: 17332 } }))
+    expect(parser.meta).toMatchObject({ lastContextTokens: 17332, contextCompacted: true })
+    parser.feed(structuredClone(reply))
+    expect(parser.meta).toMatchObject({ lastContextTokens: 20002, contextCompacted: false })
+  })
+
+  it('adds the first System row to what the compaction left, which leaves out the resent instructions', () => {
+    const strip = (timestamp, content) => ({ timestamp, content, model: 'claude-opus-5-5' })
+    const loop = [strip('t1', 'You are Claude Code.'), strip('t1', 'Read: reads a file.'), strip('t2', 'A changed CLAUDE.md')]
+    const first = countTokens('You are Claude Code.', 'claude-opus-5-5') + countTokens('Read: reads a file.', 'claude-opus-5-5')
+    expect(contextTokens({ lastContextTokens: 17332, contextCompacted: true }, { loop })).toBe(17332 + first)
+    expect(contextTokens({ lastContextTokens: 17332, contextCompacted: true }, {})).toBe(17332)
+    expect(contextTokens({ lastContextTokens: 20002, contextCompacted: false }, { loop })).toBe(20002)
+  })
+
+  it('names the model from the re-attached context when no reply follows', () => {
+    const model = { type: 'attachment', uuid: 'a3', timestamp: '2026-06-12T02:58:34.770Z', attachment: { type: 'model', identity: { modelId: 'claude-opus-5-5' } } }
+    const parser = new SessionParser({ sessionId: 's1', filePath: 's1.jsonl' })
+    for (const l of [boundary, model]) parser.feed(structuredClone(l))
+    expect(parser.finalize(0).models).toEqual(['claude-opus-5-5'])
   })
 
   it('joins a summary parented to attachments logged after the boundary', () => {

@@ -111,7 +111,9 @@ export default function Session({ meta, missing, date, granularity = 'day', onSh
                   />
                 )}
               </div>
-              <SessionSummary key={viewKey} meta={meta} items={items} requestLog={requestLog} agent={agent} granularity={granularity} />
+              <SessionSummary
+                key={viewKey} meta={meta} items={items} instructions={instructions} requestLog={requestLog} agent={agent} granularity={granularity}
+              />
             </div>
           </div>
         </div>

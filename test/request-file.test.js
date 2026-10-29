@@ -460,18 +460,18 @@ describe('RequestFile.readInstructions', () => {
   })
 
   it('reads the side-channel requests only, without what the loop already sent', async () => {
-    expect((await new RequestFile('sess-side', { dir }).readInstructions()).map(f => f.content)).toEqual([
+    expect((await new RequestFile('sess-side', { dir }).readInstructions()).strips.map(f => f.content)).toEqual([
       'You are naming a coding session', 'You are a security monitor reviewing tool calls', // its attribution reminder came from the loop
     ])
   })
 
   it('keeps what was first sent within the range', async () => {
     const day2 = { start: Date.parse('2026-07-15T00:00:00.000Z'), end: Date.parse('2026-07-15T23:59:59.999Z') }
-    expect((await new RequestFile('sess-side', { dir }).readInstructions(day2)).map(f => f.content)).toEqual(['You are a security monitor reviewing tool calls'])
+    expect((await new RequestFile('sess-side', { dir }).readInstructions(day2)).strips.map(f => f.content)).toEqual(['You are a security monitor reviewing tool calls'])
   })
 
-  it('returns [] when no log exists', async () => {
-    expect(await new RequestFile('no-such-session', { dir }).readInstructions()).toEqual([])
+  it('returns empty lists when no log exists', async () => {
+    expect(await new RequestFile('no-such-session', { dir }).readInstructions()).toEqual({ strips: [], compacts: [] })
   })
 })
 

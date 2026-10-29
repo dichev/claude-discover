@@ -91,7 +91,7 @@ function freshMetrics() {
     model: null, models: [], efforts: [], serviceTier: null, speed: null, fastPricingUnknown: false, priceUnknown: false,
     firstUserPrompt: null, firstUserCommand: null,
     messageCount: 0, workflowAgents: 0, toolCalls: 0, skillCalls: 0,
-    tokens: emptyBucket(), tokensByModel: {}, tokensByModelFast: {}, lastContextTokens: 0,
+    tokens: emptyBucket(), tokensByModel: {}, tokensByModelFast: {}, lastContextTokens: 0, contextCompacted: false,
     serverToolUse: { webSearch: 0, webFetch: 0 },
     hasScheduledTask: false,
     activityPeriods: [],
@@ -170,6 +170,11 @@ export class SessionParser {
         return true
       }
       this.seenUuids.add(obj.uuid)
+    }
+    // The summarizing call logs no usage, so until the next reply the context is what compaction left
+    if (obj.subtype === 'compact_boundary' && obj.compactMetadata?.postTokens) {
+      meta.lastContextTokens = obj.compactMetadata.postTokens
+      meta.contextCompacted = true
     }
 
     // Standalone attachment entries are harness-injected context
@@ -306,6 +311,7 @@ export class SessionParser {
       const sentAt = this.prevMessage?.type === 'user' ? Math.min(this.prevMessage._ts, obj._ts) : obj._ts
       this.calls.push({ ts: sentAt, model, fast, usage })
       meta.lastContextTokens = contextSize // prompt size on this turn; last assistant message wins
+      meta.contextCompacted = false
       if (u.service_tier) meta.serviceTier = u.service_tier
       if (this.pricing && this.pricing.priceFor(model) == null) meta.priceUnknown = true
       if (fast) {
@@ -343,6 +349,11 @@ export class SessionParser {
     const meta = this.meta
     if (meta.startedAt == null) meta.startedAt = mtimeFallback
     if (meta.lastActivityAt == null) meta.lastActivityAt = mtimeFallback
+    // A part with no reply (e.g. only a /compact) names its model only in the `model` attachment
+    if (!meta.models.length && this.modelId) {
+      meta.model = this.modelId
+      meta.models.push(this.modelId)
+    }
     meta.source = classifySource(meta)
     meta.activeMs = meta.activityPeriods.reduce((sum, p) => sum + Math.max(0, p.end - p.start), 0)
     const t = meta.tokens

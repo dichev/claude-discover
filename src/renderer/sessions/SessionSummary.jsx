@@ -3,12 +3,12 @@ import { format } from 'date-fns'
 import { fmtDuration, fmtNum, fmtUSD, fmtCompact, fmtToolCalls, tone } from '../utils/formatting.js'
 import { THRESHOLDS as T } from '../utils/thresholds.js'
 import { cacheAdvice, CACHE_LABELS } from '../utils/cacheAdvice.js'
-import { contextWindow } from './view/transcript.js'
+import { contextWindow, contextTokens } from './view/transcript.js'
 import AgentOutput from '../agent/AgentOutput.jsx'
 import ProgressBar from '../ui/ProgressBar.jsx'
 import './SessionSummary.css'
 
-export default function SessionSummary({ meta, items, requestLog, agent, granularity = 'day' }) {
+export default function SessionSummary({ meta, items, instructions, requestLog, agent, granularity = 'day' }) {
   const timeFormat = granularity === 'day' ? 'pp' : 'MMM d, pp'
   const t = meta.tokens
   const totalTokens = meta.totalTokens
@@ -21,7 +21,8 @@ export default function SessionSummary({ meta, items, requestLog, agent, granula
   const modelLabel = meta.models.join(', ') || '—'
   const advice = cacheAdvice(meta)
   const ctxLimit = contextWindow(meta.models)
-  const ctxTone = tone(meta.lastContextTokens, T.context)
+  const ctx = contextTokens(meta, instructions)
+  const ctxTone = tone(ctx, T.context)
 
   const busy = agent.running || !items
   const ask = e => {
@@ -69,9 +70,11 @@ export default function SessionSummary({ meta, items, requestLog, agent, granula
           <Field label="Total tokens" value={<span className={tone(totalTokens, T.tokens)}>{fmtCompact(totalTokens)}</span>} />
           <Field label="Working time" value={<span className={tone(activeDuration, T.workTime)}>{fmtDuration(activeDuration)}</span>} />
           <Field label="Context size" value={
-            <span className={ctxTone}>{`${fmtCompact(meta.lastContextTokens)} / ${fmtCompact(ctxLimit)}`}</span>
+            <span className={ctxTone} data-tooltip-content={meta.contextCompacted ? 'Estimated until the next reply: what the compaction kept plus the System row' : undefined}>
+              {`${meta.contextCompacted ? '~ ' : ''}${fmtCompact(ctx)} / ${fmtCompact(ctxLimit)}`}
+            </span>
           } below={
-            <ProgressBar pct={meta.lastContextTokens / ctxLimit * 100} tone={ctxTone} />
+            <ProgressBar pct={ctx / ctxLimit * 100} tone={ctxTone} />
           }/>
         </Section>
 

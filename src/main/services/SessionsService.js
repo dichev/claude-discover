@@ -79,7 +79,10 @@ export class SessionsService extends EventEmitter {
     }
     for (const obj of source.records) feed(obj, inRange(obj.timestamp, range))
     await reader.stream(obj => { if (feed(obj, parser.feed(obj))) items.push(obj) })
-    const side = [...await sides, ...source.side.filter(s => inRange(s.timestamp, range))]
+    const own = await sides
+    const shown = list => list.filter(s => inRange(s.timestamp, range))
+    const side = [...own.strips, ...shown(source.side)]
+    const compacts = [...shown(source.compacts), ...own.compacts] // in time order: the source's predate the branch
     if (start?.length && !loop.includes(start[0])) loop.unshift(...start)
     items.sort((a, b) => a._ts - b._ts) // .jsonl lines aren't always in timestamp order
     const keys = new Set(loop.map(s => s.hash))
@@ -90,13 +93,13 @@ export class SessionsService extends EventEmitter {
     }
     // Shipped apart from the transcript items, the renderer slots them in by timestamp: the loop's as
     // System rows, the side requests' as Proxy blocks. The proxy's log is passed on for the AI agent to read.
-    return { items, instructions: { loop, side }, requestLog: await requests.exists() ? requests.filePath : null }
+    return { items, instructions: { loop, side, compacts }, requestLog: await requests.exists() ? requests.filePath : null }
   }
 
   // A branch copies its source's turns but not the requests that sent them: those come from the source, up to the
   // branch point. That part of the source never changes, so the last one read is kept for the branch's live updates.
   #branchSource({ filePath, forkedFrom, forkedAt }) {
-    if (!forkedFrom) return { records: [], side: [] }
+    if (!forkedFrom) return { records: [], side: [], compacts: [] }
     const key = `${filePath} ${forkedAt}`
     if (this.#branch?.key !== key) this.#branch = { key, source: this.#readBranchSource(filePath, forkedFrom.sessionId, forkedAt) }
     return this.#branch.source
@@ -105,14 +108,14 @@ export class SessionsService extends EventEmitter {
   // The source's request records (shapes, blobs, requests) and side requests sent up to `at`; its transcript sits beside the branch.
   async #readBranchSource(filePath, sessionId, at) {
     const records = []
-    const [side] = await Promise.all([
+    const [{ strips: side, compacts }] = await Promise.all([
       new RequestFile(sessionId).readInstructions({ start: 0, end: at }),
       new SessionFile(path.join(path.dirname(filePath), `${sessionId}.jsonl`)).stream(obj => {
         if (obj.type?.startsWith('api-request')) records.push(obj)
       }),
     ])
     // cut after the last request in time: the shapes and blobs logged past it belong to later ones
-    return { records: records.slice(0, records.findLastIndex(o => o.type === 'api-request' && Date.parse(o.timestamp) <= at) + 1), side }
+    return { records: records.slice(0, records.findLastIndex(o => o.type === 'api-request' && Date.parse(o.timestamp) <= at) + 1), side, compacts }
   }
 
   // Captured API requests for a session (see bin/proxy.mjs), period-filtered like readSession.

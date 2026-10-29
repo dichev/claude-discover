@@ -144,7 +144,7 @@
 .msg-author { color: var(--text); font-weight: 600; font-size: calc(12px * var(--font-scale, 1)); }
 .msg-user .msg-author { color: rgb(113, 183, 214); }
 .msg-system .msg-author { color: var(--text-dim); }
-.msg-proxy .msg-author, .msg-proxy .msg-icon { color: #a78bfa; }
+.msg-proxy .msg-author, .msg-proxy .msg-icon, .proxy-text { color: #a78bfa; }
 
 .msg-summary {
   background: transparent;

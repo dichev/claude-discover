@@ -110,8 +110,10 @@ const metaTurn = (it, role, blocks, uuid = it.uuid) => ({
 const noteTurn = (it, note, uuid) => metaTurn(it, 'system', [{ type: 'system', folded: !note.level, ...note }], uuid)
 
 // `instructions` are the system prompts, tools and memory files read off the API requests (readSession's
-// separate { loop, side } lists) — not transcript items, merged in by timestamp.
-export function flatten(items, { loop = [], side = [] } = {}) {
+// separate { loop, side } lists) — not transcript items, merged in by timestamp. `compacts` are /compact's
+// summarizing calls, for the divider each precedes.
+export function flatten(items, { loop = [], side = [], compacts = [] } = {}) {
+  const summarizing = [...compacts]
   const turns = []
   const results = {}
   const resultTs = {}
@@ -147,6 +149,7 @@ export function flatten(items, { loop = [], side = [] } = {}) {
       } else {
         turn.blocks[0].trigger = it.compactMetadata?.trigger
         turn.blocks[0].preTokens = it.compactMetadata?.preTokens
+        while (summarizing[0]?.timestamp <= it.timestamp) turn.blocks[0].summarizing = summarizing.shift().usage
       }
       continue
     }
@@ -375,6 +378,14 @@ export function cycleDurations(groups) {
 
 // What one API call read: its fresh input plus the cached prefix, read or written
 export const contextSize = u => (u.input_tokens || 0) + (u.cache_read_input_tokens || 0) + (u.cache_creation_input_tokens || 0)
+
+// The session's context size. Right after a compaction it's Claude Code's postTokens, which counts only the messages kept,
+// not the system prompt, tools and memory files every request resends — so it adds the first System row's estimate.
+export function contextTokens(meta, { loop = [] } = {}) {
+  if (!meta.contextCompacted) return meta.lastContextTokens
+  const first = loop.filter(s => s.timestamp === loop[0].timestamp)
+  return meta.lastContextTokens + first.reduce((a, s) => a + countTokens(s.content, s.model), 0)
+}
 
 // A branch (/branch, --fork-session) opens with the source's records copied over, up to `forkedAt` —
 // returns the source session and the index of the first group after them (groups.length when none yet).
