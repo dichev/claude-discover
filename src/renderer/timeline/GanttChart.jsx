@@ -72,7 +72,7 @@ function layoutGroups(sessions, bar, expanded) {
     if (collapsed.has(s.filePath)) continue
     addItem(s, {
       id: s.filePath,
-      label: s.summary || s.firstUserPrompt || s.firstUserCommand || s.sessionId,
+      label: s.agentDescription || s.summary || s.firstUserPrompt || s.firstUserCommand || s.sessionId,
       start: s.startedAt,
       end: endOf(s),
       source: s.source,

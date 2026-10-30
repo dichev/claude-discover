@@ -20,6 +20,12 @@ export class SessionFile {
     try { return await fsp.stat(this.filePath) } catch { return null }
   }
 
+  // A subagent's name and description live only in the `<agent>.meta.json` beside its transcript
+  async agentMeta() {
+    if (!this.parentSessionId) return null
+    try { return JSON.parse(await fsp.readFile(this.filePath.replace(/\.jsonl$/, '.meta.json'), 'utf8')) } catch { return null }
+  }
+
   // Streams every complete line as parsed JSON; a partially-written trailing line
   // (no newline yet) is skipped, so reading a live session never sees a half record.
   async stream(onLine) {

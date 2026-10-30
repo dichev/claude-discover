@@ -86,15 +86,15 @@ export default function SessionList({ sessions, selectedId, deepLink, onSelect }
 
 
   // The first command, when nothing better names the session.
-  const labelCommand = s => !(s.aiTitle || s.summary || s.firstUserPrompt) && parseCommand(s.firstUserCommand)
+  const labelCommand = s => !(s.agentDescription || s.aiTitle || s.summary || s.firstUserPrompt) && parseCommand(s.firstUserCommand)
   const sessionLabel = s => {
     const c = labelCommand(s)
-    return c ? `${c.name || c.message} ${c.args}` : (s.aiTitle || s.summary || s.firstUserPrompt || s.sessionId || '')
+    return c ? `${c.name || c.message} ${c.args}` : (s.agentDescription || s.aiTitle || s.summary || s.firstUserPrompt || s.sessionId || '')
   }
 
   const q = filter.trim().toLowerCase()
   const filtered = q ? sessions.filter(s => [
-    s.customTitle, s.agentName, s.tag, s.aiTitle, s.summary, s.firstUserPrompt, s.firstUserCommand,
+    s.customTitle, s.agentName, s.agentDescription, s.tag, s.aiTitle, s.summary, s.firstUserPrompt, s.firstUserCommand,
     s.project, s.subdir, s.worktree, s.tempPath, s.sessionId, s.model, s.gitBranch,
   ].filter(Boolean).join(' ').toLowerCase().includes(q)) : sessions
 

@@ -212,7 +212,10 @@ export class SessionsService extends EventEmitter {
     await reader.stream(obj => parser.feed(obj))
     const meta = parser.finalize(stat.mtimeMs)
     // The parser keeps the raw cwd as project; grouping it needs disk access, which the parser stays free of
-    const [project, avatar] = await Promise.all([this.projects.resolve(meta.project), this.projects.avatar(meta.project)])
+    const [project, avatar, agent] = await Promise.all([this.projects.resolve(meta.project), this.projects.avatar(meta.project), reader.agentMeta()])
+    // An unnamed agent goes by its type, as in Claude Code's own agent list
+    meta.agentName ??= agent?.name ?? agent?.agentType ?? null
+    meta.agentDescription = agent?.description ?? null
     return Object.assign(meta, project, { avatar })
   }
 
