@@ -49,12 +49,15 @@ export class AgentRunner {
     return { code: 0 }
   }
 
-  // The structured /usage data, from a session that's closed whether it answers, fails or hangs
+  // The structured /usage data plus the account, from a session that's closed whether it answers, fails or hangs
   async usage() {
     const { query } = await import('@anthropic-ai/claude-agent-sdk')
     // An empty prompt stream: control requests need streaming mode, and no message means no tokens spent
     const q = query({ prompt: (async function* () {})(), options: { tools: [], settingSources: [] } })
-    const usage = q.usage_EXPERIMENTAL_MAY_CHANGE_DO_NOT_RELY_ON_THIS_API_YET({ skipBehaviors: true })
+    const usage = Promise.all([
+      q.usage_EXPERIMENTAL_MAY_CHANGE_DO_NOT_RELY_ON_THIS_API_YET({ skipBehaviors: true }),
+      q.accountInfo()
+    ]).then(([usage, account]) => ({ ...usage, account })) // the account comes with the session's start, no extra request
     return withTimeout(usage, USAGE_TIMEOUT, () => q.close())
   }
 }

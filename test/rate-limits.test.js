@@ -16,6 +16,12 @@ describe('RateLimits', () => {
     })
   })
 
+  it("names the plan by the account's subscription, as /usage reports Ultra as max", async () => {
+    const usage = async account => (await new RateLimits(runner(async () => ({ subscription_type: 'max', account, rate_limits: {} }))).get()).plan
+    expect(await usage({ subscriptionType: 'Claude Ultra' })).toBe('Ultra')
+    expect(await usage(undefined)).toBe('max')
+  })
+
   it('asks once per refresh, shared by concurrent callers and cached after', async () => {
     const r = runner(async () => ({ rate_limits: { five_hour: { utilization: 1, resets_at: null } } }))
     const rl = new RateLimits(r)

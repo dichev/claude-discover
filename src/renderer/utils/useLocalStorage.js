@@ -7,14 +7,14 @@ const VERSION_KEY = 'version'
 export function useLocalStorage(key, initial) {
   const [value, setValue] = useState(() => {
     const raw = localStorage.getItem(key)
-    if (raw === null) {
-      return typeof initial === 'function' ? initial() : initial // match React's useState lazy-init signature
-    }
-    return JSON.parse(raw)
+    try {
+      if (raw !== null) return JSON.parse(raw)
+    } catch { /* an unparsable value (e.g. a stored "undefined") falls back to the initial one */ }
+    return typeof initial === 'function' ? initial() : initial // match React's useState lazy-init signature
   })
 
   useEffect(() => {
-    localStorage.setItem(key, JSON.stringify(value))
+    if (value !== undefined) localStorage.setItem(key, JSON.stringify(value)) // "undefined" isn't JSON, so it would fail to parse back
   }, [key, value])
 
   return [value, setValue]

@@ -7,6 +7,7 @@ import Tip from './Tip.jsx'
 import { tone } from '../utils/formatting'
 import { useScanProgress } from '../utils/useScanProgress.js'
 import { useClock } from '../utils/useClock.js'
+import { useLocalStorage } from '../utils/useLocalStorage.js'
 import { THRESHOLDS } from '../utils/thresholds'
 import './StatusBar.css'
 
@@ -118,13 +119,14 @@ function UsageTip({ at, plan, fiveHour, sevenDay, models, sources, extra }) {
 
 // The daily and weekly bars, sharing one tooltip
 // The bars show from startup on, so they don't pop in later: `limits` is undefined while loading, null when unavailable
+// Plans without a 5h window (Ultra) get a null `fiveHour`, and no daily bar
 function UsageLimits({ limits }) {
   const id          = useId()
   const placeholder = limits === undefined ? '…' : '—'
   const tip         = limits ? <UsageTip {...limits} /> : limits === undefined ? 'Loading Claude usage…' : "Claude usage isn't available - it needs Claude Code logged in with a Claude subscription"
   return (
     <span className="statusbar-limits" data-tooltip-id={id}>
-      <UsageBar label="Daily" limit={limits?.fiveHour} placeholder={placeholder} />
+      {limits?.fiveHour !== null && <UsageBar label="Daily" limit={limits?.fiveHour} placeholder={placeholder} />}
       <UsageBar label="Weekly" limit={limits?.sevenDay} placeholder={placeholder} />
       <Tip id={id} clickable className="tip-unbounded statusbar-tip">
         {tip}
@@ -134,8 +136,9 @@ function UsageLimits({ limits }) {
 }
 
 // Asked at mount, on refocus, and every minute in case Claude Code was used meanwhile (schedule atop RateLimits.js)
+// The last answer is kept across launches, so the bars start as they were rather than reshuffle once it arrives
 function useRateLimits() {
-  const [limits, setLimits] = useState() // undefined until the first answer; null without plan limits (API key logins) or if the SDK call fails
+  const [limits, setLimits] = useLocalStorage('usage.limits') // undefined until the first answer ever; null without plan limits (API key logins) or if the SDK call fails
   useEffect(() => {
     const check = opts => document.hidden || window.api.getRateLimits(opts).then(setLimits)
     const onFocus = () => check()
@@ -143,7 +146,7 @@ function useRateLimits() {
     const timer = setInterval(() => check({ ifActive: true }), 60_000)
     window.addEventListener('focus', onFocus)
     return () => { clearInterval(timer); window.removeEventListener('focus', onFocus) }
-  }, [])
+  }, [setLimits])
   return limits
 }
 

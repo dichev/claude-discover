@@ -49,10 +49,10 @@ export class RateLimits {
 
   async #fetch() {
     try {
-      const { subscription_type: plan, rate_limits: rl } = await this.#agentRunner.usage()
+      const { subscription_type: type, account, rate_limits: rl } = await this.#agentRunner.usage()
       return rl && {
         at: Date.now(),
-        plan, // 'pro' | 'max' | 'team' | 'enterprise'
+        plan: account?.subscriptionType?.replace(/^Claude /, '') ?? type, // 'Ultra' from 'Claude Ultra', where /usage only says 'max'
         fiveHour: toWindow(rl.five_hour),
         sevenDay: toWindow(rl.seven_day),
         models: (rl.model_scoped ?? []).filter(m => m.utilization != null).map(m => ({ name: m.display_name, ...toWindow(m) })), // per-model weekly caps
