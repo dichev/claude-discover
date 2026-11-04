@@ -128,7 +128,10 @@ export function markdownSession(meta, items, instructions = {}, requestLog = nul
   const contextPct = Math.round((ctx / ctxLimit) * 100)
   const advice = cacheAdvice(meta)
   const cacheHitPct = (meta.cacheHitRatio * 100).toFixed(0)
-  const transcript = items ? renderTranscript(flatten(items, instructions), meta) : '_Loading…_'
+  const turns = items ? flatten(items, instructions) : []
+  const rewinds = turns.filter(t => t.rewind).length
+  const compactions = turns.filter(t => t.role === 'compact').length
+  const transcript = items ? renderTranscript(turns, meta) : '_Loading…_'
   const conversation = `\n# Conversation\n\n${transcript}`
 
   const summary = `
@@ -161,7 +164,9 @@ ${meta.continuesTo ? `- Continues on: ${format(meta.continuesTo, 'PPpp')} (later
 - Active periods: ${fmtNum(meta.activityPeriods.length)}
 - Messages: ${fmtNum(meta.messageCount)}
 - Tool calls: ${fmtToolCalls(meta)}
-
+${compactions ? `- Compactions: ${fmtNum(compactions)}
+` : ''}${rewinds ? `- Rewinds: ${fmtNum(rewinds)}
+` : ''}
 ## Identity
 - Session ID: ${meta.sessionId}
 - Model: ${meta.models.join(', ') || '—'}

@@ -3,7 +3,7 @@ import { format } from 'date-fns'
 import { fmtDuration, fmtNum, fmtUSD, fmtCompact, fmtToolCalls, tone } from '../utils/formatting.js'
 import { THRESHOLDS as T } from '../utils/thresholds.js'
 import { cacheAdvice, CACHE_LABELS } from '../utils/cacheAdvice.js'
-import { contextWindow, contextTokens } from './view/transcript.js'
+import { contextWindow, contextTokens, flatten } from './view/transcript.js'
 import AgentOutput from '../agent/AgentOutput.jsx'
 import ProgressBar from '../ui/ProgressBar.jsx'
 import './SessionSummary.css'
@@ -23,6 +23,10 @@ export default function SessionSummary({ meta, items, instructions, requestLog, 
   const ctxLimit = contextWindow(meta.models)
   const ctx = contextTokens(meta, instructions)
   const ctxTone = tone(ctx, T.context)
+  // Counted in the loaded period's transcript, like the Conversation view
+  const turns = items ? flatten(items) : []
+  const rewinds = turns.filter(t => t.rewind).length
+  const compactions = turns.filter(t => t.role === 'compact').length
 
   const busy = agent.running || !items
   const ask = e => {
@@ -112,6 +116,8 @@ export default function SessionSummary({ meta, items, instructions, requestLog, 
             <span className={tone(meta.messageCount, T.messages)}>{fmtNum(meta.messageCount)}</span>
           } />
           <Field label="Tool calls" value={fmtToolCalls(meta)} />
+          {compactions > 0 && <Field label="Compactions" value={fmtNum(compactions)} />}
+          {rewinds > 0 && <Field label="Rewinds" value={fmtNum(rewinds)} />}
         </Section>
 
         <Section title="Identity">
