@@ -4,7 +4,7 @@ import { Globe, LaptopMinimal, OctagonX, Terminal } from 'lucide-react'
 import { fmtCompact, fmtDuration, plural, tone } from '../../utils/formatting'
 import { THRESHOLDS as T } from '../../utils/thresholds.js'
 import { flatten, groupTurns, cycleDurations, tokenPoints, branchPoint, currentModel, contextWindow, countTokens, unloggedRequestsVersion } from './transcript.js'
-import { toolSummary, parseCommand, interruptLabel, isClearTurn, instructionTitle, compactTitleParts, persistedOutput, attachmentView, hasText, safeJson, SIDE_NOTE } from './labels.js'
+import { toolSummary, parseCommand, interruptLabel, isClearTurn, instructionTitle, compactTitleParts, rewindTitle, persistedOutput, attachmentView, hasText, safeJson, SIDE_NOTE } from './labels.js'
 import Divider from '../../ui/Divider.jsx'
 import LazyMount from '../../ui/LazyMount.jsx'
 import Markdown from '../../ui/Markdown.jsx'
@@ -68,6 +68,13 @@ export default function ConversationView({
   const shown = groups.map(g => filtered(g, filter))
   const branch = branchPoint(groups, forkedFrom, forkedAt, continuesFrom)
   const branchDivider = branch && <Divider className="conv-divider" title={branch.from}>Branched from session {branch.from.slice(0, 8)}</Divider>
+  const rewinds = groups.map(g => g.turns.find(t => t.rewind)?.rewind)
+  // The first row still shown from where the rewound-away conversation began
+  const showSince = since => {
+    const from = groups.findIndex(g => g.turns.some(t => t.ts >= since))
+    const row = [...zoomRef.current.querySelectorAll('[data-group]')].find(el => Number(el.dataset.group) >= from)
+    row?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+  }
   return (
     <ExpandAllContext.Provider value={expandAll}>
     <TranscriptFileContext.Provider value={filePath}>
@@ -86,7 +93,8 @@ export default function ConversationView({
         {shown.map((g, i) => (
           <React.Fragment key={groups[i].turns[0].uuid}>
             {i === branch?.index && branchDivider}
-            {g && <div className={`conv-row conv-row-${g.kind}`}>
+            {rewinds[i] && <RewindDivider rewind={rewinds[i]} onShowSince={showSince} />}
+            {g && <div className={`conv-row conv-row-${g.kind}`} data-group={i}>
               <LazyMount eager={i < 8} forceMount={findOpen} placeholderMinHeight={80}>
                 {g.kind === 'user' || g.kind === 'system' ? <InputRow kind={g.kind} turns={g.turns} point={points[i]} index={i} />
                  : g.kind === 'assistant' ? <AssistantCard turns={g.turns} point={points[i]} index={i} duration={durations[i]} ctxLimit={ctxLimit} showAuthor={groups[i - 1]?.kind !== 'assistant'} />
@@ -112,6 +120,15 @@ export default function ConversationView({
       </div>
     </TranscriptFileContext.Provider>
     </ExpandAllContext.Provider>
+  )
+}
+
+function RewindDivider({ rewind, onShowSince }) {
+  const [head, since] = rewindTitle(rewind)
+  return (
+    <Divider className="conv-divider conv-rewind">
+      <span>{head}{since && <button type="button" className="conv-rewind-since" onClick={() => onShowSince(rewind.since)} data-tooltip-content="Show where it began">{since}</button>}</span>
+    </Divider>
   )
 }
 

@@ -127,9 +127,15 @@ export function flatten(items, { loop = [], side = [], compacts = [] } = {}) {
     while (byUuid.get(p)?.type === 'attachment') p = byUuid.get(p).parentUuid
     return p ?? it.uuid
   }
+  const firstChild = new Map()
+  const promptTs = [] // when the latest prompt of each number was typed
+  let lastPrompt = 0
   let lastTs = null
   for (let it of items) {
     if (it._relogged) continue // the original (or the command it typed) already shows
+    const key = !it.isSidechain && it.parentUuid
+    if (key && !firstChild.has(key)) firstChild.set(key, it)
+    const sibling = key && firstChild.get(key)
     const ts = it.timestamp ? Date.parse(it.timestamp) : null
     const prevTs = lastTs
     if (ts != null) lastTs = ts
@@ -240,11 +246,21 @@ export function flatten(items, { loop = [], side = [], compacts = [] } = {}) {
     for (const b of blocks) {
       if (b.type === 'tool_result' && b.tool_use_id) { results[b.tool_use_id] = b; resultTs[b.tool_use_id] = ts }
     }
+    // A rewind appends the prompt under the record it rewound to, beside that record's earlier child — or, back to the start,
+    // continues the chain but restarts Claude Code's prompt count. `since` is null when the dropped part began before the period.
+    let rewind = role === 'user' && sibling && sibling.uuid !== it.uuid ? { since: Date.parse(sibling.timestamp) } : null
+    const n = role === 'user' && it.origin?.kind === 'human' && it.turnPosition?.promptIndex
+    if (n > 0) {
+      if (!rewind && n <= lastPrompt) rewind = { since: promptTs[n] ?? null }
+      lastPrompt = n
+      promptTs[n] = ts
+    }
     turns.push({
       uuid: it.uuid,
       role,
       // System prompting Claude itself (e.g. "Continue from where you left off.") — companions only annotate the turn before
       prompt: role === 'system' && !it.turnCompanion,
+      rewind,
       ts: it.timestamp ? Date.parse(it.timestamp) : null,
       model: msg.model || null,
       msgId: msg.id || null,

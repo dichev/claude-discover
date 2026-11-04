@@ -389,6 +389,30 @@ describe('flatten — queued commands', () => {
   })
 })
 
+describe('flatten — a rewind', () => {
+  // `n`: the prompt's number in Claude Code's prompt count
+  const rec = (type, uuid, parentUuid, ts, n) => ({
+    type, uuid, parentUuid, timestamp: `2026-11-04T16:${ts}.000Z`, message: { role: type, content: 'hi' },
+    ...n && { origin: { kind: 'human' }, turnPosition: { promptIndex: n } },
+  })
+  const since = items => flatten(items).map(t => t.rewind?.since ?? null)
+  const items = [rec('assistant', 'a0', null, '30:00'), rec('user', 'u1', 'a0', '41:42'), rec('assistant', 'a1', 'u1', '41:50'), rec('user', 'u2', 'a0', '42:44')]
+
+  it('marks the prompt appended under the rewound-to record with when the dropped stretch began', () => {
+    expect(since(items)).toEqual([null, null, null, Date.parse('2026-11-04T16:41:42.000Z')])
+  })
+
+  // Claude Code appends a prompt typed after a rewind to the start under the last record, so only its prompt count tells
+  it('marks a prompt that restarts the prompt count, since the prompt it replaced', () => {
+    const items = [rec('user', 'p1', null, '50:00', 1), rec('assistant', 'r1', 'p1', '50:01'), rec('user', 'p2', 'r1', '50:10', 2), rec('assistant', 'r2', 'p2', '50:11'), rec('user', 'p3', 'r2', '50:20', 1)]
+    expect(since(items)).toEqual([null, null, null, null, Date.parse('2026-11-04T16:50:00.000Z')])
+  })
+
+  it('leaves copies sharing the original uuid unmarked', () => {
+    expect(since([...items.slice(0, 2), items[1]])).toEqual([null, null, null])
+  })
+})
+
 // A queued command is logged when consumed but timestamped when typed, so readSession's
 // sort moves it back before lines logged before it — running totals must survive that.
 describe('token totals around a back-dated queued command', () => {

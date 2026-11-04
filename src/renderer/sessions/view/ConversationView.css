@@ -48,6 +48,8 @@
 .conv-continues-from { margin-bottom: 20px; }
 .conv-continues-to { margin-top: 20px; }
 .conv-divider { margin: 20px 0; }
+.conv-rewind { color: var(--warn); &::before, &::after { opacity: 1; } }
+.conv-rewind-since { all: unset; cursor: pointer; text-decoration: underline; text-underline-offset: 3px; &:hover { filter: brightness(1.3); } }
 
 .token-point {
   position: absolute;

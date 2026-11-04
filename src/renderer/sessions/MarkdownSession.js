@@ -1,7 +1,7 @@
 import { format } from 'date-fns'
 import { fmtDuration, fmtNum, fmtUSD, fmtCompact, fmtToolCalls } from '../utils/formatting.js'
 import { flatten, groupTurns, branchPoint, contextSize, contextTokens, currentModel, contextWindow, countTokens } from './view/transcript.js'
-import { toolSummary, parseCommand, isClearTurn, instructionTitle, compactTitle, attachmentView, hasText, safeJson, SIDE_NOTE } from './view/labels.js'
+import { toolSummary, parseCommand, isClearTurn, instructionTitle, compactTitle, rewindTitle, attachmentView, hasText, safeJson, SIDE_NOTE } from './view/labels.js'
 import { fenced } from '../utils/textBlock.js'
 import { cacheAdvice, CACHE_LABELS } from '../utils/cacheAdvice.js'
 
@@ -101,7 +101,8 @@ function renderTurn(t, seen, model) {
   }
   const time = t.ts != null ? ` · ${format(t.ts, 'HH:mm:ss')}` : ''
   const cleared = isClearTurn(t) ? '\n\n**Context cleared**' : ''
-  return `**${role}${time}${stats.length ? ` (${stats.join(' · ')})` : ''}:**\n\n${blocks.join('\n\n')}${cleared}`
+  const rewind = t.rewind ? `**${rewindTitle(t.rewind).join('')}**\n\n` : ''
+  return `${rewind}**${role}${time}${stats.length ? ` (${stats.join(' · ')})` : ''}:**\n\n${blocks.join('\n\n')}${cleared}`
 }
 
 function renderTranscript(turns, { forkedFrom, forkedAt, continuesFrom }) {

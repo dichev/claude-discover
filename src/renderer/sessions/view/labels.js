@@ -1,3 +1,4 @@
+import { format } from 'date-fns'
 import { fmtCompact, plural } from '../../utils/formatting.js'
 import { listedEntries, mcpSections } from '../../../shared/listings.js'
 
@@ -90,6 +91,11 @@ export function compactTitleParts({ trigger, preTokens, summarizing: u }) {
   const note = u ? `summarizing ${fmtCompact(usageTotal(u))} tokens${u.cache_read_input_tokens ? '' : ', no cache hit'}` : 'summarizing cost not logged'
   return [`Conversation compacted (${detail.map(d => `${d} · `).join('')}`, note, ')']
 }
+
+// [head, since] for the divider above a prompt typed after a /rewind; `since` is empty when the start wasn't loaded
+export const rewindTitle = ({ since }) => since != null
+  ? ['Rewind: Claude no longer sees the conversation ', `since ${format(since, 'HH:mm:ss')}`]
+  : ['Rewind: Claude no longer sees the earlier conversation', '']
 
 // Total tokens billed for a request: input + output + both cache tiers, from its response usage
 export const usageTotal = u => (u.input_tokens || 0) + (u.output_tokens || 0) + (u.cache_creation_input_tokens || 0) + (u.cache_read_input_tokens || 0)
