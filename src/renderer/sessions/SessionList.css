@@ -138,6 +138,7 @@
   &.active::after { --dot: var(--accent); }
   &.live::after { animation: pulse 2s ease-out infinite; }
 
+  &.is-subagent-child { background-color: var(--bg); } /* before :hover and .selected, so they still win */
   &:hover { background-color: var(--bg-elev-2); }
   &.selected { background-color: var(--selected); }
   /* indented 12px past the run title text (14px arrow + 5px gap), while the time stays in line with the other rows */
@@ -199,6 +200,7 @@
 
 /* A toggle, not a session: hover lights up its branch and title rather than the whole row */
 .subagent-run:not(.selected):hover { background-color: transparent; }
+.subagent-run[aria-expanded="true"]:is(*, :hover) { background-color: var(--bg); } /* an open run's header shades with its rows */
 .subagent-run:hover .subagent-run-arrow { --branch: var(--accent); }
 .subagent-run:hover .subagent-run-title { color: var(--accent); }
 

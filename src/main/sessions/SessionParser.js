@@ -19,6 +19,18 @@ function addUsage(target, delta) {
   for (const k of TOKEN_FIELDS) target[k] += delta[k]
 }
 
+function usageOf(u) {
+  const cc = u.cache_creation || {}
+  return {
+    input: u.input_tokens || 0,
+    output: u.output_tokens || 0,
+    cacheRead: u.cache_read_input_tokens || 0,
+    cacheCreation: u.cache_creation_input_tokens || 0,
+    cacheCreation5m: cc.ephemeral_5m_input_tokens || 0,
+    cacheCreation1h: cc.ephemeral_1h_input_tokens || 0,
+  }
+}
+
 const CACHE_TTL_MS = { '5m': 5 * 60_000, '1h': 60 * 60_000 }
 
 const writeTtl = u => u.cacheCreation1h ? CACHE_TTL_MS['1h'] : u.cacheCreation ? CACHE_TTL_MS['5m'] : null
@@ -156,6 +168,9 @@ export class SessionParser {
       // Nearest activity outside the period on either side — the view marks where the shown part picks up and where it goes on
       if (inherited != null && ts < this.range.start && ts > meta.continuesFrom) meta.continuesFrom = ts
       if (inherited != null && ts > this.range.end && (meta.continuesTo == null || ts < meta.continuesTo)) meta.continuesTo = ts
+      // A reply streamed across the period start counts where it began — its lines in the period add only their growth
+      const msg = obj.message
+      if (ts < this.range.start && msg?.usage && msg.id) this._growth(msg.id, usageOf(msg.usage))
       return false
     }
     obj._ts = ts
@@ -286,15 +301,7 @@ export class SessionParser {
     const u = msg?.usage
     const msgId = msg?.id
     if (!u || !msgId) return
-    const cc = u.cache_creation || {}
-    const usage = {
-      input: u.input_tokens || 0,
-      output: u.output_tokens || 0,
-      cacheRead: u.cache_read_input_tokens || 0,
-      cacheCreation: u.cache_creation_input_tokens || 0,
-      cacheCreation5m: cc.ephemeral_5m_input_tokens || 0,
-      cacheCreation1h: cc.ephemeral_1h_input_tokens || 0,
-    }
+    const usage = usageOf(u)
     const model = msg.model || 'unknown'
     const fast = u.speed === 'fast'
     const contextSize = usage.input + usage.cacheRead + usage.cacheCreation
@@ -305,8 +312,7 @@ export class SessionParser {
     }
     if (this.excludeIds?.has(msgId)) return
 
-    const applied = this.appliedById.get(msgId)
-    if (!applied) { // first non-excluded line of this reply — record stream-stable metadata once
+    if (!this.appliedById.has(msgId)) { // first non-excluded line of this reply — record stream-stable metadata once
       // Timed by the record that sent it: a reply's first line can land minutes later, after the thinking
       const sentAt = this.prevMessage?.type === 'user' ? Math.min(this.prevMessage._ts, obj._ts) : obj._ts
       this.calls.push({ ts: sentAt, model, fast, usage })
@@ -326,13 +332,8 @@ export class SessionParser {
         meta.serverToolUse.webFetch += u.server_tool_use.web_fetch_requests || 0
       }
     }
-    const growth = emptyBucket()
-    let changed = false
-    // Never go negative: a rewind can repeat a line with its usage zeroed, but those tokens were still billed.
-    for (const k of TOKEN_FIELDS) { growth[k] = Math.max(0, usage[k] - (applied?.[k] ?? 0)); if (growth[k] !== 0) changed = true }
-    if (applied) addUsage(applied, growth)
-    else this.appliedById.set(msgId, usage)
-    if (!changed) return // a repeat line that added nothing
+    const growth = this._growth(msgId, usage)
+    if (TOKEN_FIELDS.every(k => !growth[k])) return // a repeat line that added nothing
     // Fast and standard tokens price differently, so keep separate per-model buckets.
     const byModel = fast ? meta.tokensByModelFast : meta.tokensByModel
     addUsage(meta.tokens, growth)
@@ -343,6 +344,19 @@ export class SessionParser {
       const tokens = growth.input + growth.output + growth.cacheRead + growth.cacheCreation
       meta.costSamples.push({ start: prevTs != null && prevTs < obj._ts ? prevTs : obj._ts, end: obj._ts, cost: cost || 0, tokens })
     }
+  }
+
+  // Folds a line's usage into what its reply has applied so far and returns the growth.
+  // Never negative: a rewind can repeat a line with its usage zeroed, but those tokens were still billed.
+  _growth(msgId, usage) {
+    const applied = this.appliedById.get(msgId)
+    if (!applied) {
+      this.appliedById.set(msgId, usage)
+      return usage
+    }
+    const growth = Object.fromEntries(TOKEN_FIELDS.map(k => [k, Math.max(0, usage[k] - applied[k])]))
+    addUsage(applied, growth)
+    return growth
   }
 
   finalize(mtimeFallback) {

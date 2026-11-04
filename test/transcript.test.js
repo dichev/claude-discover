@@ -147,6 +147,18 @@ describe('SessionParser — continuesFrom / continuesTo', () => {
     expect(parser.meta.continuesTo).toBe(Date.parse('2026-09-26T14:32:00.000Z'))
   })
 
+  it('counts a reply streamed across midnight once, in the day it began, plus any growth after', () => {
+    const reply = (timestamp, output) => ({ type: 'assistant', uuid: `a-${timestamp}`, timestamp, message: { id: 'm1', role: 'assistant', model: 'claude-opus-5-5', content: [], usage: { input_tokens: 2, cache_read_input_tokens: 1000, output_tokens: output } } })
+    const day = d => ({ start: Date.parse(`${d}T00:00:00.000Z`), end: Date.parse(`${d}T23:59:59.999Z`) })
+    const tokensOn = d => {
+      const parser = new SessionParser({ sessionId: 's1', filePath: 's1.jsonl', range: day(d) })
+      for (const l of [reply('2026-09-30T23:59:59.500Z', 300), reply('2026-10-01T00:00:00.500Z', 358)]) parser.feed(l)
+      return parser.meta.tokens
+    }
+    expect(tokensOn('2026-09-30')).toMatchObject({ input: 2, cacheRead: 1000, output: 300 })
+    expect(tokensOn('2026-10-01')).toMatchObject({ input: 0, cacheRead: 0, output: 58 })
+  })
+
   it('stays null for a whole-file parse', () => {
     const parser = new SessionParser({ sessionId: 's1', filePath: 's1.jsonl' })
     for (const l of lines) parser.feed(l)

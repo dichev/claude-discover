@@ -11,6 +11,7 @@ npm run dev           # electron-vite dev — hot reload, renderer on :5555, CDP
 npm run build         # electron-vite build → out/{main,preload,renderer}
 npm start             # run the built app (electron .)
 npm test              # vitest run --reporter=tree
+npm run test:live     # same + the live passes (real ~/.claude vs ccusage, LiteLLM prices) — gates publish:patch
 npm run lint          # eslint . — must pass after every change (style rules live in eslint.config.js)
 npm run proxy         # run the capture proxy standalone (bin/proxy.mjs --restart)
 npm run smoke:local   # npm pack + launch the tarball via npx (npx cache, no shortcuts)
@@ -88,6 +89,7 @@ Invariants — token totals break if any of these are bypassed:
 - A partial compaction re-logs the preserved records under their original uuids, with zeroed usage; `SessionParser` counts only the first and flags the copies `_relogged`, which `flatten` skips.
 - A streamed reply spans several jsonl lines sharing `message.id` with growing `output_tokens`; the parser counts only the growth per line, clamped at 0 (rewinds re-append zeroed usage that was still billed).
 - Sessions are always parsed from byte 0, never resumed at an offset.
+- A reply streamed across a period's start counts in the period it began; `SessionParser` folds its earlier lines into what's applied, so the later period adds only its growth.
 - The walk can't prune by directory mtime (Windows doesn't bump it on append), and subagent transcripts nest arbitrarily deep.
 - `SessionsService.periodBounds` must stay in sync with `src/renderer/utils/period.js` (weeks start Monday).
 
