@@ -63,7 +63,11 @@ export default defineConfig({
         }
       }
     },
-    server: { port: 5555, strictPort: true }, // npm run dev
+    server: { // npm run dev
+      port: 5555,
+      strictPort: true,
+      watch: { awaitWriteFinish: { stabilityThreshold: 60, pollInterval: 10 } }, // chokidar drops a 2nd change within 50ms, stranding the browser on the 1st of a quick burst of edits
+    },
     plugins: [react({ compiler: true }), cspMeta()],
     define: {
       __APP_VERSION__: JSON.stringify(pkg.version)
