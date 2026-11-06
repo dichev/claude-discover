@@ -42,12 +42,12 @@ describe('markdownSession', () => {
 
   it('lists the MCP servers a turn connected to above its prompt, and the debug log they came from', () => {
     const mcp = [{ startedAt: '2026-11-04T21:33:11.451Z', debug: true, servers: [
-      { name: 'stdio_echo', transport: 'stdio', status: 'connected', ms: 164, error: null, stderr: [], toolCount: 2, groups: [], tools: [] },
+      { name: 'stdio_echo', transport: 'stdio', version: '', cached: true, status: 'connected', ms: 164, error: null, stderr: [], toolCount: 2, groups: [], tools: [] },
       { name: 'broken', transport: null, status: 'failed', ms: 59, error: 'CONNECTION_CLOSED: Connection closed', stderr: ['boom'], groups: [], tools: [] },
     ] }]
     const { body } = markdownSession(meta, [msg('user', 'u1', '2026-11-04T21:33:11.744Z', 'hi')], { mcp }, null, 'debug/s.txt')
     expect(body).toMatch(new RegExp('\\*\\*System · \\d\\d:\\d\\d:\\d\\d:\\*\\*\n\n_MCP servers connected \\(debug log\\)_\n'
-      + '- stdio_echo: stdio, connected in 164ms, 2 tools\n'
+      + '- stdio_echo: cached, stdio, connected in 164ms, 2 tools\n'
       + '- broken: failed in 59ms \\(CONNECTION_CLOSED: Connection closed\\)\n  - stderr: boom\n\n---\n\n\\*\\*User'))
     expect(body).toContain('- Debug log: debug/s.txt')
   })

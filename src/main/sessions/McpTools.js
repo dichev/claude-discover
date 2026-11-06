@@ -11,7 +11,7 @@ const connected = s => s.status === 'connected'
 
 // One server's row in a turn; the debug log (McpDebugLog) fills in what the transcript doesn't log
 export const serverRow = fields => ({
-  transport: null, ms: null, readyWithin: null, error: null, stderr: [], toolCount: null, groups: [], tools: [], ...fields,
+  transport: null, version: null, cached: false, ms: null, readyWithin: null, error: null, stderr: [], toolCount: null, groups: [], tools: [], ...fields,
 })
 
 // A server that mounts others (FastMCP's mount) prefixes each one's tools with its name, which is all that tells them

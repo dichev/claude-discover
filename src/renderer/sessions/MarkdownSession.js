@@ -123,7 +123,7 @@ function renderTranscript(turns, { forkedFrom, forkedAt, continuesFrom }) {
 function renderMcp(turn) {
   const title = turn.change ? 'MCP servers changed' : turn.debug ? 'MCP servers connected (debug log)' : 'MCP servers'
   const status = s => `${s.status}${s.ms === null ? '' : ` in ${s.ms}ms`}${s.readyWithin != null ? ` within ${s.readyWithin}ms of the request that found it connecting` : ''}`
-  const server = s => `- ${s.name}: ${[s.transport, status(s), s.toolCount != null && plural(s.toolCount, 'tool')].filter(Boolean).join(', ')}${s.error ? ` (${s.error})` : ''}`
+  const server = s => `- ${s.name}: ${[s.version && `version ${s.version}`, s.cached && 'cached', s.transport, status(s), s.toolCount != null && plural(s.toolCount, 'tool')].filter(Boolean).join(', ')}${s.error ? ` (${s.error})` : ''}`
     + s.groups.map(g => `\n  - mounted ${g.name}: ${plural(g.toolCount, 'tool')}`).join('')
     + s.stderr.map(line => `\n  - stderr: ${line}`).join('')
     + s.tools.map(t => `\n  - tool ${t.name}${t.ms === null ? '' : `: ${t.ms}ms`}${t.error ? ` (failed: ${t.error})` : ''}`).join('')

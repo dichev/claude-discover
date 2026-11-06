@@ -57,7 +57,7 @@ function fillProcess(turns, logged) {
       continue
     }
     for (const row of own) {
-      Object.assign(row, { name: log.name, transport: log.transport })
+      Object.assign(row, { name: log.name, transport: log.transport, version: log.version, cached: log.cached })
       if (row.status === log.status) Object.assign(row, { ms: log.ms, readyWithin: null, error: row.error ?? log.error, stderr: log.stderr })
     }
     // the server's own times for the calls the transcript logged, and the calls only the log has (Claude Code's own)
@@ -111,6 +111,9 @@ export function parseMcpLog(text) {
     if (!conn) continue
     if ((r = /^Successfully connected \(transport: ([\w-]+)\) in (\d+)ms/.exec(msg))) {
       Object.assign(conn, { status: 'connected', transport: r[1], ms: +r[2] })
+    } else if ((r = /^Connection established with capabilities: .*"serverVersion":\{.*?"version":"([^"]*?)(\+cached)?"/.exec(msg))) {
+      // A server can tag its version to flag this connection, as a caching gateway does
+      Object.assign(conn, { version: r[1], cached: !!r[2] })
     } else if ((r = /^Connection failed after (\d+)ms[^(:]*(?:\(([^)]+)\))?:?\s*(.*)/.exec(msg))) {
       Object.assign(conn, { status: 'failed', ms: +r[1], error: [r[2], r[3]].filter(Boolean).join(': ') })
     } else if ((r = /^Server stderr: (.*)/.exec(msg))) {

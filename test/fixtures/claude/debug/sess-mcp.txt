@@ -21,6 +21,7 @@
 2026-11-05T09:00:00.008Z [DEBUG] MCP server "gateway_echo": Initializing HTTP transport to http://127.0.0.1:61110/mcp/REDACTED
 2026-11-05T09:00:00.010Z [DEBUG] MCP server "gateway_echo": Starting connection with timeout of 30000ms
 2026-11-05T09:00:00.017Z [DEBUG] MCP server "gateway_echo": Successfully connected (transport: http) in 9ms
+2026-11-05T09:00:00.017Z [DEBUG] MCP server "gateway_echo": Connection established with capabilities: {"hasTools":true,"hasPrompts":false,"serverVersion":{"name":"gateway_echo","version":"+cached"},"protocolEra":"modern"}
 2026-11-05T09:00:00.020Z [DEBUG] MCP server "stdio_echo": Starting connection with timeout of 30000ms
 2026-11-05T09:00:00.021Z [DEBUG] MCP server "broken": Starting connection with timeout of 30000ms
 2026-11-05T09:00:00.079Z [ERROR] MCP server "broken" Server stderr: Traceback (most recent call last):
@@ -32,6 +33,7 @@ ModuleNotFoundError: No module named 'mcp'
 2026-11-05T09:00:01.000Z [DEBUG] MCP server "stdio_echo": Successfully connected in a format nobody logs yet
 2026-11-05T09:00:01.100Z [DEBUG] MCP server "ide": Starting connection with timeout of 30000ms
 2026-11-05T09:00:01.143Z [DEBUG] MCP server "ide": Successfully connected (transport: ws-ide) in 43ms
+2026-11-05T09:00:01.143Z [DEBUG] MCP server "ide": Connection established with capabilities: {"hasTools":true,"serverVersion":{"name":"ide","icons":[{"src":"https://example.invalid/i.svg"}],"version":"1.2.0","description":"An IDE"}}
 2026-11-05T09:00:01.200Z [DEBUG] MCP server "claude.ai Gmail": Initializing claude.ai proxy transport for server mcpsrv_01
 2026-11-05T09:00:01.200Z [DEBUG] MCP server "claude.ai Gmail": Starting connection with timeout of 30000ms
 2026-11-05T09:00:01.201Z [DEBUG] MCP server "claude.ai Gmail": Successfully connected (transport: claudeai-proxy) in 1ms

@@ -1,5 +1,5 @@
 import { Fragment } from 'react'
-import { Plug } from 'lucide-react'
+import { Database, Plug } from 'lucide-react'
 import { fmtNum, plural } from '../../utils/formatting.js'
 import './McpConnections.css'
 
@@ -9,6 +9,8 @@ const RUN_WITH_DEBUG = 'Run with --debug (debug: true in the Agent SDK) to see i
 const TRANSPORT_TIP = `Transport: how this server connects (stdio, http, …). ${RUN_WITH_DEBUG}`
 const TIME_TIP = `Connect time: how long this server took to connect. ${RUN_WITH_DEBUG}`
 const READY_TIP = 'Connect time: at most this long. It was still connecting at an earlier request and ready at this one'
+const VERSION_TIP = 'The version this server reported when it connected'
+const CACHED_TIP = 'Connected from a cache: the server tagged its version +cached'
 
 const label = status => status.replace('-', ' ')
 
@@ -38,11 +40,12 @@ export default function McpConnections({ turn }) {
               <td>
                 {s.name}
                 {s.toolCount != null && <span className="mcp-dim"> ({plural(s.toolCount, 'tool')})</span>}
+                {s.version && <span className="mcp-version" data-tooltip-content={VERSION_TIP}>{s.version}</span>}
               </td>
               <td className="mcp-dim" data-tooltip-content={turn.debug ? undefined : TRANSPORT_TIP}>{s.transport ?? '—'}</td>
               {s.readyWithin != null
                 ? <td className="mcp-ms" data-tooltip-content={READY_TIP}>≤ {ms(s.readyWithin)}</td>
-                : <td className="mcp-ms" data-tooltip-content={turn.debug ? undefined : TIME_TIP}>{ms(s.ms)}</td>}
+                : <td className="mcp-ms" data-tooltip-content={turn.debug ? undefined : TIME_TIP}>{s.cached && <span className="mcp-cached" data-tooltip-content={CACHED_TIP}><Database /></span>}{ms(s.ms)}</td>}
               <td className={`mcp-status ${s.status}`}>{label(s.status)}</td>
             </tr>
             {(s.error || s.stderr.length > 0) && (

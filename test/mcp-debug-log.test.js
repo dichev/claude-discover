@@ -27,6 +27,13 @@ describe('parseMcpLog', () => {
     ])
   })
 
+  it('reads the version a server reported, and its +cached tag', () => {
+    const version = name => { const s = turns[1].servers.find(s => s.name === name); return [s.version, s.cached] }
+    expect(version('gateway_echo')).toEqual(['', true])
+    expect(version('ide')).toEqual(['1.2.0', false])
+    expect(version('stdio_echo')).toEqual([null, false])
+  })
+
   it('reads a failure whose time carries a note, and a failed tool call, a multi-line one logged as a JSON string', () => {
     const server = name => turns[1].servers.find(s => s.name === name)
     expect(server('claude-artifacts').error).toBe('404: Error POSTing to endpoint: not found')
@@ -99,6 +106,7 @@ describe('McpDebugLog', () => {
       ['claude-artifacts', 'http', 'failed', 373, null], // only the log has it
     ])
     expect(turns[2].servers[0].stderr).toHaveLength(3)
+    expect(turns[2].servers.find(s => s.name === 'gateway_echo').cached).toBe(true)
     expect(rows(turns[3])).toEqual([['teamflows', 'sdk', 'connected', null, null]])
     expect(rows(turns[4]).map(r => r[1])).toEqual([null, null])
   })

@@ -26,7 +26,7 @@ describe('McpTools', () => {
       ['2026-11-04T10:02:00.100Z', true, ['claude.ai Docs removed']],
       ['2026-11-04T10:30:00.000Z', false, ['playwright connected', 'pycharm connected']],
     ])
-    expect(turns[0].servers[1]).toEqual({ name: 'pycharm', transport: null, status: 'connected', ms: null, readyWithin: null, error: null, stderr: [], toolCount: 1, groups: [], tools: [] })
+    expect(turns[0].servers[1]).toEqual({ name: 'pycharm', transport: null, version: null, cached: false, status: 'connected', ms: null, readyWithin: null, error: null, stderr: [], toolCount: 1, groups: [], tools: [] })
     const nextDay = { start: Date.parse('2026-11-05T00:00:00Z'), end: Date.parse('2026-11-05T23:59:59Z') }
     expect(tools.turns(nextDay).map(t => [t.startedAt, t.change, t.servers.map(s => s.name)])).toEqual([['2026-11-05T09:00:00.000Z', false, ['playwright', 'pycharm']]])
   })

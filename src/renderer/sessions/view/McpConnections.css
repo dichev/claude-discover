@@ -22,6 +22,8 @@
   & .mcp-col-time { width: 6em; }
 
   & td.mcp-tool { padding-left: 14px; white-space: normal; overflow-wrap: anywhere; } /* a long tool error wraps, not widens the table */
+  & .mcp-version { margin-left: 8px; color: var(--text-dim); }
+  & .mcp-cached { margin-right: 4px; color: var(--text-dim); & svg { width: 1em; height: 1em; vertical-align: -0.1em; } }
   & .mcp-ms { text-align: right; }
   & .mcp-dim { color: var(--text-dim); }
   & .mcp-tool-error { color: var(--danger); }
