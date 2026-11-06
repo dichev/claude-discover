@@ -524,6 +524,24 @@ describe('groupTurns — the instruction block', () => {
     expect(groups.map(g => g.kind)).toEqual(['user', 'instruction', 'assistant'])
     expect(cycleDurations(groups)[2]).toBe(10_000)
   })
+
+  it('leads each prompt\'s System row with the MCP servers its request had, though the request came after it', () => {
+    const mcp = [{ startedAt: '2026-07-24T18:07:31.400Z', servers: [] }, { startedAt: '2026-07-24T18:08:31.400Z', servers: [] }]
+    // a SessionStart hook's output, logged ahead of the prompt, shares the row
+    const context = { type: 'attachment', uuid: 'c1', timestamp: '2026-07-24T18:07:30.000Z', attachment: { type: 'hook_success', content: '' } }
+    const groups = groupTurns(flatten([context, ...items], { mcp, loop: [instr('2026-07-24T18:07:31.400Z', 'System Prompt', 'system')] }))
+    expect(groups.map(g => g.kind)).toEqual(['system', 'user', 'system', 'user'])
+    expect(groups[0].turns.map(t => t.uuid)).toEqual(['c1', 'mcp-2026-07-24T18:07:31.400Z', 'prompt-2026-07-24T18:07:31.400Z'])
+    expect(groups[2].turns[0].blocks).toEqual([{ type: 'mcp', turn: mcp[1] }])
+  })
+
+  it('keeps a mid-turn MCP change inside the Claude card it happened in', () => {
+    const call = { type: 'assistant', uuid: 'a1', timestamp: '2026-07-24T18:07:40.000Z', message: { role: 'assistant', id: 'm1', content: [{ type: 'tool_use', id: 't1', name: 'Read', input: {} }] } }
+    const reply = { type: 'assistant', uuid: 'a2', timestamp: '2026-07-24T18:07:50.000Z', message: { role: 'assistant', id: 'm2', content: [{ type: 'text', text: 'ok' }] } }
+    const groups = groupTurns(flatten([items[0], call, reply], { mcp: [{ startedAt: '2026-07-24T18:07:45.000Z', change: true, servers: [] }] }))
+    expect(groups.map(g => g.kind)).toEqual(['user', 'assistant'])
+    expect(groups[1].turns.map(t => t.uuid)).toEqual(['a1', 'mcp-2026-07-24T18:07:45.000Z', 'a2'])
+  })
 })
 
 describe('SessionParser — a branch', () => {

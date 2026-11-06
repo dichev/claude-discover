@@ -5,6 +5,7 @@ import { SessionFile } from '../sessions/SessionFile.js'
 import { RequestFile, inRange } from '../requests/RequestFile.js'
 import { UNATTRIBUTED } from '../../../bin/proxy.config.js'
 import { TranscriptInstructions } from '../requests/TranscriptInstructions.js'
+import { McpTools } from '../sessions/McpTools.js'
 import { SessionParser, suffixLabels } from '../sessions/SessionParser.js'
 import { SessionsScanner } from '../sessions/SessionsScanner.js'
 import { MetaCache } from '../sessions/MetaCache.js'
@@ -68,10 +69,12 @@ export class SessionsService extends EventEmitter {
     const source = await this.#branchSource(meta)
     const items = []
     const transcript = new TranscriptInstructions()
+    const mcpTools = new McpTools()
     const loop = []
     let start = null // what the conversation's first request sent — its context on any day
     // fed ahead of the range filter, so what was sent before the period isn't listed again
     const feed = (obj, shown) => {
+      mcpTools.feed(obj)
       const strips = transcript.feed(obj)
       if (obj.type === 'api-request') start ??= strips
       if (shown) loop.push(...strips)
@@ -92,8 +95,9 @@ export class SessionsService extends EventEmitter {
       if (o.type === 'attachment' && TranscriptInstructions.listed(o, keys)) o._listed = true
     }
     // Shipped apart from the transcript items, the renderer slots them in by timestamp: the loop's as
-    // System rows, the side requests' as Proxy blocks. The proxy's log is passed on for the AI agent to read.
-    return { items, instructions: { loop, side, compacts }, requestLog: await requests.exists() ? requests.filePath : null }
+    // System rows, along with each turn's MCP servers, the side requests' as Proxy blocks.
+    // The proxy's log is passed on for the AI agent to read.
+    return { items, instructions: { loop, side, compacts, mcp: mcpTools.turns(range) }, requestLog: await requests.exists() ? requests.filePath : null }
   }
 
   // A branch copies its source's turns but not the requests that sent them: those come from the source, up to the

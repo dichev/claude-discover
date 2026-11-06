@@ -28,7 +28,7 @@ const toStrip = (rec, source, file_path, label, content) => {
 }
 
 // an unresolvable ref (truncated log) is an object, not text — skipped
-const texts = c => (Array.isArray(c) ? c.map(p => p?.text) : [c]).filter(t => typeof t === 'string')
+export const texts = c => (Array.isArray(c) ? c.map(p => p?.text) : [c]).filter(t => typeof t === 'string')
 
 // The text parts of every non-assistant message — an assistant reply quoting a reminder's shape
 // must not parse as one the harness injected.

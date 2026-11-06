@@ -5,6 +5,7 @@ import { fmtCompact, fmtDuration, plural, tone } from '../../utils/formatting'
 import { THRESHOLDS as T } from '../../utils/thresholds.js'
 import { flatten, groupTurns, cycleDurations, tokenPoints, branchPoint, currentModel, contextWindow, countTokens, unloggedRequestsVersion } from './transcript.js'
 import { toolSummary, parseCommand, interruptLabel, isClearTurn, instructionTitle, compactTitleParts, rewindTitle, persistedOutput, attachmentView, hasText, safeJson, SIDE_NOTE } from './labels.js'
+import McpConnections, { McpTitle } from './McpConnections.jsx'
 import Divider from '../../ui/Divider.jsx'
 import LazyMount from '../../ui/LazyMount.jsx'
 import Markdown from '../../ui/Markdown.jsx'
@@ -383,6 +384,14 @@ function Block({ block, speaker = null, ts = null }) {
   }
   if (block.type === 'instruction') {
     return <InstructionFile it={block.it} model={block.it.model} tokens={countTokens(block.it.content, block.it.model)} speaker={speaker} className="directive" />
+  }
+  if (block.type === 'mcp') {
+    // A failed server's error is why you'd look; the rest is routine, repeated at each new process
+    return (
+      <Collapsible title={said(speaker, <McpTitle turn={block.turn} />)} className="mcp-block" defaultOpen={block.turn.servers.some(s => s.status === 'failed')}>
+        <McpConnections turn={block.turn} />
+      </Collapsible>
+    )
   }
   if (block.type === 'system') {
     const className = `system-note ${block.level ?? ''} ${block.kind ?? ''}`
