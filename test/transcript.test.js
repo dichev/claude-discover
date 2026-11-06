@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { flatten, groupTurns, tokenPoints, cycleDurations, isContextTurn, unloggedRequestsVersion, contextTokens, countTokens } from '../src/renderer/sessions/view/transcript.js'
+import { flatten, groupTurns, systemGroups, mcpGroupParts, latestServers, tokenPoints, cycleDurations, isContextTurn, unloggedRequestsVersion, contextTokens, countTokens } from '../src/renderer/sessions/view/transcript.js'
 import { parseCommand, compactTitle, persistedOutput } from '../src/renderer/sessions/view/labels.js'
 import { SessionParser } from '../src/main/sessions/SessionParser.js'
 
@@ -214,6 +214,24 @@ describe('flatten — a prompt\'s context', () => {
     expect(order(items)).toEqual(['user', 'environment', 'user', 'assistant'])
   })
 
+  it('keeps it away when the unanswered prompt\'s own context ran into it', () => {
+    const items = [prompt('p1', 0), att('a', 500, 'date'), att('b', 5000, 'environment'), prompt('p2', 5001), reply('r', 5100)]
+    expect(order(items)).toEqual(['user', 'date', 'environment', 'user', 'assistant'])
+  })
+
+  it('leads the prompt however late it was logged, when the reply follows', () => {
+    expect(order([prompt('p', 0), att('b', 5000, 'date'), reply('r', 5100)])).toEqual(['date', 'user', 'assistant'])
+  })
+
+  it('leads a prompt still waiting for its reply', () => {
+    expect(order([prompt('p', 0), att('b', 10, 'date')])).toEqual(['date', 'user'])
+  })
+
+  it('looks for the reply past a notice', () => {
+    const notice = { type: 'system', subtype: 'informational', uuid: 'n', timestamp: at(50), content: 'note' }
+    expect(order([prompt('p', 0), att('b', 10, 'date'), notice, reply('r', 100)])).toEqual(['date', 'user', 'system', 'assistant'])
+  })
+
   it('leaves a directive where it is, and what follows it', () => {
     const directive = { type: 'attachment', uuid: 'd', timestamp: at(790), attachment: { type: 'plan_mode' } }
     expect(order([prompt('p', 787), directive, att('b', 791), reply('r', 900)])).toEqual(['user', 'plan_mode', 'skill_listing', 'assistant'])
@@ -222,6 +240,106 @@ describe('flatten — a prompt\'s context', () => {
   it('backdates what it moves, keeping the turns in time order', () => {
     const stamps = flatten([prompt('p', 787), att('b', 811), reply('r', 900)]).map(t => t.ts)
     expect(stamps).toEqual([...stamps].sort((a, b) => a - b))
+  })
+})
+
+describe('systemGroups', () => {
+  const strip = (file_path, rest = {}) => ({ type: 'instruction', it: { file_path, content: `${file_path} text`, ...rest } })
+  const att = (type, rest = {}) => ({ type: 'attachment', folded: true, attachment: { type, ...rest }, rendered: [{ content: `${type} text` }] })
+  const mcp = { type: 'mcp', turn: { servers: [{ name: 'a', status: 'connected' }] } }
+  const long = 'x'.repeat(101) // what an attachment's body is read from
+  const groups = blocks => systemGroups([{ blocks }])
+
+  it('sorts a row by what each thing is, in request order', () => {
+    const found = groups([
+      att('environment', { dir: 'D:\\project', text: long }), att('output_style_instructions', { name: 'persona', text: long }), att('skill_listing', { content: 'x', skillCount: 11 }), att('agent_listing_delta', { addedTypes: ['a', 'b'] }), att('mcp_instructions_delta', { addedBlocks: ['x'], addedNames: ['a'] }),
+      mcp,
+      strip('System Prompt'), strip('D:\\role.md', { name: 'D:\\role.md', memory_type: 'your role' }), strip('MEMORY', { name: 'MEMORY.md' }),
+      strip('System Tools', { count: 11 }), strip('MCP Tools', { count: 7 }), strip('Deferred Tools', { count: 3 }),
+      strip('Attribution'),
+    ])
+    expect(found.map(g => [g.key, g.blocks.length])).toEqual([['prompt', 2], ['tools', 3], ['mcp', 2], ['memory', 2], ['listings', 2], ['context', 2]])
+    expect(found.map(g => g.title)).toEqual([
+      'System Prompt (+ output style)',
+      'Tools: 11 system, 7 MCP, 3 deferred',
+      'MCP instructions',
+      'Memory files: 2 files',
+      'Skills & agents: 11 skills, 2 agent types',
+      'Session context: environment, attribution',
+    ])
+  })
+
+  it('lists the system prompt above its output style, whichever came first', () => {
+    const [group] = groups([att('output_style_instructions', { name: 'persona', text: long }), strip('System Prompt')])
+    expect(group.blocks.map(b => b.type)).toEqual(['instruction', 'attachment'])
+  })
+
+  it('sums what each group costs, an MCP server costing nothing', () => {
+    const blocks = [strip('MCP Instructions'), mcp]
+    expect(groups(blocks)).toMatchObject([{ key: 'mcp', tokens: countTokens('MCP Instructions text') }])
+  })
+
+  it('counts a request\'s strip against the model it was sent to', () => {
+    const [group] = groups([strip('System Prompt', { model: 'claude-opus-4' })])
+    expect(group.tokens).toBe(countTokens('System Prompt text', 'claude-opus-4'))
+  })
+
+  it('leaves out directives and notices, which stay messages', () => {
+    const directive = { ...att('plan_mode'), folded: false }
+    expect(groups([directive, { type: 'system', folded: true, title: 'Note' }, { type: 'text', text: 'hi' }])).toEqual([])
+  })
+
+  it('names each kind of session context once', () => {
+    const edit = () => att('edited_text_file', { filename: 'a.md', snippet: long })
+    expect(groups([edit(), edit(), strip('Attribution')])[0].title).toBe('Session context: edited text file, attribution')
+  })
+
+  it('titles deferred-tool updates that added none', () => {
+    const update = () => att('deferred_tools_delta', { addedNames: [], removedNames: ['x'] })
+    expect(groups([update(), update()])[0].title).toBe('Deferred tools')
+  })
+
+  it('hands an unsent attachment to the session context only when that group is there', () => {
+    const unsent = { ...att('credential_org', { organizationUuid: 'x' }), rendered: undefined, unsent: true }
+    expect(groups([unsent, strip('System Prompt')]).map(g => g.key)).toEqual(['prompt'])
+    expect(groups([unsent, strip('Attribution')])[0].blocks).toHaveLength(2)
+  })
+})
+
+describe('latestServers', () => {
+  it('counts a server in two blocks once, as the later one has it', () => {
+    const first = { servers: [{ name: 'docs', status: 'pending' }, { name: 'mail', status: 'connected' }] }
+    const change = { servers: [{ name: 'docs', status: 'connected' }] }
+    expect(latestServers([first, change])).toEqual([{ name: 'docs', status: 'connected' }, { name: 'mail', status: 'connected' }])
+  })
+})
+
+describe('mcpGroupParts', () => {
+  const servers = { type: 'mcp', turn: { servers: [{ name: 'docs' }, { name: 'mail' }] } }
+  const delta = (...names) => ({ type: 'attachment', attachment: { type: 'mcp_instructions_delta', addedNames: names, addedBlocks: names.map(n => `## ${n}\n${n} text`) } })
+
+  it('puts each server\'s instructions under its name', () => {
+    const { instructions, rest } = mcpGroupParts([servers, delta('docs', 'mail')])
+    expect(instructions.get('docs').content).toBe('docs text')
+    expect(instructions.get('mail').content).toBe('mail text')
+    expect(rest).toEqual([])
+  })
+
+  it('reads them off a request\'s strip too, with the model it went to', () => {
+    const strip = { type: 'instruction', it: { file_path: 'MCP Instructions', model: 'claude-opus-4', items: [{ name: 'docs', content: 'docs text' }] } }
+    expect(mcpGroupParts([servers, strip]).instructions.get('docs')).toEqual({ content: 'docs text', model: 'claude-opus-4' })
+  })
+
+  it('keeps a listing as its own row when it names a server the group lacks', () => {
+    const listing = delta('docs', 'gone')
+    const { instructions, rest } = mcpGroupParts([servers, listing])
+    expect(instructions.size).toBe(0)
+    expect(rest).toEqual([listing])
+  })
+
+  it('keeps a listing with no sections, as a removal is', () => {
+    const removal = { type: 'attachment', attachment: { type: 'mcp_instructions_delta', removedNames: ['docs'] } }
+    expect(mcpGroupParts([servers, removal]).rest).toEqual([removal])
   })
 })
 
@@ -278,8 +396,8 @@ describe('groupTurns — System rows', () => {
   it('splits Claude Code\'s context off the prompt, keeping the user\'s own with it', () => {
     const groups = groupTurns(flatten([att('i1', 0, 'selected_lines_in_ide'), prompt, att('d1', 2, 'date'), att('f1', 2, 'file'), att('e1', 2, 'environment')]))
     expect(groups.map(g => [g.kind, g.turns.flatMap(t => t.blocks.map(b => b.attachment?.type ?? b.text))])).toEqual([
-      ['user', ['selected_lines_in_ide', 'fix it', 'file']],
       ['system', ['date', 'environment']],
+      ['user', ['selected_lines_in_ide', 'fix it', 'file']],
     ])
   })
 

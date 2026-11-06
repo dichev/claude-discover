@@ -142,7 +142,7 @@ export class RequestParser {
     // No descriptions to fold, so the names fold per source instead: the system ones, then each MCP server's
     const groups = Map.groupBy(names, n => isMcp(n) ? `${n.split('__')[1]} MCP` : 'System')
     const items = [...groups].map(([name, list]) => ({ name, memory_type: plural(list.length, 'tool'), content: fence(list) }))
-    return (this.deferredRoster = { ...toStrip(rec, 'message', 'Deferred Tools', label, fence(names)), items })
+    return (this.deferredRoster = { ...toStrip(rec, 'message', 'Deferred Tools', label, fence(names)), items, count: names.length })
   }
 
   // The request's tool definitions, from a resolveRefs'd record, as a native and an MCP strip —
@@ -165,7 +165,7 @@ export class RequestParser {
       if (!list.length) return null
       const content = list.map(t => [`## ${t.name}`, t.content].filter(Boolean).join('\n\n')).join('\n\n')
       // `items` keeps each definition apart, so the UI can fold them one by one
-      return { ...toStrip(rec, 'tools', file_path, plural(list.length, 'tool'), content), items: list }
+      return { ...toStrip(rec, 'tools', file_path, plural(list.length, 'tool'), content), items: list, count: list.length }
     }
     return [strip('System Tools', n => !isMcp(n)), strip('MCP Tools', isMcp)].filter(Boolean)
   }

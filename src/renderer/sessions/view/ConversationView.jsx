@@ -3,9 +3,11 @@ import { format } from 'date-fns'
 import { Globe, LaptopMinimal, OctagonX, Terminal } from 'lucide-react'
 import { fmtCompact, fmtDuration, plural, tone } from '../../utils/formatting'
 import { THRESHOLDS as T } from '../../utils/thresholds.js'
-import { flatten, groupTurns, cycleDurations, tokenPoints, branchPoint, currentModel, contextWindow, countTokens, unloggedRequestsVersion } from './transcript.js'
-import { toolSummary, parseCommand, interruptLabel, isClearTurn, instructionTitle, compactTitleParts, rewindTitle, persistedOutput, attachmentView, hasText, safeJson, SIDE_NOTE } from './labels.js'
+import { flatten, groupTurns, systemGroups, mcpGroupParts, latestServers, blockTokens, cycleDurations, tokenPoints, branchPoint, currentModel, contextWindow, countTokens, unloggedRequestsVersion } from './transcript.js'
+import { toolSummary, parseCommand, interruptLabel, isClearTurn, instructionTitle, compactTitleParts, rewindTitle, persistedOutput, attachmentView, hasText, isCounted, safeJson, SIDE_NOTE } from './labels.js'
+import ApproxTokens from './ApproxTokens.jsx'
 import McpConnections, { McpTitle } from './McpConnections.jsx'
+import { ExpandAllContext, useCollapsed } from './useCollapsed.js'
 import Divider from '../../ui/Divider.jsx'
 import LazyMount from '../../ui/LazyMount.jsx'
 import Markdown from '../../ui/Markdown.jsx'
@@ -18,22 +20,8 @@ import { useActivity } from '../../utils/activity.js'
 import './ConversationView.css'
 import claudeIcon from '../../assets/claude-icon.svg'
 
-// Global expand/collapse signal: null = leave each collapsible on its own state,
-// true/false = force open/closed. Changing it re-applies to every collapsible.
-const ExpandAllContext = React.createContext(null)
 // The top-level transcript's path — saved tool outputs resolve against it (see persistedOutput)
 const TranscriptFileContext = React.createContext(null)
-
-function useCollapsed(defaultOpen) {
-  const expandAll             = useContext(ExpandAllContext)
-  const [open, setOpen]       = useState(expandAll ?? defaultOpen)
-  const [applied, setApplied] = useState(expandAll)
-  if (applied !== expandAll) {
-    setApplied(expandAll)
-    if (expandAll != null) setOpen(expandAll)
-  }
-  return [open, setOpen]
-}
 
 export const FILTERS = [
   { value: 'user', label: 'User messages' },
@@ -209,14 +197,14 @@ const AUTHORS = {
 // Context and the CLI's routine notices — what the transcript model marks `folded`
 const isFolded = t => t.blocks.every(b => b.folded)
 
-// Attachments that carry a token count (@-files, skill and agent listings) list above the message; only the uncounted rest fold
-const isCounted = b => b.type === 'attachment' && !b.unsent && hasText(attachmentView(b.attachment, b.rendered))
-
-// A You or System row: its messages, with the context that came along folded behind the header
+// A You or System row: its messages, with the context that came along folded behind the header.
+// Counted attachments list above the message; only the uncounted rest fold. A System row groups what it lists.
 function InputRow({ kind, turns, point, index }) {
   const [open, setOpen] = useCollapsed(false)
+  const groups          = kind === 'system' ? systemGroups(turns) : []
+  const grouped         = new Set(groups.flatMap(g => g.blocks))
   const msgs            = turns.filter(t => !isFolded(t))
-  const folded          = turns.filter(isFolded).flatMap(t => t.blocks)
+  const folded          = turns.filter(isFolded).flatMap(t => t.blocks).filter(b => !grouped.has(b))
   const counted         = new Set(folded.filter(isCounted))
   const ctxItems        = folded.filter(b => !counted.has(b))
   const ts             = (msgs[0] ?? turns[0]).ts
@@ -240,13 +228,39 @@ function InputRow({ kind, turns, point, index }) {
           {ts != null && <span className="msg-time">{format(ts, 'HH:mm:ss')}</span>}
         </span>
       </div>
-      {(open ? folded.length : counted.size) > 0 && (
+      {(groups.length > 0 || (open ? folded.length : counted.size) > 0) && (
         <div className="msg-context">
+          {groups.map(g => <SystemGroup key={g.key} group={g} />)}
+          {groups.filter(g => g.tokens > 0).length > 1 && <TotalTokens tokens={groups.reduce((sum, g) => sum + g.tokens, 0)} />}
           {folded.map((b, i) => counted.has(b) ? <div key={i} className="listed"><Block block={b} /></div> : open && <Block key={i} block={b} />)}
         </div>
       )}
-      {msgs.map(t => <TurnRow key={t.uuid} turn={t} />)}
+      {msgs.filter(t => !t.blocks.every(b => grouped.has(b))).map(t => <TurnRow key={t.uuid} turn={t} />)}
     </div>
+  )
+}
+
+// One kind of what a System row lists, as a single row that opens onto the rows it sums; alone, it needs no wrapper
+function SystemGroup({ group: { blocks, title, tokens } }) {
+  if (blocks.length === 1) {
+    const [block] = blocks
+    return block.type === 'attachment' ? <div className="listed"><Block block={block} /></div> : <Block block={block} />
+  }
+  if (!blocks.some(b => b.type === 'mcp')) {
+    return <Collapsible title={title} className="instruction-file directive system-group" defaultOpen={false} tokens={tokens}>{blocks.map((b, i) => <Block key={i} block={b} />)}</Collapsible>
+  }
+  const { turns, instructions, rest } = mcpGroupParts(blocks)
+  return <McpBlock turns={turns} instructions={instructions} tokens={tokens}>{rest.map((b, i) => <Block key={i} block={b} />)}</McpBlock>
+}
+
+// A failed server's error is why you'd look; the rest is routine, repeated at each new process
+function McpBlock({ turns, instructions, tokens, speaker, children }) {
+  const servers = latestServers(turns)
+  return (
+    <Collapsible title={said(speaker, <McpTitle servers={servers} />)} className="mcp-block" defaultOpen={servers.some(s => s.status === 'failed')} tokens={tokens}>
+      {turns.map((t, i) => <McpConnections key={i} turn={t} instructions={instructions} />)}
+      {children}
+    </Collapsible>
   )
 }
 
@@ -319,9 +333,7 @@ function TurnRow({ turn, hidden = false, speaker = null }) {
           </Collapsible>
         )}
         {otherBlocks.map((b, i) => <Block key={i} block={b} speaker={speaker} ts={turn.ts} />)}
-        {instructions.length > 1 && (
-          <div className="aux instruction-total"><ApproxTokens tokens={instructions.reduce((a, b) => a + countTokens(b.it.content, b.it.model), 0)} tip="Approx. total tokens" /></div>
-        )}
+        {instructions.length > 1 && <TotalTokens tokens={instructions.reduce((sum, b) => sum + blockTokens(b), 0)} />}
       </div>
     </div>
   )
@@ -383,16 +395,9 @@ function Block({ block, speaker = null, ts = null }) {
     return <Attachment att={block.attachment} rendered={block.rendered} folded={block.folded} unsent={block.unsent} speaker={speaker} />
   }
   if (block.type === 'instruction') {
-    return <InstructionFile it={block.it} model={block.it.model} tokens={countTokens(block.it.content, block.it.model)} speaker={speaker} className="directive" />
+    return <InstructionFile it={block.it} model={block.it.model} tokens={blockTokens(block)} speaker={speaker} className="directive" />
   }
-  if (block.type === 'mcp') {
-    // A failed server's error is why you'd look; the rest is routine, repeated at each new process
-    return (
-      <Collapsible title={said(speaker, <McpTitle turn={block.turn} />)} className="mcp-block" defaultOpen={block.turn.servers.some(s => s.status === 'failed')}>
-        <McpConnections turn={block.turn} />
-      </Collapsible>
-    )
-  }
+  if (block.type === 'mcp') return <McpBlock turns={[block.turn]} speaker={speaker} />
   if (block.type === 'system') {
     const className = `system-note ${block.level ?? ''} ${block.kind ?? ''}`
     if (!block.body) return <Label title={said(speaker, block.url ? <OpenLink href={block.url}>{block.title}</OpenLink> : block.title)} className={className} />
@@ -456,7 +461,7 @@ function Collapsible({ title, children, className, defaultOpen = true, tokens, t
 // Tool calls often finish in milliseconds, which fmtDuration would round to nothing
 const fmtElapsed = ms => ms < 1000 ? '<1s' : fmtDuration(ms)
 
-const ApproxTokens = ({ tokens, tip = 'Approx. tokens' }) => tokens > 0 && <span className="instruction-tokens" data-tooltip-content={tip}>~ {fmtCompact(tokens)}</span>
+const TotalTokens = ({ tokens }) => <div className="aux instruction-total"><ApproxTokens tokens={tokens} tip="Approx. total tokens" /></div>
 
 function JsonBlock({ value }) {
   return <Markdown className="block-text" text={'```json\n' + safeJson(value) + '\n```'} />

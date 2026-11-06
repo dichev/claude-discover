@@ -397,17 +397,22 @@ button.msg-summary:hover { color: var(--text); background: var(--bg-elev-2); bor
 }
 /* The loop's own system prompt and tools sit in a System row, among its directives */
 .instruction-file.directive { border-left: none; padding-left: 0; margin-left: 0; }
-.instruction-file.directive .aux-toggle, .instruction-file.directive pre, .listed .aux-toggle { color: #b9b9b9 }
+.instruction-file.directive :is(.aux-toggle, .aux-label), .instruction-file.directive pre, .listed .aux-toggle { color: #b9b9b9 }
 /* Context listed above the prompt: the user's @-files and a command's skill body */
 .listed { margin-bottom: 6px; }
-.msg-context > .listed { margin-bottom: 0; }
+.msg-context > :is(.listed, .mcp-block) { margin-bottom: 0; }
+/* A group's rows line up with its count */
+:is(.system-group, .mcp-block) > .aux-body { padding-top: 0; }
+.system-group > .aux-body > .aux { margin-right: -8px; }
+/* A row's count sums the rows inside it, so it gives way to theirs once open */
+.aux:has(> .aux-body > :is(.aux, .mcp-servers)) > .aux-toggle > .instruction-tokens { display: none; }
+/* The group's bar is the only coloured one: what opens inside it gets a thin gray line */
+:is(.system-group, .mcp-block) > .aux-body .aux-body { border-left: 1px solid var(--border); }
 
 /* Full-width toggle so the estimated token count can sit right-aligned, like msg-header-right. */
 /* Nested tool rows cancel the aux-body's right padding so their counts line up with the strips'. */
 .instruction-file .instruction-file { border-left: none; padding-left: 0; margin-left: 0; margin-right: -8px; }
-/* A rule under the strip's count marks it as the sum of the tool counts below. */
 .aux-body:has(> .instruction-file:first-child) { padding-top: 0; }
-.aux-body > .instruction-file:first-child > .aux-toggle .instruction-tokens { border-top: 1px solid var(--border); }
 .instruction-file .aux-toggle, .aux-toggle:has(> .instruction-tokens, > .aux-duration) { display: flex; width: 100%; align-items: center; }
 .instruction-title { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .instruction-tokens { margin-left: auto; color: var(--text-faint); white-space: nowrap; }

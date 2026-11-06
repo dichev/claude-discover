@@ -195,3 +195,32 @@ const renderedText = rendered => (rendered ?? []).map(r => r?.content).filter(c 
 export const attachmentView = (att, rendered) => (ATTACHMENT_RENDERERS[att?.type] ?? genericAttachment)(att, renderedText(rendered))
 // A raw record dump is our rendering, not text the model read — counting it would be noise
 export const hasText = view => view.body != null && !view.raw
+
+export const blockView = b => attachmentView(b.attachment, b.rendered)
+
+// Attachments that carry a token count (@-files, skill and agent listings) — logged without text, the rest never reached the model
+export const isCounted = b => b.type === 'attachment' && !b.unsent && hasText(blockView(b))
+
+// An attachment only ever lists deferred tools
+const TOOL_KINDS = { 'System Tools': 'system', 'MCP Tools': 'MCP', 'Deferred Tools': 'deferred' }
+
+// The one-line summary of a System row's group; the view titles a group with servers from their statuses instead
+const GROUP_TITLES = {
+  prompt: blocks => blocks.every(b => b.type === 'attachment') ? 'Output style' : blocks.some(b => b.type === 'attachment') ? 'System Prompt (+ output style)' : 'System Prompt',
+  tools: blocks => {
+    const counts = { system: 0, MCP: 0, deferred: 0 }
+    for (const b of blocks) {
+      counts[TOOL_KINDS[b.it?.file_path] ?? 'deferred'] += b.it?.count ?? b.attachment?.addedNames?.length ?? 0
+    }
+    const listed = Object.entries(counts).filter(([, n]) => n).map(([kind, n]) => `${n} ${kind}`)
+    return listed.length ? `Tools: ${listed.join(', ')}` : 'Deferred tools' // updates that added none: statuses, removals
+  },
+  mcp: () => 'MCP instructions',
+  memory: blocks => `Memory files: ${plural(blocks.length, 'file')}`,
+  listings: blocks => `Skills & agents: ${blocks.map(b => b.it?.memory_type ?? blockView(b).title.trim()).join(', ')}`,
+  context: blocks => {
+    const sent = blocks.filter(b => b.type === 'instruction' || isCounted(b))
+    return `Session context: ${[...new Set(sent.map(b => (b.it?.file_path ?? humanize(b.attachment.type)).toLowerCase()))].join(', ')}`
+  },
+}
+export const groupTitle = (key, blocks) => GROUP_TITLES[key](blocks)

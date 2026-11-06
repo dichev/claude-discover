@@ -1,27 +1,41 @@
 .mcp-block { margin-bottom: 6px; }
-.mcp-block > .aux-toggle { display: flex; width: 100%; color: #b9b9b9; }
-.mcp-block > .aux-body { border-left-color: var(--mcp); padding-right: 0; } /* the status ends level with the rows' right edge */
+.mcp-block > .aux-toggle { display: flex; width: 100%; }
+.mcp-block .aux-toggle { color: #b9b9b9; }
+.mcp-block > .aux-body { border-left-color: var(--mcp); padding-right: 0; } /* the tokens column ends level with the rows' right edge */
 .mcp-title { color: var(--mcp); }
-.mcp-icon { width: 1.1em; height: 1.1em; vertical-align: -0.2em; }
 
 .mcp-servers {
   width: 100%;
-  border-collapse: collapse;
+  border-collapse: separate; /* collapsed cells can't round the hover's corners */
+  border-spacing: 0;
   font-size: calc(11px * var(--font-scale, 1));
   font-variant-numeric: tabular-nums;
-  color: var(--text);
+  color: #b9b9b9;
 
-  & td {
-    padding: 2px 0 2px 20px;
+  & .aux-body { color: var(--text); }
+
+  /* its own rows only: a server's instructions can hold markdown tables */
+  & > tbody > tr > td {
+    padding: 0 0 0 20px;
     text-align: left;
     white-space: nowrap;
   }
-  & td:first-child { width: 100%; padding-left: 0; }
+  & > tbody > tr > td:first-child { padding-left: 0; }
 
   & .mcp-col-transport { width: 9.5em; } /* fits claudeai-proxy */
   & .mcp-col-time { width: 6em; }
+  & .mcp-col-status { width: 8em; } /* fits needs auth */
+  & .mcp-col-tokens { width: 6em; }
+  & .mcp-tokens { text-align: right; }
+  & .mcp-foldable { cursor: pointer; }
+  & .mcp-foldable:hover > td {
+    background: var(--bg-elev-2);
+    &:first-child { border-radius: 3px 0 0 3px; }
+    &:last-child { border-radius: 0 3px 3px 0; }
+  }
+  & .mcp-chevron { padding: 0; margin-right: 4px; border: none; background: none; color: inherit; font: inherit; cursor: inherit; &.none { visibility: hidden; } }
 
-  & td.mcp-tool { padding-left: 14px; white-space: normal; overflow-wrap: anywhere; } /* a long tool error wraps, not widens the table */
+  & > tbody > tr > td.mcp-tool { padding-left: 14px; white-space: normal; overflow-wrap: anywhere; } /* a long tool error wraps, not widens the table */
   & .mcp-version { margin-left: 8px; color: var(--text-dim); }
   & .mcp-cached { margin-right: 4px; color: var(--text-dim); & svg { width: 1em; height: 1em; vertical-align: -0.1em; } }
   & .mcp-ms { text-align: right; }

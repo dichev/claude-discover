@@ -1,5 +1,5 @@
 import { encode } from 'gpt-tokenizer/model/gpt-4o'
-import { humanize, parseCommand } from './labels.js'
+import { blockView, groupTitle, humanize, isCounted, parseCommand } from './labels.js'
 
 // Pure transcript model, shared by ConversationView (rendering) and MarkdownSession (agent
 // payload): raw session items → turns (flatten) → row groups (groupTurns) → per-group stats.
@@ -108,9 +108,6 @@ const metaTurn = (it, role, blocks, uuid = it.uuid) => ({
 })
 // `folded`: routine bookkeeping, tucked behind its row's summary — only warnings and errors show unless a note says otherwise
 const noteTurn = (it, note, uuid) => metaTurn(it, 'system', [{ type: 'system', folded: !note.level, ...note }], uuid)
-
-// How soon after a prompt its request's context is logged: over 12k attachments measured, 90% within 63ms and 98.7% within this
-const PROMPT_CONTEXT_MS = 1000
 
 // `instructions` are the system prompts, tools and memory files read off the API requests (readSession's
 // separate { loop, side } lists) — not transcript items, merged in by timestamp. `compacts` are /compact's
@@ -282,12 +279,15 @@ export function flatten(items, { loop = [], side = [], compacts = [], mcp = [] }
   }
   const out = turns.filter(t => t.blocks.length > 0)
   // What a prompt's request sends is logged around the prompt, the clock deciding which side: it all leads the prompt,
-  // backdated so `out` stays in time order. Context from much later is a resumed session's, for the prompt after.
+  // backdated so `out` stays in time order. Before another prompt, with no reply between, it's a resumed session's, for that one.
   for (let i = 0; i < out.length; i++) {
     const prompt = out[i]
     if (prompt.role !== 'user' || isContextTurn(prompt)) continue
+    let next = i + 1
+    while (next < out.length && !isConversation(out[next])) next++
+    if (out[next]?.role === 'user') continue
     for (let j = i + 1; j < out.length && isContextTurn(out[j]); j++) {
-      if (out[j].role === 'system' && out[j].ts - prompt.ts < PROMPT_CONTEXT_MS) {
+      if (out[j].role === 'system') {
         const [context] = out.splice(j, 1)
         out.splice(i++, 0, { ...context, ts: prompt.ts })
       }
@@ -304,7 +304,7 @@ export function flatten(items, { loop = [], side = [], compacts = [], mcp = [] }
   }
   // What a prompt's request sent (or offered) shows above the prompt; a mid-turn request's, below the tool work it followed
   const abovePrompt = turn => {
-    const i = out.findLastIndex(t => t.ts != null && t.ts <= turn.ts && ['user', 'assistant', 'tool'].includes(t.role) && !isContextTurn(t))
+    const i = out.findLastIndex(t => t.ts != null && t.ts <= turn.ts && isConversation(t))
     out[i]?.role === 'user' ? out.splice(i, 0, turn) : slot(turn)
   }
   // The MCP servers a request had lead what it sent: they connected as its process started
@@ -365,6 +365,55 @@ function normalizeContent(content) {
 
 // Injected context is a turn whose blocks are all attachments (the "N attachments" payload) — directives show as messages instead.
 export const isContextTurn = t => t.blocks.every(b => b.type === 'attachment' && b.folded)
+
+const isConversation = t => ['user', 'assistant', 'tool'].includes(t.role) && !isContextTurn(t)
+
+export const blockTokens = b => b.type === 'instruction' ? countTokens(b.it.content, b.it.model)
+  : isCounted(b) ? countTokens(blockView(b).body) : 0
+
+const STRIP_GROUPS = { 'System Prompt': 'prompt', 'System Tools': 'tools', 'MCP Tools': 'tools', 'Deferred Tools': 'tools', 'MCP Instructions': 'mcp', Skills: 'listings', 'Agent Types': 'listings' }
+const ATTACHMENT_GROUPS = { output_style: 'prompt', output_style_instructions: 'prompt', deferred_tools_delta: 'tools', mcp_instructions_delta: 'mcp', instructions: 'memory', skill_listing: 'listings', agent_listing_delta: 'listings' }
+
+const groupOf = b => {
+  if (b.type === 'mcp') return 'mcp'
+  if (b.type === 'attachment') return ATTACHMENT_GROUPS[b.attachment.type] ?? 'context'
+  return STRIP_GROUPS[b.it.file_path] ?? (b.it.name ? 'memory' : 'context') // only memory files carry a `name`
+}
+
+// In request order (system → tools → messages)
+const GROUP_ORDER = ['prompt', 'tools', 'mcp', 'memory', 'listings', 'context']
+
+// What a System row lists — the requests' strips, MCP servers and counted context — folded by what each one is.
+// Attachments the model never read stay in the row's own fold unless the session's context is there to take them.
+export function systemGroups(turns) {
+  const blocks = turns.flatMap(t => t.blocks)
+  const rows   = Object.groupBy(blocks.filter(b => b.type === 'instruction' || b.type === 'mcp' || (b.folded && isCounted(b))), groupOf)
+  rows.context?.push(...blocks.filter(b => b.type === 'attachment' && b.folded && !isCounted(b)))
+  rows.prompt?.sort((a, b) => (a.type === 'attachment') - (b.type === 'attachment')) // the prompt leads its output style, logged ahead of it
+  return GROUP_ORDER.filter(key => rows[key]).map(key => ({
+    key,
+    blocks: rows[key],
+    title: groupTitle(key, rows[key]),
+    tokens: rows[key].reduce((sum, b) => sum + blockTokens(b), 0),
+  }))
+}
+
+// The servers of a row's MCP blocks, each once, as the last block has it: a later block updates an earlier one's
+export const latestServers = turns => [...new Map(turns.flatMap(t => t.servers).map(s => [s.name, s])).values()]
+
+// An MCP group's parts: its servers' turns, each server's instructions by name, and the rest — a listing
+// naming a server the group doesn't have stays a row of its own, whole, since it can't sit under its server.
+export function mcpGroupParts(blocks) {
+  const turns    = blocks.filter(b => b.type === 'mcp').map(b => b.turn)
+  const names    = new Set(turns.flatMap(t => t.servers.map(s => s.name)))
+  const listings = blocks.filter(b => b.type !== 'mcp').map(block => ({ block, sections: block.it?.items ?? blockView(block).items ?? [] }))
+  const nests    = ({ sections }) => sections.length > 0 && sections.every(s => names.has(s.name))
+  return {
+    turns,
+    instructions: new Map(listings.filter(nests).flatMap(({ block, sections }) => sections.map(s => [s.name, { content: s.content, model: block.it?.model }]))),
+    rest: listings.filter(l => !nests(l)).map(l => l.block),
+  }
+}
 
 export function groupTurns(turns) {
   const groups = []
