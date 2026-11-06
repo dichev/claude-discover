@@ -38,7 +38,8 @@ claude-discover
 
 - **Session preview**
   - **Conversation view**\
-    The full transcript rendered like a chat: your prompts, Claude's replies, and every tool call expanded. Everything the terminal scrolled past, now readable at human pace.
+    The full transcript rendered like a chat: your prompts, Claude's replies, and every tool call expanded. Everything the terminal scrolled past, now readable at human pace.\
+    The MCP servers each turn had, how many tools each offered, the calls to them (time and errors), and which failed (and why), needed a login or were still connecting - and for sessions run with `--debug`, which ones it started (stdio), connected to (http) or ran in-process (Agent SDK), how long each took, and a failed one's stderr.
 
   - **Raw logs**\
     The same session exactly as Claude Code stores it on disk, one JSON line at a time. For when you don't want the story, you want the evidence.

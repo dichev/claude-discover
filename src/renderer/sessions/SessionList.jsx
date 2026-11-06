@@ -1,5 +1,5 @@
 import { Suspense, use, useEffect, useRef, useState } from 'react'
-import { Gauge, MessageSquare, Clock, Zap, DollarSign, Brain, GitBranch, ChevronDown, ChevronRight } from 'lucide-react'
+import { Gauge, MessageSquare, Clock, Zap, DollarSign, Brain, GitBranch, ChevronDown, ChevronRight, Bug } from 'lucide-react'
 import { fmtCompact, fmtNum, fmtUSD, fmtDuration, fmtAgo, tone } from '../utils/formatting.js'
 import { THRESHOLDS as T } from '../utils/thresholds.js'
 import { cacheAdvice, CACHE_LABELS } from '../utils/cacheAdvice.js'
@@ -19,6 +19,7 @@ const TIPS = {
   messages: `Consider sessions below ${fmtCompact(T.messages.warn)} messages`,
   time: `Consider sessions under ${T.workTime.warn / 60_000}m`,
   effort: 'Thinks longer and spends more output tokens than high',
+  debug: 'Run with --debug',
 }
 
 const EFFORT_BADGE = { xhigh: 'warn-badge', max: 'danger-badge' }
@@ -215,6 +216,7 @@ export default function SessionList({ sessions, selectedId, deepLink, onSelect }
                 {topEffort && <Badge className={EFFORT_BADGE[topEffort]} tip={`Effort: ${topEffort}\n${TIPS.effort}`} icon={Brain} />}
                 {s.speed === 'fast' && <Badge className={`fast-badge ${s.fastPricingUnknown ? 'fast-badge-unknown' : ''}`} tip={s.fastPricingUnknown ? 'Used fast mode — cost is INACCURATE: no fast-mode price multiplier known for this model' : 'Used fast mode (speed: fast)'} icon={Zap} />}
                 {s.priceUnknown && <Badge className="danger-badge" tip={`No price entry for ${s.models?.join(', ') || 'this model'} — cost is missing or understated`} icon={DollarSign} />}
+                {s.debug && <Badge className="debug-badge" tip={TIPS.debug} icon={Bug} />}
               </div>
               <RowStats at={s.lastActivityAt} tokens={s.totalTokens} cost={s.cost} sortBy={sortBy} toned />
             </div>

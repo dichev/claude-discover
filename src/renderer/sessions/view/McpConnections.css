@@ -1,0 +1,53 @@
+.mcp-block { margin-bottom: 6px; }
+.mcp-block > .aux-toggle { display: flex; width: 100%; color: #b9b9b9; }
+.mcp-block > .aux-body { border-left-color: var(--mcp); padding-right: 0; } /* the status ends level with the rows' right edge */
+.mcp-title { color: var(--mcp); }
+.mcp-icon { width: 1.1em; height: 1.1em; vertical-align: -0.2em; }
+
+.mcp-servers {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: calc(11px * var(--font-scale, 1));
+  font-variant-numeric: tabular-nums;
+  color: var(--text);
+
+  & td {
+    padding: 2px 0 2px 20px;
+    text-align: left;
+    white-space: nowrap;
+  }
+  & td:first-child { width: 100%; padding-left: 0; }
+
+  & .mcp-col-transport { width: 9.5em; } /* fits claudeai-proxy */
+  & .mcp-col-time { width: 6em; }
+
+  & td.mcp-tool { padding-left: 14px; white-space: normal; overflow-wrap: anywhere; } /* a long tool error wraps, not widens the table */
+  & .mcp-version { margin-left: 8px; color: var(--text-dim); }
+  & .mcp-cached { margin-right: 4px; color: var(--text-dim); & svg { width: 1em; height: 1em; vertical-align: -0.1em; } }
+  & .mcp-ms { text-align: right; }
+  & .mcp-dim { color: var(--text-dim); }
+  & .mcp-tool-error { color: var(--danger); }
+
+  & .mcp-status {
+    &.connecting, &.pending, &.removed { color: var(--text-dim); }
+    &.needs-auth { color: var(--warn); }
+    &.failed { color: var(--danger); font-weight: bold; }
+  }
+}
+
+.mcp-error {
+  --tone: var(--danger);
+  margin: 2px 0 6px 14px;
+  padding: 6px 10px;
+  max-height: 160px;
+  overflow: auto;
+  white-space: pre-wrap;
+  word-break: break-all;
+  background: color-mix(in srgb, var(--tone) 8%, transparent);
+  border-left: 2px solid var(--tone);
+  color: var(--tone);
+  font-size: calc(10.5px * var(--font-scale, 1));
+}
+
+/* a stdio server's stderr is where it logs anything, so only a failed one's reads as an error */
+.mcp-error:not(.failed) { --tone: var(--text-dim); }

@@ -111,8 +111,8 @@ const noteTurn = (it, note, uuid) => metaTurn(it, 'system', [{ type: 'system', f
 
 // `instructions` are the system prompts, tools and memory files read off the API requests (readSession's
 // separate { loop, side } lists) — not transcript items, merged in by timestamp. `compacts` are /compact's
-// summarizing calls, for the divider each precedes.
-export function flatten(items, { loop = [], side = [], compacts = [] } = {}) {
+// summarizing calls, for the divider each precedes; `mcp` the MCP servers each turn's request had.
+export function flatten(items, { loop = [], side = [], compacts = [], mcp = [] } = {}) {
   const summarizing = [...compacts]
   const turns = []
   const results = {}
@@ -287,14 +287,21 @@ export function flatten(items, { loop = [], side = [], compacts = [] } = {}) {
     const blocks = list.map(it => ({ type: 'instruction', it }))
     slot({ ...metaTurn({ timestamp: ts }, 'instruction', blocks, `instructions-${ts}`), ts: Date.parse(ts) - 500 })
   }
+  // What a prompt's request sent (or offered) shows above the prompt; a mid-turn request's, below the tool work it followed
+  const abovePrompt = turn => {
+    const i = out.findLastIndex(t => t.ts != null && t.ts <= turn.ts && ['user', 'assistant', 'tool'].includes(t.role) && !isContextTurn(t))
+    out[i]?.role === 'user' ? out.splice(i, 0, turn) : slot(turn)
+  }
+  // The MCP servers a request had lead what it sent: they connected as its process started
+  for (const turn of mcp) {
+    abovePrompt(metaTurn({ timestamp: turn.startedAt }, 'system', [{ type: 'mcp', turn }], `mcp-${turn.startedAt}`))
+  }
   // What the loop's requests first sent is System's to Claude, in request order (system → tools → messages).
   // A prompt's own request sent it ahead of the prompt (memory files lead its message), so it shows above it.
   const model = currentModel(out)
   for (const [ts, list] of Object.entries(Object.groupBy(loop, it => it.timestamp))) {
     const blocks = list.map(it => ({ type: 'instruction', it: { ...it, model: it.model ?? model } }))
-    const turn = metaTurn({ timestamp: ts }, 'system', blocks, `prompt-${ts}`)
-    const i = out.findLastIndex(t => t.ts != null && t.ts <= turn.ts && ['user', 'assistant', 'tool'].includes(t.role) && !isContextTurn(t))
-    out[i]?.role === 'user' ? out.splice(i, 0, turn) : slot(turn)
+    abovePrompt(metaTurn({ timestamp: ts }, 'system', blocks, `prompt-${ts}`))
   }
   return out
 }

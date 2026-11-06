@@ -1,5 +1,5 @@
 import { format } from 'date-fns'
-import { fmtDuration, fmtNum, fmtUSD, fmtCompact, fmtToolCalls } from '../utils/formatting.js'
+import { fmtDuration, fmtNum, fmtUSD, fmtCompact, fmtToolCalls, plural } from '../utils/formatting.js'
 import { flatten, groupTurns, branchPoint, contextSize, contextTokens, currentModel, contextWindow, countTokens } from './view/transcript.js'
 import { toolSummary, parseCommand, isClearTurn, instructionTitle, compactTitle, rewindTitle, attachmentView, hasText, safeJson, SIDE_NOTE } from './view/labels.js'
 import { fenced } from '../utils/textBlock.js'
@@ -78,6 +78,7 @@ function renderBlock(b, model) {
     const body = it.error ? fence(`error: ${it.error}`) : it.items?.length ? renderItems(it, own) : fence(it.content || '')
     return `_${instructionTitle(it, model)}_${size(it.content, own)}${path}\n${body}`
   }
+  if (b.type === 'mcp') return renderMcp(b.turn)
   return fence(safeJson(b), 'json')
 }
 
@@ -119,7 +120,17 @@ function renderTranscript(turns, { forkedFrom, forkedAt, continuesFrom }) {
   return rows.filter(Boolean).join('\n\n---\n\n')
 }
 
-export function markdownSession(meta, items, instructions = {}, requestLog = null) {
+function renderMcp(turn) {
+  const title = turn.change ? 'MCP servers changed' : turn.debug ? 'MCP servers connected (debug log)' : 'MCP servers'
+  const status = s => `${s.status}${s.ms === null ? '' : ` in ${s.ms}ms`}${s.readyWithin != null ? ` within ${s.readyWithin}ms of the request that found it connecting` : ''}`
+  const server = s => `- ${s.name}: ${[s.version && `version ${s.version}`, s.cached && 'cached', s.transport, status(s), s.toolCount != null && plural(s.toolCount, 'tool')].filter(Boolean).join(', ')}${s.error ? ` (${s.error})` : ''}`
+    + s.groups.map(g => `\n  - mounted ${g.name}: ${plural(g.toolCount, 'tool')}`).join('')
+    + s.stderr.map(line => `\n  - stderr: ${line}`).join('')
+    + s.tools.map(t => `\n  - tool ${t.name}${t.ms === null ? '' : `: ${t.ms}ms`}${t.error ? ` (failed: ${t.error})` : ''}`).join('')
+  return `_${title}_\n${turn.servers.map(server).join('\n')}`
+}
+
+export function markdownSession(meta, items, instructions = {}, requestLog = null, debugLog = null) {
   const t = meta.tokens
   const stu = meta.serverToolUse
   const wallDuration = meta.lastActivityAt - meta.startedAt
@@ -181,6 +192,7 @@ ${meta.tag ? `- Tag: ${meta.tag}
 - Project: ${meta.project || '—'}
 ${meta.subdir ? `- Subfolder: ${meta.subdir}\n` : ''}${meta.worktreePath ? `- Worktree: ${meta.worktreePath}\n` : ''}- Log file: ${meta.filePath}
 ${requestLog ? `- Proxy log: ${requestLog}
+` : ''}${debugLog ? `- Debug log: ${debugLog}
 ` : ''}`
 
   const body = `
