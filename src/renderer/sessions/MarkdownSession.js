@@ -121,15 +121,16 @@ function renderTranscript(turns, { forkedFrom, forkedAt, continuesFrom }) {
 }
 
 function renderMcp(turn) {
-  const title = turn.change ? 'MCP servers changed' : 'MCP servers'
-  const status = s => `${s.status}${s.readyWithin != null ? ` within ${s.readyWithin}ms of the request that found it connecting` : ''}`
-  const server = s => `- ${s.name}: ${[status(s), s.toolCount != null && plural(s.toolCount, 'tool')].filter(Boolean).join(', ')}${s.error ? ` (${s.error})` : ''}`
+  const title = turn.change ? 'MCP servers changed' : turn.debug ? 'MCP servers connected (debug log)' : 'MCP servers'
+  const status = s => `${s.status}${s.ms === null ? '' : ` in ${s.ms}ms`}${s.readyWithin != null ? ` within ${s.readyWithin}ms of the request that found it connecting` : ''}`
+  const server = s => `- ${s.name}: ${[s.transport, status(s), s.toolCount != null && plural(s.toolCount, 'tool')].filter(Boolean).join(', ')}${s.error ? ` (${s.error})` : ''}`
     + s.groups.map(g => `\n  - mounted ${g.name}: ${plural(g.toolCount, 'tool')}`).join('')
+    + s.stderr.map(line => `\n  - stderr: ${line}`).join('')
     + s.tools.map(t => `\n  - tool ${t.name}${t.ms === null ? '' : `: ${t.ms}ms`}${t.error ? ` (failed: ${t.error})` : ''}`).join('')
   return `_${title}_\n${turn.servers.map(server).join('\n')}`
 }
 
-export function markdownSession(meta, items, instructions = {}, requestLog = null) {
+export function markdownSession(meta, items, instructions = {}, requestLog = null, debugLog = null) {
   const t = meta.tokens
   const stu = meta.serverToolUse
   const wallDuration = meta.lastActivityAt - meta.startedAt
@@ -191,6 +192,7 @@ ${meta.tag ? `- Tag: ${meta.tag}
 - Project: ${meta.project || '—'}
 ${meta.subdir ? `- Subfolder: ${meta.subdir}\n` : ''}${meta.worktreePath ? `- Worktree: ${meta.worktreePath}\n` : ''}- Log file: ${meta.filePath}
 ${requestLog ? `- Proxy log: ${requestLog}
+` : ''}${debugLog ? `- Debug log: ${debugLog}
 ` : ''}`
 
   const body = `

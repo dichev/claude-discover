@@ -8,7 +8,7 @@ import AgentOutput from '../agent/AgentOutput.jsx'
 import ProgressBar from '../ui/ProgressBar.jsx'
 import './SessionSummary.css'
 
-export default function SessionSummary({ meta, items, instructions, requestLog, agent, granularity = 'day' }) {
+export default function SessionSummary({ meta, items, instructions, requestLog, debugLog, agent, granularity = 'day' }) {
   const timeFormat = granularity === 'day' ? 'pp' : 'MMM d, pp'
   const t = meta.tokens
   const totalTokens = meta.totalTokens
@@ -135,6 +135,7 @@ export default function SessionSummary({ meta, items, instructions, requestLog, 
           {meta.worktreePath && <Field label="Worktree" value={meta.worktreePath} mono full autoselect />}
           <Field label="Log file" value={meta.filePath} mono full autoselect />
           {requestLog && <Field label="Proxy log" value={requestLog} mono full autoselect />}
+          {debugLog && <Field label="Debug log" value={debugLog} mono full autoselect />}
         </Section>
       </div>
     </div>

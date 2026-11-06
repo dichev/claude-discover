@@ -41,7 +41,7 @@ Not a hard constraint — restructure when it serves the code, just update this 
 │   │   ├── config/                 the app's own config: ConfigFile (~/.claude-discover/config.json) + pricing seed
 │   │   ├── requests/               API-request reading & parsing (the proxy's log + the transcript's own request records)
 │   │   ├── services/               backend services (LoginService = a generic per-OS login service) + the StatusBar switchers
-│   │   ├── sessions/               transcript scanning, caching & parsing, each turn's MCP servers (request tools) (utils/: the file watchers)
+│   │   ├── sessions/               transcript scanning, caching & parsing, each turn's MCP servers (request tools + debug log) (utils/: the file watchers)
 │   │   └── windows/                the app window (find bar: electron-find-overlay)
 │   ├── preload/                    contextBridge preload (main window)
 │   ├── shared/                     pure text helpers both main and renderer import (Claude Code's listing formats)
@@ -67,11 +67,13 @@ Three-process Electron split:
 - **`src/preload/`** — renderers↔main API surface (`window.api`); every IPC channel is registered in `src/main/Application.js`. The preload is sandboxed, so it must stay a single self-contained CommonJS file — no cross-file imports.
 - **`src/renderer/`** — React 19+. Runs under a strict CSP, so anything that would need a remote fetch or an inline script will break the app.
 
-Three independent data sources feed the UI:
+Four independent data sources feed the UI:
 
 1. **Session transcripts** — `<CLAUDE_DIR>/projects/**/*.jsonl`, append-only, written by Claude Code. Since 2.1.300 they also log the loop's own API requests (`api-request-shape`/`-blob`/`api-request`); `TranscriptInstructions` reads what each request first sent (system prompt, tools, memory files, reminders) into System rows; a branch's copied turns take theirs from the source transcript, which logged them. Attachments whose text those already list (and prompt snapshots) are flagged `_listed`, which `flatten` skips. `McpTools` reads the MCP blocks in those System rows off the same requests: the servers whose tools each offered (shape + deferred) and those the deferred-tools announcements list as failed, needing a login or still connecting, opening a block at the period's first request and at each new process (a request logged without a `base` — a resume, an SDK turn), and, listing only what was added, removed or changed status, wherever that changes; each row counts the server's tools (split by name prefix where it looks like it mounts others, FastMCP-style, which nothing logs) and lists its tool calls (tool_use → tool_result) up to its next row. The transcript never logs when a server connected, only `readyWithin`: how long after the request that found it pending a later one found it connected.
 2. **Captured API requests** — `~/.claude-discover/requests/<sessionId>.requests.jsonl`, written by `bin/proxy.mjs` only while capture is on (requests without a session-id header go to `unattributed.requests.jsonl`, listed in the API Requests tab of every session active at the time). Feeds the API Requests tab and the Conversation view's Proxy blocks: what the side requests (title, auto-mode check, web search, …) sent, which the transcript doesn't log.
 3. **Model prices** — `src/main/config/prices.seed.json` seed, refreshed daily from LiteLLM into `~/.claude-discover/prices.current.json`.
+4. **Debug logs** — `<CLAUDE_DIR>/debug/<sessionId>.txt`, written only by sessions run with `--debug` (the Agent SDK's `debug: true`); a resumed turn appends to it; the session list marks a session that has one with a bug icon. `McpDebugLog` only fills in the transcript's MCP blocks, never adds its own: each logged process (its `mcp runtime arm` line, else where a server starts again) fills the blocks of the process whose first request it sent after it started, adding transport, connect time (on the row with the status it logged), stderr, servers only it names, and the server's own tool-call times plus Claude Code's own calls; it's free text, so unmatched lines are skipped. Agent SDK in-process servers (`createSdkMcpServer`) log no connection: they're the transcript's servers the log never names (`sdk`).
+
 Everything is date-scoped: the renderer requests one period at a time and the backend returns sessions only for it — neither side handles multi-day ranges.
 
 Paths are centralized in `src/main/paths.js` (Claude side) and `bin/proxy.config.js` (proxy side; shared by `bin/` and `src/main/`, deliberately not by the renderer).

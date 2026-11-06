@@ -218,6 +218,13 @@
   & > span { background: none; } /* `span` outranks the global .warn-badge/.danger-badge, which load later */
 }
 
+/* the MCP blocks' color: the debug log fills them in */
+.debug-badge {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 18px; height: 18px;
+  color: var(--mcp);
+}
+
 /* 18px line height keeps it on the label's line */
 .session-row-time {
   grid-area: time;

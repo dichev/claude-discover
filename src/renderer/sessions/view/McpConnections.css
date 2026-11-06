@@ -18,6 +18,7 @@
   }
   & td:first-child { width: 100%; padding-left: 0; }
 
+  & .mcp-col-transport { width: 9.5em; } /* fits claudeai-proxy */
   & .mcp-col-time { width: 6em; }
 
   & td.mcp-tool { padding-left: 14px; white-space: normal; overflow-wrap: anywhere; } /* a long tool error wraps, not widens the table */
@@ -33,14 +34,18 @@
 }
 
 .mcp-error {
+  --tone: var(--danger);
   margin: 2px 0 6px 14px;
   padding: 6px 10px;
   max-height: 160px;
   overflow: auto;
   white-space: pre-wrap;
   word-break: break-all;
-  background: color-mix(in srgb, var(--danger) 8%, transparent);
-  border-left: 2px solid var(--danger);
-  color: var(--danger);
+  background: color-mix(in srgb, var(--tone) 8%, transparent);
+  border-left: 2px solid var(--tone);
+  color: var(--tone);
   font-size: calc(10.5px * var(--font-scale, 1));
 }
+
+/* a stdio server's stderr is where it logs anything, so only a failed one's reads as an error */
+.mcp-error:not(.failed) { --tone: var(--text-dim); }

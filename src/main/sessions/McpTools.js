@@ -5,9 +5,14 @@ const server = name => /^mcp__(.+?)__/.exec(name)?.[1] ?? null
 const toolOf = (key, name) => name.slice(`mcp__${key}__`.length)
 
 // How Claude Code spells a server in its tools' names (mcp__<server>__<tool>)
-const toolPrefix = name => name.replace(/[^\w-]/g, '_')
+export const toolPrefix = name => name.replace(/[^\w-]/g, '_')
 
 const connected = s => s.status === 'connected'
+
+// One server's row in a turn; the debug log (McpDebugLog) fills in what the transcript doesn't log
+export const serverRow = fields => ({
+  transport: null, ms: null, readyWithin: null, error: null, stderr: [], toolCount: null, groups: [], tools: [], ...fields,
+})
 
 // A server that mounts others (FastMCP's mount) prefixes each one's tools with its name, which is all that tells them
 // apart: the tools sharing a first word, where there are several such groups but few enough that they aren't just verbs (get_…)
@@ -70,9 +75,14 @@ export class McpTools {
     return { key: toolPrefix(name), status, error }
   }
 
+  // When each process sent its first request
+  processStarts() {
+    return this.#requests.filter(r => r.fresh).map(r => r.ts)
+  }
+
   // The servers the period's first request had, again at each new process (which loads them all anew), and in between
   // a `change` turn with only those added, removed or whose status changed. Each tool call is listed under the latest
-  // row of its server.
+  // row of its server. The debug log (McpDebugLog) fills in transports, connect times and stderr.
   turns(range = null) {
     const turns = []
     const pending = new Map() // server → the request that found it still connecting
@@ -91,10 +101,10 @@ export class McpTools {
         const readyWithin = connected(s) && pending.has(s.key) ? r.ts - pending.get(s.key) : null
         if (s.status === 'pending') pending.set(s.key, r.ts)
         else pending.delete(s.key)
-        return { name: this.#names.get(s.key) ?? s.key, status: s.status, readyWithin, error: s.error,
-          toolCount: s.names?.length ?? null, groups: s.names ? mounted(s.key, s.names) : [], tools: [] }
+        return serverRow({ name: this.#names.get(s.key) ?? s.key, status: s.status, readyWithin, error: s.error,
+          toolCount: s.names?.length ?? null, groups: s.names ? mounted(s.key, s.names) : [] })
       }
-      turns.push({ startedAt: new Date(r.ts).toISOString(), change: last.length > 0,
+      turns.push({ startedAt: new Date(r.ts).toISOString(), debug: false, change: last.length > 0,
         servers: [...changed.map(row), ...removed.map(s => row({ ...s, status: 'removed', error: null, names: null }))] })
       last = r.servers
     }

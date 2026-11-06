@@ -10,7 +10,7 @@ import { useAgent } from '../agent/Agent.js'
 import { useLocalStorage } from '../utils/useLocalStorage.js'
 import './Session.css'
 
-const NOT_READ = { items: null, instructions: {}, requestLog: null }
+const NOT_READ = { items: null, instructions: {}, requestLog: null, debugLog: null }
 
 const TABS = [
   { key: 'conversation', label: 'Conversation' },
@@ -27,7 +27,7 @@ export default function Session({ meta, missing, date, granularity = 'day', onSh
   const filePath = meta?.filePath // not the session id, which can cover several transcripts
   const fileSize = meta?.fileSize
   const desktop  = meta?.entrypoint === 'claude-desktop' // the capture proxy can't reach desktop sessions yet (see ProxySwitch)
-  const { items, instructions, requestLog } = read
+  const { items, instructions, requestLog, debugLog } = read
   const viewKey = `${filePath}|${date}|${granularity}` // what the read (and so an agent answer) covers
   const agent = useAgent(viewKey, meta, read)
 
@@ -112,7 +112,8 @@ export default function Session({ meta, missing, date, granularity = 'day', onSh
                 )}
               </div>
               <SessionSummary
-                key={viewKey} meta={meta} items={items} instructions={instructions} requestLog={requestLog} agent={agent} granularity={granularity}
+                key={viewKey} meta={meta} items={items} instructions={instructions} requestLog={requestLog} debugLog={debugLog}
+                agent={agent} granularity={granularity}
               />
             </div>
           </div>

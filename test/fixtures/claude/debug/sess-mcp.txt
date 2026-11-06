@@ -1,0 +1,49 @@
+2026-11-04T21:33:11.196Z [DEBUG] MDM settings load completed in 1ms
+2026-11-04T21:33:11.409Z [DEBUG] Artifacts MCP server not added: managed_or_strict_mcp_config (strict_mcp_config)
+2026-11-04T21:33:11.410Z [DEBUG] mcp runtime arm: v2 (source: growthbook)
+2026-11-04T21:33:11.450Z [DEBUG] MCP server "gateway_echo": Initializing HTTP transport to http://127.0.0.1:61110/mcp/REDACTED
+2026-11-04T21:33:11.450Z [DEBUG] MCP server "gateway_echo": Node version: v26.12.1, Platform: win32
+2026-11-04T21:33:11.451Z [DEBUG] MCP server "gateway_echo": HTTP transport created successfully
+2026-11-04T21:33:11.451Z [DEBUG] MCP server "gateway_echo": Starting connection with timeout of 30000ms
+2026-11-04T21:33:11.451Z [DEBUG] MCP server "gateway_echo": Testing basic HTTP connectivity to http://127.0.0.1:61110/mcp/REDACTED
+2026-11-04T21:33:11.456Z [DEBUG] MCP server "stdio_echo": Starting connection with timeout of 30000ms
+2026-11-04T21:33:11.584Z [DEBUG] MCP server "stdio_echo": Successfully connected (transport: stdio) in 164ms
+2026-11-04T21:33:11.584Z [DEBUG] MCP server "stdio_echo": Connection established with capabilities: {"hasTools":true}
+2026-11-04T21:33:11.588Z [DEBUG] MCP server "gateway_echo": Successfully connected (transport: http) in 139ms
+2026-11-04T21:33:13.687Z [DEBUG] MCP server "gateway_echo": Calling MCP tool: whoami
+2026-11-04T21:33:13.696Z [DEBUG] MCP server "gateway_echo": Tool 'whoami' completed successfully in 9ms
+2026-11-04T21:33:13.700Z [DEBUG] MCP server "gateway_echo": Calling MCP tool: slow
+2026-11-04T21:33:14.560Z [DEBUG] MCP server "gateway_echo": HTTP connection closed after 2s (cleanly)
+2026-11-04T21:33:14.560Z [DEBUG] MCP server "stdio_echo": Closing MCP server stdin
+2026-11-04T21:33:14.568Z [DEBUG] MCP server "stdio_echo": STDIO connection closed after 2s (cleanly)
+2026-11-04T21:33:14.571Z [DEBUG] [uds-messaging] Shutting down
+2026-11-05T09:00:00.000Z [DEBUG] mcp runtime arm: v2 (source: growthbook)
+2026-11-05T09:00:00.008Z [DEBUG] MCP server "gateway_echo": Initializing HTTP transport to http://127.0.0.1:61110/mcp/REDACTED
+2026-11-05T09:00:00.010Z [DEBUG] MCP server "gateway_echo": Starting connection with timeout of 30000ms
+2026-11-05T09:00:00.017Z [DEBUG] MCP server "gateway_echo": Successfully connected (transport: http) in 9ms
+2026-11-05T09:00:00.020Z [DEBUG] MCP server "stdio_echo": Starting connection with timeout of 30000ms
+2026-11-05T09:00:00.021Z [DEBUG] MCP server "broken": Starting connection with timeout of 30000ms
+2026-11-05T09:00:00.079Z [ERROR] MCP server "broken" Server stderr: Traceback (most recent call last):
+  File "server.py", line 1, in <module>
+ModuleNotFoundError: No module named 'mcp'
+2026-11-05T09:00:00.080Z [DEBUG] MCP server "broken": Connection failed after 59ms (CONNECTION_CLOSED): Connection closed
+2026-11-05T09:00:00.080Z [ERROR] MCP server "broken" Connection failed (CONNECTION_CLOSED): Connection closed
+2026-11-05T09:00:00.147Z [DEBUG] MCP server "stdio_echo": Successfully connected (transport: stdio) in 166ms
+2026-11-05T09:00:01.000Z [DEBUG] MCP server "stdio_echo": Successfully connected in a format nobody logs yet
+2026-11-05T09:00:01.100Z [DEBUG] MCP server "ide": Starting connection with timeout of 30000ms
+2026-11-05T09:00:01.143Z [DEBUG] MCP server "ide": Successfully connected (transport: ws-ide) in 43ms
+2026-11-05T09:00:01.200Z [DEBUG] MCP server "claude.ai Gmail": Initializing claude.ai proxy transport for server mcpsrv_01
+2026-11-05T09:00:01.200Z [DEBUG] MCP server "claude.ai Gmail": Starting connection with timeout of 30000ms
+2026-11-05T09:00:01.201Z [DEBUG] MCP server "claude.ai Gmail": Successfully connected (transport: claudeai-proxy) in 1ms
+2026-11-05T09:00:01.300Z [DEBUG] MCP server "claude-artifacts": Initializing HTTP transport to https://example.invalid/mcp
+2026-11-05T09:00:01.300Z [DEBUG] MCP server "claude-artifacts": Starting connection with timeout of 30000ms
+2026-11-05T09:00:01.673Z [ERROR] MCP server "claude-artifacts" SdkHttpError: Error POSTing to endpoint: not found
+2026-11-05T09:00:01.673Z [DEBUG] MCP server "claude-artifacts": Connection failed after 373ms, 374ms of it awake (404): Error POSTing to endpoint: not found
+2026-11-05T09:00:02.400Z [DEBUG] MCP server "ide": Calling MCP tool: closeAllDiffTabs
+2026-11-05T09:00:02.453Z [DEBUG] MCP server "ide": Tool 'closeAllDiffTabs' failed after 0s: Tool not found: closeAllDiffTabs
+2026-11-05T09:00:03.000Z [DEBUG] MCP server "stdio_echo": Calling MCP tool: crash
+2026-11-05T09:00:03.008Z [ERROR] "MCP server \"stdio_echo\" ### Error\nError: it broke"
+2026-11-05T09:00:03.008Z [DEBUG] "MCP server \"stdio_echo\": Tool 'crash' failed after 0s: ### Error\nError: it broke"
+2026-11-05T10:00:00.000Z [DEBUG] [STARTUP] MCP configs resolved in 0ms (awaited at +59ms)
+2026-11-05T10:00:00.010Z [DEBUG] mcp runtime arm: v2 (source: default)
+2026-11-05T10:00:00.020Z [DEBUG] [claudeai-mcp] Fetched 2 servers

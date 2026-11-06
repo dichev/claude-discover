@@ -20,7 +20,7 @@ const askPrompt      = question => fill(ASK_PROMPT).replace('{{QUESTION}}', () =
 const EMPTY = { running: false, output: '', error: '' }
 
 // One result per key, so switching back to a session shows its last answer (or the run still streaming)
-export function useAgent(key, meta, { items, instructions, requestLog }) {
+export function useAgent(key, meta, { items, instructions, requestLog, debugLog }) {
   const [results, setResults] = useState({})
   const patch = (k, fn) => setResults(r => {
     const cur = r[k] ?? EMPTY
@@ -33,7 +33,7 @@ export function useAgent(key, meta, { items, instructions, requestLog }) {
     patch(key, () => ({ ...EMPTY, running: true }))
     let error = ''
     try {
-      const { body } = markdownSession(meta, items, instructions, requestLog)
+      const { body } = markdownSession(meta, items, instructions, requestLog, debugLog)
       // The style goes in as the system prompt: it read briefer than inline, and kept the model from taking the transcript as its own
       const { code } = await window.api.runAgentPrompt({ id: key, prompt: `${prompt}\n\n---\n${body}`, systemPrompt: STYLE, tag })
       if (code !== 0) error = `Claude exited with code ${code}`

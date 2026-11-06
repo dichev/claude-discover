@@ -20,7 +20,9 @@ describe('markdownSession', () => {
   })
 
   it('lists the MCP servers each prompt\'s request had above it, and later only what changed', () => {
-    const row = (name, status, more = {}) => ({ name, status, readyWithin: null, error: null, toolCount: null, groups: [], tools: [], ...more })
+    const row = (name, status, more = {}) => ({
+      name, transport: null, status, ms: null, readyWithin: null, error: null, stderr: [], toolCount: null, groups: [], tools: [], ...more,
+    })
     const mcp = [
       { startedAt: '2026-11-04T21:33:11.744Z', change: false, servers: [
         row('browser', 'failed', { error: 'CONNECTION_CLOSED: Connection closed' }),
@@ -36,6 +38,18 @@ describe('markdownSession', () => {
       + '- pycharm: connected, 52 tools\n  - tool run: 250ms\n  - tool lint: 5ms \\(failed: no file\\)\n'
       + '- toolbox: connected, 9 tools\n  - mounted clients: 5 tools\n  - mounted meta: 4 tools\n\n---\n\n\\*\\*User'))
     expect(body).toMatch(/\*\*System · \d\d:\d\d:\d\d:\*\*\n\n_MCP servers changed_\n- playwright: connected within 9000ms of the request that found it connecting, 25 tools\n\n---\n\n\*\*User/)
+  })
+
+  it('lists the MCP servers a turn connected to above its prompt, and the debug log they came from', () => {
+    const mcp = [{ startedAt: '2026-11-04T21:33:11.451Z', debug: true, servers: [
+      { name: 'stdio_echo', transport: 'stdio', status: 'connected', ms: 164, error: null, stderr: [], toolCount: 2, groups: [], tools: [] },
+      { name: 'broken', transport: null, status: 'failed', ms: 59, error: 'CONNECTION_CLOSED: Connection closed', stderr: ['boom'], groups: [], tools: [] },
+    ] }]
+    const { body } = markdownSession(meta, [msg('user', 'u1', '2026-11-04T21:33:11.744Z', 'hi')], { mcp }, null, 'debug/s.txt')
+    expect(body).toMatch(new RegExp('\\*\\*System · \\d\\d:\\d\\d:\\d\\d:\\*\\*\n\n_MCP servers connected \\(debug log\\)_\n'
+      + '- stdio_echo: stdio, connected in 164ms, 2 tools\n'
+      + '- broken: failed in 59ms \\(CONNECTION_CLOSED: Connection closed\\)\n  - stderr: boom\n\n---\n\n\\*\\*User'))
+    expect(body).toContain('- Debug log: debug/s.txt')
   })
 
   it('fences a block with a run longer than the code fences inside it', () => {
