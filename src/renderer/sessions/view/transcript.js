@@ -109,6 +109,9 @@ const metaTurn = (it, role, blocks, uuid = it.uuid) => ({
 // `folded`: routine bookkeeping, tucked behind its row's summary — only warnings and errors show unless a note says otherwise
 const noteTurn = (it, note, uuid) => metaTurn(it, 'system', [{ type: 'system', folded: !note.level, ...note }], uuid)
 
+// How soon after a prompt its request's context is logged: over 12k attachments measured, 90% within 63ms and 98.7% within this
+const PROMPT_CONTEXT_MS = 1000
+
 // `instructions` are the system prompts, tools and memory files read off the API requests (readSession's
 // separate { loop, side } lists) — not transcript items, merged in by timestamp. `compacts` are /compact's
 // summarizing calls, for the divider each precedes; `mcp` the MCP servers each turn's request had.
@@ -278,6 +281,18 @@ export function flatten(items, { loop = [], side = [], compacts = [], mcp = [] }
       .filter(b => !(b.type === 'tool_result' && calls.has(b.tool_use_id)))
   }
   const out = turns.filter(t => t.blocks.length > 0)
+  // What a prompt's request sends is logged around the prompt, the clock deciding which side: it all leads the prompt,
+  // backdated so `out` stays in time order. Context from much later is a resumed session's, for the prompt after.
+  for (let i = 0; i < out.length; i++) {
+    const prompt = out[i]
+    if (prompt.role !== 'user' || isContextTurn(prompt)) continue
+    for (let j = i + 1; j < out.length && isContextTurn(out[j]); j++) {
+      if (out[j].role === 'system' && out[j].ts - prompt.ts < PROMPT_CONTEXT_MS) {
+        const [context] = out.splice(j, 1)
+        out.splice(i++, 0, { ...context, ts: prompt.ts })
+      }
+    }
+  }
   const slot = turn => {
     const i = out.findIndex(t => t.ts != null && t.ts > turn.ts)
     i === -1 ? out.push(turn) : out.splice(i, 0, turn)

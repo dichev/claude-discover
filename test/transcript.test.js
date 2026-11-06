@@ -167,6 +167,64 @@ describe('SessionParser — continuesFrom / continuesTo', () => {
   })
 })
 
+describe('flatten — a prompt\'s context', () => {
+  const at = ms => new Date(Date.UTC(2026, 10, 6, 10, 0, 0, ms)).toISOString()
+  const prompt = (uuid, ms, text = 'hi') => ({ type: 'user', uuid, timestamp: at(ms), message: { role: 'user', content: text } })
+  const reply = (uuid, ms) => ({ type: 'assistant', uuid, timestamp: at(ms), message: { role: 'assistant', content: [{ type: 'text', text: 'ok' }] } })
+  const att = (uuid, ms, type = 'skill_listing') => ({ type: 'attachment', uuid, timestamp: at(ms), attachment: { type, content: 'x', filename: 'a.md' } })
+  const order = items => flatten(items).flatMap(t => t.blocks.map(b => b.attachment?.type ?? t.role))
+
+  it('leads the prompt when the clock tied them', () => {
+    expect(order([att('a', 786, 'environment'), prompt('p', 787), att('b', 787), reply('r', 900)])).toEqual(['environment', 'skill_listing', 'user', 'assistant'])
+  })
+
+  it('leads the prompt when logged just after it', () => {
+    expect(order([prompt('p', 787), att('b', 811, 'date'), reply('r', 900)])).toEqual(['date', 'user', 'assistant'])
+  })
+
+  it('reads the same either way the clock went', () => {
+    const before = flatten([att('b', 786), prompt('p', 787), reply('r', 900)])
+    const tied   = flatten([prompt('p', 787), att('b', 787), reply('r', 900)])
+    expect(groupTurns(tied).map(g => g.kind)).toEqual(groupTurns(before).map(g => g.kind))
+    expect(groupTurns(tied).map(g => g.kind)).toEqual(['system', 'user', 'assistant'])
+  })
+
+  it('joins what the prompt\'s request sent, above the prompt', () => {
+    const strip = { timestamp: at(867), file_path: 'System Prompt', content: 'x', hash: 'h' }
+    const mcp = [{ startedAt: at(867), servers: [{ name: 'docs', status: 'connected' }] }]
+    const turns = flatten([prompt('p', 787), att('b', 787, 'mcp_instructions_delta'), reply('r', 900)], { loop: [strip], mcp })
+    const [row] = groupTurns(turns)
+    expect(row.kind).toBe('system')
+    expect(row.turns.flatMap(t => t.blocks.map(b => b.type))).toEqual(['attachment', 'mcp', 'instruction'])
+  })
+
+  it('does the same for a later prompt', () => {
+    const items = [prompt('p1', 0), reply('r1', 100), prompt('p2', 500), att('b', 510, 'date'), reply('r2', 600)]
+    expect(order(items)).toEqual(['user', 'assistant', 'date', 'user', 'assistant'])
+  })
+
+  it('leaves the user\'s own context with the prompt', () => {
+    const file = { ...att('f', 788, 'file'), attachment: { type: 'file', displayPath: 'a.md', content: { file: { content: 'x' } } } }
+    const [you] = groupTurns(flatten([prompt('p', 787), file, att('b', 789), reply('r', 900)])).filter(g => g.kind === 'user')
+    expect(you.turns.flatMap(t => t.blocks.map(b => b.attachment?.type ?? 'text'))).toEqual(['text', 'file'])
+  })
+
+  it('keeps a resumed session\'s context away from the prompt that went unanswered', () => {
+    const items = [prompt('p1', 0), att('b', 5000, 'environment'), prompt('p2', 5001), reply('r', 5100)]
+    expect(order(items)).toEqual(['user', 'environment', 'user', 'assistant'])
+  })
+
+  it('leaves a directive where it is, and what follows it', () => {
+    const directive = { type: 'attachment', uuid: 'd', timestamp: at(790), attachment: { type: 'plan_mode' } }
+    expect(order([prompt('p', 787), directive, att('b', 791), reply('r', 900)])).toEqual(['user', 'plan_mode', 'skill_listing', 'assistant'])
+  })
+
+  it('backdates what it moves, keeping the turns in time order', () => {
+    const stamps = flatten([prompt('p', 787), att('b', 811), reply('r', 900)]).map(t => t.ts)
+    expect(stamps).toEqual([...stamps].sort((a, b) => a - b))
+  })
+})
+
 describe('flatten — tool results', () => {
   it('keeps a result whose call lies outside the loaded period', () => {
     const result = { type: 'user', uuid: 'r1', timestamp: '2026-09-23T00:00:05.000Z', message: { role: 'user', content: [{ type: 'tool_result', tool_use_id: 'tu0', content: 'late' }] } }
