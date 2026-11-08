@@ -112,6 +112,16 @@ export default function SessionList({ sessions, selectedId, deepLink, onSelect }
   const toggleRun   = key => setExpanded(prev => new Map(prev).set(key, !isOpen(key)))
   const rows        = grouped.filter(i => i.run || !i.runKey || isOpen(i.runKey))
 
+  const moveSelection = e => {
+    const step    = { ArrowDown: 1, ArrowUp: -1 }[e.key]
+    const visible = rows.flatMap(r => r.session ?? [])
+    const current = visible.findIndex(s => s.filePath === selectedId)
+    if (!step || current < 0) return
+    e.preventDefault()
+    const next = visible[current + step]
+    if (next) onSelect(next.filePath)
+  }
+
   return (
     <div className="session-list">
       <div className="session-list-header">
@@ -137,7 +147,7 @@ export default function SessionList({ sessions, selectedId, deepLink, onSelect }
           </div>
         </div>
       </div>
-      <div className="session-list-scroll">
+      <div className="session-list-scroll" tabIndex={0} onKeyDown={moveSelection}>
         {sorted.length === 0 && (
           <div className="empty">No sessions on this day.</div>
         )}
