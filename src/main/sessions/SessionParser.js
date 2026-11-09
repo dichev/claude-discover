@@ -126,6 +126,7 @@ export class SessionParser {
     this.tokenTotal = 0
     this.lastSeenTs = null
     this.modelId = null
+    this.caveat = null // the latest local-command caveat, until the command it introduces is read
     this.commandUuids = new Set()
     this.seenUuids = new Set()
     this.typedCommands = new Map() // `${promptId} /name` -> the record of it as typed
@@ -178,6 +179,8 @@ export class SessionParser {
       return false
     }
     obj._ts = ts
+    // A caveat is stamped as it's logged, after the command it introduces was typed — it still sorts ahead of it
+    if (obj.parentUuid && obj.parentUuid === this.caveat?.uuid && ts < this.caveat._ts) this.caveat._ts = ts
     if (inherited != null) {
       if (meta.startedAt == null || inherited < meta.startedAt) meta.startedAt = inherited
       if (inherited > meta.lastActivityAt) meta.lastActivityAt = inherited
@@ -275,6 +278,7 @@ export class SessionParser {
     } else if (text.startsWith('<local-command-caveat>')) {
       // CLI-injected wrapper note, not real user content
       obj.isMeta = true
+      this.caveat = obj
     } else if (text.startsWith('<scheduled-task')) {
       meta.hasScheduledTask = true
     } else if (text && !obj.isMeta && !obj.isCompactSummary) { // meta records (e.g. a slash-command skill's body) and compaction summaries aren't typed by the user
