@@ -5,6 +5,7 @@ import Toolbar from './timeline/Toolbar.jsx'
 import PeriodSummary from './timeline/PeriodSummary.jsx'
 import SessionList from './sessions/SessionList.jsx'
 import Session from './sessions/Session.jsx'
+import ExperimentDetails from './experiments/ExperimentDetails.jsx'
 import StatusBar from './ui/StatusBar.jsx'
 import { PaneErrorBoundary } from './ui/Errors.jsx'
 import { closeFind } from './ui/useFindActive.js'
@@ -35,6 +36,7 @@ export default function App() {
   const [anchor, setAnchor]                     = useState(() => startOfPeriod(Date.now(), granularity))
   const [selectedId, setSelectedId]             = useState(null)
   const [deepLink, setDeepLink]                 = useState(null) // the link the current selection came from, if any
+  const [experiment, setExperiment]             = useState(null) // the id whose details stand in for the session
   const [sourceFilter, setSourceFilter]         = useState(null)
   const [projectFilter, setProjectFilter]       = useLocalStorage('app.projects', [])
   const [expandedProjects, setExpandedProjects] = useLocalStorage('gantt-chart.expanded', [])
@@ -99,6 +101,7 @@ export default function App() {
     closeFind() // Close find synchronously on switch so the new transcript renders with forceMount off (no lag)
     setSelectedId(id)
     setDeepLink(link)
+    setExperiment(null)
   }
 
   // Deep link (claude-discover://session?id=…&date=…): jump to the session's day and select it
@@ -166,6 +169,8 @@ export default function App() {
             sourceFilter={sourceFilter}
             availableSources={dayItems.availableSources}
             onToggleSourceFilter={src => setSourceFilter(cur => (cur === src ? null : src))}
+            openExperiment={experiment}
+            onOpenExperiment={setExperiment}
           />
           <PeriodSummary sessions={dayItems.past} dayAnchor={anchor} granularity={granularity} expanded={expandedProjects} />
         </div>
@@ -188,13 +193,16 @@ export default function App() {
             selectedId={selected?.filePath ?? null}
             deepLink={deepLink}
             onSelect={selectSession}
+            onOpenExperiment={setExperiment}
           />
         </Panel>
         <Separator className="resize-handle resize-handle-v" />
         <Panel id="detail" minSize={30} className="body-pane">
           {/* one transcript that fails to render must not take the timeline down with it */}
-          <PaneErrorBoundary title="Couldn't render this session" resetKeys={[selected?.filePath, anchor, granularity]}>
-            <Session meta={selected} missing={missing} date={format(anchor, 'yyyy-MM-dd')} granularity={granularity} onShowPeriodOf={ts => setAnchor(startOfPeriod(ts, granularity))} />
+          <PaneErrorBoundary title="Couldn't render this session" resetKeys={[selected?.filePath, experiment, anchor, granularity]}>
+            {experiment
+              ? <ExperimentDetails id={experiment} sessions={dayItems.past} anchor={anchor} granularity={granularity} onClose={() => setExperiment(null)} />
+              : <Session meta={selected} missing={missing} date={format(anchor, 'yyyy-MM-dd')} granularity={granularity} onShowPeriodOf={ts => setAnchor(startOfPeriod(ts, granularity))} />}
           </PaneErrorBoundary>
         </Panel>
         </Group>

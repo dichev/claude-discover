@@ -760,7 +760,7 @@ describe('SessionParser — a branch', () => {
     expect(kept, 'a new count belongs in freshMetrics, or a branch counts its copies too').toEqual([
       'sessionId', 'parentSessionId', 'filePath', 'parentFilePath', 'fileSize', 'mtime',
       'entrypoint', 'project', 'gitBranch', 'version',
-      'summary', 'aiTitle', 'customTitle', 'agentName', 'tag', 'forkedFrom', 'forkedAt',
+      'summary', 'aiTitle', 'customTitle', 'agentName', 'tag', 'experiment', 'forkedFrom', 'forkedAt',
     ])
   })
 })

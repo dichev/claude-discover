@@ -10,6 +10,7 @@ import { McpTools } from '../sessions/McpTools.js'
 import { SessionParser, suffixLabels } from '../sessions/SessionParser.js'
 import { SessionsScanner } from '../sessions/SessionsScanner.js'
 import { MetaCache } from '../sessions/MetaCache.js'
+import { Experiments } from '../sessions/Experiments.js'
 import { ProjectResolver } from '../sessions/ProjectResolver.js'
 import { Pricing } from './Pricing.js'
 
@@ -50,6 +51,7 @@ export class SessionsService extends EventEmitter {
     this.throttleMs = throttleMs
     this.metaCache = new MetaCache()
     this.projects = new ProjectResolver()
+    this.experiments = new Experiments()
     this.activeDay = null
     this.scanAbort = null
     this.updateTimer = null
@@ -256,6 +258,7 @@ export class SessionsService extends EventEmitter {
     // Labels depend on which other projects are in the snapshot (same-named folders), so they're set here
     const labels = suffixLabels(sessions.map(m => m.project))
     for (const m of sessions) m.projectShort = m.tempPath ? 'Temp' : labels.get(m.project) // the macOS temp root is just "T"
+    await this.experiments.name(sessions)
     return sessions
   }
 

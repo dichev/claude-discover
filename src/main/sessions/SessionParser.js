@@ -87,11 +87,14 @@ function classifySource(meta) {
   return (meta.entrypoint || '').toLowerCase() || 'other'
 }
 
+// Older CLIs logged the experiment id wrapped as `v1.<id>.<…>`
+const experimentId = atis => atis.match(/^v1\.([0-9a-f]+)\./)?.[1] ?? atis
+
 function freshMeta({ sessionId, parentSessionId, filePath, parentFilePath, fileSize, mtime }) {
   return {
     sessionId, parentSessionId, filePath, parentFilePath, fileSize, mtime,
     entrypoint: null, project: null, gitBranch: null, version: null,
-    summary: null, aiTitle: null, customTitle: null, agentName: null, tag: null, forkedFrom: null, forkedAt: null,
+    summary: null, aiTitle: null, customTitle: null, agentName: null, tag: null, experiment: null, forkedFrom: null, forkedAt: null,
     ...freshMetrics(),
   }
 }
@@ -150,6 +153,7 @@ export class SessionParser {
     if (t === 'custom-title' && obj.customTitle) meta.customTitle = obj.customTitle
     if (t === 'agent-name' && obj.agentName) meta.agentName = obj.agentName
     if (t === 'tag') meta.tag = obj.tag || null // last one wins; an empty tag clears it
+    if (t === 'atis-latch' && obj.atis) meta.experiment = experimentId(obj.atis) // the server-side experiment the session runs in; blank outside one
     if (t === 'queue-operation' && obj.content?.includes('<scheduled-task')) meta.hasScheduledTask = true
     if (t === 'started' && obj.key && obj.agentId) meta.workflowAgents += 1 // workflow journal: one `started` record per agent() call
     if (t === 'attachment' && obj.attachment?.type === 'model') this.modelId = obj.attachment.identity?.modelId

@@ -8,6 +8,7 @@ import { subagentClusters, isJournal } from '../utils/subagents.js'
 import { useLocalStorage } from '../utils/useLocalStorage.js'
 import { activity, lastChange } from '../utils/activity.js'
 import { useClock } from '../utils/useClock.js'
+import ExperimentTag from '../experiments/ExperimentTag.jsx'
 import './SessionList.css'
 
 const TIPS = {
@@ -72,7 +73,7 @@ function groupRuns(sorted) {
   ])
 }
 
-export default function SessionList({ sessions, selectedId, deepLink, onSelect }) {
+export default function SessionList({ sessions, selectedId, deepLink, onSelect, onOpenExperiment }) {
   const selectedRef             = useRef(null)
   const [sortBy, setSortBy]     = useLocalStorage('session-list.sort', 'time')
   const [filter, setFilter]     = useState('')
@@ -205,6 +206,7 @@ export default function SessionList({ sessions, selectedId, deepLink, onSelect }
                 </span>
               </div>
               <div className="session-time-bottom">
+                <ExperimentTag session={s} onOpen={onOpenExperiment} />
                 {journal && <span className="subagent-tag">[journal: {s.workflowAgents} subagent{s.workflowAgents === 1 ? '' : 's'}]</span>}
                 {s.worktree && <span className="worktree-tag" data-tooltip-content={`Worktree of ${s.projectShort}`}>[{s.worktree}]</span>}
                 {isFork && <span className="fork-tag" role="img" aria-label="Forked" data-tooltip-content={`Forked from session ${s.forkedFrom.sessionId}`}><GitBranch size={12} /></span>}

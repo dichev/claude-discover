@@ -4,6 +4,7 @@ import { flatten, groupTurns, branchPoint, contextSize, contextTokens, currentMo
 import { toolSummary, parseCommand, isClearTurn, instructionTitle, compactTitle, rewindTitle, attachmentView, hasText, safeJson, SIDE_NOTE } from './view/labels.js'
 import { fenced } from '../utils/textBlock.js'
 import { cacheAdvice, CACHE_LABELS } from '../utils/cacheAdvice.js'
+import { experimentText } from '../experiments/experiments.js'
 
 export const MAX_LINES = 10
 export const MAX_LINE_CHARS = 200
@@ -185,6 +186,7 @@ ${compactions ? `- Compactions: ${fmtNum(compactions)}
 - Service tier: ${meta.serviceTier || '—'}
 - Speed: ${meta.speed ? (meta.speed === 'fast' ? (meta.fastPricingUnknown ? 'fast (pricing unknown)' : 'fast') : meta.speed) : '—'}
 ${meta.tag ? `- Tag: ${meta.tag}
+` : ''}${meta.experiment ? `- Anthropic experiment: ${experimentText(meta)}
 ` : ''}- Git branch: ${meta.gitBranch || '—'}
 - Source: ${meta.source || meta.entrypoint || '—'}
 - Scheduled: ${meta.hasScheduledTask ? 'yes' : 'no'}

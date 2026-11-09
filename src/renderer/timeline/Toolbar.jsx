@@ -1,5 +1,4 @@
-import { format } from 'date-fns'
-import { endOfPeriod, isSamePeriod } from '../utils/period.js'
+import { isSamePeriod, periodTitle } from '../utils/period.js'
 import { useClock } from '../utils/useClock.js'
 import './Toolbar.css'
 
@@ -10,12 +9,6 @@ const GRANULARITIES = [
 ]
 
 const RESET_LABELS = { day: 'Today', week: 'This week', month: 'This month' }
-
-function periodTitle(anchor, granularity) {
-  if (granularity === 'week') return `${format(anchor, 'MMM d')} – ${format(endOfPeriod(anchor, 'week'), 'MMM d')}`
-  if (granularity === 'month') return format(anchor, 'MMMM yyyy')
-  return format(anchor, 'EEE, MMM d')
-}
 
 export default function Toolbar({
   granularity, onSetGranularity, dayAnchor, onShiftDay, onResetToday,

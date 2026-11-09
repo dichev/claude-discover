@@ -1,0 +1,7 @@
+/* first on the session row's second line, right of its timeline, so the icons line up down the list */
+.experiment-tag {
+  display: flex;
+  align-items: center;
+  height: 14px;
+  cursor: pointer;
+}

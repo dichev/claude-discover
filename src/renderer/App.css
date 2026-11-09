@@ -41,7 +41,7 @@
   & > .gantt-wrap {
     flex: 1;
     padding-right: 0;
-    & .gantt-canvas { border-top-right-radius: 0; border-bottom-right-radius: 0; border-right: none; }
+    & .experiment-band, & .gantt-canvas { border-top-right-radius: 0; border-bottom-right-radius: 0; border-right: none; }
   }
   & > .gantt-side { flex: 0 0 var(--gantt-side-width); }
 }

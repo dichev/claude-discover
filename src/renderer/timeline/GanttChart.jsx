@@ -4,6 +4,7 @@ import { useLocalStorage } from '../utils/useLocalStorage.js'
 import { useMouse } from '../utils/useMouse.js'
 import { subagentClusters, isJournal } from '../utils/subagents.js'
 import MultiPicker from '../ui/MultiPicker.jsx'
+import ExperimentBand from '../experiments/ExperimentBand.jsx'
 import SourceLegend from './SourceLegend.jsx'
 import TimeAxis, { computeTicks } from './TimeAxis.jsx'
 import WorkTimeOverlay from './WorkTimeOverlay.jsx'
@@ -122,6 +123,7 @@ export default function GanttChart({
   granularity = 'day', expanded, onToggleExpanded,
   projects, projectFilter, onSetProjectFilter,
   sourceFilter, availableSources, onToggleSourceFilter,
+  openExperiment, onOpenExperiment,
 }) {
   const bar = BARS[granularity] ?? BARS.day
   const containerRef = useRef(null)
@@ -173,6 +175,10 @@ export default function GanttChart({
 
   return (
     <div className="gantt-wrap">
+      <ExperimentBand
+        sessions={sessions} viewStart={view.start} viewEnd={view.end} width={width} gutter={PROJECTS_WIDTH}
+        openId={openExperiment} onOpen={onOpenExperiment}
+      />
       <div className="gantt-canvas" ref={containerRef}>
         <div className="gantt-header" style={{ marginBottom: -HEADER_HEIGHT }}>
           <svg width={width} height={HEADER_HEIGHT}>

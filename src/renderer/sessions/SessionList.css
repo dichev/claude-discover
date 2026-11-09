@@ -280,7 +280,7 @@
   & > * { flex: none; }
   & > :last-child { flex: 0 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   & > * + *::before { content: ', '; }
-  & > .fork-tag + *::before { content: '\00a0'; }
+  & > :is(.fork-tag, .experiment-tag) + *::before { content: '\00a0'; }
   & .subagent-tag, & .worktree-tag { font-size: inherit; }
 }
 .session-model { color: var(--text-dim); }

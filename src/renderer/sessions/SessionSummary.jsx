@@ -6,6 +6,7 @@ import { cacheAdvice, CACHE_LABELS } from '../utils/cacheAdvice.js'
 import { contextWindow, contextTokens, flatten } from './view/transcript.js'
 import AgentOutput from '../agent/AgentOutput.jsx'
 import ProgressBar from '../ui/ProgressBar.jsx'
+import { experimentText } from '../experiments/experiments.js'
 import './SessionSummary.css'
 
 export default function SessionSummary({ meta, items, instructions, requestLog, debugLog, agent, granularity = 'day' }) {
@@ -126,6 +127,7 @@ export default function SessionSummary({ meta, items, instructions, requestLog, 
           {meta.serviceTier && <Field label="Service tier" value={meta.serviceTier} />}
           {meta.speed && <Field label="Speed" value={meta.speed === 'fast' ? (meta.fastPricingUnknown ? 'fast (pricing unknown)' : 'fast') : meta.speed} />}
           {meta.tag && <Field label="Tag" value={meta.tag} mono />}
+          {meta.experiment && <Field label="Anthropic experiment" value={experimentText(meta)} mono full autoselect />}
           <Field label="Git branch" value={meta.gitBranch || '—'} mono />
           <Field label="Source" value={meta.source || meta.entrypoint || '—'} />
           {meta.hasScheduledTask && <Field label="Scheduled" value="yes" />}
