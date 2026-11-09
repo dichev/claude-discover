@@ -7,16 +7,6 @@
   background: var(--bg);
 }
 
-.heat-strip {
-  display: block;
-  box-sizing: content-box; /* its width attribute is the canvas's inner width; the border goes outside, as on .gantt-canvas */
-  background: var(--bg-elev);
-  border: 1px solid var(--border);
-  border-bottom: none;
-  border-top-left-radius: 4px;
-  border-top-right-radius: 4px;
-}
-
 .gantt-canvas {
   width: 100%;
   flex: 1;
@@ -29,12 +19,6 @@
   user-select: none;
 
   & svg { display: block; }
-}
-
-.heat-strip + .gantt-canvas {
-  border-top-left-radius: 0;
-  border-top-right-radius: 0;
-  border-top: none;
 }
 
 /* Pinned over the chart svg's own header rows; overflow lets the work-hours overlay run down the chart */

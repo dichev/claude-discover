@@ -4,7 +4,6 @@ import { useLocalStorage } from '../utils/useLocalStorage.js'
 import { useMouse } from '../utils/useMouse.js'
 import { subagentClusters, isJournal } from '../utils/subagents.js'
 import MultiPicker from '../ui/MultiPicker.jsx'
-import HeatStrip from './HeatStrip.jsx'
 import SourceLegend from './SourceLegend.jsx'
 import TimeAxis, { computeTicks } from './TimeAxis.jsx'
 import WorkTimeOverlay from './WorkTimeOverlay.jsx'
@@ -174,13 +173,6 @@ export default function GanttChart({
 
   return (
     <div className="gantt-wrap">
-      <HeatStrip
-        sessions={sessions}
-        viewStart={view.start}
-        viewEnd={view.end}
-        width={width}
-        gutter={PROJECTS_WIDTH}
-      />
       <div className="gantt-canvas" ref={containerRef}>
         <div className="gantt-header" style={{ marginBottom: -HEADER_HEIGHT }}>
           <svg width={width} height={HEADER_HEIGHT}>
