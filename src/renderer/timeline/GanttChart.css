@@ -21,12 +21,6 @@
   & svg { display: block; }
 }
 
-.experiment-band + .gantt-canvas {
-  border-top-left-radius: 0;
-  border-top-right-radius: 0;
-  border-top: none;
-}
-
 /* Pinned over the chart svg's own header rows; overflow lets the work-hours overlay run down the chart */
 .gantt-header {
   position: sticky;

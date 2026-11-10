@@ -4,9 +4,9 @@ import { fmtDuration, fmtNum, fmtUSD, fmtCompact, fmtToolCalls, tone } from '../
 import { THRESHOLDS as T } from '../utils/thresholds.js'
 import { cacheAdvice, CACHE_LABELS } from '../utils/cacheAdvice.js'
 import { contextWindow, contextTokens, flatten } from './view/transcript.js'
+import { EXPERIMENT_TIP } from './view/labels.js'
 import AgentOutput from '../agent/AgentOutput.jsx'
 import ProgressBar from '../ui/ProgressBar.jsx'
-import { experimentText } from '../experiments/experiments.js'
 import './SessionSummary.css'
 
 export default function SessionSummary({ meta, items, instructions, requestLog, debugLog, agent, granularity = 'day' }) {
@@ -127,10 +127,10 @@ export default function SessionSummary({ meta, items, instructions, requestLog, 
           {meta.serviceTier && <Field label="Service tier" value={meta.serviceTier} />}
           {meta.speed && <Field label="Speed" value={meta.speed === 'fast' ? (meta.fastPricingUnknown ? 'fast (pricing unknown)' : 'fast') : meta.speed} />}
           {meta.tag && <Field label="Tag" value={meta.tag} mono />}
-          {meta.experiment && <Field label="Anthropic experiment" value={experimentText(meta)} mono full autoselect />}
           <Field label="Git branch" value={meta.gitBranch || '—'} mono />
           <Field label="Source" value={meta.source || meta.entrypoint || '—'} />
           {meta.hasScheduledTask && <Field label="Scheduled" value="yes" />}
+          {meta.experiment && <Field label="Anthropic experiment" value={<span data-tooltip-content={EXPERIMENT_TIP}>yes</span>} />}
           <Field label="CLI version" value={meta.version || '—'} mono />
           <Field label="Project" value={meta.project || '—'} mono full autoselect />
           {meta.subdir && <Field label="Subfolder" value={meta.subdir} mono full autoselect />}

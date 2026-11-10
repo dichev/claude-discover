@@ -2,7 +2,6 @@ import {
   startOfDay, endOfDay, addDays, isSameDay,
   startOfWeek, endOfWeek, addWeeks, isSameWeek,
   startOfMonth, endOfMonth, addMonths, isSameMonth,
-  format,
 } from 'date-fns'
 
 // Week-scoped views start on Monday — keep this in sync with periodBounds() in
@@ -19,12 +18,6 @@ export function endOfPeriod(ts, granularity) {
   if (granularity === 'week') return +endOfWeek(ts, WEEK)
   if (granularity === 'month') return +endOfMonth(ts)
   return +endOfDay(ts)
-}
-
-export function periodTitle(anchor, granularity) {
-  if (granularity === 'week') return `${format(anchor, 'MMM d')} – ${format(endOfPeriod(anchor, 'week'), 'MMM d')}`
-  if (granularity === 'month') return format(anchor, 'MMMM yyyy')
-  return format(anchor, 'EEE, MMM d')
 }
 
 export function addPeriod(ts, granularity, delta) {

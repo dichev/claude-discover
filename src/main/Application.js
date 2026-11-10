@@ -37,7 +37,6 @@ export class Application {
     // renderer → main
     ipcMain.handle('sessions:list', (_e, date, granularity) => sessionsService.list(date, granularity))
     ipcMain.handle('sessions:read', (_e, filePath, date, granularity) => sessionsService.readSession(filePath, date, granularity))
-    ipcMain.handle('experiments:read', () => sessionsService.experiments.read())
     ipcMain.handle('sessions:read-requests', (_e, filePath, date, granularity) => sessionsService.readRequests(filePath, date, granularity))
     ipcMain.handle('sessions:read-avatar', (_e, filePath) => webpDataUrl(sessionsService.avatarPath(filePath)))
     ipcMain.handle('switch:status', (_e, name) => switchers.status(name))

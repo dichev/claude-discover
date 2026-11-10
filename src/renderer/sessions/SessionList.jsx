@@ -1,14 +1,13 @@
 import { Suspense, use, useEffect, useRef, useState } from 'react'
-import { Gauge, MessageSquare, Clock, Zap, DollarSign, Brain, GitBranch, ChevronDown, ChevronRight, Bug } from 'lucide-react'
+import { Gauge, MessageSquare, Clock, Zap, DollarSign, Brain, GitBranch, ChevronDown, ChevronRight, Bug, FlaskConical } from 'lucide-react'
 import { fmtCompact, fmtNum, fmtUSD, fmtDuration, fmtAgo, tone } from '../utils/formatting.js'
 import { THRESHOLDS as T } from '../utils/thresholds.js'
 import { cacheAdvice, CACHE_LABELS } from '../utils/cacheAdvice.js'
-import { parseCommand } from './view/labels.js'
+import { parseCommand, EXPERIMENT_TIP } from './view/labels.js'
 import { subagentClusters, isJournal } from '../utils/subagents.js'
 import { useLocalStorage } from '../utils/useLocalStorage.js'
 import { activity, lastChange } from '../utils/activity.js'
 import { useClock } from '../utils/useClock.js'
-import ExperimentTag from '../experiments/ExperimentTag.jsx'
 import './SessionList.css'
 
 const TIPS = {
@@ -73,7 +72,7 @@ function groupRuns(sorted) {
   ])
 }
 
-export default function SessionList({ sessions, selectedId, deepLink, onSelect, onOpenExperiment }) {
+export default function SessionList({ sessions, selectedId, deepLink, onSelect }) {
   const selectedRef             = useRef(null)
   const [sortBy, setSortBy]     = useLocalStorage('session-list.sort', 'time')
   const [filter, setFilter]     = useState('')
@@ -206,7 +205,6 @@ export default function SessionList({ sessions, selectedId, deepLink, onSelect, 
                 </span>
               </div>
               <div className="session-time-bottom">
-                <ExperimentTag session={s} onOpen={onOpenExperiment} />
                 {journal && <span className="subagent-tag">[journal: {s.workflowAgents} subagent{s.workflowAgents === 1 ? '' : 's'}]</span>}
                 {s.worktree && <span className="worktree-tag" data-tooltip-content={`Worktree of ${s.projectShort}`}>[{s.worktree}]</span>}
                 {isFork && <span className="fork-tag" role="img" aria-label="Forked" data-tooltip-content={`Forked from session ${s.forkedFrom.sessionId}`}><GitBranch size={12} /></span>}
@@ -228,6 +226,7 @@ export default function SessionList({ sessions, selectedId, deepLink, onSelect, 
                 {topEffort && <Badge className={EFFORT_BADGE[topEffort]} tip={`Effort: ${topEffort}\n${TIPS.effort}`} icon={Brain} />}
                 {s.speed === 'fast' && <Badge className={`fast-badge ${s.fastPricingUnknown ? 'fast-badge-unknown' : ''}`} tip={s.fastPricingUnknown ? 'Used fast mode — cost is INACCURATE: no fast-mode price multiplier known for this model' : 'Used fast mode (speed: fast)'} icon={Zap} />}
                 {s.priceUnknown && <Badge className="danger-badge" tip={`No price entry for ${s.models?.join(', ') || 'this model'} — cost is missing or understated`} icon={DollarSign} />}
+                {s.experiment && <Badge className="experiment-badge" tip={EXPERIMENT_TIP} icon={FlaskConical} />}
                 {s.debug && <Badge className="debug-badge" tip={TIPS.debug} icon={Bug} />}
               </div>
               <RowStats at={s.lastActivityAt} tokens={s.totalTokens} cost={s.cost} sortBy={sortBy} toned />

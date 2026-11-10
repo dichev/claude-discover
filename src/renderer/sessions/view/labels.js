@@ -74,6 +74,9 @@ export function persistedOutput(text) {
 // A side request's Proxy block, as told apart from the conversation
 export const SIDE_NOTE = 'separate request, not in context'
 
+// The variable skips the startup fetch that assigns the experiment; nothing documents it as the opt-out
+export const EXPERIMENT_TIP = 'Anthropic ran this session in an experiment\nTo stay out of them, set CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC=1,\nwhich also stops auto-updates, telemetry and Remote Control'
+
 // Instruction strip title: `name (memory_type)` — the request's model is named only when it
 // differs from the conversation's own (currentModel), i.e. for side-channel requests like title gen.
 export function instructionTitle(it, model) {

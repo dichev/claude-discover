@@ -130,6 +130,21 @@ describe('SessionParser — effort', () => {
   })
 })
 
+describe('SessionParser — experiment', () => {
+  it('reads the session\'s experiment id, unwrapping the old v1 form, and ignores a blank one', () => {
+    const experimentOf = (...ids) => {
+      const parser = new SessionParser({ sessionId: 's1', filePath: 's1.jsonl' })
+      for (const atis of ids) {
+        parser.feed({ type: 'atis-latch', atis, sessionId: 's1' })
+      }
+      return parser.meta.experiment
+    }
+    expect(experimentOf('')).toBe(null)
+    expect(experimentOf('06b45b2ae5149077', '')).toBe('06b45b2ae5149077')
+    expect(experimentOf('v1.e8ea04fa13f77d5e.CICzNGsllVAYtGoZ.8e9298b0.mpucUk')).toBe('e8ea04fa13f77d5e')
+  })
+})
+
 describe('SessionParser — continuesFrom / continuesTo', () => {
   const user = (uuid, timestamp) => ({ type: 'user', uuid, timestamp, message: { role: 'user', content: 'hi' } })
   const lines = [user('u1', '2026-09-25T10:00:00.000Z'), user('u2', '2026-09-26T14:32:00.000Z'), user('u3', '2026-09-28T09:00:00.000Z')]

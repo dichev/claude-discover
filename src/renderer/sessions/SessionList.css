@@ -219,11 +219,14 @@
 }
 
 /* the MCP blocks' color: the debug log fills them in */
-.debug-badge {
+.debug-badge,
+.experiment-badge {
   display: inline-flex; align-items: center; justify-content: center;
   width: 18px; height: 18px;
   color: var(--mcp);
 }
+
+.experiment-badge { color: #c084fc; }
 
 /* 18px line height keeps it on the label's line */
 .session-row-time {
@@ -280,7 +283,7 @@
   & > * { flex: none; }
   & > :last-child { flex: 0 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   & > * + *::before { content: ', '; }
-  & > :is(.fork-tag, .experiment-tag) + *::before { content: '\00a0'; }
+  & > .fork-tag + *::before { content: '\00a0'; }
   & .subagent-tag, & .worktree-tag { font-size: inherit; }
 }
 .session-model { color: var(--text-dim); }
