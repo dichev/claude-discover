@@ -184,7 +184,7 @@ export default function StatusBar({ sessionCount = 0 }) {
     <div className="statusbar">
       {(scanning || finished) && (
         <span className="statusbar-loading">
-          <span className="statusbar-loading-text">
+          <span>
             {scanning ? 'Loading' : 'Loaded'} <span className="statusbar-num">{sessionCount}</span> sessions{scanning ? '…' : ''}
           </span>
           {scanning && <ProgressBar pct={pct} />}
