@@ -1,4 +1,4 @@
-import { contextBridge, ipcRenderer } from 'electron'
+import { contextBridge, ipcRenderer, webUtils } from 'electron'
 
 const subscribe = channel => cb => {
   const listener = (_e, payload) => cb(payload)
@@ -16,6 +16,9 @@ contextBridge.exposeInMainWorld('api', {
   readSession: (filePath, date = null, granularity = 'day') => ipcRenderer.invoke('sessions:read', filePath, date, granularity),
   readRequests: (filePath, date = null, granularity = 'day') => ipcRenderer.invoke('sessions:read-requests', filePath, date, granularity),
   readAvatar: filePath => ipcRenderer.invoke('sessions:read-avatar', filePath),
+  openSessionFile: filePath => ipcRenderer.invoke('sessions:open-file', filePath),
+  onOpenSessionFile: subscribe('sessions:open-file'),
+  pathForFile: file => webUtils.getPathForFile(file), // a dropped File's path: the sandboxed renderer can't read it
   onSessionsUpdate: subscribe('sessions:update'),
   onScanProgress: subscribe('sessions:scan-progress'),
 

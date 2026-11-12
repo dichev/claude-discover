@@ -5,6 +5,7 @@ import Toolbar from './timeline/Toolbar.jsx'
 import PeriodSummary from './timeline/PeriodSummary.jsx'
 import SessionList from './sessions/SessionList.jsx'
 import Session from './sessions/Session.jsx'
+import { useOpenedFile, OpenedFileHeader } from './sessions/OpenedFile.jsx'
 import StatusBar from './ui/StatusBar.jsx'
 import { PaneErrorBoundary } from './ui/Errors.jsx'
 import { closeFind } from './ui/useFindActive.js'
@@ -35,6 +36,7 @@ export default function App() {
   const [anchor, setAnchor]                     = useState(() => startOfPeriod(Date.now(), granularity))
   const [selectedId, setSelectedId]             = useState(null)
   const [deepLink, setDeepLink]                 = useState(null) // the link the current selection came from, if any
+  const [opened, setOpened]                     = useOpenedFile() // shown in place of the selection
   const [sourceFilter, setSourceFilter]         = useState(null)
   const [projectFilter, setProjectFilter]       = useLocalStorage('app.projects', [])
   const [expandedProjects, setExpandedProjects] = useLocalStorage('gantt-chart.expanded', [])
@@ -83,6 +85,7 @@ export default function App() {
   // `selectedId` is a file path, or a session id when the selection came from a deep
   // link — one id can cover several transcripts, one per cwd.
   const selected = sessions.find(s => s.filePath === selectedId || s.sessionId === selectedId) || null
+  const shownId  = opened ? null : selected?.filePath ?? null // an opened file takes the detail pane, so nothing in the list is shown
 
   // Say why the detail pane is empty instead of just showing nothing
   let missing = null
@@ -94,11 +97,17 @@ export default function App() {
     else if (deepLink?.date === format(anchor, 'yyyy-MM-dd')) missing = { text: `Session ${selectedId} has no records ${when}.`, warn: true }
   }
 
+  // An opened file has no period: the whole file, with dates on its times
+  const detail = opened
+    ? { meta: opened.meta ?? null, missing: opened.error ? { text: "Couldn't open this file", error: opened.error } : { text: 'Opening…' }, date: null, granularity: null }
+    : { meta: selected, missing, date: format(anchor, 'yyyy-MM-dd'), granularity, onShowPeriodOf: ts => setAnchor(startOfPeriod(ts, granularity)) }
+
   // `link` is set only by the deep-link handler below — picking a session by hand clears the notice
   const selectSession = (id, link = null) => {
     closeFind() // Close find synchronously on switch so the new transcript renders with forceMount off (no lag)
     setSelectedId(id)
     setDeepLink(link)
+    setOpened(null)
   }
 
   // Deep link (claude-discover://session?id=…&date=…): jump to the session's day and select it
@@ -155,7 +164,7 @@ export default function App() {
             dayRange={dayRange}
             sessions={dayItems.past}
             onSelect={selectSession}
-            selectedId={selected?.filePath ?? null}
+            selectedId={shownId}
             dayAnchor={anchor}
             granularity={granularity}
             expanded={expandedProjects}
@@ -185,16 +194,17 @@ export default function App() {
           </header>
           <SessionList
             sessions={dayItems.past}
-            selectedId={selected?.filePath ?? null}
+            selectedId={shownId}
             deepLink={deepLink}
             onSelect={selectSession}
           />
         </Panel>
         <Separator className="resize-handle resize-handle-v" />
         <Panel id="detail" minSize={30} className="body-pane">
+          {opened && <OpenedFileHeader filePath={opened.filePath} onClose={() => setOpened(null)} />}
           {/* one transcript that fails to render must not take the timeline down with it */}
-          <PaneErrorBoundary title="Couldn't render this session" resetKeys={[selected?.filePath, anchor, granularity]}>
-            <Session meta={selected} missing={missing} date={format(anchor, 'yyyy-MM-dd')} granularity={granularity} onShowPeriodOf={ts => setAnchor(startOfPeriod(ts, granularity))} />
+          <PaneErrorBoundary title="Couldn't render this session" resetKeys={[opened?.filePath, selected?.filePath, anchor, granularity]}>
+            <Session {...detail} />
           </PaneErrorBoundary>
         </Panel>
         </Group>

@@ -38,6 +38,7 @@ export class Application {
     ipcMain.handle('sessions:list', (_e, date, granularity) => sessionsService.list(date, granularity))
     ipcMain.handle('sessions:read', (_e, filePath, date, granularity) => sessionsService.readSession(filePath, date, granularity))
     ipcMain.handle('sessions:read-requests', (_e, filePath, date, granularity) => sessionsService.readRequests(filePath, date, granularity))
+    ipcMain.handle('sessions:open-file', (_e, filePath) => sessionsService.openFile(filePath))
     ipcMain.handle('sessions:read-avatar', (_e, filePath) => webpDataUrl(sessionsService.avatarPath(filePath)))
     ipcMain.handle('switch:status', (_e, name) => switchers.status(name))
     ipcMain.handle('switch:activate', (_e, name) => switchers.activate(name))
@@ -80,6 +81,14 @@ export class Application {
     app.exit(0)
   }
 
+  // The renderer opens the picked file itself, as it does a dropped one, so both show errors the same way
+  async #pickSessionFile() {
+    const { canceled, filePaths } = await dialog.showOpenDialog({
+      title: 'Open session file', properties: ['openFile'], filters: [{ name: 'Session transcripts', extensions: ['jsonl'] }],
+    })
+    if (!canceled && filePaths[0]) this.win.send('sessions:open-file', filePaths[0])
+  }
+
   #buildMenu() {
     const { win, switchers } = this
     const changeDir = dir => switchers.activate('claudedir', dir)
@@ -88,6 +97,8 @@ export class Application {
       {
         label: 'File',
         submenu: [
+          { label: 'Open session file…', accelerator: 'CmdOrCtrl+O', click: () => this.#pickSessionFile() },
+          { type: 'separator' },
           { label: 'Change directory…', click: () => changeDir() },
           { type: 'separator' },
           ...RECENT_CLAUDE_DIRS.map(p => ({

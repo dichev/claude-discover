@@ -1,0 +1,31 @@
+/* A transcript opened from a file isn't part of the timeline — its own accent says so */
+.opened-file {
+  --section-accent: var(--warn);
+  gap: 10px;
+
+  & .opened-file-icon { flex: none; color: var(--section-accent); }
+  & .opened-file-path {
+    flex: 1;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    direction: rtl; /* ellipsis at the start, so the file name stays visible (the <bdi> keeps the path itself LTR) */
+    text-align: left;
+    font-family: var(--font-mono);
+    font-size: 12px;
+    color: var(--text-dim);
+    user-select: text;
+  }
+  & .opened-file-close {
+    flex: none;
+    display: flex;
+    padding: 4px;
+    border: none;
+    border-radius: 4px;
+    background: none;
+    color: var(--text-dim);
+    cursor: pointer;
+    &:hover { background: var(--selected); color: var(--text); }
+  }
+}

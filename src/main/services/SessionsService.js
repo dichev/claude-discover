@@ -42,6 +42,7 @@ const debugLogOf = reader => reader.parentSessionId || !isSafeId(reader.sessionI
 
 export class SessionsService extends EventEmitter {
   #branch = null // { key, source } of the last branch read
+  #opened = null // meta of the transcript opened from a file (File → Open, a drop), read whole, outside any period
 
   constructor({ root, throttleMs = 100, scanner = null } = {}) {
     super()
@@ -63,7 +64,7 @@ export class SessionsService extends EventEmitter {
   // Keyed by file path, not session id: Claude Code reuses one id across cwds, writing a
   // separate transcript per project dir.
   async readSession(filePath, date = null, granularity = 'day') {
-    const meta = this.metaCache.get(filePath)
+    const meta = this.#meta(filePath)
     if (!meta) return null
     const range = date ? periodBounds(date, granularity) : null
     const reader = new SessionFile(meta.filePath)
@@ -133,7 +134,7 @@ export class SessionsService extends EventEmitter {
 
   // Captured API requests for a session (see bin/proxy.mjs), period-filtered like readSession.
   async readRequests(filePath, date = null, granularity = 'day') {
-    const meta = this.metaCache.get(filePath)
+    const meta = this.#meta(filePath)
     if (!meta || !isSafeId(meta.sessionId)) return []
     const range = date ? periodBounds(date, granularity) : null
     const own = await this.#requestFile(meta.sessionId, meta.parentSessionId).read(range)
@@ -145,7 +146,22 @@ export class SessionsService extends EventEmitter {
 
   // Looked up by session, so only avatar paths are readable over IPC
   avatarPath(filePath) {
-    return this.metaCache.get(filePath)?.avatar ?? null
+    return this.#meta(filePath)?.avatar ?? null
+  }
+
+  // Shown on its own, so its totals are the whole file's, not deduped against the period's sessions
+  async openFile(filePath) {
+    if (!filePath?.endsWith('.jsonl')) throw new Error(`Not a .jsonl transcript: ${filePath}`)
+    const meta = await this._scanSession(new SessionFile(filePath))
+    if (!meta) throw new Error(`Can't read ${filePath}`)
+    if (!meta.messageCount) throw new Error(`No Claude Code messages in ${filePath}`)
+    meta.projectShort = suffixLabels([meta.project]).get(meta.project)
+    this.#opened = stripInternal(meta)
+    return this.#opened
+  }
+
+  #meta(filePath) {
+    return this.metaCache.get(filePath) ?? (this.#opened?.filePath === filePath ? this.#opened : null)
   }
 
   // Subagents send the parent's session id, so the proxy logs their requests into the parent's
