@@ -3,7 +3,7 @@
 
 Ever wondered what Claude Code is **actually** doing all day?
 
-<img width="1660" alt="claude-discover-dimmed-screenshot" src="https://github.com/user-attachments/assets/708d05c7-8769-47d8-b5bd-14337d1d6037" />
+<img width="1100" height="663" alt="Demo: zooming into a day on the timeline with a run that spawned 140 agents, the sessions list's warning badges, one session's system prompt and tool definitions, its API request, and the AI session analysis (sample data)" src="https://github.com/user-attachments/assets/2a3cf94e-eeb7-43ec-9c00-f75aec378580" />
 <br><br>
 
 **Claude Discover** is a desktop app for exploring your local Claude Code data. Every session - from the CLI, Desktop, or SDK - lands on one timeline, where you can:
