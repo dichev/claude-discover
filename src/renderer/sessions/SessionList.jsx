@@ -26,23 +26,38 @@ const EFFORT_BADGE = { xhigh: 'warn-badge', max: 'danger-badge' }
 
 const sumOf = (sessions, key) => sessions.reduce((sum, s) => sum + (s[key] || 0), 0)
 
+// A run's row reads as one session: its subagents' totals, and for each per-session badge the worst of them
+function runSummary(run) {
+  const max    = key => Math.max(...run.map(c => c[key] || 0))
+  const uniq   = key => [...new Set(run.flatMap(c => c[key] ?? []))]
+  const any    = key => run.some(c => c[key])
+  const caches = run.map(c => c.cacheCosts)
+  return {
+    lastActivityAt: max('lastActivityAt'), totalTokens: sumOf(run, 'totalTokens'), cost: sumOf(run, 'cost'),
+    cacheCosts: caches.every(Boolean) ? Object.fromEntries(Object.keys(CACHE_LABELS).map(p => [p, sumOf(caches, p)])) : null,
+    lastContextTokens: max('lastContextTokens'), messageCount: max('messageCount'), activeMs: max('activeMs'),
+    models: uniq('models'), efforts: uniq('efforts'), speed: run.some(c => c.speed === 'fast') ? 'fast' : null,
+    fastPricingUnknown: any('fastPricingUnknown'), priceUnknown: any('priceUnknown'), experiment: any('experiment'), debug: any('debug'),
+  }
+}
+
 // Icon (or short text) badge: its tip doubles as its accessible name
 const Badge = ({ className, tip, icon: Icon, text }) => <span className={className} role="img" aria-label={tip} data-tooltip-content={tip}>{text ?? <Icon size={11} />}</span>
 
 // Re-renders itself when its text changes, so the clock doesn't re-render the whole list
 const Ago = ({ at }) => useClock(() => fmtAgo(at))
 
-// The row's tokens/cost and time columns; `toned` colors the stats against the per-session thresholds
-const RowStats = ({ at, tokens, cost, sortBy, toned }) => <>
+// The row's tokens/cost and time columns
+const RowStats = ({ s, sortBy }) => <>
   <span className="session-row-stats">
-    <span className={`${sortBy === 'tokens' ? 'stat-primary' : 'stat-secondary'} ${toned ? tone(tokens, T.tokens) : ''}`}>
-      {fmtCompact(tokens)}
+    <span className={`${sortBy === 'tokens' ? 'stat-primary' : 'stat-secondary'} ${tone(s.totalTokens, T.tokens)}`}>
+      {fmtCompact(s.totalTokens)}
     </span>
-    <span className={`${sortBy === 'cost' ? 'stat-primary' : 'stat-secondary'} ${toned ? tone(cost, T.cost) : ''}`}>
-      {cost ? fmtUSD(cost) : '—'}
+    <span className={`${sortBy === 'cost' ? 'stat-primary' : 'stat-secondary'} ${tone(s.cost, T.cost)}`}>
+      {s.cost ? fmtUSD(s.cost) : '—'}
     </span>
   </span>
-  <span className="session-row-time"><Ago at={at} /></span>
+  <span className="session-row-time"><Ago at={s.lastActivityAt} /></span>
 </>
 
 // The project and model(s) that end a row's second line
@@ -57,6 +72,30 @@ const Avatar = ({ session }) => {
   if (!avatars.has(session.avatar)) avatars.set(session.avatar, window.api.readAvatar(session.filePath))
   const src = use(avatars.get(session.avatar))
   return src && <span className="session-avatar"><img src={src} alt="" /></span>
+}
+
+// A span, so it can sit in a run's button too; there the per-session badges show its worst subagent
+const Badges = ({ s, run }) => {
+  const worst     = run ? 'Largest subagent: ' : ''
+  const advice    = cacheAdvice(s)
+  const topEffort = ['max', 'xhigh'].find(e => s.efforts?.includes(e))
+  return (
+    <span className="session-row-badges">
+      {s.avatar && <Suspense><Avatar session={s} /></Suspense>}
+      {advice && <Badge className="warn-badge" tip={`−${advice.pct.toFixed(0)}% (${fmtUSD(advice.saving)}) ${CACHE_LABELS[advice.policy]}\n${TIPS.cache[advice.policy]}`} text={advice.policy} />}
+      {s.lastContextTokens > T.context.danger && <Badge className="danger-badge" tip={`${worst}Context size:${fmtCompact(s.lastContextTokens)} tokens\n${TIPS.context}`} icon={Gauge} />}
+      {s.lastContextTokens > T.context.warn && s.lastContextTokens <= T.context.danger && <Badge className="warn-badge" tip={`${worst}Context size:${fmtCompact(s.lastContextTokens)} tokens\n${TIPS.context}`} icon={Gauge} />}
+      {s.messageCount > T.messages.danger && <Badge className="danger-badge" tip={`${worst}${fmtNum(s.messageCount)} messages\n${TIPS.messages}`} icon={MessageSquare} />}
+      {s.messageCount > T.messages.warn && s.messageCount <= T.messages.danger && <Badge className="warn-badge" tip={`${worst}${fmtNum(s.messageCount)} messages\n${TIPS.messages}`} icon={MessageSquare} />}
+      {s.activeMs > T.workTime.danger && <Badge className="danger-badge" tip={`${worst}Working time:${fmtDuration(s.activeMs)}\n${TIPS.time}`} icon={Clock} />}
+      {s.activeMs > T.workTime.warn && s.activeMs <= T.workTime.danger && <Badge className="warn-badge" tip={`${worst}Working time:${fmtDuration(s.activeMs)}\n${TIPS.time}`} icon={Clock} />}
+      {topEffort && <Badge className={EFFORT_BADGE[topEffort]} tip={`Effort: ${topEffort}\n${TIPS.effort}`} icon={Brain} />}
+      {s.speed === 'fast' && <Badge className={`fast-badge ${s.fastPricingUnknown ? 'fast-badge-unknown' : ''}`} tip={s.fastPricingUnknown ? 'Used fast mode — cost is INACCURATE: no fast-mode price multiplier known for this model' : 'Used fast mode (speed: fast)'} icon={Zap} />}
+      {s.priceUnknown && <Badge className="danger-badge" tip={`No price entry for ${s.models?.join(', ') || 'this model'} — cost is missing or understated`} icon={DollarSign} />}
+      {s.experiment && <Badge className="experiment-badge" tip={EXPERIMENT_TIP} icon={FlaskConical} />}
+      {s.debug && <Badge className="debug-badge" tip={TIPS.debug} icon={Bug} />}
+    </span>
+  )
 }
 
 function groupRuns(sorted) {
@@ -158,12 +197,13 @@ export default function SessionList({ sessions, selectedId, deepLink, onSelect }
             const isCollapsed = !isOpen(runKey)
             const Chevron = isCollapsed ? ChevronRight : ChevronDown
             const hidesSelected = isCollapsed && runKey === selectedRun
+            const summary = runSummary(run)
             return (
               <button
                 type="button"
                 key={runKey}
                 ref={hidesSelected ? selectedRef : null}
-                className={`session-row subagent-run ${branch} ${hidesSelected ? 'selected' : ''} ${activity(Math.max(...run.map(c => c.lastActivityAt)), now)}`}
+                className={`session-row subagent-run ${branch} ${hidesSelected ? 'selected' : ''} ${activity(summary.lastActivityAt, now)}`}
                 aria-expanded={!isCollapsed}
                 onClick={() => toggleRun(runKey)}
               >
@@ -173,11 +213,10 @@ export default function SessionList({ sessions, selectedId, deepLink, onSelect }
                   <Chevron size={14} aria-hidden="true" />
                 </span>
                 <span className="session-time-bottom">
-                  <ProjectModels
-                    {...run[0]} models={[...new Set(run.flatMap(c => c.models ?? []))]} efforts={[...new Set(run.flatMap(c => c.efforts ?? []))]}
-                  />
+                  <ProjectModels {...run[0]} {...summary} />
                 </span>
-                <RowStats at={Math.max(...run.map(c => c.lastActivityAt))} tokens={sumOf(run, 'totalTokens')} cost={sumOf(run, 'cost')} sortBy={sortBy} />
+                <Badges s={summary} run />
+                <RowStats s={summary} sortBy={sortBy} />
               </button>
             )
           }
@@ -187,8 +226,6 @@ export default function SessionList({ sessions, selectedId, deepLink, onSelect }
           const command = labelCommand(s)
           const commandName = command && (command.name || command.message)
           const commandArgs = command && command.args.trim()
-          const advice = cacheAdvice(s)
-          const topEffort = ['max', 'xhigh'].find(e => s.efforts?.includes(e))
           const sessionName = s.customTitle && s.agentName && s.customTitle !== s.agentName
             ? `${s.customTitle} [${s.agentName}]`
             : (s.customTitle || s.agentName || '')
@@ -214,22 +251,8 @@ export default function SessionList({ sessions, selectedId, deepLink, onSelect }
                 <ProjectModels {...s} />
                 {linked && <span className="deeplink-note">opened from deep link</span>}
               </div>
-              <div className="session-row-badges">
-                {s.avatar && <Suspense><Avatar session={s} /></Suspense>}
-                {advice && <Badge className="warn-badge" tip={`−${advice.pct.toFixed(0)}% (${fmtUSD(advice.saving)}) ${CACHE_LABELS[advice.policy]}\n${TIPS.cache[advice.policy]}`} text={advice.policy} />}
-                {s.lastContextTokens > T.context.danger && <Badge className="danger-badge" tip={`Context size: ${fmtCompact(s.lastContextTokens)} tokens\n${TIPS.context}`} icon={Gauge} />}
-                {s.lastContextTokens > T.context.warn && s.lastContextTokens <= T.context.danger && <Badge className="warn-badge" tip={`Context size: ${fmtCompact(s.lastContextTokens)} tokens\n${TIPS.context}`} icon={Gauge} />}
-                {s.messageCount > T.messages.danger && <Badge className="danger-badge" tip={`${fmtNum(s.messageCount)} messages\n${TIPS.messages}`} icon={MessageSquare} />}
-                {s.messageCount > T.messages.warn && s.messageCount <= T.messages.danger && <Badge className="warn-badge" tip={`${fmtNum(s.messageCount)} messages\n${TIPS.messages}`} icon={MessageSquare} />}
-                {s.activeMs > T.workTime.danger && <Badge className="danger-badge" tip={`Working time: ${fmtDuration(s.activeMs)}\n${TIPS.time}`} icon={Clock} />}
-                {s.activeMs > T.workTime.warn && s.activeMs <= T.workTime.danger && <Badge className="warn-badge" tip={`Working time: ${fmtDuration(s.activeMs)}\n${TIPS.time}`} icon={Clock} />}
-                {topEffort && <Badge className={EFFORT_BADGE[topEffort]} tip={`Effort: ${topEffort}\n${TIPS.effort}`} icon={Brain} />}
-                {s.speed === 'fast' && <Badge className={`fast-badge ${s.fastPricingUnknown ? 'fast-badge-unknown' : ''}`} tip={s.fastPricingUnknown ? 'Used fast mode — cost is INACCURATE: no fast-mode price multiplier known for this model' : 'Used fast mode (speed: fast)'} icon={Zap} />}
-                {s.priceUnknown && <Badge className="danger-badge" tip={`No price entry for ${s.models?.join(', ') || 'this model'} — cost is missing or understated`} icon={DollarSign} />}
-                {s.experiment && <Badge className="experiment-badge" tip={EXPERIMENT_TIP} icon={FlaskConical} />}
-                {s.debug && <Badge className="debug-badge" tip={TIPS.debug} icon={Bug} />}
-              </div>
-              <RowStats at={s.lastActivityAt} tokens={s.totalTokens} cost={s.cost} sortBy={sortBy} toned />
+              <Badges s={s} />
+              <RowStats s={s} sortBy={sortBy} />
             </div>
           )
         })}
