@@ -86,6 +86,20 @@ describe('SessionsService.readSession — the loop\'s strips', () => {
     expect(instructions.loop.map(s => s.file_path)).toEqual(['System Prompt', 'System Tools', 'D:\\proj\\CLAUDE.md', 'Tools added'])
   })
 
+  it('shows an @-mentioned file with the prompt, not among the System strips', async () => {
+    const called = '<system-reminder>\nCalled the Read tool with the following input: {"file_path":"D:\\\\proj\\\\PLAN.md"}\n</system-reminder>'
+    const result = '<system-reminder>\nResult of calling the Read tool:\n1\t# Plan\n</system-reminder>'
+    const mention = { type: 'attachment', uuid: 'a1', timestamp: '2026-10-17T10:00:00.100Z', attachment: { type: 'file', filename: 'D:\\proj\\PLAN.md' }, rendered: [{ content: called }, { content: result }] }
+    const blob = { type: 'api-request-blob', hash: 'b0', message: { role: 'user', content: [{ type: 'text', text: called }, { type: 'text', text: result }] } }
+    const file = path.join(dir, `${crypto.randomUUID()}.jsonl`)
+    fs.writeFileSync(file, [lines[0], mention, lines[1], lines[2], blob, lines[3]].map(l => JSON.stringify(l)).join('\n') + '\n')
+    const service = new SessionsService({ root: dir })
+    service.metaCache.periodMetas.set(file, { filePath: file, mtime: Date.now() })
+    const { items, instructions } = await service.readSession(file, '2026-10-17', 'day')
+    expect(items.find(o => o.uuid === 'a1')._listed).toBeUndefined()
+    expect(instructions.loop.map(s => s.file_path)).toEqual(['System Prompt', 'System Tools', 'D:\\proj\\CLAUDE.md'])
+  })
+
   it('reads what a branch\'s copied turns sent off its source, up to the branch point', async () => {
     const source = crypto.randomUUID()
     const later  = [{ type: 'api-request-blob', hash: 'b9', message: added }, request('r9', '2026-10-17T10:30:00.000Z', { base: 'r1' })] // the source went on after the branch

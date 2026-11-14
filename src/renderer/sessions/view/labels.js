@@ -134,8 +134,10 @@ const ATTACHMENT_RENDERERS = {
   },
   opened_file_in_ide: a => ({ title: `Opened in IDE: ${a.displayPath || a.filename || ''}`, body: null }),
   file: a => {
-    const f = a.content?.file
-    return { title: `File: ${a.displayPath || f?.filePath || a.filename || ''}`, body: f?.content ?? safeJson(a.content) }
+    const f    = a.content?.file
+    const path = a.displayPath || f?.filePath || a.filename || ''
+    const body = f?.content ?? safeJson(a.content)
+    return { title: `File: ${path}`, body, markdown: /\.(md|markdown)$/i.test(path) && f?.content ? body : null }
   },
   skill_listing: a => ({ title: `${a.skillCount} skills`, body: a.content || '', ...listedEntries(a.content || '') }),
   deferred_tools_delta: a => ({

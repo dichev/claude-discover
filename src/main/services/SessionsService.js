@@ -5,6 +5,7 @@ import { SessionFile } from '../sessions/SessionFile.js'
 import { RequestFile, inRange } from '../requests/RequestFile.js'
 import { UNATTRIBUTED } from '../../../bin/proxy.config.js'
 import { TranscriptInstructions } from '../requests/TranscriptInstructions.js'
+import { USER_ATTACHMENTS } from '../../shared/attachments.js'
 import { McpDebugLog } from '../sessions/McpDebugLog.js'
 import { McpTools } from '../sessions/McpTools.js'
 import { SessionParser, suffixLabels } from '../sessions/SessionParser.js'
@@ -97,17 +98,20 @@ export class SessionsService extends EventEmitter {
     if (start?.length && !loop.includes(start[0])) loop.unshift(...start)
     items.sort((a, b) => a._ts - b._ts) // .jsonl lines aren't always in timestamp order
     const keys = new Set(loop.map(s => s.hash))
+    const isBrought = o => USER_ATTACHMENTS.has(o.attachment?.type) // an @-mention, an IDE selection: shown with the prompt instead
+    const brought = new Set(items.filter(isBrought).flatMap(o => TranscriptInstructions.injected(o)).map(f => f.hash))
+    const loopStrips = loop.filter(s => !brought.has(s.hash))
     for (const o of items) {
       delete o._ts
       // already listed among the loop's strips, so the view leaves it out
-      if (o.type === 'attachment' && TranscriptInstructions.listed(o, keys)) o._listed = true
+      if (o.type === 'attachment' && !isBrought(o) && TranscriptInstructions.listed(o, keys)) o._listed = true
     }
     // Shipped apart from the transcript items, the renderer slots them in by timestamp: the loop's as
     // System rows, along with each turn's MCP servers, the side requests' as Proxy blocks.
     // The proxy's and debug logs are passed on for the AI agent to read.
     const mcp = mcpTools.turns(range)
     const debugLog = await debugLogOf(reader)?.fillIn(mcp, mcpTools.processStarts()) ?? null
-    return { items, instructions: { loop, side, compacts, mcp }, requestLog: await requests.exists() ? requests.filePath : null, debugLog }
+    return { items, instructions: { loop: loopStrips, side, compacts, mcp }, requestLog: await requests.exists() ? requests.filePath : null, debugLog }
   }
 
   // A branch copies its source's turns but not the requests that sent them: those come from the source, up to the

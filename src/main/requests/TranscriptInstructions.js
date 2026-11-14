@@ -13,9 +13,14 @@ export class TranscriptInstructions {
   // Claude Code's own copy of the system prompt and tools the shapes list.
   static listed(obj, keys) {
     if (obj.attachment?.type === 'prompt_snapshot') return keys.size > 0
-    const texts = (obj.rendered ?? []).map(r => r.content).filter(t => typeof t === 'string')
-    const found = new RequestParser().strips({ request: { messages: [{ role: 'user', content: texts.map(text => ({ type: 'text', text })) }] } })
+    const found = TranscriptInstructions.injected(obj)
     return found.length > 0 && found.every(f => keys.has(f.hash))
+  }
+
+  // The strips an attachment's rendered text makes
+  static injected(obj) {
+    const texts = (obj.rendered ?? []).map(r => r.content).filter(t => typeof t === 'string')
+    return new RequestParser().strips({ request: { messages: [{ role: 'user', content: texts.map(text => ({ type: 'text', text })) }] } })
   }
 
   // The strips first sent by `obj`, when it is an api-request record — [] for every other line

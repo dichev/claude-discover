@@ -1,5 +1,6 @@
 import { encode } from 'gpt-tokenizer/model/gpt-4o'
 import { blockView, groupTitle, humanize, isCounted, parseCommand } from './labels.js'
+import { USER_ATTACHMENTS } from '../../../shared/attachments.js'
 
 // Pure transcript model, shared by ConversationView (rendering) and MarkdownSession (agent
 // payload): raw session items → turns (flatten) → row groups (groupTurns) → per-group stats.
@@ -44,9 +45,6 @@ const logsRendered = version => since(version, '2.1.260')
 // Since 2.1.300 the transcript logs what the loop's requests sent (system prompt, tools, memory files) —
 // the first older version among `items`, whose part of the session has no System rows
 export const unloggedRequestsVersion = items => items.find(it => it.version && !since(it.version, '2.1.300'))?.version ?? null
-
-// Context the user brought in themselves (IDE state, @-mentions) — every other attachment is Claude Code's own
-const USER_ATTACHMENTS = new Set(['opened_file_in_ide', 'selected_lines_in_ide', 'selected_lines_in_diff', 'file', 'already_read_file'])
 
 // What Claude Code tells Claude itself — hook feedback, reminders, mode switches, harness and agent messages.
 // Every other system attachment, including types added later, is session bookkeeping and stays folded.
