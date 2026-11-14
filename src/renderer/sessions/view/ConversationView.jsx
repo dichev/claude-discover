@@ -425,10 +425,13 @@ function Attachment({ att, rendered, folded = true, unsent = false, speaker = nu
   const view            = attachmentView(att, rendered)
   const { title, body } = view
   const className       = `attachment${folded ? '' : ' directive'}`
+  const open            = !folded && !view.collapsed
   if (body == null) return <Label title={said(speaker, title)} className={className} />
   return (
-    <Collapsible title={said(speaker, title)} className={className} defaultOpen={!folded} tokens={!unsent && hasText(view) && countTokens(body)}>
-      {view.items?.length ? <ItemFolds {...view} /> : <pre>{body}</pre>}
+    <Collapsible title={said(speaker, title)} className={className} defaultOpen={open} tokens={!unsent && hasText(view) && countTokens(body)}>
+      {view.items?.length ? <ItemFolds {...view} />
+        : view.markdown ? <Markdown className="block-text" text={view.markdown} autoFence />
+        : <pre>{body}</pre>}
     </Collapsible>
   )
 }

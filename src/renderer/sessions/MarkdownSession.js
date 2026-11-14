@@ -69,7 +69,7 @@ function renderBlock(b, model) {
     const view = attachmentView(b.attachment, b.rendered)
     const title = `_Attachment: ${view.title}_${hasText(view) ? size(view.body, model) : ''}`
     if (view.body == null) return title
-    return `${title}\n${view.items?.length ? renderItems(view, model) : fence(view.body)}`
+    return `${title}\n${view.items?.length ? renderItems(view, model) : fence(view.markdown || view.body)}`
   }
   if (b.type === 'instruction') {
     const it = b.it

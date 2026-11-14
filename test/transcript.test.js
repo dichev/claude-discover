@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import { flatten, groupTurns, systemGroups, mcpGroupParts, latestServers, tokenPoints, cycleDurations, isContextTurn, unloggedRequestsVersion, contextTokens, countTokens } from '../src/renderer/sessions/view/transcript.js'
-import { parseCommand, compactTitle, persistedOutput } from '../src/renderer/sessions/view/labels.js'
+import { parseCommand, compactTitle, persistedOutput, attachmentView } from '../src/renderer/sessions/view/labels.js'
 import { SessionParser } from '../src/main/sessions/SessionParser.js'
 
 describe('parseCommand', () => {
@@ -589,6 +589,20 @@ describe('flatten — queued commands', () => {
     const turns = flatten(items)
     expect(turns.map(t => [t.role, t.blocks.map(b => b.type)])).toEqual([['system', ['attachment']], ['system', ['attachment']]])
     expect(turns.some(isContextTurn)).toBe(false)
+  })
+
+  it('shows a subagent report without its harness frame, and a task notification by its summary', () => {
+    const report = attachmentView({ type: 'queued_command', commandMode: 'prompt', prompt: '<agent-message from="a1">\n[frame]\n  **Done**', origin: { kind: 'peer', from: 'a1', name: 'general-purpose', handback: true, handbackReportText: '**Done**' } })
+    expect(report).toMatchObject({ title: 'Report from a1 (general-purpose)', markdown: '**Done**', collapsed: true })
+    expect(report.body).toContain('[frame]') // the model read the frame, so its tokens still count
+    const prompt = '<task-notification>\n<task-id>a1</task-id>\n<output-file>C:\\t\\a1.output</output-file>\n<status>completed</status>\n<summary>Agent "Port" finished</summary>\n<note>boilerplate</note>\n<result>see its report</result>\n<usage><subagent_tokens>52515</subagent_tokens><tool_uses>9</tool_uses><duration_ms>100727</duration_ms></usage>\n</task-notification>'
+    expect(attachmentView({ type: 'queued_command', commandMode: 'task-notification', prompt })).toMatchObject({
+      title: 'Agent "Port" finished',
+      collapsed: true,
+      markdown: 'see its report\n\ncompleted · 52.5k tokens · 9 tool uses · 1m 40s\n\nOutput: `C:\\t\\a1.output`',
+    })
+    const command = '<task-notification>\n<task-id>b1</task-id>\n<status>failed</status>\n<summary>Background command "dev" failed with exit code 143</summary>\n</task-notification>'
+    expect(attachmentView({ type: 'queued_command', commandMode: 'task-notification', prompt: command }).collapsed).toBe(false)
   })
 })
 

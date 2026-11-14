@@ -1,5 +1,5 @@
 import { format } from 'date-fns'
-import { fmtCompact, plural } from '../../utils/formatting.js'
+import { fmtCompact, fmtDuration, plural } from '../../utils/formatting.js'
 import { listedEntries, mcpSections } from '../../../shared/listings.js'
 
 // How transcript records read on screen: titles and parsed tags, shared by ConversationView,
@@ -107,7 +107,25 @@ export function safeJson(x) {
   try { return JSON.stringify(x, null, 2) } catch { return String(x) }
 }
 
-// An attachment's title and the text the model read (`body`), plus its listed `items` when it lists tools, skills or servers
+const xmlField = (text, tag) => text.match(new RegExp(`<${tag}>([\\s\\S]*?)</${tag}>`))?.[1].trim()
+
+// A background task's notification as readable text: its result (or event), then status and usage — minus the ids and boilerplate note
+function taskNotification(text) {
+  const usage = xmlField(text, 'usage') ?? ''
+  const n     = tag => Number(xmlField(usage, tag)) || 0
+  const facts = [
+    xmlField(text, 'status'),
+    n('agent_count') && plural(n('agent_count'), 'agent'),
+    n('subagent_tokens') && `${fmtCompact(n('subagent_tokens'))} tokens`,
+    n('tool_uses') && plural(n('tool_uses'), 'tool use'),
+    n('duration_ms') && fmtDuration(n('duration_ms')),
+  ].filter(Boolean)
+  const output = xmlField(text, 'output-file')
+  return [xmlField(text, 'result') ?? xmlField(text, 'event'), facts.join(' · '), output && `Output: \`${output}\``].filter(Boolean).join('\n\n')
+}
+
+// An attachment's title and the text the model read (`body`), plus its listed `items` when it lists tools, skills or servers,
+// or a readable `markdown` form to show in place of the raw body
 const ATTACHMENT_RENDERERS = {
   selected_lines_in_ide: a => {
     const path = a.displayPath || a.filename || ''
@@ -144,10 +162,15 @@ const ATTACHMENT_RENDERERS = {
   hook_additional_context:   a => ({ title: `Hook context: ${a.hookName}`, body: [a.content].flat().join('\n\n') }),
   hook_blocking_error:       a => ({ title: `Hook blocked: ${a.hookName}`, body: a.blockingError?.blockingError ?? safeJson(a.blockingError) }),
   hook_stopped_continuation: a => ({ title: `Hook stopped: ${a.hookName}`, body: a.message }),
-  queued_command:            a => ({
-    title: a.origin?.from ? `Message from ${a.origin.from}` : humanize(a.origin?.kind ?? a.commandMode ?? 'queued_command'),
-    body: typeof a.prompt === 'string' ? a.prompt : safeJson(a.prompt),
-  }),
+  queued_command:            a => {
+    const o    = a.origin
+    const body = typeof a.prompt === 'string' ? a.prompt : safeJson(a.prompt)
+    // A subagent's report reaches the model indented under a harness frame; the record keeps it clean too
+    if (o?.handback && o.handbackReportText) return { title: `Report from ${o.from}${o.name ? ` (${o.name})` : ''}`, body, markdown: o.handbackReportText, collapsed: true }
+    // Only agent runs log their subagent tokens; other tasks' notifications (commands, monitors) stay open
+    if (a.commandMode === 'task-notification' && typeof a.prompt === 'string') return { title: xmlField(body, 'summary') ?? 'Task notification', body, markdown: taskNotification(body), collapsed: /<subagent_tokens>/.test(body) }
+    return { title: o?.from ? `Message from ${o.from}` : humanize(o?.kind ?? a.commandMode ?? 'queued_command'), body }
+  },
   max_turns_reached:         a => ({ title: `Max turns reached (${a.maxTurns})`, body: null }),
   // addedLines carry each agent's one-line description; only the rendered text has the list's intro and closing
   // (concurrency) note, so it's read from that when the record has it.
