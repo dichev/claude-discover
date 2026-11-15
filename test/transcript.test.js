@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import { flatten, groupTurns, systemGroups, mcpGroupParts, latestServers, tokenPoints, cycleDurations, isContextTurn, unloggedRequestsVersion, contextTokens, countTokens } from '../src/renderer/sessions/view/transcript.js'
-import { parseCommand, compactTitle, persistedOutput, attachmentView } from '../src/renderer/sessions/view/labels.js'
+import { parseCommand, compactTitle, persistedOutput, attachmentView, advisorTitle } from '../src/renderer/sessions/view/labels.js'
 import { SessionParser } from '../src/main/sessions/SessionParser.js'
 
 describe('parseCommand', () => {
@@ -21,6 +21,19 @@ describe('parseCommand', () => {
   it('ignores prose that merely mentions a command tag mid-text', () => {
     expect(parseCommand('the separate `<local-command-stdout>` message stays headerless')).toBe(null)
     expect(parseCommand('we parse the <command-name> tag here')).toBe(null)
+  })
+})
+
+describe('flatten — advisor calls', () => {
+  it('shows the call as its result, titled with the model and tokens from the usage iterations', () => {
+    const usage  = { iterations: [{ type: 'message' }, { type: 'advisor_message', model: 'claude-fable-5-2', input_tokens: 87594, cache_read_input_tokens: 0, output_tokens: 5474 }] }
+    const record = (uuid, block) => ({ type: 'assistant', uuid, timestamp: '2026-11-14T09:00:00.000Z', message: { id: 'm1', role: 'assistant', content: [block], usage } })
+    const turns  = flatten([
+      record('a1', { type: 'server_tool_use', id: 'srv1', name: 'advisor', input: {} }),
+      record('a2', { type: 'advisor_tool_result', tool_use_id: 'srv1', content: { type: 'advisor_redacted_result', encrypted_content: 'Es==' } }),
+    ])
+    expect(turns).toHaveLength(1)
+    expect(advisorTitle(turns[0].blocks[0])).toBe('Advisor (claude-fable-5-2) · 87.6k in / 5.5k out · advisor_tool_result')
   })
 })
 

@@ -4,7 +4,7 @@ import { Globe, LaptopMinimal, OctagonX, Terminal } from 'lucide-react'
 import { fmtCompact, fmtDuration, plural, tone } from '../../utils/formatting'
 import { THRESHOLDS as T } from '../../utils/thresholds.js'
 import { flatten, groupTurns, systemGroups, mcpGroupParts, latestServers, blockTokens, cycleDurations, tokenPoints, branchPoint, currentModel, contextWindow, countTokens, unloggedRequestsVersion } from './transcript.js'
-import { toolSummary, parseCommand, interruptLabel, isClearTurn, instructionTitle, compactTitleParts, rewindTitle, persistedOutput, attachmentView, hasText, isCounted, safeJson, SIDE_NOTE } from './labels.js'
+import { toolSummary, advisorTitle, parseCommand, interruptLabel, isClearTurn, instructionTitle, compactTitleParts, rewindTitle, persistedOutput, attachmentView, hasText, isCounted, safeJson, SIDE_NOTE } from './labels.js'
 import ApproxTokens from './ApproxTokens.jsx'
 import McpConnections, { McpTitle } from './McpConnections.jsx'
 import { ExpandAllContext, useCollapsed } from './useCollapsed.js'
@@ -269,7 +269,7 @@ function AssistantCard({ turns, point, index, duration, ctxLimit, showAuthor = t
   const toolBlocks = turns.flatMap(t => t.blocks.filter(b => b.type === 'tool_use'))
   const errorCount = toolBlocks.filter(b => b.result?.is_error).length
   const skillCount = toolBlocks.filter(b => b.name === 'Skill').length
-  const isAux      = t => t.role === 'system' ? isFolded(t) : !t.blocks.some(b => b.type === 'text')
+  const isAux      = t => t.role === 'system' ? isFolded(t) : !t.blocks.some(b => b.type === 'text' || b.type === 'advisor_tool_result')
   // Aux turns (tool calls, thinking, System's bookkeeping) fold behind the chevron, but only if there are tool calls
   const foldable   = toolBlocks.length > 0 && turns.some(isAux)
   const end        = turns.findLast(t => t.ts != null)?.ts ?? null
@@ -375,6 +375,9 @@ function Block({ block, speaker = null, ts = null }) {
         {block.result && <Block block={block.result} />}
       </Collapsible>
     )
+  }
+  if (block.type === 'advisor_tool_result') {
+    return <Collapsible title={advisorTitle(block)} className="advisor" defaultOpen={false}><pre>{safeJson(block.content)}</pre></Collapsible>
   }
   if (block.type === 'skill') {
     return <Collapsible title={block.name ? `Skill: ${block.name}` : 'Skill'} className="listed" defaultOpen={false} tokens={countTokens(block.text)}><Markdown className="block-text" text={block.text} /></Collapsible>

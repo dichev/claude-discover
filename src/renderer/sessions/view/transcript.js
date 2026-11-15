@@ -116,6 +116,7 @@ export function flatten(items, { loop = [], side = [], compacts = [], mcp = [] }
   const results = {}
   const resultTs = {}
   const companions = {}
+  const advisorCalls = {}
   const compactions = {}
   const state = { mode: null, cwd: null, artifacts: new Set() }
   const byUuid = new Map(items.map(it => [it.uuid, it]))
@@ -232,6 +233,8 @@ export function flatten(items, { loop = [], side = [], compacts = [], mcp = [] }
     // A thinking record is logged once the thinking ends, so it ran since the previous record
     const blocks = collapseRedactedThinking(normalizeContent(msg.content))
       .map(b => b.type === 'thinking' && !b.redacted ? { ...b, duration: elapsed(prevTs, ts) } : b)
+      .filter(b => !(b.type === 'server_tool_use' && b.name === 'advisor')) // its result's row shows the call
+      .map(b => b.type === 'advisor_tool_result' ? { ...b, run: advisorRun(msg, advisorCalls) } : b)
     if (blocks.length === 0) continue
     // Anthropic's API has no `tool` role — tool_result blocks ride inside user messages.
     // Re-tag those turns as `tool` so they group with the assistant's tool calls, not the user.
@@ -347,6 +350,12 @@ function collapseRedactedThinking(blocks) {
     else out.push({ type: 'thinking', redacted: 1 })
   }
   return out
+}
+
+// The advisor's model and tokens are logged only in its reply's usage iterations: the k-th advisor_message for the k-th result
+function advisorRun(msg, seen) {
+  const k = seen[msg.id] = (seen[msg.id] ?? -1) + 1
+  return msg.usage?.iterations?.filter(i => i.type === 'advisor_message')[k]
 }
 
 const messageText = it => normalizeContent(it.message?.content).filter(b => b.type === 'text').map(b => b.text).join('\n')

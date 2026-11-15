@@ -39,6 +39,11 @@ export function toolSummary(name, input) {
   return summary ? `${name}: ${clip(summary)}` : name
 }
 
+export function advisorTitle({ type, run }) {
+  const input = run && run.input_tokens + (run.cache_read_input_tokens ?? 0) + (run.cache_creation_input_tokens ?? 0)
+  return [`Advisor${run?.model ? ` (${run.model})` : ''}`, run && `${fmtCompact(input)} in / ${fmtCompact(run.output_tokens)} out`, type].filter(Boolean).join(' · ')
+}
+
 // CLI command output carries ANSI SGR/cursor codes (bold model names, the 256-color context-usage bar) — strip them for plain-text display.
 const stripAnsi = s => s.replace(/\x1b\[[0-9;]*[a-zA-Z]/g, '')
 

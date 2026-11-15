@@ -1,7 +1,7 @@
 import { format } from 'date-fns'
 import { fmtDuration, fmtNum, fmtUSD, fmtCompact, fmtToolCalls, plural } from '../utils/formatting.js'
 import { flatten, groupTurns, branchPoint, contextSize, contextTokens, currentModel, contextWindow, countTokens } from './view/transcript.js'
-import { toolSummary, parseCommand, isClearTurn, instructionTitle, compactTitle, rewindTitle, attachmentView, hasText, safeJson, SIDE_NOTE } from './view/labels.js'
+import { toolSummary, advisorTitle, parseCommand, isClearTurn, instructionTitle, compactTitle, rewindTitle, attachmentView, hasText, safeJson, SIDE_NOTE } from './view/labels.js'
 import { fenced } from '../utils/textBlock.js'
 import { cacheAdvice, CACHE_LABELS } from '../utils/cacheAdvice.js'
 
@@ -60,6 +60,7 @@ function renderBlock(b, model) {
     const title = toolSummary(b.name, b.input)
     return `[${title}${took(b.duration)}]\n${fence(JSON.stringify(b.input, null, 2), 'json')}${tail}`
   }
+  if (b.type === 'advisor_tool_result') return `_${advisorTitle(b)}_\n${fence(safeJson(b.content), 'json')}`
   if (b.type === 'tool_result') return `${b.is_error ? 'error' : 'result'}:\n${fence(resultText(b))}`
   if (b.type === 'skill') return `Skill${b.name ? `: ${b.name}` : ''}${size(b.text, model)}:\n${fence(b.text)}`
   if (b.type === 'system') return `_${b.level ? `${b.level}: ` : ''}${b.title}_${b.url ? ` (${b.url})` : ''}${b.body ? `\n${fence(b.body)}` : ''}`
