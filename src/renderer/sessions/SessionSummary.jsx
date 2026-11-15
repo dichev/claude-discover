@@ -14,7 +14,6 @@ export default function SessionSummary({ meta, items, instructions, requestLog, 
   const t = meta.tokens
   const totalTokens = meta.totalTokens
   const wallDuration = meta.lastActivityAt - meta.startedAt
-  const activeDuration = meta.activeMs
   const cost = meta.cost
   const cacheHitRatio = meta.cacheHitRatio
   const stu = meta.serverToolUse
@@ -74,7 +73,7 @@ export default function SessionSummary({ meta, items, instructions, requestLog, 
             </>
           } />
           <Field label="Total tokens" value={<span className={tone(totalTokens, T.tokens)}>{fmtCompact(totalTokens)}</span>} />
-          <Field label="Working time" value={<span className={tone(activeDuration, T.workTime)}>{fmtDuration(activeDuration)}</span>} />
+          <Field label="Working time" value={fmtDuration(meta.activeMs)} />
           <Field label="Context size" value={
             <span className={ctxTone} data-tooltip-content={meta.contextCompacted ? 'Estimated until the next reply: what the compaction kept plus the System row' : undefined}>
               {`${meta.contextCompacted ? '~ ' : ''}${fmtCompact(ctx)} / ${fmtCompact(ctxLimit)}`}
@@ -122,9 +121,7 @@ export default function SessionSummary({ meta, items, instructions, requestLog, 
           <Field label="Last activity" value={format(meta.lastActivityAt, timeFormat)} />
           <Field label="Wall duration" value={fmtDuration(wallDuration)} />
           <Field label="Active periods" value={fmtNum(meta.activityPeriods.length)} />
-          <Field label="Messages" value={
-            <span className={tone(meta.messageCount, T.messages)}>{fmtNum(meta.messageCount)}</span>
-          } />
+          <Field label="Messages" value={fmtNum(meta.messageCount)} />
           <Field label="Tool calls" value={fmtToolCalls(meta)} />
           {compactions > 0 && <Field label="Compactions" value={fmtNum(compactions)} />}
           {rewinds > 0 && <Field label="Rewinds" value={fmtNum(rewinds)} />}

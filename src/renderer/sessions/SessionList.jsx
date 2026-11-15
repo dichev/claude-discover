@@ -1,6 +1,6 @@
 import { Suspense, use, useEffect, useRef, useState } from 'react'
-import { Gauge, MessageSquare, Clock, Zap, DollarSign, Brain, GitBranch, ChevronDown, ChevronRight, Bug, FlaskConical, Lightbulb } from 'lucide-react'
-import { fmtCompact, fmtNum, fmtUSD, fmtDuration, fmtAgo, tone } from '../utils/formatting.js'
+import { Gauge, Zap, DollarSign, Brain, GitBranch, ChevronDown, ChevronRight, Bug, FlaskConical, Lightbulb } from 'lucide-react'
+import { fmtCompact, fmtUSD, fmtAgo, tone } from '../utils/formatting.js'
 import { THRESHOLDS as T } from '../utils/thresholds.js'
 import { cacheAdvice, CACHE_LABELS } from '../utils/cacheAdvice.js'
 import { parseCommand, EXPERIMENT_TIP } from './view/labels.js'
@@ -16,8 +16,6 @@ const TIPS = {
     '1h': 'Its pauses outlived the 5m cache, so the context was rewritten',
   },
   context: `Consider keeping it below ${fmtCompact(T.context.warn)} tokens`,
-  messages: `Consider sessions below ${fmtCompact(T.messages.warn)} messages`,
-  time: `Consider sessions under ${T.workTime.warn / 60_000}m`,
   effort: 'Thinks longer and spends more output tokens than high',
   debug: 'Run with --debug',
 }
@@ -35,7 +33,7 @@ function runSummary(run) {
   return {
     lastActivityAt: max('lastActivityAt'), totalTokens: sumOf(run, 'totalTokens'), cost: sumOf(run, 'cost'),
     cacheCosts: caches.every(Boolean) ? Object.fromEntries(Object.keys(CACHE_LABELS).map(p => [p, sumOf(caches, p)])) : null,
-    lastContextTokens: max('lastContextTokens'), messageCount: max('messageCount'), activeMs: max('activeMs'),
+    lastContextTokens: max('lastContextTokens'),
     models: uniq('models'), efforts: uniq('efforts'), speed: run.some(c => c.speed === 'fast') ? 'fast' : null,
     fastPricingUnknown: any('fastPricingUnknown'), priceUnknown: any('priceUnknown'), experiment: any('experiment'), debug: any('debug'),
     advisor: { calls: Math.max(...run.map(c => c.advisor?.calls ?? 0)) },
@@ -86,10 +84,6 @@ const Badges = ({ s, run }) => {
       {advice && <Badge className="warn-badge" tip={`−${advice.pct.toFixed(0)}% (${fmtUSD(advice.saving)}) ${CACHE_LABELS[advice.policy]}\n${TIPS.cache[advice.policy]}`} text={advice.policy} />}
       {s.lastContextTokens > T.context.danger && <Badge className="danger-badge" tip={`${worst}Context size:${fmtCompact(s.lastContextTokens)} tokens\n${TIPS.context}`} icon={Gauge} />}
       {s.lastContextTokens > T.context.warn && s.lastContextTokens <= T.context.danger && <Badge className="warn-badge" tip={`${worst}Context size:${fmtCompact(s.lastContextTokens)} tokens\n${TIPS.context}`} icon={Gauge} />}
-      {s.messageCount > T.messages.danger && <Badge className="danger-badge" tip={`${worst}${fmtNum(s.messageCount)} messages\n${TIPS.messages}`} icon={MessageSquare} />}
-      {s.messageCount > T.messages.warn && s.messageCount <= T.messages.danger && <Badge className="warn-badge" tip={`${worst}${fmtNum(s.messageCount)} messages\n${TIPS.messages}`} icon={MessageSquare} />}
-      {s.activeMs > T.workTime.danger && <Badge className="danger-badge" tip={`${worst}Working time:${fmtDuration(s.activeMs)}\n${TIPS.time}`} icon={Clock} />}
-      {s.activeMs > T.workTime.warn && s.activeMs <= T.workTime.danger && <Badge className="warn-badge" tip={`${worst}Working time:${fmtDuration(s.activeMs)}\n${TIPS.time}`} icon={Clock} />}
       {topEffort && <Badge className={EFFORT_BADGE[topEffort]} tip={`Effort: ${topEffort}\n${TIPS.effort}`} icon={Brain} />}
       {s.speed === 'fast' && <Badge className={`fast-badge ${s.fastPricingUnknown ? 'fast-badge-unknown' : ''}`} tip={s.fastPricingUnknown ? 'Used fast mode — cost is INACCURATE: no fast-mode price multiplier known for this model' : 'Used fast mode (speed: fast)'} icon={Zap} />}
       {s.priceUnknown && <Badge className="danger-badge" tip={`No price entry for ${s.models?.join(', ') || 'this model'} — cost is missing or understated`} icon={DollarSign} />}
