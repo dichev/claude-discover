@@ -1,6 +1,6 @@
 import { DollarSign, WandSparkles } from 'lucide-react'
 import { format } from 'date-fns'
-import { fmtDuration, fmtNum, fmtUSD, fmtCompact, fmtToolCalls, tone } from '../utils/formatting.js'
+import { fmtDuration, fmtNum, fmtUSD, fmtCompact, fmtToolCalls, plural, tone } from '../utils/formatting.js'
 import { THRESHOLDS as T } from '../utils/thresholds.js'
 import { cacheAdvice, CACHE_LABELS } from '../utils/cacheAdvice.js'
 import { contextWindow, contextTokens, flatten } from './view/transcript.js'
@@ -21,6 +21,7 @@ export default function SessionSummary({ meta, items, instructions, requestLog, 
   const hasServerTools = stu.webSearch > 0 || stu.webFetch > 0
   const modelLabel = meta.models.join(', ') || '—'
   const advice = cacheAdvice(meta)
+  const advisor = meta.advisor
   const ctxLimit = contextWindow(meta.models)
   const ctx = contextTokens(meta, instructions)
   const ctxTone = tone(ctx, T.context)
@@ -83,12 +84,20 @@ export default function SessionSummary({ meta, items, instructions, requestLog, 
           }/>
         </Section>
 
-        {advice && (
+        {(advice || advisor?.cost > 0) && (
           <Section title="Potential savings">
-            <Field
-              label={<><strong>-{advice.pct.toFixed(0)}% </strong>{CACHE_LABELS[advice.policy]}</>}
-              value={`−${fmtUSD(advice.saving)}`}
-            />
+            {advice && (
+              <Field
+                label={<><strong>-{advice.pct.toFixed(0)}% </strong>{CACHE_LABELS[advice.policy]}</>}
+                value={`−${fmtUSD(advice.saving)}`}
+              />
+            )}
+            {advisor?.cost > 0 && (
+              <Field
+                label={<span data-tooltip-content={`${plural(advisor.calls, 'advisor call')} on ${advisor.models.join(', ')}, billed apart\nTurn it off with /advisor off`}><strong>-{(advisor.cost / cost * 100).toFixed(0)}% </strong>Advisor</span>}
+                value={`−${fmtUSD(advisor.cost)}`}
+              />
+            )}
           </Section>
         )}
 

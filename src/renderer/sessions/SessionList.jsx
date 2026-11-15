@@ -1,5 +1,5 @@
 import { Suspense, use, useEffect, useRef, useState } from 'react'
-import { Gauge, MessageSquare, Clock, Zap, DollarSign, Brain, GitBranch, ChevronDown, ChevronRight, Bug, FlaskConical } from 'lucide-react'
+import { Gauge, MessageSquare, Clock, Zap, DollarSign, Brain, GitBranch, ChevronDown, ChevronRight, Bug, FlaskConical, Lightbulb } from 'lucide-react'
 import { fmtCompact, fmtNum, fmtUSD, fmtDuration, fmtAgo, tone } from '../utils/formatting.js'
 import { THRESHOLDS as T } from '../utils/thresholds.js'
 import { cacheAdvice, CACHE_LABELS } from '../utils/cacheAdvice.js'
@@ -38,6 +38,7 @@ function runSummary(run) {
     lastContextTokens: max('lastContextTokens'), messageCount: max('messageCount'), activeMs: max('activeMs'),
     models: uniq('models'), efforts: uniq('efforts'), speed: run.some(c => c.speed === 'fast') ? 'fast' : null,
     fastPricingUnknown: any('fastPricingUnknown'), priceUnknown: any('priceUnknown'), experiment: any('experiment'), debug: any('debug'),
+    advisor: { calls: Math.max(...run.map(c => c.advisor?.calls ?? 0)) },
   }
 }
 
@@ -92,6 +93,7 @@ const Badges = ({ s, run }) => {
       {topEffort && <Badge className={EFFORT_BADGE[topEffort]} tip={`Effort: ${topEffort}\n${TIPS.effort}`} icon={Brain} />}
       {s.speed === 'fast' && <Badge className={`fast-badge ${s.fastPricingUnknown ? 'fast-badge-unknown' : ''}`} tip={s.fastPricingUnknown ? 'Used fast mode — cost is INACCURATE: no fast-mode price multiplier known for this model' : 'Used fast mode (speed: fast)'} icon={Zap} />}
       {s.priceUnknown && <Badge className="danger-badge" tip={`No price entry for ${s.models?.join(', ') || 'this model'} — cost is missing or understated`} icon={DollarSign} />}
+      {s.advisor?.calls > 0 && <Badge className={s.advisor.calls >= T.advisorCalls.danger ? 'danger-badge' : 'warn-badge'} tip={`${worst}Consulted the advisor ${s.advisor.calls === 1 ? 'once' : `${s.advisor.calls} times`}`} icon={Lightbulb} />}
       {s.experiment && <Badge className="experiment-badge" tip={EXPERIMENT_TIP} icon={FlaskConical} />}
       {s.debug && <Badge className="debug-badge" tip={TIPS.debug} icon={Bug} />}
     </span>

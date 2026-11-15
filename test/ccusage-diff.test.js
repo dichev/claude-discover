@@ -19,17 +19,22 @@ const COST_TOL_REL = 0.005
 
 const pricing = new Pricing()
 
-async function ourTotals(claudeDir, range) {
+// TEMP until ryoppippi/ccusage#2084 ships: it counts a multi-iteration reply's (an advisor consult's) cache writes from the top-level 5m/1h split, which covers only the first iteration
+const asSplit = b => ({ ...b, cacheCreation: b.cacheCreation5m + b.cacheCreation1h })
+const mapModels = (byModel, f) => Object.fromEntries(Object.entries(byModel).map(([m, b]) => [m, f(b)]))
+
+async function ourTotals(claudeDir, range, f = b => b) {
   const totals = { input: 0, output: 0, cacheRead: 0, cacheCreation: 0 }
   let cost = 0
   const service = new SessionsService({ root: path.join(claudeDir, 'projects') })
   for (const m of await service.scan(range)) {
-    totals.input += m.tokens.input
-    totals.output += m.tokens.output
-    totals.cacheRead += m.tokens.cacheRead
-    totals.cacheCreation += m.tokens.cacheCreation
-    cost += (pricing.costUSD(m.tokensByModel) || 0)
-          + (pricing.costUSD(m.tokensByModelFast, { fast: true }) || 0)
+    const tokens = f(m.tokens)
+    totals.input += tokens.input
+    totals.output += tokens.output
+    totals.cacheRead += tokens.cacheRead
+    totals.cacheCreation += tokens.cacheCreation
+    cost += (pricing.costUSD(mapModels(m.tokensByModel, f)) || 0)
+          + (pricing.costUSD(mapModels(m.tokensByModelFast, f), { fast: true }) || 0)
   }
   return { totals, cost }
 }
@@ -77,7 +82,8 @@ for (const { name, claudeDir, select } of CASES) {
         const ccusage = select(ccusageTotals(subcommand, claudeDir), rangeOf)
         expect(ccusage.length, 'no buckets to compare').toBeGreaterThan(0)
         for (const b of ccusage) {
-          const ours = await ourTotals(claudeDir, rangeOf(b))
+          let ours = await ourTotals(claudeDir, rangeOf(b))
+          if (ours.totals.cacheCreation !== b.totals.cacheCreation) ours = await ourTotals(claudeDir, rangeOf(b), asSplit) // TEMP ryoppippi/ccusage#2084
           for (const k of Object.keys(b.totals)) {
             expect(ours.totals[k], `${subcommand} ${b.period} ${k}`).toBe(b.totals[k])
           }

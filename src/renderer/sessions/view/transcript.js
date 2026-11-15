@@ -1,6 +1,7 @@
 import { encode } from 'gpt-tokenizer/model/gpt-4o'
 import { blockView, groupTitle, humanize, isCounted, parseCommand } from './labels.js'
 import { USER_ATTACHMENTS } from '../../../shared/attachments.js'
+import { contextSize, advisorIterations } from '../../../shared/usage.js'
 
 // Pure transcript model, shared by ConversationView (rendering) and MarkdownSession (agent
 // payload): raw session items → turns (flatten) → row groups (groupTurns) → per-group stats.
@@ -355,7 +356,7 @@ function collapseRedactedThinking(blocks) {
 // The advisor's model and tokens are logged only in its reply's usage iterations: the k-th advisor_message for the k-th result
 function advisorRun(msg, seen) {
   const k = seen[msg.id] = (seen[msg.id] ?? -1) + 1
-  return msg.usage?.iterations?.filter(i => i.type === 'advisor_message')[k]
+  return msg.usage && advisorIterations(msg.usage)[k]
 }
 
 const messageText = it => normalizeContent(it.message?.content).filter(b => b.type === 'text').map(b => b.text).join('\n')
@@ -469,9 +470,6 @@ export function cycleDurations(groups) {
     return duration
   })
 }
-
-// What one API call read: its fresh input plus the cached prefix, read or written
-export const contextSize = u => (u.input_tokens || 0) + (u.cache_read_input_tokens || 0) + (u.cache_creation_input_tokens || 0)
 
 // The session's context size. Right after a compaction it's Claude Code's postTokens, which counts only the messages kept,
 // not the system prompt, tools and memory files every request resends — so it adds the first System row's estimate.

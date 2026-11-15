@@ -1,6 +1,7 @@
 import { format } from 'date-fns'
 import { fmtDuration, fmtNum, fmtUSD, fmtCompact, fmtToolCalls, plural } from '../utils/formatting.js'
-import { flatten, groupTurns, branchPoint, contextSize, contextTokens, currentModel, contextWindow, countTokens } from './view/transcript.js'
+import { contextSize } from '../../shared/usage.js'
+import { flatten, groupTurns, branchPoint, contextTokens, currentModel, contextWindow, countTokens } from './view/transcript.js'
 import { toolSummary, advisorTitle, parseCommand, isClearTurn, instructionTitle, compactTitle, rewindTitle, attachmentView, hasText, safeJson, SIDE_NOTE } from './view/labels.js'
 import { fenced } from '../utils/textBlock.js'
 import { cacheAdvice, CACHE_LABELS } from '../utils/cacheAdvice.js'
@@ -139,6 +140,11 @@ export function markdownSession(meta, items, instructions = {}, requestLog = nul
   const ctx = contextTokens(meta, instructions)
   const contextPct = Math.round((ctx / ctxLimit) * 100)
   const advice = cacheAdvice(meta)
+  const advisor = meta.advisor
+  const savings = [
+    advice && `- ${CACHE_LABELS[advice.policy]}: (${advice.pct.toFixed(0)}%) −${fmtUSD(advice.saving)}`,
+    advisor?.cost > 0 && `- Advisor, ${plural(advisor.calls, 'call')} on ${advisor.models.join(', ')}: (${(advisor.cost / meta.cost * 100).toFixed(0)}%) −${fmtUSD(advisor.cost)}`,
+  ].filter(Boolean)
   const cacheHitPct = (meta.cacheHitRatio * 100).toFixed(0)
   const turns = items ? flatten(items, instructions) : []
   const rewinds = turns.filter(t => t.rewind).length
@@ -153,10 +159,10 @@ export function markdownSession(meta, items, instructions = {}, requestLog = nul
 - Estimated cost: ${fmtUSD(meta.cost)}
 - Total tokens: ${fmtCompact(meta.totalTokens)}
 - Working time: ${fmtDuration(meta.activeMs)}
-- Context size: ${meta.contextCompacted ? '~' : ''}${fmtCompact(ctx)} / ${fmtCompact(ctxLimit)} (${contextPct}%${meta.contextCompacted ? ', estimated until the next reply' : ''})${advice ? `
+- Context size: ${meta.contextCompacted ? '~' : ''}${fmtCompact(ctx)} / ${fmtCompact(ctxLimit)} (${contextPct}%${meta.contextCompacted ? ', estimated until the next reply' : ''})${savings.length ? `
 
 ## Potential savings
-- ${CACHE_LABELS[advice.policy]}: (${advice.pct.toFixed(0)}%) −${fmtUSD(advice.saving)}` : ''}
+${savings.join('\n')}` : ''}
 
 ## Tokens
 - Input: ${fmtNum(t.input)}

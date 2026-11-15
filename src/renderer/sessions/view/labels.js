@@ -1,6 +1,7 @@
 import { format } from 'date-fns'
 import { fmtCompact, fmtDuration, plural } from '../../utils/formatting.js'
 import { listedEntries, mcpSections } from '../../../shared/listings.js'
+import { contextSize } from '../../../shared/usage.js'
 
 // How transcript records read on screen: titles and parsed tags, shared by ConversationView,
 // MarkdownSession and the session list.
@@ -40,8 +41,7 @@ export function toolSummary(name, input) {
 }
 
 export function advisorTitle({ type, run }) {
-  const input = run && run.input_tokens + (run.cache_read_input_tokens ?? 0) + (run.cache_creation_input_tokens ?? 0)
-  return [`Advisor${run?.model ? ` (${run.model})` : ''}`, run && `${fmtCompact(input)} in / ${fmtCompact(run.output_tokens)} out`, type].filter(Boolean).join(' · ')
+  return [`Advisor${run?.model ? ` (${run.model})` : ''}`, run && `${fmtCompact(contextSize(run))} in / ${fmtCompact(run.output_tokens)} out`, type].filter(Boolean).join(' · ')
 }
 
 // CLI command output carries ANSI SGR/cursor codes (bold model names, the 256-color context-usage bar) — strip them for plain-text display.
