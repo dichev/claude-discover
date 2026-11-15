@@ -6,6 +6,7 @@
     node test/scripts/usage.mjs [daily|weekly|monthly] [--since yyyy-MM-dd] [--until yyyy-MM-dd] [--timezone Area/City]
     (granularity defaults to monthly)
 
+  The token and cost columns include the advisor tool's share, as ccusage does; the Advisor columns break it out.
   To compare against ccusage use UTC and its claude-only subcommand (weekly also needs --start-of-week monday):
     node test/scripts/usage.mjs monthly --timezone UTC
     npx ccusage claude monthly -z UTC
@@ -26,13 +27,16 @@ const GRANULARITIES = {
 
 // Report columns: header, how to read the metric off a session, how to format the sum.
 const num = n => n.toLocaleString('en-US')
+const usd = c => '$' + c.toFixed(2)
 const METRICS = [
   { header: 'Input',        get: s => s.tokens.input,         fmt: num },
   { header: 'Output',       get: s => s.tokens.output,        fmt: num },
   { header: 'Cache Create', get: s => s.tokens.cacheCreation, fmt: num },
   { header: 'Cache Read',   get: s => s.tokens.cacheRead,     fmt: num },
   { header: 'Total Tokens', get: s => s.totalTokens,          fmt: num },
-  { header: 'Cost (USD)',   get: s => s.cost,                 fmt: c => '$' + c.toFixed(2) },
+  { header: 'Cost (USD)',   get: s => s.cost,                 fmt: usd },
+  { header: 'Advisor Tokens', get: s => s.advisor.totalTokens, fmt: num },
+  { header: 'Advisor (USD)',  get: s => s.advisor.cost,             fmt: usd },
 ]
 const aggregate = sessions => METRICS.map(m => sessions.reduce((acc, s) => acc + m.get(s), 0)) // one summed number per metric
 

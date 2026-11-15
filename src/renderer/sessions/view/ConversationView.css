@@ -340,7 +340,7 @@ button.msg-summary:hover { color: var(--text); background: var(--bg-elev-2); bor
 }
 
 /* What System tells Claude itself: open by default, tinted apart from the folded bookkeeping */
-.directive {
+.directive, .advisor {
   & :is(.aux-toggle, .aux-label) { color: var(--accent); }
   & > .aux-body { border-left-color: var(--accent); }
 }

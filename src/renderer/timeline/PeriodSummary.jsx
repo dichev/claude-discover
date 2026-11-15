@@ -1,5 +1,5 @@
 import { Fragment, useState } from 'react'
-import { fmtUSD, fmtCompact, fmtDuration } from '../utils/formatting.js'
+import { fmtUSD, fmtCompact, fmtDuration, plural } from '../utils/formatting.js'
 import { cheaperCache, CACHE_LABELS } from '../utils/cacheAdvice.js'
 import { THRESHOLDS as T } from '../utils/thresholds.js'
 import CostBreakdownChart from './CostBreakdownChart.jsx'
@@ -17,9 +17,14 @@ function sumTotals(sessions) {
     acc.cacheCreation += s.tokens.cacheCreation
     acc.cacheCreation1h += s.tokens.cacheCreation1h || 0
     for (const k in s.costByType) acc.costByType[k] = (acc.costByType[k] || 0) + s.costByType[k]
+    acc.advisor.calls += s.advisor?.calls || 0
+    acc.advisor.cost += s.advisor?.cost || 0
     acc.activeMs += s.activeMs || 0
     return acc
-  }, { cost: 0, cacheSavings: {}, totalTokens: 0, input: 0, output: 0, cacheRead: 0, cacheCreation: 0, cacheCreation1h: 0, activeMs: 0, costByType: {} })
+  }, {
+    cost: 0, cacheSavings: {}, totalTokens: 0, input: 0, output: 0, cacheRead: 0, cacheCreation: 0, cacheCreation1h: 0, activeMs: 0, costByType: {},
+    advisor: { calls: 0, cost: 0 },
+  })
   const cacheDenom = t.cacheRead + t.cacheCreation
   t.cacheHitRatio = cacheDenom > 0 ? t.cacheRead / cacheDenom : null
   t.cacheSavings = Object.entries(t.cacheSavings).filter(([, saving]) => saving > T.cacheSaving.min)
@@ -89,12 +94,20 @@ export default function PeriodSummary({ sessions, dayAnchor, granularity = 'day'
             : <div className="gantt-side-row"><span>Estimated cost</span><b>{fmtUSD(totals.cost)}</b></div>}
           <div className="gantt-side-row"><span>Working time</span><b>{fmtDuration(totals.activeMs)}</b></div>
         </div>
-        {totals.cacheSavings.length > 0 && (
+        {(totals.cacheSavings.length > 0 || totals.advisor.cost > 0) && (
           <div className="gantt-side-section">
             <div className="gantt-side-heading">Potential savings</div>
             {totals.cacheSavings.map(([policy, saving]) => (
               <div key={policy} className="gantt-side-row"><span><strong>-{(saving / totals.cost * 100).toFixed(0)}% </strong>{CACHE_LABELS[policy]}</span><b>−{fmtUSD(saving)}</b></div>
             ))}
+            {totals.advisor.cost > 0 && (
+              <div className="gantt-side-row">
+                <span data-tooltip-content={`${plural(totals.advisor.calls, 'advisor call')}, billed apart on a second model\nTurn it off with /advisor off`}>
+                  <strong>-{(totals.advisor.cost / totals.cost * 100).toFixed(0)}% </strong>Advisor
+                </span>
+                <b>−{fmtUSD(totals.advisor.cost)}</b>
+              </div>
+            )}
           </div>
         )}
         {mixTotal > 0 && (

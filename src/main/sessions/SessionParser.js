@@ -1,9 +1,8 @@
-const ACTIVITY_GAP_MS = 5 * 60 * 1000
-const TOKEN_FIELDS = ['input', 'output', 'cacheRead', 'cacheCreation', 'cacheCreation5m', 'cacheCreation1h']
+import { contextSize } from '../../shared/usage.js'
+import { TOKEN_FIELDS, emptyBucket, addUsage, usageOf } from './usage/buckets.js'
+import { AdvisorUsage } from './usage/AdvisorUsage.js'
 
-function emptyBucket() {
-  return Object.fromEntries(TOKEN_FIELDS.map(k => [k, 0]))
-}
+const ACTIVITY_GAP_MS = 5 * 60 * 1000
 
 // Each token type's slice of a bucket, priced alone; rates are linear, so the slices' costs sum to the bucket's
 const COST_PARTS = {
@@ -14,22 +13,6 @@ const COST_PARTS = {
   cacheWrite1h: b => ({ cacheCreation: b.cacheCreation1h, cacheCreation1h: b.cacheCreation1h }),
 }
 const pickParts = (byModel, part) => Object.fromEntries(Object.entries(byModel).map(([m, b]) => [m, part(b)]))
-
-function addUsage(target, delta) {
-  for (const k of TOKEN_FIELDS) target[k] += delta[k]
-}
-
-function usageOf(u) {
-  const cc = u.cache_creation || {}
-  return {
-    input: u.input_tokens || 0,
-    output: u.output_tokens || 0,
-    cacheRead: u.cache_read_input_tokens || 0,
-    cacheCreation: u.cache_creation_input_tokens || 0,
-    cacheCreation5m: cc.ephemeral_5m_input_tokens || 0,
-    cacheCreation1h: cc.ephemeral_1h_input_tokens || 0,
-  }
-}
 
 const CACHE_TTL_MS = { '5m': 5 * 60_000, '1h': 60 * 60_000 }
 
@@ -134,6 +117,7 @@ export class SessionParser {
     // snapshots of a streamed reply can contribute only their growth.
     this.appliedById = new Map()
     this.calls = [] // one per API call, holding its final usage, for repricing the cache
+    this.advisor = new AdvisorUsage()
     this.branchStarted = false
   }
 
@@ -175,7 +159,12 @@ export class SessionParser {
       if (inherited != null && ts > this.range.end && (meta.continuesTo == null || ts < meta.continuesTo)) meta.continuesTo = ts
       // A reply streamed across the period start counts where it began — its lines in the period add only their growth
       const msg = obj.message
-      if (ts < this.range.start && msg?.usage && msg.id) this._growth(msg.id, usageOf(msg.usage))
+      if (ts < this.range.start && msg?.usage && msg.id) {
+        this._growth(msg.id, usageOf(msg.usage))
+        for (const call of AdvisorUsage.inReply(msg.id, msg.usage)) {
+          this._growth(call.key, call.usage)
+        }
+      }
       return false
     }
     obj._ts = ts
@@ -255,6 +244,7 @@ export class SessionParser {
     this.lastSeenTs = null
     this.appliedById.clear()
     this.calls = []
+    this.advisor = new AdvisorUsage()
   }
 
   // Capture the first user prompt / command for the session list.
@@ -312,11 +302,10 @@ export class SessionParser {
     const usage = usageOf(u)
     const model = msg.model || 'unknown'
     const fast = u.speed === 'fast'
-    const contextSize = usage.input + usage.cacheRead + usage.cacheCreation
 
     if (!meta.seenMessageIds.has(msgId)) {
       meta.seenMessageIds.add(msgId)
-      this._stampRunningTotals(obj, contextSize, usage.output)
+      this._stampRunningTotals(obj, usage.input + usage.cacheRead + usage.cacheCreation, usage.output)
     }
     if (this.excludeIds?.has(msgId)) return
 
@@ -324,7 +313,7 @@ export class SessionParser {
       // Timed by the record that sent it: a reply's first line can land minutes later, after the thinking
       const sentAt = this.prevMessage?.type === 'user' ? Math.min(this.prevMessage._ts, obj._ts) : obj._ts
       this.calls.push({ ts: sentAt, model, fast, usage })
-      meta.lastContextTokens = contextSize // prompt size on this turn; last assistant message wins
+      meta.lastContextTokens = contextSize(u) // prompt size on this turn; last assistant message wins
       meta.contextCompacted = false
       if (u.service_tier) meta.serviceTier = u.service_tier
       if (this.pricing && this.pricing.priceFor(model) == null) meta.priceUnknown = true
@@ -340,7 +329,19 @@ export class SessionParser {
         meta.serverToolUse.webFetch += u.server_tool_use.web_fetch_requests || 0
       }
     }
-    const growth = this._growth(msgId, usage)
+    this._addGrowth(obj, model, fast, this._growth(msgId, usage))
+    for (const call of AdvisorUsage.inReply(msgId, u)) {
+      const firstSeen = !this.appliedById.has(call.key)
+      if (firstSeen && this.pricing && this.pricing.priceFor(call.model) == null) meta.priceUnknown = true
+      const growth = this._growth(call.key, call.usage)
+      this.advisor.add(call, growth, firstSeen)
+      this._addGrowth(obj, call.model, call.fast, growth)
+    }
+  }
+
+  // Folds a line's growth into the totals and the cost samples
+  _addGrowth(obj, model, fast, growth) {
+    const meta = this.meta
     if (TOKEN_FIELDS.every(k => !growth[k])) return // a repeat line that added nothing
     // Fast and standard tokens price differently, so keep separate per-model buckets.
     const byModel = fast ? meta.tokensByModelFast : meta.tokensByModel
@@ -389,7 +390,9 @@ export class SessionParser {
     meta.costByType = Object.fromEntries(Object.entries(COST_PARTS).map(([type, part]) => [type, costOf({}, part)]))
     // What the session would have cost had every call used one cache TTL, or no cache
     const prompt = this.pricing ? promptCosts(this.calls, this.pricing) : null
-    meta.cacheCosts = prompt && Object.fromEntries(Object.entries(prompt).map(([p, c]) => [p, meta.costByType.output + c]))
+    const fixed = meta.costByType.output + this.advisor.promptCost(this.pricing)
+    meta.cacheCosts = prompt && Object.fromEntries(Object.entries(prompt).map(([p, c]) => [p, fixed + c]))
+    meta.advisor = this.advisor.summary(this.pricing) // also in the totals above
     return meta
   }
 }

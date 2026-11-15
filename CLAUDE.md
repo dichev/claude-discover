@@ -41,10 +41,10 @@ Not a hard constraint — restructure when it serves the code, just update this 
 │   │   ├── config/                 the app's own config: ConfigFile (~/.claude-discover/config.json) + pricing seed
 │   │   ├── requests/               API-request reading & parsing (the proxy's log + the transcript's own request records)
 │   │   ├── services/               backend services (LoginService = a generic per-OS login service) + the StatusBar switchers
-│   │   ├── sessions/               transcript scanning, caching & parsing, each turn's MCP servers (request tools + debug log) (utils/: the file watchers)
+│   │   ├── sessions/               transcript scanning, caching & parsing, each turn's MCP servers (request tools + debug log) (utils/: the file watchers; usage/: what a reply bills — token buckets, the advisor's calls)
 │   │   └── windows/                the app window (find bar: electron-find-overlay)
 │   ├── preload/                    contextBridge preload (main window)
-│   ├── shared/                     pure helpers both main and renderer import (Claude Code's listing formats, the user's own attachment types)
+│   ├── shared/                     pure helpers both main and renderer import (Claude Code's listing formats, the user's own attachment types, a reply's context size)
 │   └── renderer/                   React frontend (functional)
 │       ├── agent/                  AI agent hook (analyze + ask), output + prompt templates
 │       ├── assets/                 images imported by the UI

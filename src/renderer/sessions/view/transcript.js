@@ -1,6 +1,7 @@
 import { encode } from 'gpt-tokenizer/model/gpt-4o'
 import { blockView, groupTitle, humanize, isCounted, parseCommand } from './labels.js'
 import { USER_ATTACHMENTS } from '../../../shared/attachments.js'
+import { contextSize, advisorIterations } from '../../../shared/usage.js'
 
 // Pure transcript model, shared by ConversationView (rendering) and MarkdownSession (agent
 // payload): raw session items → turns (flatten) → row groups (groupTurns) → per-group stats.
@@ -116,6 +117,7 @@ export function flatten(items, { loop = [], side = [], compacts = [], mcp = [] }
   const results = {}
   const resultTs = {}
   const companions = {}
+  const advisorCalls = {}
   const compactions = {}
   const state = { mode: null, cwd: null, artifacts: new Set() }
   const byUuid = new Map(items.map(it => [it.uuid, it]))
@@ -232,6 +234,8 @@ export function flatten(items, { loop = [], side = [], compacts = [], mcp = [] }
     // A thinking record is logged once the thinking ends, so it ran since the previous record
     const blocks = collapseRedactedThinking(normalizeContent(msg.content))
       .map(b => b.type === 'thinking' && !b.redacted ? { ...b, duration: elapsed(prevTs, ts) } : b)
+      .filter(b => !(b.type === 'server_tool_use' && b.name === 'advisor')) // its result's row shows the call
+      .map(b => b.type === 'advisor_tool_result' ? { ...b, run: advisorRun(msg, advisorCalls) } : b)
     if (blocks.length === 0) continue
     // Anthropic's API has no `tool` role — tool_result blocks ride inside user messages.
     // Re-tag those turns as `tool` so they group with the assistant's tool calls, not the user.
@@ -349,6 +353,12 @@ function collapseRedactedThinking(blocks) {
   return out
 }
 
+// The advisor's model and tokens are logged only in its reply's usage iterations: the k-th advisor_message for the k-th result
+function advisorRun(msg, seen) {
+  const k = seen[msg.id] = (seen[msg.id] ?? -1) + 1
+  return msg.usage && advisorIterations(msg.usage)[k]
+}
+
 const messageText = it => normalizeContent(it.message?.content).filter(b => b.type === 'text').map(b => b.text).join('\n')
 
 const withCompanion = (result, text) => text
@@ -460,9 +470,6 @@ export function cycleDurations(groups) {
     return duration
   })
 }
-
-// What one API call read: its fresh input plus the cached prefix, read or written
-export const contextSize = u => (u.input_tokens || 0) + (u.cache_read_input_tokens || 0) + (u.cache_creation_input_tokens || 0)
 
 // The session's context size. Right after a compaction it's Claude Code's postTokens, which counts only the messages kept,
 // not the system prompt, tools and memory files every request resends — so it adds the first System row's estimate.
