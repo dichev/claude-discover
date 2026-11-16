@@ -203,8 +203,9 @@ const ATTACHMENT_RENDERERS = {
 // Everything else — Claude Code keeps adding attachment types (reminders, mode switches, tips, …), so the
 // fallback reads them structurally instead of growing a renderer per type: the first short string
 // names the thing (a path, a hook, a date), long ones are the content, and if several short strings
-// carry the payload nothing is hidden — the raw record stays as the body.
-function genericAttachment(att) {
+// carry the payload nothing is hidden — the raw record stays as the body. Where the transcript logs the text
+// the model read, that is the body instead: an environment or advisor notice's record holds none of its wording.
+function genericAttachment(att, rendered) {
   const short = [], long = []
   const collect = (v, key) => {
     if (typeof v === 'string') { if (v.trim()) (v.length > 100 ? long : short).push([key, v]) }
@@ -214,10 +215,10 @@ function genericAttachment(att) {
   for (const [k, v] of Object.entries(att || {})) { if (k !== 'type') collect(v, k) }
   const detail = short.find(([k]) => /path|file|name|dir|uri|url|date/i.test(k))?.[1] // what the attachment is about
   const label = humanize(att?.type || 'attachment')
-  const raw   = !long.length && short.length > 1
+  const raw   = !rendered && !long.length && short.length > 1
   return {
     title: detail ? `${label}: ${detail}` : label,
-    body: long.length ? long.map(([, v]) => v).join('\n\n') : raw ? safeJson(att) : null,
+    body: rendered || (long.length ? long.map(([, v]) => v).join('\n\n') : raw ? safeJson(att) : null),
     raw,
   }
 }

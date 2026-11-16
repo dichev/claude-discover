@@ -316,6 +316,10 @@ export function flatten(items, { loop = [], side = [], compacts = [], mcp = [] }
   // What the loop's requests first sent is System's to Claude, in request order (system → tools → messages).
   // A prompt's own request sent it ahead of the prompt (memory files lead its message), so it shows above it.
   const model = currentModel(out)
+  // No record names the model an attachment, a skill or a summary was sent to, so they count as the conversation's
+  for (const b of out.flatMap(t => t.blocks)) {
+    if (['attachment', 'skill', 'compact'].includes(b.type)) b.model = model
+  }
   for (const [ts, list] of Object.entries(Object.groupBy(loop, it => it.timestamp))) {
     const blocks = list.map(it => ({ type: 'instruction', it: { ...it, model: it.model ?? model } }))
     abovePrompt(metaTurn({ timestamp: ts }, 'system', blocks, `prompt-${ts}`))
@@ -377,7 +381,7 @@ export const isContextTurn = t => t.blocks.every(b => b.type === 'attachment' &&
 const isConversation = t => ['user', 'assistant', 'tool'].includes(t.role) && !isContextTurn(t)
 
 export const blockTokens = b => b.type === 'instruction' ? countTokens(b.it.content, b.it.model)
-  : isCounted(b) ? countTokens(blockView(b).body) : 0
+  : isCounted(b) ? countTokens(blockView(b).body, b.model) : 0
 
 const STRIP_GROUPS = { 'System Prompt': 'prompt', 'System Tools': 'tools', 'MCP Tools': 'tools', 'Deferred Tools': 'tools', 'MCP Instructions': 'mcp', Skills: 'listings', 'Agent Types': 'listings' }
 const ATTACHMENT_GROUPS = { output_style: 'prompt', output_style_instructions: 'prompt', deferred_tools_delta: 'tools', mcp_instructions_delta: 'mcp', instructions: 'memory', skill_listing: 'listings', agent_listing_delta: 'listings' }
@@ -416,9 +420,10 @@ export function mcpGroupParts(blocks) {
   const names    = new Set(turns.flatMap(t => t.servers.map(s => s.name)))
   const listings = blocks.filter(b => b.type !== 'mcp').map(block => ({ block, sections: block.it?.items ?? blockView(block).items ?? [] }))
   const nests    = ({ sections }) => sections.length > 0 && sections.every(s => names.has(s.name))
+  const byName   = ({ block, sections }) => sections.map(s => [s.name, { content: s.content, model: block.it?.model ?? block.model }]) // a strip's model, or an attachment's
   return {
     turns,
-    instructions: new Map(listings.filter(nests).flatMap(({ block, sections }) => sections.map(s => [s.name, { content: s.content, model: block.it?.model }]))),
+    instructions: new Map(listings.filter(nests).flatMap(byName)),
     rest: listings.filter(l => !nests(l)).map(l => l.block),
   }
 }

@@ -34,6 +34,14 @@ export const texts = c => (Array.isArray(c) ? c.map(p => p?.text) : [c]).filter(
 // must not parse as one the harness injected.
 const injectedTexts = req => (req?.messages || []).filter(m => m?.role !== 'assistant').flatMap(m => texts(m.content))
 
+// A tool that turns up mid-conversation (a late MCP server, a notification tool) is defined in a system
+// message's tool_addition block, never in `tools`
+const addedTools = req => (req?.messages || []).flatMap(m => Array.isArray(m?.content) ? m.content : [])
+  .filter(p => p?.type === 'tool_addition' && p.tool?.type === 'tool_definition' && p.tool.definition).map(p => p.tool.definition)
+
+// The API bills nothing for Claude Code's billing header, a system block of its own
+const isBilled = text => !text.startsWith('x-anthropic-billing-header')
+
 // Parses the proxy's request log and the transcript's request records. Stateful (the log stores each
 // value once, then { $ref }s it; strips dedup by hash) — so feed records in file order.
 export class RequestParser {
@@ -97,7 +105,7 @@ export class RequestParser {
   systemPrompt(rec) {
     const sys = rec.request?.system
     if (sys == null || sys.$ref) return null // absent, or an unresolvable ref (truncated log)
-    const content = typeof sys === 'string' ? splitClaudeMd(sys).rest : sys.map(b => splitClaudeMd(b?.text ?? '').rest).join('\n\n')
+    const content = typeof sys === 'string' ? splitClaudeMd(sys).rest : sys.map(b => b?.text ?? '').filter(isBilled).map(t => splitClaudeMd(t).rest).join('\n\n')
     return toStrip(rec, 'system', 'System Prompt', '', content)
   }
 
@@ -150,8 +158,8 @@ export class RequestParser {
   // grows as deferred tools load mid-session, so only tools this parser hasn't seen yet are
   // returned — the first request yields the full set, later arrays just the additions.
   systemTools(rec) {
-    const tools = rec.request?.tools
-    if (!Array.isArray(tools)) return [] // absent, or an unresolvable ref (truncated log)
+    const listed = rec.request?.tools // absent, or an unresolvable ref (truncated log), where the tools aren't an array
+    const tools  = [...Array.isArray(listed) ? listed : [], ...addedTools(rec.request)]
     const fresh = tools.filter(t => t?.name && !this.seenTools.has(t.name))
     for (const t of fresh) this.seenTools.add(t.name)
     // Schemas included: they are a large part of what a tool actually costs, so leaving them

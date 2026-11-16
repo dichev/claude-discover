@@ -312,6 +312,15 @@ describe('systemGroups', () => {
     expect(group.tokens).toBe(countTokens('System Prompt text', 'claude-opus-4'))
   })
 
+  it('counts an attachment against the conversation\'s model, which no record of its own names', () => {
+    const text    = 'NEVER DO THIS, ALWAYS READ THE README' // capitals cost the two tokenizers differently
+    const listing = { type: 'attachment', uuid: 'a1', timestamp: '2026-11-06T10:00:00.000Z', attachment: { type: 'skill_listing', content: text, skillCount: 1 }, rendered: [{ content: text }] }
+    const reply   = { type: 'assistant', uuid: 'r1', timestamp: '2026-11-06T10:00:01.000Z', message: { role: 'assistant', model: 'claude-haiku-4-5', content: [{ type: 'text', text: 'ok' }] } }
+    const [group] = systemGroups(flatten([listing, reply]))
+    expect(group.tokens).toBe(countTokens(text, 'claude-haiku-4-5'))
+    expect(group.tokens).not.toBe(countTokens(text))
+  })
+
   it('leaves out directives and notices, which stay messages', () => {
     const directive = { ...att('plan_mode'), folded: false }
     expect(groups([directive, { type: 'system', folded: true, title: 'Note' }, { type: 'text', text: 'hi' }])).toEqual([])
@@ -325,6 +334,15 @@ describe('systemGroups', () => {
   it('titles deferred-tool updates that added none', () => {
     const update = () => att('deferred_tools_delta', { addedNames: [], removedNames: ['x'] })
     expect(groups([update(), update()])[0].title).toBe('Deferred tools')
+  })
+
+  it('counts an attachment with no renderer of its own by the text the model read, not its record', () => {
+    const record   = { type: 'environment', snapshot: { platform: 'win32', shell: 'bash' } }
+    const rendered = [{ content: '<system-reminder>\n# Environment\nYou have been invoked on win32\n</system-reminder>' }]
+    const text     = '# Environment\nYou have been invoked on win32'
+    expect(attachmentView(record, rendered)).toMatchObject({ title: 'Environment', body: text, raw: false })
+    expect(attachmentView(record).raw).toBe(true) // an older transcript logs no text: the record shows, uncounted
+    expect(groups([{ ...att('environment', record), rendered }])).toMatchObject([{ key: 'context', tokens: countTokens(text) }])
   })
 
   it('hands an unsent attachment to the session context only when that group is there', () => {
@@ -356,6 +374,11 @@ describe('mcpGroupParts', () => {
   it('reads them off a request\'s strip too, with the model it went to', () => {
     const strip = { type: 'instruction', it: { file_path: 'MCP Instructions', model: 'claude-opus-4', items: [{ name: 'docs', content: 'docs text' }] } }
     expect(mcpGroupParts([servers, strip]).instructions.get('docs')).toEqual({ content: 'docs text', model: 'claude-opus-4' })
+  })
+
+  it('gives an attachment\'s instructions the model flatten stamped on its block', () => {
+    const parts = mcpGroupParts([servers, { ...delta('docs'), model: 'claude-haiku-4-5' }])
+    expect(parts.instructions.get('docs')).toEqual({ content: 'docs text', model: 'claude-haiku-4-5' })
   })
 
   it('keeps a listing as its own row when it names a server the group lacks', () => {

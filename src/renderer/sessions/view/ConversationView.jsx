@@ -129,7 +129,7 @@ function Compaction({ block }) {
       <Divider className="conv-divider">
         <span>{head}<span className={block.summarizing ? 'proxy-text' : undefined}>{note}</span>{tail}</span>
       </Divider>
-      {block.summary && <Collapsible title="Compact summary" tokens={countTokens(block.summary)}><Markdown className="block-text" text={block.summary} autoFence /></Collapsible>}
+      {block.summary && <Collapsible title="Compact summary" tokens={countTokens(block.summary, block.model)}><Markdown className="block-text" text={block.summary} autoFence /></Collapsible>}
     </>
   )
 }
@@ -329,7 +329,7 @@ function TurnRow({ turn, hidden = false, speaker = null }) {
       <div className="turn-blocks">
         {contextBlocks.length > 0 && (
           <Collapsible className="attachment" defaultOpen={false} title={plural(contextBlocks.length, 'attachment')}>
-            {contextBlocks.map((b, i) => <Attachment key={i} att={b.attachment} rendered={b.rendered} folded={b.folded} unsent={b.unsent} />)}
+            {contextBlocks.map((b, i) => <Attachment key={i} att={b.attachment} rendered={b.rendered} folded={b.folded} unsent={b.unsent} model={b.model} />)}
           </Collapsible>
         )}
         {otherBlocks.map((b, i) => <Block key={i} block={b} speaker={speaker} ts={turn.ts} />)}
@@ -380,7 +380,7 @@ function Block({ block, speaker = null, ts = null }) {
     return <Collapsible title={advisorTitle(block)} className="advisor" defaultOpen={false}><pre>{safeJson(block.content)}</pre></Collapsible>
   }
   if (block.type === 'skill') {
-    return <Collapsible title={block.name ? `Skill: ${block.name}` : 'Skill'} className="listed" defaultOpen={false} tokens={countTokens(block.text)}><Markdown className="block-text" text={block.text} /></Collapsible>
+    return <Collapsible title={block.name ? `Skill: ${block.name}` : 'Skill'} className="listed" defaultOpen={false} tokens={countTokens(block.text, block.model)}><Markdown className="block-text" text={block.text} /></Collapsible>
   }
   if (block.type === 'tool_result') {
     const c = block.content
@@ -395,7 +395,7 @@ function Block({ block, speaker = null, ts = null }) {
     )
   }
   if (block.type === 'attachment') {
-    return <Attachment att={block.attachment} rendered={block.rendered} folded={block.folded} unsent={block.unsent} speaker={speaker} />
+    return <Attachment att={block.attachment} rendered={block.rendered} folded={block.folded} unsent={block.unsent} model={block.model} speaker={speaker} />
   }
   if (block.type === 'instruction') {
     return <InstructionFile it={block.it} model={block.it.model} tokens={blockTokens(block)} speaker={speaker} className="directive" />
@@ -424,14 +424,14 @@ function SavedOutputLink({ text }) {
 }
 
 // An attachment the model didn't fold is a directive to Claude: open, and tinted apart
-function Attachment({ att, rendered, folded = true, unsent = false, speaker = null }) {
+function Attachment({ att, rendered, folded = true, unsent = false, model, speaker = null }) {
   const view            = attachmentView(att, rendered)
   const { title, body } = view
   const className       = `attachment${folded ? '' : ' directive'}`
   const open            = !folded && !view.collapsed
   if (body == null) return <Label title={said(speaker, title)} className={className} />
   return (
-    <Collapsible title={said(speaker, title)} className={className} defaultOpen={open} tokens={!unsent && hasText(view) && countTokens(body)}>
+    <Collapsible title={said(speaker, title)} className={className} defaultOpen={open} tokens={!unsent && hasText(view) && countTokens(body, model)}>
       {view.items?.length ? <ItemFolds {...view} />
         : view.markdown ? <Markdown className="block-text" text={view.markdown} autoFence />
         : <pre>{body}</pre>}
