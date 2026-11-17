@@ -1,0 +1,75 @@
+/* Name, bar and tokens in columns that line up across rows */
+.context-usage {
+  display: grid;
+  grid-template-columns: minmax(0, 120px) 1fr auto;
+  gap: 5px 8px;
+  font-size: 12px;
+}
+
+/* Right after the title's text */
+.context-info {
+  margin-left: 5px;
+  vertical-align: -1px;
+  color: var(--text-faint);
+  cursor: help;
+}
+
+/* The fill bar, the window's size right of it */
+.context-window {
+  display: flex;
+  align-items: center;
+
+  & .progress-bar { flex: 1; width: auto; }
+}
+
+/* A subgrid row, so its cells keep the columns while the row stays one hover and click target */
+.context-row {
+  grid-column: 1 / -1;
+  display: grid;
+  grid-template-columns: subgrid;
+  align-items: center;
+  position: relative;
+
+  &.expands { cursor: pointer; }
+  /* The shadow pads the highlight without moving the cells off their columns */
+  &.expands:hover { color: var(--text); background: var(--selected); box-shadow: 0 0 0 3px var(--selected); border-radius: 1px; }
+}
+
+/* Names align with the section title, the chevron hanging in the margin left of them */
+.context-name {
+  color: var(--text);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+
+  .part > & { color: var(--text-dim); }
+}
+
+/* Positioned off the row, not the name, so the name's overflow clip doesn't cut it */
+.context-chevron {
+  position: absolute;
+  left: -12px;
+  top: 50%;
+  transform: translateY(-50%);
+  font-size: 14px;
+  line-height: 1;
+  color: var(--text-dim);
+}
+
+.context-track {
+  height: 10px;
+  display: flex;
+}
+
+.context-fill {
+  min-width: 1px;
+  border-radius: 0 4px 4px 0;
+
+  .part & { opacity: 0.6; }
+}
+
+.context-tokens {
+  font-family: var(--font-mono), monospace;
+  font-size: 11px;
+  text-align: right;
+}

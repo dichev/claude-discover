@@ -324,7 +324,7 @@ describe('RequestParser.strips', () => {
     const base = { type: 'api-request', url: 'POST /v1/messages', status: 200 }
     const read = { name: 'Read', description: 'Reads a file', input_schema: { type: 'object' } }
     const bash = { name: 'Bash', description: 'Runs a command' }
-    const web = { name: 'WebFetch', description: 'Fetches a URL' }
+    const web = { name: 'WebFetch', description: 'Fetches a URL', defer_loading: true }
     const schema = '```json\n{\n  "type": "object"\n}\n```' // schemas are a big part of what a tool costs — counted, so shown
     fs.writeFileSync(path.join(dir, 'sess-t.requests.jsonl'), [
       { ...base, timestamp: '2026-07-14T10:00:00.000Z', request: { model: 'claude-sonnet-5',
@@ -339,7 +339,7 @@ describe('RequestParser.strips', () => {
       { timestamp: '2026-07-14T10:00:00.000Z', file_path: 'System Tools', memory_type: '2 tools', model: 'claude-sonnet-5',
         content: `## Read\n\nReads a file\n\n${schema}\n\n## Bash\n\nRuns a command`, kind: 'main' },
       { timestamp: '2026-07-14T10:02:00.000Z', file_path: 'System Tools', memory_type: '1 tool', model: 'claude-opus-4-8',
-        content: '## WebFetch\n\nFetches a URL', kind: 'main' }, // Read/Bash already seen — only the addition
+        content: '## WebFetch\n\nFetches a URL', kind: 'main', items: [{ name: 'WebFetch', deferred: true }] }, // Read/Bash already seen — only the addition
     ])
     expect(files[0].hash).not.toBe(files[1].hash) // content hash — distinct per batch, used as the dedup key
   })

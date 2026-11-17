@@ -3,6 +3,7 @@ import { fmtDuration, fmtNum, fmtUSD, fmtCompact, fmtToolCalls, plural } from '.
 import { countTokens } from '../../shared/tokenizer/claudeTokenizer.js'
 import { contextSize } from '../../shared/usage.js'
 import { flatten, groupTurns, branchPoint, contextTokens, currentModel, contextWindow } from './view/transcript.js'
+import { contextParts } from './context/contextParts.js'
 import { toolSummary, advisorTitle, parseCommand, isClearTurn, instructionTitle, compactTitle, rewindTitle, attachmentView, hasText, safeJson, SIDE_NOTE } from './view/labels.js'
 import { fenced } from '../utils/textBlock.js'
 import { cacheAdvice, CACHE_LABELS } from '../utils/cacheAdvice.js'
@@ -149,6 +150,8 @@ export function markdownSession(meta, items, instructions = {}, requestLog = nul
   const turns = items ? flatten(items, instructions) : []
   const rewinds = turns.filter(t => t.rewind).length
   const compactions = turns.filter(t => t.role === 'compact').length
+  const breakdown = contextParts(turns, ctx)
+    .map(p => `- ${p.name}: ${fmtCompact(p.tokens)}${p.children.length > 1 ? ` (${p.children.map(c => `${c.name} ${fmtCompact(c.tokens)}`).join(', ')})` : ''}`)
   const transcript = items ? renderTranscript(turns, meta) : '_Loading…_'
   const conversation = `\n# Conversation\n\n${transcript}`
 
@@ -159,7 +162,12 @@ export function markdownSession(meta, items, instructions = {}, requestLog = nul
 - Estimated cost: ${fmtUSD(meta.cost)}
 - Total tokens: ${fmtCompact(meta.totalTokens)}
 - Working time: ${fmtDuration(meta.activeMs)}
-- Context size: ${meta.contextCompacted ? '~' : ''}${fmtCompact(ctx)} / ${fmtCompact(ctxLimit)} (${contextPct}%${meta.contextCompacted ? ', estimated until the next reply' : ''})${savings.length ? `
+
+## Context size
+- Last context size: ${meta.contextCompacted ? '~' : ''}${fmtCompact(ctx)} / ${fmtCompact(ctxLimit)} (${contextPct}%${meta.contextCompacted ? ', estimated until the next reply' : ''})${breakdown.length ? `
+
+## Context breakdown
+${breakdown.join('\n')}` : ''}${savings.length ? `
 
 ## Potential savings
 ${savings.join('\n')}` : ''}

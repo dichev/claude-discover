@@ -339,7 +339,9 @@ function advisorRun(msg, seen) {
   return msg.usage && advisorIterations(msg.usage)[k]
 }
 
-const messageText = it => normalizeContent(it.message?.content).filter(b => b.type === 'text').map(b => b.text).join('\n')
+export const contentText = content => normalizeContent(content).filter(b => b.type === 'text').map(b => b.text).join('\n')
+
+const messageText = it => contentText(it.message?.content)
 
 const withCompanion = (result, text) => text
   ? { ...(result ?? { type: 'tool_result' }), content: [...normalizeContent(result?.content), { type: 'text', text }] }
@@ -361,7 +363,7 @@ export const blockTokens = b => b.type === 'instruction' ? countTokens(b.it.cont
 const STRIP_GROUPS = { 'System Prompt': 'prompt', 'System Tools': 'tools', 'MCP Tools': 'tools', 'Deferred Tools': 'tools', 'MCP Instructions': 'mcp', Skills: 'listings', 'Agent Types': 'listings' }
 const ATTACHMENT_GROUPS = { output_style: 'prompt', output_style_instructions: 'prompt', deferred_tools_delta: 'tools', mcp_instructions_delta: 'mcp', instructions: 'memory', skill_listing: 'listings', agent_listing_delta: 'listings' }
 
-const groupOf = b => {
+export const groupOf = b => {
   if (b.type === 'mcp') return 'mcp'
   if (b.type === 'attachment') return ATTACHMENT_GROUPS[b.attachment.type] ?? 'context'
   return STRIP_GROUPS[b.it.file_path] ?? (b.it.name ? 'memory' : 'context') // only memory files carry a `name`

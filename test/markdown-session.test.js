@@ -52,6 +52,13 @@ describe('markdownSession', () => {
     expect(body).toContain('- Debug log: debug/s.txt')
   })
 
+  it('lists the context breakdown under the context size, a category\'s parts beside it', () => {
+    const strip = (file_path, rest) => ({ timestamp: '2026-10-24T10:00:00.300Z', source: 'message', file_path, content: 'text', hash: file_path, ...rest })
+    const loop = [strip('System Prompt', { source: 'system' }), strip('System Tools', { items: [{ name: 'Read', content: 'reads' }, { name: 'Bash', content: 'runs a command' }] })]
+    const { body } = markdownSession({ ...meta, lastContextTokens: 1000 }, [msg('user', 'u1', '2026-10-24T10:00:00Z', 'hi')], { loop })
+    expect(body).toContain('\n\n## Context size\n- Last context size: 1.0k / 200.0k (1%)\n\n## Context breakdown\n- Messages: 1.0k (User messages 2, API overhead & unsplit 1.0k)\n- System tools: 13 (Bash 8, Read 5)\n- System prompt: 1\n\n## Tokens')
+  })
+
   it('fences a block with a run longer than the code fences inside it', () => {
     const result = { type: 'tool_result', tool_use_id: 't1', content: 'before\n```js\nx\n```\nafter' }
     const out = conversation([

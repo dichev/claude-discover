@@ -4,7 +4,7 @@ import { Globe, LaptopMinimal, OctagonX, Terminal } from 'lucide-react'
 import { fmtCompact, fmtDuration, plural, tone } from '../../utils/formatting'
 import { THRESHOLDS as T } from '../../utils/thresholds.js'
 import { countTokens } from '../../../shared/tokenizer/claudeTokenizer.js'
-import { flatten, groupTurns, systemGroups, mcpGroupParts, latestServers, blockTokens, cycleDurations, tokenPoints, branchPoint, currentModel, contextWindow, unloggedRequestsVersion } from './transcript.js'
+import { groupTurns, systemGroups, mcpGroupParts, latestServers, blockTokens, cycleDurations, tokenPoints, branchPoint, currentModel, contextWindow, unloggedRequestsVersion } from './transcript.js'
 import { toolSummary, advisorTitle, parseCommand, interruptLabel, isClearTurn, instructionTitle, compactTitleParts, rewindTitle, persistedOutput, attachmentView, hasText, isCounted, safeJson, SIDE_NOTE } from './labels.js'
 import ApproxTokens from './ApproxTokens.jsx'
 import McpConnections, { McpTitle } from './McpConnections.jsx'
@@ -41,10 +41,9 @@ function filtered(g, filter) {
 }
 
 export default function ConversationView({
-  items, instructions = {}, filePath = null, expandAll = null, filter = [],
+  items, turns, filePath = null, expandAll = null, filter = [],
   continuesFrom = null, continuesTo = null, forkedFrom = null, forkedAt = null, onShowPeriodOf,
 }) {
-  const turns            = flatten(items, instructions)
   const groups           = groupTurns(turns)
   const points           = tokenPoints(groups)
   const durations        = cycleDurations(groups)

@@ -48,7 +48,7 @@ Not a hard constraint — restructure when it serves the code, just update this 
 │   └── renderer/                   React frontend (functional)
 │       ├── agent/                  AI agent hook (analyze + ask), output + prompt templates
 │       ├── assets/                 images imported by the UI
-│       ├── sessions/               session list + detail views (Conversation/JSONL/Requests tabs)
+│       ├── sessions/               session list + detail views (Conversation/JSONL/Requests tabs) + the summary's context breakdown (context/)
 │       ├── timeline/               period views (Daily/Weekly/Monthly) + the work-hours band
 │       ├── ui/                     generic primitives + the status bar
 │       └── utils/                  shared hooks & helpers

@@ -3,6 +3,7 @@ import ConversationView, { FILTERS } from './view/ConversationView.jsx'
 import JsonlView from './view/JsonlView.jsx'
 import RequestsView from './view/RequestsView.jsx'
 import SessionSummary from './SessionSummary.jsx'
+import { flatten } from './view/transcript.js'
 import MultiPicker from '../ui/MultiPicker.jsx'
 import Toggle from '../ui/Toggle.jsx'
 import { ErrorMessage } from '../ui/Errors.jsx'
@@ -28,6 +29,7 @@ export default function Session({ meta, missing, date, granularity = 'day', onSh
   const fileSize = meta?.fileSize
   const desktop  = meta?.entrypoint === 'claude-desktop' // the capture proxy can't reach desktop sessions yet (see ProxySwitch)
   const { items, instructions, requestLog, debugLog } = read
+  const turns = items ? flatten(items, instructions) : []
   const viewKey = `${filePath}|${date}|${granularity}` // what the read (and so an agent answer) covers
   const agent = useAgent(viewKey, meta, read)
 
@@ -97,7 +99,7 @@ export default function Session({ meta, missing, date, granularity = 'day', onSh
                 {mode === 'conversation' ? (
                   <div className="view-tab-pane-content">
                     {items ? <ConversationView
-                               items={items} instructions={instructions} filePath={meta.parentFilePath ?? meta.filePath} expandAll={expandAll} filter={filter}
+                               items={items} turns={turns} filePath={meta.parentFilePath ?? meta.filePath} expandAll={expandAll} filter={filter}
                                continuesFrom={meta.continuesFrom} continuesTo={meta.continuesTo} forkedFrom={meta.forkedFrom} forkedAt={meta.forkedAt}
                                onShowPeriodOf={onShowPeriodOf}
                              />
@@ -112,7 +114,7 @@ export default function Session({ meta, missing, date, granularity = 'day', onSh
                 )}
               </div>
               <SessionSummary
-                key={viewKey} meta={meta} items={items} instructions={instructions} requestLog={requestLog} debugLog={debugLog}
+                key={viewKey} meta={meta} items={items} turns={turns} instructions={instructions} requestLog={requestLog} debugLog={debugLog}
                 agent={agent} granularity={granularity}
               />
             </div>

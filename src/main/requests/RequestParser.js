@@ -169,7 +169,10 @@ export class RequestParser {
     // Server tools (web_search, …) carry no description or schema — their definition is all there is
     const definition = ({ name, ...rest }) => json(rest)
     const strip = (file_path, pick) => {
-      const list = fresh.filter(t => pick(t.name)).map(t => ({ name: t.name, content: [t.description || '', schema(t)].filter(Boolean).join('\n\n') || definition(t) }))
+      // `deferred`: found through ToolSearch, whose result is what puts the definition in the context
+      const list = fresh.filter(t => pick(t.name)).map(t => ({
+        name: t.name, content: [t.description || '', schema(t)].filter(Boolean).join('\n\n') || definition(t), ...t.defer_loading && { deferred: true },
+      }))
       if (!list.length) return null
       const content = list.map(t => [`## ${t.name}`, t.content].filter(Boolean).join('\n\n')).join('\n\n')
       // `items` keeps each definition apart, so the UI can fold them one by one

@@ -3,13 +3,14 @@ import { format } from 'date-fns'
 import { fmtDuration, fmtNum, fmtUSD, fmtCompact, fmtToolCalls, plural, tone } from '../utils/formatting.js'
 import { THRESHOLDS as T } from '../utils/thresholds.js'
 import { cacheAdvice, CACHE_LABELS } from '../utils/cacheAdvice.js'
-import { contextWindow, contextTokens, flatten } from './view/transcript.js'
+import { contextWindow, contextTokens } from './view/transcript.js'
+import { contextParts } from './context/contextParts.js'
+import ContextUsage, { ContextFill, ContextInfo } from './context/ContextUsage.jsx'
 import { EXPERIMENT_TIP } from './view/labels.js'
 import AgentOutput from '../agent/AgentOutput.jsx'
-import ProgressBar from '../ui/ProgressBar.jsx'
 import './SessionSummary.css'
 
-export default function SessionSummary({ meta, items, instructions, requestLog, debugLog, agent, granularity = 'day' }) {
+export default function SessionSummary({ meta, items, turns, instructions, requestLog, debugLog, agent, granularity = 'day' }) {
   const timeFormat = granularity === 'day' ? 'pp' : 'MMM d, pp'
   const t = meta.tokens
   const totalTokens = meta.totalTokens
@@ -23,11 +24,10 @@ export default function SessionSummary({ meta, items, instructions, requestLog, 
   const advisor = meta.advisor
   const ctxLimit = contextWindow(meta.models)
   const ctx = contextTokens(meta, instructions)
-  const ctxTone = tone(ctx, T.context)
-  // Counted in the loaded period's transcript, like the Conversation view
-  const turns = items ? flatten(items) : []
+  // Counted in the loaded period's transcript (`turns`, flattened from `items`), like the Conversation view
   const rewinds = turns.filter(t => t.rewind).length
   const compactions = turns.filter(t => t.role === 'compact').length
+  const parts = contextParts(turns, ctx)
 
   const busy = agent.running || !items
   const ask = e => {
@@ -74,14 +74,17 @@ export default function SessionSummary({ meta, items, instructions, requestLog, 
           } />
           <Field label="Total tokens" value={<span className={tone(totalTokens, T.tokens)}>{fmtCompact(totalTokens)}</span>} />
           <Field label="Working time" value={fmtDuration(meta.activeMs)} />
-          <Field label="Context size" value={
-            <span className={ctxTone} data-tooltip-content={meta.contextCompacted ? 'Estimated until the next reply: what the compaction kept plus the System row' : undefined}>
-              {`${meta.contextCompacted ? '~ ' : ''}${fmtCompact(ctx)} / ${fmtCompact(ctxLimit)}`}
-            </span>
-          } below={
-            <ProgressBar pct={ctx / ctxLimit * 100} tone={ctxTone} />
-          }/>
+          <Field
+            label="Context size"
+            value={<><span className={tone(ctx, T.context)}>{meta.contextCompacted && '~'}{fmtCompact(ctx)}</span> / {fmtCompact(ctxLimit).replace('.0', '')}</>}
+            below={<ContextFill size={ctx} limit={ctxLimit} note={meta.contextCompacted ? 'Estimated until the next reply: what the compaction kept plus the System row' : undefined} />}
+          />
         </Section>
+        {parts.length > 0 && (
+          <Section title={<span>Context breakdown<ContextInfo /></span>}>
+            <ContextUsage parts={parts} />
+          </Section>
+        )}
 
         {(advice || advisor?.cost > 0) && (
           <Section title="Potential savings">
