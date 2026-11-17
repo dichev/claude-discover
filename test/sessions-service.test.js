@@ -67,6 +67,15 @@ describe('SessionsService.openFile', () => {
     expect(items.map(o => o.uuid)).toEqual(['u1', 'a1'])
   })
 
+  it('sorts an untimestamped line by its neighbours in the file, not the file time', async () => {
+    const service = new SessionsService({ scanner: {} })
+    const mode = permissionMode => ({ type: 'permission-mode', permissionMode, sessionId: 'shared' })
+    const file = await write('shared.jsonl', [mode('default'), lines[0], mode('plan'), lines[1]].map(l => JSON.stringify(l)).join('\n') + '\n')
+    await service.openFile(file)
+    const { items } = await service.readSession(file)
+    expect(items.map(o => o.uuid ?? o.permissionMode)).toEqual(['default', 'u1', 'plan', 'a1'])
+  })
+
   it('refuses a file with no Claude Code messages', async () => {
     const service = new SessionsService({ scanner: {} })
     await expect(service.openFile(await write('notes.jsonl', '{"a":1}\n'))).rejects.toThrow(/No Claude Code messages/)

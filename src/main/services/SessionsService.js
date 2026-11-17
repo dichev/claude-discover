@@ -96,7 +96,12 @@ export class SessionsService extends EventEmitter {
     const side = [...own.strips, ...shown(source.side)]
     const compacts = [...shown(source.compacts), ...own.compacts] // in time order: the source's predate the branch
     if (start?.length && !loop.includes(start[0])) loop.unshift(...start)
-    items.sort((a, b) => a._ts - b._ts) // .jsonl lines aren't always in timestamp order
+    // .jsonl lines aren't always in timestamp order. An untimestamped one (permission-mode, ai-title, …) sorts by its file
+    // neighbour: the timestamped line before it, or after it where it leads the file, not the mtime the parser falls back to
+    const stamped = items.map(o => Date.parse(o.timestamp) > 0 ? o._ts : null)
+    let prev = stamped.find(t => t != null)
+    items.forEach((o, i) => { o._ts = prev = stamped[i] ?? prev ?? o._ts })
+    items.sort((a, b) => a._ts - b._ts)
     const keys = new Set(loop.map(s => s.hash))
     const isBrought = o => USER_ATTACHMENTS.has(o.attachment?.type) // an @-mention, an IDE selection: shown with the prompt instead
     const brought = new Set(items.filter(isBrought).flatMap(o => TranscriptInstructions.injected(o)).map(f => f.hash))
