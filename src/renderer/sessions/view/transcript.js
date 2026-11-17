@@ -404,6 +404,9 @@ export function mcpGroupParts(blocks) {
   }
 }
 
+// The index of the conversation row `at` (its first turn's uuid) among `groups`; -1 for none
+export const rowIndex = (groups, at) => groups.findIndex(g => g.turns[0].uuid === at)
+
 export function groupTurns(turns) {
   const groups = []
   let cycle = null  // open assistant card, closed by its next text message

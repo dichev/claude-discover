@@ -68,16 +68,11 @@
 }
 .token-point.active .token-point-dot { --dot: var(--accent); }
 .token-point.live   .token-point-dot { animation: pulse 2s ease-out infinite; }
-
-/* Context fill bar in assistant headers (ContextStat): a slim, borderless inline ProgressBar. */
-.msg-ctx .progress-bar {
-  display: inline-block;
-  vertical-align: middle;
-  width: 60px;
-  height: 7px;
-  padding: 1px;
-  border: none;
-}
+/* A dot picking its row for the Summary: a wider target than the 5px dot, padded around it without moving it */
+.token-point.pickable { padding: 5px; margin: -5px; cursor: pointer; }
+.token-point.pickable:hover .token-point-dot { --dot: var(--text); }
+/* The row the Summary is read at: larger, white, ringed, centered where the small dot sits; not the blue of a row still working */
+.token-point.marked .token-point-dot { --dot: var(--text); width: 7px; height: 7px; margin: -1px; animation: none; box-shadow: 0 0 0 2px rgb(255 255 255 / 0.2); }
 
 /* msg-tokens tooltip: `Context N tokens`, the turn's usage breakdown grid
    (labels left, numbers right), then the accumulated total under a divider. */
@@ -183,7 +178,7 @@ button.msg-summary:hover { color: var(--text); background: var(--bg-elev-2); bor
   flex-direction: column;
 }
 
-.msg-time, .msg-tokens, .msg-ctx, .msg-summary {
+.msg-time, .msg-tokens, .msg-summary {
   font-family: var(--font-mono), monospace;
   font-size: calc(10.5px * var(--font-scale, 1));
   color: var(--text-faint);

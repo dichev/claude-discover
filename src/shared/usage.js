@@ -1,3 +1,6 @@
+// Token buckets: one reply's (or a session's) tokens by type, as the API's usage reports them
+export const TOKEN_FIELDS = ['input', 'output', 'cacheRead', 'cacheCreation', 'cacheCreation5m', 'cacheCreation1h']
+
 // The advisor tool's calls in a reply: a second model run server-side, logged only among the usage iterations
 export const advisorIterations = u => (u.iterations ?? []).filter(i => i?.type === 'advisor_message')
 

@@ -4,21 +4,18 @@ import { fmtDuration, fmtNum, fmtUSD, fmtCompact, fmtToolCalls, plural, tone } f
 import { THRESHOLDS as T } from '../utils/thresholds.js'
 import { cacheAdvice, CACHE_LABELS } from '../utils/cacheAdvice.js'
 import { contextWindow, contextTokens } from './view/transcript.js'
-import { contextParts } from './context/contextParts.js'
+import { contextAt, contextParts, rowUntil } from './context/contextParts.js'
+import { totalsBy } from './context/totalsBy.js'
 import ContextUsage, { ContextFill, ContextInfo } from './context/ContextUsage.jsx'
 import { EXPERIMENT_TIP } from './view/labels.js'
 import AgentOutput from '../agent/AgentOutput.jsx'
 import './SessionSummary.css'
 
-export default function SessionSummary({ meta, items, turns, instructions, requestLog, debugLog, agent, granularity = 'day' }) {
+export default function SessionSummary({ meta, items, turns, instructions, requestLog, debugLog, agent, at, granularity = 'day' }) {
   const timeFormat = granularity === 'day' ? 'pp' : 'MMM d, pp'
-  const t = meta.tokens
-  const totalTokens = meta.totalTokens
   const wallDuration = meta.lastActivityAt - meta.startedAt
   const cost = meta.cost
-  const cacheHitRatio = meta.cacheHitRatio
-  const stu = meta.serverToolUse
-  const hasServerTools = stu.webSearch > 0 || stu.webFetch > 0
+  const hasServerTools = meta.serverToolUse.webSearch > 0 || meta.serverToolUse.webFetch > 0
   const modelLabel = meta.models.join(', ') || '—'
   const advice = cacheAdvice(meta)
   const advisor = meta.advisor
@@ -27,7 +24,14 @@ export default function SessionSummary({ meta, items, turns, instructions, reque
   // Counted in the loaded period's transcript (`turns`, flattened from `items`), like the Conversation view
   const rewinds = turns.filter(t => t.rewind).length
   const compactions = turns.filter(t => t.role === 'compact').length
-  const parts = contextParts(turns, ctx)
+  const sofar = totalsBy(meta, at == null ? null : rowUntil(turns, at)) // the Summary and Tokens figures by the row the context is shown at
+  const t = sofar.tokens
+  const stu = sofar.serverToolUse
+  // The context at the row scrolled to (see contextAt), else now: a guess until the reply after a compaction
+  const read  = at != null && contextAt(turns, at)
+  const point = read || { turns, size: ctx }
+  const parts = contextParts(point.turns, point.size)
+  const rough = meta.contextCompacted && !read
 
   const busy = agent.running || !items
   const ask = e => {
@@ -69,15 +73,15 @@ export default function SessionSummary({ meta, items, turns, instructions, reque
           <Field label="Estimated cost" value={
             <>
               {meta.priceUnknown && <span className="danger-badge" role="img" aria-label="No price entry" data-tooltip-content={`No price entry for ${modelLabel} — cost is missing or understated`}><DollarSign size={11} /></span>}
-              <span className={tone(cost, T.cost)}>{fmtUSD(cost)}</span>
+              <span className={tone(sofar.cost, T.cost)}>{fmtUSD(sofar.cost)}</span>
             </>
           } />
-          <Field label="Total tokens" value={<span className={tone(totalTokens, T.tokens)}>{fmtCompact(totalTokens)}</span>} />
-          <Field label="Working time" value={fmtDuration(meta.activeMs)} />
+          <Field label="Total tokens" value={<span className={tone(sofar.totalTokens, T.tokens)}>{fmtCompact(sofar.totalTokens)}</span>} />
+          <Field label="Working time" value={fmtDuration(sofar.activeMs)} />
           <Field
             label="Context size"
-            value={<><span className={tone(ctx, T.context)}>{meta.contextCompacted && '~'}{fmtCompact(ctx)}</span> / {fmtCompact(ctxLimit).replace('.0', '')}</>}
-            below={<ContextFill size={ctx} limit={ctxLimit} note={meta.contextCompacted ? 'Estimated until the next reply: what the compaction kept plus the System row' : undefined} />}
+            value={<><span className={tone(point.size, T.context)}>{rough && '~'}{fmtCompact(point.size)}</span> / {fmtCompact(ctxLimit).replace('.0', '')}</>}
+            below={<ContextFill size={point.size} limit={ctxLimit} note={rough ? 'Estimated until the next reply: what the compaction kept plus the System row' : undefined} />}
           />
         </Section>
         {parts.length > 0 && (
@@ -110,7 +114,7 @@ export default function SessionSummary({ meta, items, turns, instructions, reque
           <Field label="Cache write (1h)" value={fmtNum(t.cacheCreation1h || 0)} />
 
           <Field label="Cache read" value={fmtNum(t.cacheRead)} />
-          <Field label="Cache hit ratio" value={`${(cacheHitRatio * 100).toFixed(0)}%`} />
+          <Field label="Cache hit ratio" value={`${(sofar.cacheHitRatio * 100).toFixed(0)}%`} />
           {hasServerTools && (
             <Field
               label="Server tools (search / fetch)"

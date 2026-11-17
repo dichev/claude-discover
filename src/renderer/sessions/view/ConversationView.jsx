@@ -1,10 +1,9 @@
 import React, { useContext, useState } from 'react'
 import { format } from 'date-fns'
 import { Globe, LaptopMinimal, OctagonX, Terminal } from 'lucide-react'
-import { fmtCompact, fmtDuration, plural, tone } from '../../utils/formatting'
-import { THRESHOLDS as T } from '../../utils/thresholds.js'
+import { fmtCompact, fmtDuration, plural } from '../../utils/formatting'
 import { countTokens } from '../../../shared/tokenizer/claudeTokenizer.js'
-import { groupTurns, systemGroups, mcpGroupParts, latestServers, blockTokens, cycleDurations, tokenPoints, branchPoint, currentModel, contextWindow, unloggedRequestsVersion } from './transcript.js'
+import { groupTurns, systemGroups, mcpGroupParts, latestServers, blockTokens, cycleDurations, tokenPoints, branchPoint, currentModel, rowIndex, unloggedRequestsVersion } from './transcript.js'
 import { toolSummary, advisorTitle, parseCommand, interruptLabel, isClearTurn, instructionTitle, compactTitleParts, rewindTitle, persistedOutput, attachmentView, hasText, isCounted, safeJson, SIDE_NOTE } from './labels.js'
 import ApproxTokens from './ApproxTokens.jsx'
 import McpConnections, { McpTitle } from './McpConnections.jsx'
@@ -13,7 +12,6 @@ import Divider from '../../ui/Divider.jsx'
 import LazyMount from '../../ui/LazyMount.jsx'
 import Markdown from '../../ui/Markdown.jsx'
 import OpenLink from '../../ui/OpenLink.jsx'
-import ProgressBar from '../../ui/ProgressBar.jsx'
 import Tip from '../../ui/Tip.jsx'
 import { useFindActive } from '../../ui/useFindActive.js'
 import { useMouseFontScale } from '../../utils/useMouse.js'
@@ -42,7 +40,7 @@ function filtered(g, filter) {
 
 export default function ConversationView({
   items, turns, filePath = null, expandAll = null, filter = [],
-  continuesFrom = null, continuesTo = null, forkedFrom = null, forkedAt = null, onShowPeriodOf,
+  continuesFrom = null, continuesTo = null, forkedFrom = null, forkedAt = null, onShowPeriodOf, mark, onMark,
 }) {
   const groups           = groupTurns(turns)
   const points           = tokenPoints(groups)
@@ -52,12 +50,14 @@ export default function ConversationView({
   const [scale, zoomRef] = useMouseFontScale('font-scale.conversation')
 
   const model = currentModel(turns)
-  const ctxLimit = contextWindow([model]) // bar scale: fraction of this model's context window
   const hasTimeline = points.some(Boolean)
   const shown = groups.map(g => filtered(g, filter))
   const branch = branchPoint(groups, forkedFrom, forkedAt, continuesFrom)
   const branchDivider = branch && <Divider className="conv-divider" title={branch.from}>Branched from session {branch.from.slice(0, 8)}</Divider>
   const rewinds = groups.map(g => g.turns.find(t => t.rewind)?.rewind)
+  // The row the Summary is read at (see contextAt), marked on the token timeline: `mark`'s, the last one for none. `onMark` picks
+  // another by its dot
+  const marked = mark == null ? groups.length - 1 : rowIndex(groups, mark)
   // The first row still shown from where the rewound-away conversation began
   const showSince = since => {
     const from = groups.findIndex(g => g.turns.some(t => t.ts >= since))
@@ -83,14 +83,19 @@ export default function ConversationView({
           <React.Fragment key={groups[i].turns[0].uuid}>
             {i === branch?.index && branchDivider}
             {rewinds[i] && <RewindDivider rewind={rewinds[i]} onShowSince={showSince} />}
-            {g && <div className={`conv-row conv-row-${g.kind}`} data-group={i}>
+            {g && <div className={`conv-row conv-row-${g.kind}`} data-group={i} data-turn={groups[i].turns[0].uuid}>
               <LazyMount eager={i < 8} forceMount={findOpen} placeholderMinHeight={80}>
                 {g.kind === 'user' || g.kind === 'system' ? <InputRow kind={g.kind} turns={g.turns} point={points[i]} index={i} />
-                 : g.kind === 'assistant' ? <AssistantCard turns={g.turns} point={points[i]} index={i} duration={durations[i]} ctxLimit={ctxLimit} showAuthor={groups[i - 1]?.kind !== 'assistant'} />
+                 : g.kind === 'assistant' ? <AssistantCard turns={g.turns} point={points[i]} index={i} duration={durations[i]} showAuthor={groups[i - 1]?.kind !== 'assistant'} />
                  : g.kind === 'compact'   ? <Compaction block={g.turns[0].blocks[0]} />
                  :                        <InstructionRun turns={g.turns} model={model} />}
               </LazyMount>
-              {hasTimeline && <TokenPoint at={Math.max(...groups[i].turns.map(t => t.ts ?? 0))} />}
+              {hasTimeline && (
+                <TokenPoint
+                  at={Math.max(...groups[i].turns.map(t => t.ts ?? 0))} marked={i === marked} still={groups[i].kind === 'user' || groups[i].kind === 'system'}
+                  onPick={() => onMark(groups[i].turns[0].uuid)}
+                />
+              )}
             </div>}
             {groups[i].kind === 'user' && groups[i].turns.some(isClearTurn) && <Divider className="conv-divider">Context cleared</Divider>}
           </React.Fragment>
@@ -137,12 +142,15 @@ function Compaction({ block }) {
 // Anthropic's official Claude sunburst mark, in the brand's clay-orange.
 const ClaudeIcon = () => <img className="msg-icon claude-icon" src={claudeIcon} alt="" />
 
-// Sits in the conversation's right gutter at the row's own position, so it scrolls with
-// the content — no scroll syncing or measurement needed. Just a dot; the numbers it used
-// to show in a tooltip now live in the assistant card header instead.
-function TokenPoint({ at }) {
+// A dot in the conversation's right gutter at the row's own position, so it scrolls with the content. Only Claude's rows light up,
+// while it's still working on them (a minute since); the row the Summary is read at (`marked`) is white
+function TokenPoint({ at, marked, still, onPick }) {
+  const live = useActivity(at).includes('live') && !still
   return (
-    <div className={`token-point ${useActivity(at)}`}>
+    <div
+      className={`token-point${live ? ' active live' : ''}${marked ? ' marked' : ''}${onPick ? ' pickable' : ''}`} onClick={onPick}
+      data-tooltip-content={marked ? undefined : 'Show stats until this message'}
+    >
       <span className="token-point-dot" />
     </div>
   )
@@ -152,17 +160,6 @@ function TokenPoint({ at }) {
 function TokenStats({ point, index }) {
   if (!point) return null
   return <span className="msg-tokens" data-point={index}>{fmtCompact(point.total)}</span>
-}
-
-// The context size of the cycle's last API call, as a fill bar of the model's window plus the figure
-function ContextStat({ point, ctxLimit }) {
-  if (point?.ctx == null) return null
-  const pct = point.ctx / ctxLimit * 100
-  return (
-    <span className="msg-ctx" data-tooltip-content={`Context: ${fmtCompact(point.ctx)} / ${fmtCompact(ctxLimit)} (${Math.round(pct)}%)`}>
-      <ProgressBar pct={pct} tone={tone(point.ctx, T.context)} /> {fmtCompact(point.ctx)}
-    </span>
-  )
 }
 
 const USAGE_ROWS = [['Input', 'input'], ['Output', 'output'], ['Cache write (5m)', 'cacheCreation5m'], ['Cache write (1h)', 'cacheCreation1h'], ['Cache read', 'cacheRead']]
@@ -264,7 +261,7 @@ function McpBlock({ turns, instructions, tokens, speaker, children }) {
   )
 }
 
-function AssistantCard({ turns, point, index, duration, ctxLimit, showAuthor = true }) {
+function AssistantCard({ turns, point, index, duration, showAuthor = true }) {
   const [open, setOpen] = useCollapsed(false)
   const toolBlocks = turns.flatMap(t => t.blocks.filter(b => b.type === 'tool_use'))
   const errorCount = toolBlocks.filter(b => b.result?.is_error).length
@@ -297,7 +294,6 @@ function AssistantCard({ turns, point, index, duration, ctxLimit, showAuthor = t
             </button>
           : <span className="msg-summary">{summary}</span>)}
         <span className="msg-header-right">
-          <ContextStat point={point} ctxLimit={ctxLimit} />
           <TokenStats point={point} index={index} />
           {end != null && (
             <span className="msg-time" data-tooltip-content={duration > 0 ? `Response time: ${fmtDuration(duration)}` : null}>

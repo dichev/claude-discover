@@ -93,7 +93,8 @@ function freshMetrics() {
     serverToolUse: { webSearch: 0, webFetch: 0 },
     hasScheduledTask: false,
     activityPeriods: [],
-    costSamples: [],
+    costSamples: [], // per line that billed: its time span, cost and tokens, `usage` split by kind — a session's figures by any time
+    serverToolSamples: [], // per reply that used server tools: when, and how many searches and fetches
     seenMessageIds: new Set()
   }
 }
@@ -325,8 +326,11 @@ export class SessionParser {
         meta.speed = u.speed // 'standard'; 'fast' once seen stays sticky
       }
       if (u.server_tool_use) {
-        meta.serverToolUse.webSearch += u.server_tool_use.web_search_requests || 0
-        meta.serverToolUse.webFetch += u.server_tool_use.web_fetch_requests || 0
+        const webSearch = u.server_tool_use.web_search_requests || 0
+        const webFetch  = u.server_tool_use.web_fetch_requests || 0
+        meta.serverToolUse.webSearch += webSearch
+        meta.serverToolUse.webFetch += webFetch
+        if (obj._ts != null && (webSearch || webFetch)) meta.serverToolSamples.push({ end: obj._ts, webSearch, webFetch })
       }
     }
     this._addGrowth(obj, model, fast, this._growth(msgId, usage))
@@ -351,7 +355,7 @@ export class SessionParser {
     if (obj._ts != null) {
       const prevTs = this.prevMessage?._ts
       const tokens = growth.input + growth.output + growth.cacheRead + growth.cacheCreation
-      meta.costSamples.push({ start: prevTs != null && prevTs < obj._ts ? prevTs : obj._ts, end: obj._ts, cost: cost || 0, tokens })
+      meta.costSamples.push({ start: prevTs != null && prevTs < obj._ts ? prevTs : obj._ts, end: obj._ts, cost: cost || 0, tokens, usage: { ...growth } })
     }
   }
 

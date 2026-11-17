@@ -1,5 +1,6 @@
 import { countTokens } from '../../../shared/tokenizer/claudeTokenizer.js'
-import { blockTokens, contentText, groupOf } from '../view/transcript.js'
+import { contextSize } from '../../../shared/usage.js'
+import { blockTokens, contentText, groupOf, groupTurns, rowIndex } from '../view/transcript.js'
 import { blockView, humanize, isClearTurn, isCounted } from '../view/labels.js'
 
 // Claude Desktop's categories, in a fixed order so the rows stay put. Its System tools is smaller and its Messages larger by Skills:
@@ -79,6 +80,43 @@ function messageParts(turns, size, listed) {
   const list = [...sums].map(([name, n]) => ({ name, tokens: Math.round(n * scale) })).filter(c => c.tokens > 0).sort((a, b) => b.tokens - a.tokens)
   if (size > estimated) list.push({ name: 'API overhead & unsplit', tokens: size - estimated })
   return list
+}
+
+// The conversation row `at` (its first turn's uuid): its group of turns and the index of its last one
+function rowOf(turns, at) {
+  const groups = groupTurns(turns)
+  const group  = groups[rowIndex(groups, at)]
+  return group && { group, end: turns.indexOf(group.turns.at(-1)) } // a group's turns run in order
+}
+
+// When the conversation row `at` ends: the time of the next turn, the row taking in all of a reply's streamed lines. null: it's the last.
+// A compaction's row is read before it, as its context is
+export function rowUntil(turns, at) {
+  const row = rowOf(turns, at)
+  if (row?.group.kind === 'compact' && row.group.turns[0].ts != null) return row.group.turns[0].ts
+  return row ? turns.slice(row.end + 1).find(t => t.ts != null)?.ts ?? null : null
+}
+
+// The context holding the conversation row `at` as { turns, size }: the next request's, or the one a compaction before it cut (its own
+// row's too), or where a rewind dropped the row, the last request before the rewind. null: no request since, the context now
+export function contextAt(turns, at) {
+  const row = rowOf(turns, at)
+  if (!row) return null
+  const before  = (i, size) => ({ turns: turns.slice(0, i), size })
+  const latest  = Math.max(...row.group.turns.map(t => t.ts ?? 0))
+  const dropped = rewind => rewind && (rewind.since == null || latest >= rewind.since)
+  const own = row.group.kind === 'compact' && row.group.turns[0].blocks[0].preTokens
+  if (own) return before(turns.indexOf(row.group.turns[0]), own)
+  for (let i = row.end + 1; i < turns.length; i++) {
+    const t = turns[i]
+    if (t.role === 'compact' && t.blocks[0].preTokens) return before(i, t.blocks[0].preTokens)
+    // only where the rewind dropped the row; a request from before a compaction didn't hold what came after it
+    const last = dropped(t.rewind) && turns.slice(0, i).findLast(u => u.role === 'compact' || (u.usage && contextSize(u.usage)))?.usage
+    if (last) return before(i, contextSize(last))
+    const size = t.usage && contextSize(t.usage)
+    if (size) return before(i, size)
+  }
+  return null
 }
 
 // What fills a context of `size` tokens, as categories of { name, tokens } parts: what its System rows list, then Messages as what's left

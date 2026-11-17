@@ -1,5 +1,6 @@
-// Token buckets: one reply's (or a session's) tokens by type, as the API's usage reports them
-export const TOKEN_FIELDS = ['input', 'output', 'cacheRead', 'cacheCreation', 'cacheCreation5m', 'cacheCreation1h']
+import { TOKEN_FIELDS } from '../../../shared/usage.js'
+
+export { TOKEN_FIELDS }
 
 export const emptyBucket = () => Object.fromEntries(TOKEN_FIELDS.map(k => [k, 0]))
 export const isEmpty = bucket => TOKEN_FIELDS.every(k => !bucket[k])
