@@ -389,12 +389,12 @@ describe('flatten — system records', () => {
 
   it('shows the printed text as the note body, keeping a recap apart from the routine notices', () => {
     const recap = { type: 'system', subtype: 'away_summary', uuid: 's1', timestamp: ts, level: 'info', content: 'You asked to…' }
-    expect(flatten([recap])[0].blocks).toEqual([{ type: 'system', title: 'Away summary', body: 'You asked to…', level: null, folded: false }])
+    expect(flatten([recap])[0].blocks).toEqual([{ type: 'system', title: 'Away summary', body: 'You asked to…', level: null, subtype: 'away_summary', folded: false }])
   })
 
   it('shows a notice with no text as its payload, without the envelope', () => {
     const err = { type: 'system', subtype: 'api_error', uuid: 's1', cwd: 'D:\\app', timestamp: ts, level: 'error', error: { formatted: 'Unable to connect to API (ECONNRESET)' }, retryAttempt: 1 }
-    expect(flatten([err])[0].blocks).toEqual([{ type: 'system', title: 'API error', body: JSON.stringify({ error: err.error, retryAttempt: 1 }, null, 2), level: 'error', folded: false }])
+    expect(flatten([err])[0].blocks).toEqual([{ type: 'system', title: 'API error', body: JSON.stringify({ error: err.error, retryAttempt: 1 }, null, 2), level: 'error', subtype: 'api_error', folded: false }])
   })
 
   it('shows a notice after a finished reply as a System row', () => {

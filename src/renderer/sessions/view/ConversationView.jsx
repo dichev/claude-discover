@@ -40,7 +40,7 @@ function filtered(g, filter) {
 
 export default function ConversationView({
   items, turns, filePath = null, expandAll = null, filter = [],
-  continuesFrom = null, continuesTo = null, forkedFrom = null, forkedAt = null, onShowPeriodOf, mark, onMark,
+  continuesFrom = null, continuesTo = null, forkedFrom = null, forkedAt = null, onShowPeriodOf, mark, onMark, events,
 }) {
   const groups           = groupTurns(turns)
   const points           = tokenPoints(groups)
@@ -55,6 +55,7 @@ export default function ConversationView({
   const branch = branchPoint(groups, forkedFrom, forkedAt, continuesFrom)
   const branchDivider = branch && <Divider className="conv-divider" title={branch.from}>Branched from session {branch.from.slice(0, 8)}</Divider>
   const rewinds = groups.map(g => g.turns.find(t => t.rewind)?.rewind)
+  const eventNames = Map.groupBy(events, e => e.row) // the Events panel's, by their dots
   // The row the Summary is read at (see contextAt), marked on the token timeline: `mark`'s, the last one for none. `onMark` picks
   // another by its dot
   const marked = mark == null ? groups.length - 1 : rowIndex(groups, mark)
@@ -96,6 +97,7 @@ export default function ConversationView({
                   onPick={() => onMark(groups[i].turns[0].uuid)}
                 />
               )}
+              {hasTimeline && eventNames.has(i) && <div className="token-events">{eventNames.get(i).map(e => e.name).join(' · ')}</div>}
             </div>}
             {groups[i].kind === 'user' && groups[i].turns.some(isClearTurn) && <Divider className="conv-divider">Context cleared</Divider>}
           </React.Fragment>

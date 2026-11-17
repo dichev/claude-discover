@@ -7,11 +7,13 @@ import { contextWindow, contextTokens } from './view/transcript.js'
 import { contextAt, contextParts, rowUntil } from './context/contextParts.js'
 import { totalsBy } from './context/totalsBy.js'
 import ContextUsage, { ContextFill, ContextInfo } from './context/ContextUsage.jsx'
+import SessionEvents, { EventStep } from './events/SessionEvents.jsx'
+import { eventsAt } from './events/sessionEvents.js'
 import { EXPERIMENT_TIP } from './view/labels.js'
 import AgentOutput from '../agent/AgentOutput.jsx'
 import './SessionSummary.css'
 
-export default function SessionSummary({ meta, items, turns, instructions, requestLog, debugLog, agent, at, granularity = 'day' }) {
+export default function SessionSummary({ meta, items, turns, events, instructions, requestLog, debugLog, agent, at, onJump, granularity = 'day' }) {
   const timeFormat = granularity === 'day' ? 'pp' : 'MMM d, pp'
   const wallDuration = meta.lastActivityAt - meta.startedAt
   const cost = meta.cost
@@ -32,6 +34,7 @@ export default function SessionSummary({ meta, items, turns, instructions, reque
   const point = read || { turns, size: ctx }
   const parts = contextParts(point.turns, point.size)
   const rough = meta.contextCompacted && !read
+  const { picked, earlier, later } = eventsAt(turns, events, at)
 
   const busy = agent.running || !items
   const ask = e => {
@@ -84,6 +87,11 @@ export default function SessionSummary({ meta, items, turns, instructions, reque
             below={<ContextFill size={point.size} limit={ctxLimit} note={rough ? 'Estimated until the next reply: what the compaction kept plus the System row' : undefined} />}
           />
         </Section>
+        {events.length > 0 && (
+          <Section title="Events" aside={<EventStep earlier={earlier} later={later} onJump={onJump} />}>
+            <SessionEvents events={events} picked={picked} onJump={onJump} />
+          </Section>
+        )}
         {parts.length > 0 && (
           <Section title={<span>Context breakdown<ContextInfo /></span>}>
             <ContextUsage parts={parts} />
@@ -157,10 +165,10 @@ export default function SessionSummary({ meta, items, turns, instructions, reque
   )
 }
 
-function Section({ title, children }) {
+function Section({ title, aside, children }) {
   return (
     <div className="summary-section">
-      <div className="summary-section-title">{title}</div>
+      <div className="summary-section-title">{title}{aside}</div>
       {children}
     </div>
   )

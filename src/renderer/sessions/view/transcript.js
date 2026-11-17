@@ -58,7 +58,7 @@ function systemNote(it) {
   const payload = Object.fromEntries(Object.entries(it).filter(([k]) => !ENVELOPE.has(k)))
   const body    = it.content || (Object.keys(payload).length ? JSON.stringify(payload, null, 2) : null)
   const level   = it.hookErrors?.length ? 'warning' : ['warning', 'error'].includes(it.level) ? it.level : null
-  return { title, body, level, folded: !level && it.subtype !== 'away_summary' }
+  return { title, body, level, subtype: it.subtype, folded: !level && it.subtype !== 'away_summary' }
 }
 
 const changed = (state, key, value) => { const prev = state[key]; state[key] = value; return prev && prev !== value }
@@ -66,7 +66,7 @@ const changed = (state, key, value) => { const prev = state[key]; state[key] = v
 // Claude Code re-logs permission mode, cwd and artifacts over and over — note only an actual change
 function stateNote(it, state) {
   if (it.type === 'permission-mode') {
-    return changed(state, 'mode', it.permissionMode) ? { title: `Permission mode → ${it.permissionMode}`, kind: 'mode', folded: false } : null
+    return changed(state, 'mode', it.permissionMode) ? { title: `Permission mode → ${it.permissionMode}`, kind: 'mode', mode: it.permissionMode, folded: false } : null
   }
   if ((it.type === 'user' || it.type === 'assistant') && it.cwd) {
     return changed(state, 'cwd', it.cwd) ? { title: `Working directory → ${it.cwd}` } : null
@@ -247,6 +247,7 @@ export function flatten(items, { loop = [], side = [], compacts = [], mcp = [] }
       rewind,
       ts: it.timestamp ? Date.parse(it.timestamp) : null,
       model: msg.model || null,
+      effort: it.perTurnEffort ?? it.effort ?? null, // older CLIs log only `effort`
       msgId: msg.id || null,
       usage: msg.usage || null,
       tokenDelta: it._tokenDelta ?? null,

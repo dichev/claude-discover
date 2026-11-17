@@ -1,0 +1,74 @@
+/* Dot, name and time in columns that line up across rows */
+.session-events {
+  display: grid;
+  grid-template-columns: 5px minmax(0, 1fr) auto;
+  gap: 5px 8px;
+  font-size: 12px;
+}
+
+/* A subgrid row, so its cells keep the columns while the row stays one hover and click target */
+.session-event {
+  grid-column: 1 / -1;
+  display: grid;
+  grid-template-columns: subgrid;
+  align-items: center;
+  color: var(--text-dim);
+  cursor: pointer;
+
+  &:hover, &.picked { color: var(--text); }
+  &.picked { --dot: var(--text); }
+}
+
+/* A dot per event over a line that crosses the rows' gap, from the first dot to the last */
+.session-event-dot {
+  align-self: stretch;
+  margin: -3px 0;
+  display: grid;
+  place-items: center;
+  /* a 1px line drawn antialiased across the dot-wide box, so it stays centered under the dot at fractional zoom */
+  background: linear-gradient(to right, transparent calc(50% - 1px), #3a4253 50%, transparent calc(50% + 1px)) no-repeat;
+
+  .session-event:first-child > & { background-position: bottom; background-size: 100% 50%; }
+  .session-event:last-child > & { background-position: top; background-size: 100% 50%; }
+  .session-event:only-child > & { background: none; }
+
+  &::after {
+    content: '';
+    width: 5px;
+    height: 5px;
+    border-radius: 50%;
+    background: var(--dot, var(--text-faint));
+  }
+}
+
+/* Like the Summary's field labels */
+.session-event-name {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  font-size: 11px;
+  letter-spacing: 0.5px;
+}
+
+.session-event-time {
+  font-family: var(--font-mono), monospace;
+  font-size: 11px;
+}
+
+/* In the section title's row, right of it */
+.session-events-step {
+  display: flex;
+  gap: 2px;
+
+  & button {
+    padding: 0 6px;
+    background: transparent;
+    border: none;
+    color: var(--text-dim);
+    font-size: 16px;
+    line-height: 13px;
+
+    &:hover:not(:disabled) { color: var(--text); background: var(--selected); }
+    &:disabled { opacity: 0.3; cursor: default; }
+  }
+}

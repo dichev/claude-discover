@@ -1,0 +1,27 @@
+import './SessionEvents.css'
+
+// The conversation's events (see sessionEvents) on a dot line like the session list's, `picked` marked; `onJump` scrolls the
+// conversation to the one clicked
+export default function SessionEvents({ events, picked, onJump }) {
+  return (
+    <div className="session-events">
+      {events.map((e, i) => (
+        <div key={i} className={`session-event ${e === picked ? 'picked' : ''}`} onClick={() => onJump(e)}>
+          <span className="session-event-dot" />
+          <span className="session-event-name">{e.name}</span>
+          <span className="session-event-time">{e.time}</span>
+        </div>
+      ))}
+    </div>
+  )
+}
+
+// The arrows that jump to the events before and after the row scrolled to (see eventsAt), for the section's title.
+export function EventStep({ earlier, later, onJump }) {
+  return (
+    <span className="session-events-step">
+      <button type="button" aria-label="Earlier event" disabled={!earlier} onClick={() => onJump(earlier)}>‹</button>
+      <button type="button" aria-label="Later event" disabled={!later} onClick={() => onJump(later)}>›</button>
+    </span>
+  )
+}

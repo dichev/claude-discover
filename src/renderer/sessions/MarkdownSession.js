@@ -4,6 +4,7 @@ import { countTokens } from '../../shared/tokenizer/claudeTokenizer.js'
 import { contextSize } from '../../shared/usage.js'
 import { flatten, groupTurns, branchPoint, contextTokens, currentModel, contextWindow } from './view/transcript.js'
 import { contextParts } from './context/contextParts.js'
+import { sessionEvents } from './events/sessionEvents.js'
 import { toolSummary, advisorTitle, parseCommand, isClearTurn, instructionTitle, compactTitle, rewindTitle, attachmentView, hasText, safeJson, SIDE_NOTE } from './view/labels.js'
 import { fenced } from '../utils/textBlock.js'
 import { cacheAdvice, CACHE_LABELS } from '../utils/cacheAdvice.js'
@@ -152,6 +153,7 @@ export function markdownSession(meta, items, instructions = {}, requestLog = nul
   const compactions = turns.filter(t => t.role === 'compact').length
   const breakdown = contextParts(turns, ctx)
     .map(p => `- ${p.name}: ${fmtCompact(p.tokens)}${p.children.length > 1 ? ` (${p.children.map(c => `${c.name} ${fmtCompact(c.tokens)}`).join(', ')})` : ''}`)
+  const events = sessionEvents(turns, meta).map(e => `- ${e.time} ${e.name}`)
   const transcript = items ? renderTranscript(turns, meta) : '_Loading…_'
   const conversation = `\n# Conversation\n\n${transcript}`
 
@@ -161,7 +163,10 @@ export function markdownSession(meta, items, instructions = {}, requestLog = nul
 # Summary
 - Estimated cost: ${fmtUSD(meta.cost)}
 - Total tokens: ${fmtCompact(meta.totalTokens)}
-- Working time: ${fmtDuration(meta.activeMs)}
+- Working time: ${fmtDuration(meta.activeMs)}${events.length ? `
+
+## Events
+${events.join('\n')}` : ''}
 
 ## Context size
 - Last context size: ${meta.contextCompacted ? '~' : ''}${fmtCompact(ctx)} / ${fmtCompact(ctxLimit)} (${contextPct}%${meta.contextCompacted ? ', estimated until the next reply' : ''})${breakdown.length ? `

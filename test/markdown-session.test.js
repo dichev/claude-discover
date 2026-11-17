@@ -59,6 +59,11 @@ describe('markdownSession', () => {
     expect(body).toContain('\n\n## Context size\n- Last context size: 1.0k / 200.0k (1%)\n\n## Context breakdown\n- Messages: 1.0k (User messages 2, API overhead & unsplit 1.0k)\n- System tools: 13 (Bash 8, Read 5)\n- System prompt: 1\n\n## Tokens')
   })
 
+  it('lists the events to jump to between the summary and the context size, as the Summary shows them', () => {
+    const { body } = markdownSession(meta, [msg('user', 'u1', '2026-10-24T10:00:00Z', 'hi'), msg('assistant', 'a1', '2026-10-24T10:01:00Z', 'hello')])
+    expect(body).toMatch(/- Working time: .*\n\n## Events\n- \d\d:\d\d Session start\n- \d\d:\d\d Latest\n\n## Context size\n/)
+  })
+
   it('fences a block with a run longer than the code fences inside it', () => {
     const result = { type: 'tool_result', tool_use_id: 't1', content: 'before\n```js\nx\n```\nafter' }
     const out = conversation([

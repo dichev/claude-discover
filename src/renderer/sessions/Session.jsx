@@ -3,6 +3,7 @@ import ConversationView, { FILTERS } from './view/ConversationView.jsx'
 import JsonlView from './view/JsonlView.jsx'
 import RequestsView from './view/RequestsView.jsx'
 import SessionSummary from './SessionSummary.jsx'
+import { sessionEvents } from './events/sessionEvents.js'
 import { flatten } from './view/transcript.js'
 import MultiPicker from '../ui/MultiPicker.jsx'
 import Toggle from '../ui/Toggle.jsx'
@@ -111,6 +112,14 @@ export default function Session({ meta, missing, date, granularity = 'day', onSh
     stopJump.current = scrollPane(pane, to, () => { stopJump.current = null })
   }
 
+  // Shows the context at an event's row (its `at`, see sessionEvents), scrolling there while the Conversation tab shows.
+  // The scroll it makes isn't tracked, so a row that can't reach the top (near the end) still shows the context picked
+  const jump = ({ at: to }) => {
+    setAt(to === 'bottom' ? null : to)
+    const pane = paneRef.current
+    if (pane) scrollTo(pane, to)
+  }
+
   // Scrolling by hand shows the context at the row on top, once a frame
   const track = () => {
     if (frame.current) return
@@ -142,6 +151,7 @@ export default function Session({ meta, missing, date, granularity = 'day', onSh
   }
 
   const loadError = error && <ErrorMessage title="Couldn't load this session" error={error} />
+  const events    = sessionEvents(turns, meta)
 
   return (
     <div className="session-view">
@@ -175,7 +185,7 @@ export default function Session({ meta, missing, date, granularity = 'day', onSh
                     {items ? <ConversationView
                                items={items} turns={turns} filePath={meta.parentFilePath ?? meta.filePath} expandAll={expandAll} filter={filter}
                                continuesFrom={meta.continuesFrom} continuesTo={meta.continuesTo} forkedFrom={meta.forkedFrom} forkedAt={meta.forkedAt}
-                               onShowPeriodOf={onShowPeriodOf} mark={at} onMark={setAt}
+                               onShowPeriodOf={onShowPeriodOf} mark={at} onMark={setAt} events={events}
                              />
                            : loadError || <div className="empty">Loading conversation…</div>}
                   </div>
@@ -188,8 +198,8 @@ export default function Session({ meta, missing, date, granularity = 'day', onSh
                 )}
               </div>
               <SessionSummary
-                key={viewKey} meta={meta} items={items} turns={turns} instructions={instructions} requestLog={requestLog} debugLog={debugLog}
-                agent={agent} at={at} granularity={granularity}
+                key={viewKey} meta={meta} items={items} turns={turns} events={events} instructions={instructions} requestLog={requestLog} debugLog={debugLog}
+                agent={agent} at={at} onJump={jump} granularity={granularity}
               />
             </div>
           </div>

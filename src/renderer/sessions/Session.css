@@ -116,6 +116,7 @@
   flex: 1;
   min-height: 0;
   overflow-y: auto;
+  overflow-x: hidden; /* the event names beside the timeline's dots run into the margin, cut where there's none */
   padding: 22px 16px;
   container-type: inline-size; /* lets the token timeline collapse to dots when the pane is narrow */
 }

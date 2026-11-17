@@ -49,6 +49,8 @@
 .conv-continues-to { margin-top: 20px; }
 .conv-divider { margin: 20px 0; }
 .conv-rewind { color: var(--warn); &::before, &::after { opacity: 1; } }
+/* A jump to the row after a divider (a rewind, the branch point) keeps the divider in view */
+.conv-divider + .conv-row { scroll-margin-top: 44px; }
 .conv-rewind-since { all: unset; cursor: pointer; text-decoration: underline; text-underline-offset: 3px; &:hover { filter: brightness(1.3); } }
 
 .token-point {
@@ -73,6 +75,18 @@
 .token-point.pickable:hover .token-point-dot { --dot: var(--text); }
 /* The row the Summary is read at: larger, white, ringed, centered where the small dot sits; not the blue of a row still working */
 .token-point.marked .token-point-dot { --dot: var(--text); width: 7px; height: 7px; margin: -1px; animation: none; box-shadow: 0 0 0 2px rgb(255 255 255 / 0.2); }
+
+/* A row's events, right of its dot in the pane's margin, on its line */
+.token-events {
+  position: absolute;
+  left: calc(100% + 26px); /* past the dot, which ends 18px right of the row */
+  top: 5px;
+  white-space: nowrap;
+  font-family: var(--font-sans), sans-serif;
+  font-size: 11px;
+  letter-spacing: 0.5px;
+  color: var(--text-dim);
+}
 
 /* msg-tokens tooltip: `Context N tokens`, the turn's usage breakdown grid
    (labels left, numbers right), then the accumulated total under a divider. */
