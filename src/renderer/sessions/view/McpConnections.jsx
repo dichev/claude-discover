@@ -1,8 +1,8 @@
 import { Database } from 'lucide-react'
 import { fmtNum, plural } from '../../utils/formatting.js'
+import { countTokens } from '../../../shared/tokenizer/claudeTokenizer.js'
 import Markdown from '../../ui/Markdown.jsx'
 import ApproxTokens from './ApproxTokens.jsx'
-import { countTokens } from './transcript.js'
 import { useCollapsed } from './useCollapsed.js'
 import './McpConnections.css'
 
@@ -32,7 +32,7 @@ export function McpTitle({ servers }) {
 }
 
 // The MCP servers one turn had: from the transcript's requests, or connected per the session's debug log (McpDebugLog).
-// `instructions`: each server's own { content, model }, by its name
+// `instructions`: each server's own text, by its name
 export default function McpConnections({ turn, instructions }) {
   return (
     <table className="mcp-servers">
@@ -62,12 +62,12 @@ function Server({ s, debug, instructions, gutter }) {
           ? <td className="mcp-ms" data-tooltip-content={READY_TIP}>≤ {ms(s.readyWithin)}</td>
           : <td className="mcp-ms" data-tooltip-content={debug ? undefined : TIME_TIP}>{s.cached && <span className="mcp-cached" data-tooltip-content={CACHED_TIP}><Database /></span>}{ms(s.ms)}</td>}
         <td className={`mcp-status ${s.status}`}>{label(s.status)}</td>
-        <td className="mcp-tokens">{instructions && <ApproxTokens tokens={countTokens(instructions.content, instructions.model)} tip={INSTRUCTIONS_TIP} />}</td>
+        <td className="mcp-tokens">{instructions && <ApproxTokens tokens={countTokens(instructions)} tip={INSTRUCTIONS_TIP} />}</td>
       </tr>
       {(s.error || s.stderr.length > 0) && (
         <tr><td colSpan={5}><pre className={`mcp-error ${s.status}`}>{[s.error, ...s.stderr].filter(Boolean).join('\n')}</pre></td></tr>
       )}
-      {open && instructions && <tr><td colSpan={5} className="mcp-tool"><div className="aux-body"><Markdown className="block-text" text={instructions.content} /></div></td></tr>}
+      {open && instructions && <tr><td colSpan={5} className="mcp-tool"><div className="aux-body"><Markdown className="block-text" text={instructions} /></div></td></tr>}
       {s.groups.map(g => (
         <tr key={g.name} className="mcp-dim">
           <td colSpan={5} className="mcp-tool">↳ {g.name} ({plural(g.toolCount, 'tool')})</td>

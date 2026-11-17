@@ -344,6 +344,13 @@ describe('RequestParser.strips', () => {
     expect(files[0].hash).not.toBe(files[1].hash) // content hash — distinct per batch, used as the dedup key
   })
 
+  it("leaves Claude Code's billing header out of the System Prompt strip: the API bills nothing for it", async () => {
+    fs.writeFileSync(path.join(dir, 'sess-b.requests.jsonl'), JSON.stringify({ type: 'api-request', url: 'POST /v1/messages',
+      status: 200, timestamp: '2026-07-14T10:00:00.000Z', request: { model: 'claude-sonnet-5',
+        system: [{ type: 'text', text: 'x-anthropic-billing-header: cc_version=2.1.325.ee6; cc_entrypoint=cli;' }, { type: 'text', text: 'You are Claude Code' }], messages: [userMsg] } }) + '\n')
+    expect(await stripsOf('sess-b')).toMatchObject([{ file_path: 'System Prompt', content: 'You are Claude Code' }])
+  })
+
   it('shows a server tool by its definition, having no description or schema', async () => {
     const base = { type: 'api-request', url: 'POST /v1/messages', status: 200 }
     const tools = [{ type: 'web_search_20250305', name: 'web_search', max_uses: 8 }]
@@ -366,6 +373,22 @@ describe('RequestParser.strips', () => {
       { file_path: 'System Tools', memory_type: '1 tool', content: '## Read\n\nReads a file' },
       { file_path: 'MCP Tools', memory_type: '2 tools', content: '## mcp__pw__click\n\nClicks\n\n## mcp__pw__type\n\nTypes',
         items: [{ name: 'mcp__pw__click', content: 'Clicks' }, { name: 'mcp__pw__type', content: 'Types' }] },
+    ])
+  })
+
+  it('lists a tool defined mid-conversation in a tool_addition block, with or without a tools array', async () => {
+    const base = { type: 'api-request', url: 'POST /v1/messages', status: 200 }
+    const add = (name, description) => ({ type: 'tool_addition', tool: { type: 'tool_definition', definition: { name, description } } })
+    const reference = { type: 'tool_addition', tool: { type: 'tool_reference', name: 'advisor' } } // defined by the API, not the request
+    const system = (...content) => ({ role: 'system', content: [{ type: 'text', text: '# Environment' }, ...content] })
+    fs.writeFileSync(path.join(dir, 'sess-a.requests.jsonl'), [
+      { ...base, timestamp: '2026-07-14T10:00:00.000Z', request: { model: 'claude-sonnet-5', tools: [{ name: 'Read', description: 'Reads a file' }], messages: [system(add('mcp__docs__batch', 'Batches'), reference)] } },
+      { ...base, timestamp: '2026-07-14T10:01:00.000Z', request: { model: 'claude-sonnet-5', messages: [system(add('mcp__docs__batch', 'Batches')), system(add('ReadNotifications', 'Reads them'))] } },
+    ].map(r => JSON.stringify(r)).join('\n') + '\n')
+    expect((await stripsOf('sess-a')).map(f => [f.timestamp, f.file_path, f.content])).toEqual([
+      ['2026-07-14T10:00:00.000Z', 'System Tools', '## Read\n\nReads a file'],
+      ['2026-07-14T10:00:00.000Z', 'MCP Tools', '## mcp__docs__batch\n\nBatches'],
+      ['2026-07-14T10:01:00.000Z', 'System Tools', '## ReadNotifications\n\nReads them'],
     ])
   })
 

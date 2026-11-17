@@ -3,7 +3,8 @@ import { format } from 'date-fns'
 import { Globe, LaptopMinimal, OctagonX, Terminal } from 'lucide-react'
 import { fmtCompact, fmtDuration, plural, tone } from '../../utils/formatting'
 import { THRESHOLDS as T } from '../../utils/thresholds.js'
-import { flatten, groupTurns, systemGroups, mcpGroupParts, latestServers, blockTokens, cycleDurations, tokenPoints, branchPoint, currentModel, contextWindow, countTokens, unloggedRequestsVersion } from './transcript.js'
+import { countTokens } from '../../../shared/tokenizer/claudeTokenizer.js'
+import { flatten, groupTurns, systemGroups, mcpGroupParts, latestServers, blockTokens, cycleDurations, tokenPoints, branchPoint, currentModel, contextWindow, unloggedRequestsVersion } from './transcript.js'
 import { toolSummary, advisorTitle, parseCommand, interruptLabel, isClearTurn, instructionTitle, compactTitleParts, rewindTitle, persistedOutput, attachmentView, hasText, isCounted, safeJson, SIDE_NOTE } from './labels.js'
 import ApproxTokens from './ApproxTokens.jsx'
 import McpConnections, { McpTitle } from './McpConnections.jsx'
@@ -486,7 +487,7 @@ function InstructionRun({ turns, model }) {
           <span className="msg-time">{format(Date.parse(strips[0].timestamp), 'HH:mm:ss')}</span>
         </span>
       </div>
-      {strips.map(it => <InstructionFile key={`${it.hash}-${it.timestamp}`} it={it} model={model} tokens={countTokens(it.content, it.model ?? model)} />)}
+      {strips.map(it => <InstructionFile key={`${it.hash}-${it.timestamp}`} it={it} model={model} tokens={countTokens(it.content)} />)}
     </>
   )
 }
@@ -505,7 +506,7 @@ function InstructionFile({ it, model, tokens, speaker = null, className = '' }) 
         <div className="aux-body">
           {it.name && it.name !== it.file_path && <div className="instruction-path">{it.file_path}</div>}
           {it.items
-            ? <ItemFolds {...it} model={it.model ?? model} />
+            ? <ItemFolds {...it} />
             : <Markdown className="block-text" text={it.content || ''} basePath={it.file_path} />}
         </div>
       )}
@@ -514,11 +515,11 @@ function InstructionFile({ it, model, tokens, speaker = null, className = '' }) 
 }
 
 // A strip's or listing's items (tools, skills, agent types, …), each folding on its own, between the text around them
-function ItemFolds({ intro, items, outro, model }) {
+function ItemFolds({ intro, items, outro }) {
   return (
     <>
       {intro && <Markdown className="block-text" text={intro} />}
-      {items.map(t => <InstructionFile key={t.name} it={{ ...t, file_path: t.name }} model={model} tokens={countTokens(t.content, model)} />)}
+      {items.map(t => <InstructionFile key={t.name} it={{ ...t, file_path: t.name }} tokens={countTokens(t.content)} />)}
       {outro && <Markdown className="block-text" text={outro} />}
     </>
   )

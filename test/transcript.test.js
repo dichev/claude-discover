@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest'
-import { flatten, groupTurns, systemGroups, mcpGroupParts, latestServers, tokenPoints, cycleDurations, isContextTurn, unloggedRequestsVersion, contextTokens, countTokens } from '../src/renderer/sessions/view/transcript.js'
+import { flatten, groupTurns, systemGroups, mcpGroupParts, latestServers, tokenPoints, cycleDurations, isContextTurn, unloggedRequestsVersion, contextTokens } from '../src/renderer/sessions/view/transcript.js'
+import { countTokens } from '../src/shared/tokenizer/claudeTokenizer.js'
 import { parseCommand, compactTitle, persistedOutput, attachmentView, advisorTitle } from '../src/renderer/sessions/view/labels.js'
 import { SessionParser } from '../src/main/sessions/SessionParser.js'
 
@@ -307,11 +308,6 @@ describe('systemGroups', () => {
     expect(groups(blocks)).toMatchObject([{ key: 'mcp', tokens: countTokens('MCP Instructions text') }])
   })
 
-  it('counts a request\'s strip against the model it was sent to', () => {
-    const [group] = groups([strip('System Prompt', { model: 'claude-opus-4' })])
-    expect(group.tokens).toBe(countTokens('System Prompt text', 'claude-opus-4'))
-  })
-
   it('leaves out directives and notices, which stay messages', () => {
     const directive = { ...att('plan_mode'), folded: false }
     expect(groups([directive, { type: 'system', folded: true, title: 'Note' }, { type: 'text', text: 'hi' }])).toEqual([])
@@ -325,6 +321,15 @@ describe('systemGroups', () => {
   it('titles deferred-tool updates that added none', () => {
     const update = () => att('deferred_tools_delta', { addedNames: [], removedNames: ['x'] })
     expect(groups([update(), update()])[0].title).toBe('Deferred tools')
+  })
+
+  it('counts an attachment with no renderer of its own by the text the model read, not its record', () => {
+    const record   = { type: 'environment', snapshot: { platform: 'win32', shell: 'bash' } }
+    const rendered = [{ content: '<system-reminder>\n# Environment\nYou have been invoked on win32\n</system-reminder>' }]
+    const text     = '# Environment\nYou have been invoked on win32'
+    expect(attachmentView(record, rendered)).toMatchObject({ title: 'Environment', body: text, raw: false })
+    expect(attachmentView(record).raw).toBe(true) // an older transcript logs no text: the record shows, uncounted
+    expect(groups([{ ...att('environment', record), rendered }])).toMatchObject([{ key: 'context', tokens: countTokens(text) }])
   })
 
   it('hands an unsent attachment to the session context only when that group is there', () => {
@@ -348,14 +353,14 @@ describe('mcpGroupParts', () => {
 
   it('puts each server\'s instructions under its name', () => {
     const { instructions, rest } = mcpGroupParts([servers, delta('docs', 'mail')])
-    expect(instructions.get('docs').content).toBe('docs text')
-    expect(instructions.get('mail').content).toBe('mail text')
+    expect(instructions.get('docs')).toBe('docs text')
+    expect(instructions.get('mail')).toBe('mail text')
     expect(rest).toEqual([])
   })
 
-  it('reads them off a request\'s strip too, with the model it went to', () => {
-    const strip = { type: 'instruction', it: { file_path: 'MCP Instructions', model: 'claude-opus-4', items: [{ name: 'docs', content: 'docs text' }] } }
-    expect(mcpGroupParts([servers, strip]).instructions.get('docs')).toEqual({ content: 'docs text', model: 'claude-opus-4' })
+  it('reads them off a request\'s strip too', () => {
+    const strip = { type: 'instruction', it: { file_path: 'MCP Instructions', items: [{ name: 'docs', content: 'docs text' }] } }
+    expect(mcpGroupParts([servers, strip]).instructions.get('docs')).toBe('docs text')
   })
 
   it('keeps a listing as its own row when it names a server the group lacks', () => {
@@ -505,9 +510,9 @@ describe('flatten — compaction', () => {
   })
 
   it('adds the first System row to what the compaction left, which leaves out the resent instructions', () => {
-    const strip = (timestamp, content) => ({ timestamp, content, model: 'claude-opus-5-5' })
+    const strip = (timestamp, content) => ({ timestamp, content })
     const loop = [strip('t1', 'You are Claude Code.'), strip('t1', 'Read: reads a file.'), strip('t2', 'A changed CLAUDE.md')]
-    const first = countTokens('You are Claude Code.', 'claude-opus-5-5') + countTokens('Read: reads a file.', 'claude-opus-5-5')
+    const first = countTokens('You are Claude Code.') + countTokens('Read: reads a file.')
     expect(contextTokens({ lastContextTokens: 17332, contextCompacted: true }, { loop })).toBe(17332 + first)
     expect(contextTokens({ lastContextTokens: 17332, contextCompacted: true }, {})).toBe(17332)
     expect(contextTokens({ lastContextTokens: 20002, contextCompacted: false }, { loop })).toBe(20002)
@@ -722,10 +727,10 @@ describe('groupTurns — the instruction block', () => {
       instr('2026-07-24T18:07:31.400Z', 'CLAUDE.md', 'message'),
     ] }))
     expect(groups.map(g => g.kind)).toEqual(['system', 'user', 'assistant'])
-    expect(groups[0].turns[0].blocks.map(b => [b.type, b.it.file_path, b.it.model])).toEqual([
-      ['instruction', 'System Prompt', 'claude-opus-5-5'], // costed with the conversation's model
-      ['instruction', 'System Tools', 'claude-opus-5-5'],
-      ['instruction', 'CLAUDE.md', 'claude-opus-5-5'],
+    expect(groups[0].turns[0].blocks.map(b => [b.type, b.it.file_path])).toEqual([
+      ['instruction', 'System Prompt'],
+      ['instruction', 'System Tools'],
+      ['instruction', 'CLAUDE.md'],
     ])
   })
 
