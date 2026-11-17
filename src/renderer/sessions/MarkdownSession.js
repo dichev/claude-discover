@@ -1,7 +1,8 @@
 import { format } from 'date-fns'
 import { fmtDuration, fmtNum, fmtUSD, fmtCompact, fmtToolCalls, plural } from '../utils/formatting.js'
+import { countTokens } from '../../shared/tokenizer/claudeTokenizer.js'
 import { contextSize } from '../../shared/usage.js'
-import { flatten, groupTurns, branchPoint, contextTokens, currentModel, contextWindow, countTokens } from './view/transcript.js'
+import { flatten, groupTurns, branchPoint, contextTokens, currentModel, contextWindow } from './view/transcript.js'
 import { toolSummary, advisorTitle, parseCommand, isClearTurn, instructionTitle, compactTitle, rewindTitle, attachmentView, hasText, safeJson, SIDE_NOTE } from './view/labels.js'
 import { fenced } from '../utils/textBlock.js'
 import { cacheAdvice, CACHE_LABELS } from '../utils/cacheAdvice.js'
@@ -31,15 +32,15 @@ function resultText(r) {
 }
 
 // The view's `~ 12k` badge: the full size of what the truncated text stands for
-function size(text, model) {
-  const n = countTokens(text, model)
+function size(text) {
+  const n = countTokens(text)
   return n > 0 ? ` (~${fmtCompact(n)} tokens)` : ''
 }
 const took = ms => ms >= 1000 ? ` · ${fmtDuration(ms)}` : ''
 
 // A listing's entries by name and size, in place of its text cut off after the first few
-function renderItems({ intro, items, outro }, model) {
-  const list = items.map(i => `- ${i.name}${size(i.content, model)}`).join('\n')
+function renderItems({ intro, items, outro }) {
+  const list = items.map(i => `- ${i.name}${size(i.content)}`).join('\n')
   return [intro && fence(intro), list, outro && fence(outro)].filter(Boolean).join('\n')
 }
 
@@ -49,7 +50,7 @@ function renderCommand(cmd) {
   return cmd.stdout ? `${line}\n${fence(cmd.stdout)}` : line
 }
 
-// `model`: the conversation's, for token counts and for naming a side request's own model
+// `model`: the conversation's, for naming a side request's own model
 function renderBlock(b, model) {
   if (b.type === 'text') {
     const cmd = parseCommand(b.text)
@@ -63,22 +64,21 @@ function renderBlock(b, model) {
   }
   if (b.type === 'advisor_tool_result') return `_${advisorTitle(b)}_\n${fence(safeJson(b.content), 'json')}`
   if (b.type === 'tool_result') return `${b.is_error ? 'error' : 'result'}:\n${fence(resultText(b))}`
-  if (b.type === 'skill') return `Skill${b.name ? `: ${b.name}` : ''}${size(b.text, model)}:\n${fence(b.text)}`
+  if (b.type === 'skill') return `Skill${b.name ? `: ${b.name}` : ''}${size(b.text)}:\n${fence(b.text)}`
   if (b.type === 'system') return `_${b.level ? `${b.level}: ` : ''}${b.title}_${b.url ? ` (${b.url})` : ''}${b.body ? `\n${fence(b.body)}` : ''}`
   if (b.type === 'image') return '[image]'
   if (b.type === 'attachment') {
     if (b.unsent) return null // logged, but never reached the model
     const view = attachmentView(b.attachment, b.rendered)
-    const title = `_Attachment: ${view.title}_${hasText(view) ? size(view.body, model) : ''}`
+    const title = `_Attachment: ${view.title}_${hasText(view) ? size(view.body) : ''}`
     if (view.body == null) return title
-    return `${title}\n${view.items?.length ? renderItems(view, model) : fence(view.markdown || view.body)}`
+    return `${title}\n${view.items?.length ? renderItems(view) : fence(view.markdown || view.body)}`
   }
   if (b.type === 'instruction') {
     const it = b.it
-    const own = it.model ?? model
     const path = it.name && it.name !== it.file_path ? `\n\`${it.file_path}\`` : ''
-    const body = it.error ? fence(`error: ${it.error}`) : it.items?.length ? renderItems(it, own) : fence(it.content || '')
-    return `_${instructionTitle(it, model)}_${size(it.content, own)}${path}\n${body}`
+    const body = it.error ? fence(`error: ${it.error}`) : it.items?.length ? renderItems(it) : fence(it.content || '')
+    return `_${instructionTitle(it, model)}_${size(it.content)}${path}\n${body}`
   }
   if (b.type === 'mcp') return renderMcp(b.turn)
   return fence(safeJson(b), 'json')
@@ -91,7 +91,7 @@ function renderTurn(t, seen, model) {
   if (t.role === 'instruction') return `**Proxy (${SIDE_NOTE}):**\n\n${blocks.join('\n\n')}`
   if (t.role === 'compact') {
     const b = t.blocks[0]
-    return `**${compactTitle(b)}**${b.summary ? `\n\nCompact summary${size(b.summary, model)}:\n${fence(b.summary)}` : ''}`
+    return `**${compactTitle(b)}**${b.summary ? `\n\nCompact summary${size(b.summary)}:\n${fence(b.summary)}` : ''}`
   }
   const role = t.role === 'system' ? 'System' : t.role === 'user' ? (t.queued ? 'User (queued)' : 'User') : 'Assistant'
   const stats = []

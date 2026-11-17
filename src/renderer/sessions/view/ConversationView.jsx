@@ -3,7 +3,8 @@ import { format } from 'date-fns'
 import { Globe, LaptopMinimal, OctagonX, Terminal } from 'lucide-react'
 import { fmtCompact, fmtDuration, plural, tone } from '../../utils/formatting'
 import { THRESHOLDS as T } from '../../utils/thresholds.js'
-import { flatten, groupTurns, systemGroups, mcpGroupParts, latestServers, blockTokens, cycleDurations, tokenPoints, branchPoint, currentModel, contextWindow, countTokens, unloggedRequestsVersion } from './transcript.js'
+import { countTokens } from '../../../shared/tokenizer/claudeTokenizer.js'
+import { flatten, groupTurns, systemGroups, mcpGroupParts, latestServers, blockTokens, cycleDurations, tokenPoints, branchPoint, currentModel, contextWindow, unloggedRequestsVersion } from './transcript.js'
 import { toolSummary, advisorTitle, parseCommand, interruptLabel, isClearTurn, instructionTitle, compactTitleParts, rewindTitle, persistedOutput, attachmentView, hasText, isCounted, safeJson, SIDE_NOTE } from './labels.js'
 import ApproxTokens from './ApproxTokens.jsx'
 import McpConnections, { McpTitle } from './McpConnections.jsx'
@@ -129,7 +130,7 @@ function Compaction({ block }) {
       <Divider className="conv-divider">
         <span>{head}<span className={block.summarizing ? 'proxy-text' : undefined}>{note}</span>{tail}</span>
       </Divider>
-      {block.summary && <Collapsible title="Compact summary" tokens={countTokens(block.summary, block.model)}><Markdown className="block-text" text={block.summary} autoFence /></Collapsible>}
+      {block.summary && <Collapsible title="Compact summary" tokens={countTokens(block.summary)}><Markdown className="block-text" text={block.summary} autoFence /></Collapsible>}
     </>
   )
 }
@@ -329,7 +330,7 @@ function TurnRow({ turn, hidden = false, speaker = null }) {
       <div className="turn-blocks">
         {contextBlocks.length > 0 && (
           <Collapsible className="attachment" defaultOpen={false} title={plural(contextBlocks.length, 'attachment')}>
-            {contextBlocks.map((b, i) => <Attachment key={i} att={b.attachment} rendered={b.rendered} folded={b.folded} unsent={b.unsent} model={b.model} />)}
+            {contextBlocks.map((b, i) => <Attachment key={i} att={b.attachment} rendered={b.rendered} folded={b.folded} unsent={b.unsent} />)}
           </Collapsible>
         )}
         {otherBlocks.map((b, i) => <Block key={i} block={b} speaker={speaker} ts={turn.ts} />)}
@@ -380,7 +381,7 @@ function Block({ block, speaker = null, ts = null }) {
     return <Collapsible title={advisorTitle(block)} className="advisor" defaultOpen={false}><pre>{safeJson(block.content)}</pre></Collapsible>
   }
   if (block.type === 'skill') {
-    return <Collapsible title={block.name ? `Skill: ${block.name}` : 'Skill'} className="listed" defaultOpen={false} tokens={countTokens(block.text, block.model)}><Markdown className="block-text" text={block.text} /></Collapsible>
+    return <Collapsible title={block.name ? `Skill: ${block.name}` : 'Skill'} className="listed" defaultOpen={false} tokens={countTokens(block.text)}><Markdown className="block-text" text={block.text} /></Collapsible>
   }
   if (block.type === 'tool_result') {
     const c = block.content
@@ -395,7 +396,7 @@ function Block({ block, speaker = null, ts = null }) {
     )
   }
   if (block.type === 'attachment') {
-    return <Attachment att={block.attachment} rendered={block.rendered} folded={block.folded} unsent={block.unsent} model={block.model} speaker={speaker} />
+    return <Attachment att={block.attachment} rendered={block.rendered} folded={block.folded} unsent={block.unsent} speaker={speaker} />
   }
   if (block.type === 'instruction') {
     return <InstructionFile it={block.it} model={block.it.model} tokens={blockTokens(block)} speaker={speaker} className="directive" />
@@ -424,14 +425,14 @@ function SavedOutputLink({ text }) {
 }
 
 // An attachment the model didn't fold is a directive to Claude: open, and tinted apart
-function Attachment({ att, rendered, folded = true, unsent = false, model, speaker = null }) {
+function Attachment({ att, rendered, folded = true, unsent = false, speaker = null }) {
   const view            = attachmentView(att, rendered)
   const { title, body } = view
   const className       = `attachment${folded ? '' : ' directive'}`
   const open            = !folded && !view.collapsed
   if (body == null) return <Label title={said(speaker, title)} className={className} />
   return (
-    <Collapsible title={said(speaker, title)} className={className} defaultOpen={open} tokens={!unsent && hasText(view) && countTokens(body, model)}>
+    <Collapsible title={said(speaker, title)} className={className} defaultOpen={open} tokens={!unsent && hasText(view) && countTokens(body)}>
       {view.items?.length ? <ItemFolds {...view} />
         : view.markdown ? <Markdown className="block-text" text={view.markdown} autoFence />
         : <pre>{body}</pre>}
@@ -486,7 +487,7 @@ function InstructionRun({ turns, model }) {
           <span className="msg-time">{format(Date.parse(strips[0].timestamp), 'HH:mm:ss')}</span>
         </span>
       </div>
-      {strips.map(it => <InstructionFile key={`${it.hash}-${it.timestamp}`} it={it} model={model} tokens={countTokens(it.content, it.model ?? model)} />)}
+      {strips.map(it => <InstructionFile key={`${it.hash}-${it.timestamp}`} it={it} model={model} tokens={countTokens(it.content)} />)}
     </>
   )
 }
@@ -505,7 +506,7 @@ function InstructionFile({ it, model, tokens, speaker = null, className = '' }) 
         <div className="aux-body">
           {it.name && it.name !== it.file_path && <div className="instruction-path">{it.file_path}</div>}
           {it.items
-            ? <ItemFolds {...it} model={it.model ?? model} />
+            ? <ItemFolds {...it} />
             : <Markdown className="block-text" text={it.content || ''} basePath={it.file_path} />}
         </div>
       )}
@@ -514,11 +515,11 @@ function InstructionFile({ it, model, tokens, speaker = null, className = '' }) 
 }
 
 // A strip's or listing's items (tools, skills, agent types, …), each folding on its own, between the text around them
-function ItemFolds({ intro, items, outro, model }) {
+function ItemFolds({ intro, items, outro }) {
   return (
     <>
       {intro && <Markdown className="block-text" text={intro} />}
-      {items.map(t => <InstructionFile key={t.name} it={{ ...t, file_path: t.name }} model={model} tokens={countTokens(t.content, model)} />)}
+      {items.map(t => <InstructionFile key={t.name} it={{ ...t, file_path: t.name }} tokens={countTokens(t.content)} />)}
       {outro && <Markdown className="block-text" text={outro} />}
     </>
   )

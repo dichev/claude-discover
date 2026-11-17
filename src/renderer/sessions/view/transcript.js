@@ -1,28 +1,10 @@
-import { encode } from 'gpt-tokenizer/model/gpt-4o'
 import { blockView, groupTitle, humanize, isCounted, parseCommand } from './labels.js'
 import { USER_ATTACHMENTS } from '../../../shared/attachments.js'
+import { countTokens } from '../../../shared/tokenizer/claudeTokenizer.js'
 import { contextSize, advisorIterations } from '../../../shared/usage.js'
 
 // Pure transcript model, shared by ConversationView (rendering) and MarkdownSession (agent
 // payload): raw session items → turns (flatten) → row groups (groupTurns) → per-group stats.
-
-// o200k length per text, cached: the view re-renders on every transcript append, re-counting the same prompts and tools
-const lengths = new Map()
-const tokenLength = text => {
-  if (!lengths.has(text)) {
-    if (lengths.size >= 10000) lengths.delete(lengths.keys().next().value)
-    lengths.set(text, encode(text).length)
-  }
-  return lengths.get(text)
-}
-
-// Estimate Claude tokens from tiktokenizer's o200k counts
-export const countTokens = (text, model = '') => {
-  if (!text) return 0
-  const LEGACY_CLAUDE = /-(3|4)(-|$)/
-  const scale = LEGACY_CLAUDE.test(model) ? 1.13 : 1.5
-  return Math.round(tokenLength(text) * scale)
-}
 
 // The user's own prompt, typed while Claude was working and recorded nowhere else — so it renders as
 // a real user turn. Harness- and agent-queued ones (task notifications, peer messages) stay attachments.
@@ -315,14 +297,8 @@ export function flatten(items, { loop = [], side = [], compacts = [], mcp = [] }
   }
   // What the loop's requests first sent is System's to Claude, in request order (system → tools → messages).
   // A prompt's own request sent it ahead of the prompt (memory files lead its message), so it shows above it.
-  const model = currentModel(out)
-  // No record names the model an attachment, a skill or a summary was sent to, so they count as the conversation's
-  for (const b of out.flatMap(t => t.blocks)) {
-    if (['attachment', 'skill', 'compact'].includes(b.type)) b.model = model
-  }
   for (const [ts, list] of Object.entries(Object.groupBy(loop, it => it.timestamp))) {
-    const blocks = list.map(it => ({ type: 'instruction', it: { ...it, model: it.model ?? model } }))
-    abovePrompt(metaTurn({ timestamp: ts }, 'system', blocks, `prompt-${ts}`))
+    abovePrompt(metaTurn({ timestamp: ts }, 'system', list.map(it => ({ type: 'instruction', it })), `prompt-${ts}`))
   }
   return out
 }
@@ -380,8 +356,7 @@ export const isContextTurn = t => t.blocks.every(b => b.type === 'attachment' &&
 
 const isConversation = t => ['user', 'assistant', 'tool'].includes(t.role) && !isContextTurn(t)
 
-export const blockTokens = b => b.type === 'instruction' ? countTokens(b.it.content, b.it.model)
-  : isCounted(b) ? countTokens(blockView(b).body, b.model) : 0
+export const blockTokens = b => b.type === 'instruction' ? countTokens(b.it.content) : isCounted(b) ? countTokens(blockView(b).body) : 0
 
 const STRIP_GROUPS = { 'System Prompt': 'prompt', 'System Tools': 'tools', 'MCP Tools': 'tools', 'Deferred Tools': 'tools', 'MCP Instructions': 'mcp', Skills: 'listings', 'Agent Types': 'listings' }
 const ATTACHMENT_GROUPS = { output_style: 'prompt', output_style_instructions: 'prompt', deferred_tools_delta: 'tools', mcp_instructions_delta: 'mcp', instructions: 'memory', skill_listing: 'listings', agent_listing_delta: 'listings' }
@@ -420,10 +395,9 @@ export function mcpGroupParts(blocks) {
   const names    = new Set(turns.flatMap(t => t.servers.map(s => s.name)))
   const listings = blocks.filter(b => b.type !== 'mcp').map(block => ({ block, sections: block.it?.items ?? blockView(block).items ?? [] }))
   const nests    = ({ sections }) => sections.length > 0 && sections.every(s => names.has(s.name))
-  const byName   = ({ block, sections }) => sections.map(s => [s.name, { content: s.content, model: block.it?.model ?? block.model }]) // a strip's model, or an attachment's
   return {
     turns,
-    instructions: new Map(listings.filter(nests).flatMap(byName)),
+    instructions: new Map(listings.filter(nests).flatMap(l => l.sections.map(s => [s.name, s.content]))),
     rest: listings.filter(l => !nests(l)).map(l => l.block),
   }
 }
@@ -481,7 +455,7 @@ export function cycleDurations(groups) {
 export function contextTokens(meta, { loop = [] } = {}) {
   if (!meta.contextCompacted) return meta.lastContextTokens
   const first = loop.filter(s => s.timestamp === loop[0].timestamp)
-  return meta.lastContextTokens + first.reduce((a, s) => a + countTokens(s.content, s.model), 0)
+  return meta.lastContextTokens + first.reduce((a, s) => a + countTokens(s.content), 0)
 }
 
 // A branch (/branch, --fork-session) opens with the source's records copied over, up to `forkedAt` —

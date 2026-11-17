@@ -44,7 +44,7 @@ Not a hard constraint — restructure when it serves the code, just update this 
 │   │   ├── sessions/               transcript scanning, caching & parsing, each turn's MCP servers (request tools + debug log) (utils/: the file watchers; usage/: what a reply bills — token buckets, the advisor's calls)
 │   │   └── windows/                the app window (find bar: electron-find-overlay)
 │   ├── preload/                    contextBridge preload (main window)
-│   ├── shared/                     pure helpers both main and renderer import (Claude Code's listing formats, the user's own attachment types, a reply's context size)
+│   ├── shared/                     pure helpers both main and renderer import (Claude Code's listing formats, the user's own attachment types, a reply's context size, offline Claude token counts in tokenizer/)
 │   └── renderer/                   React frontend (functional)
 │       ├── agent/                  AI agent hook (analyze + ask), output + prompt templates
 │       ├── assets/                 images imported by the UI
@@ -54,6 +54,7 @@ Not a hard constraint — restructure when it serves the code, just update this 
 │       └── utils/                  shared hooks & helpers
 ├── test/                           Vitest suites + fixtures
 │   └── scripts/                    repo-only CLIs, never shipped in the npm tarball
+│       ├── tokenizer-vocab.mjs     regenerates the tokenizer's vocab.json from ctok's measured vocabulary
 │       └── usage.mjs               per-period token usage/cost table (imports src/)
 ├── electron.vite.config.js         build config: main, preload, renderer
 └── eslint.config.js                lint rules
