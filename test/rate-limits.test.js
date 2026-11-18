@@ -40,6 +40,14 @@ describe('RateLimits', () => {
     expect(r.usage).toHaveBeenCalledTimes(1)
   })
 
+  it("takes another's /usage answer instead of starting its own", async () => {
+    const r = runner(async () => ({ rate_limits: {} }))
+    const rl = new RateLimits(r)
+    rl.use(Promise.resolve({ rate_limits: { seven_day: { utilization: 26, resets_at: null } } }))
+    expect((await rl.get()).sevenDay.utilization).toBe(26)
+    expect(r.usage).not.toHaveBeenCalled()
+  })
+
   it('is null without plan limits, or when the experimental call fails', async () => {
     expect(await new RateLimits(runner(async () => ({ rate_limits_available: false, rate_limits: null }))).get()).toBeNull()
     expect(await new RateLimits(runner(async () => { throw new Error('unknown control request') })).get()).toBeNull()

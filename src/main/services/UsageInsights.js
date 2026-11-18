@@ -14,13 +14,16 @@ const DAY_CLOSE = { hours: 23, minutes: 55 } // one more scan before midnight, s
 export class UsageInsights {
   #agentRunner
   #file
+  #onScan
   #insights  = null // the latest scan's promise, shared by concurrent callers
   #fetchedAt = 0
   #active    = false // a transcript changed since the last scan
 
-  constructor(agentRunner, file = path.join(DATA_DIR, 'usage-insights.jsonl')) {
+  // `onScan` gets each scan's /usage answer as it starts, which carries the plan limits too
+  constructor(agentRunner, { file = path.join(DATA_DIR, 'usage-insights.jsonl'), onScan } = {}) {
     this.#agentRunner = agentRunner
     this.#file        = file
+    this.#onScan      = onScan
   }
 
   start() {
@@ -51,7 +54,9 @@ export class UsageInsights {
     const previous  = this.#insights
     this.#fetchedAt = Date.now()
     this.#active    = false
-    this.#insights  = this.#agentRunner.usage({ behaviors: true }).then(({ behaviors }) => {
+    const usage     = this.#agentRunner.usage({ behaviors: true })
+    this.#onScan?.(usage)
+    this.#insights  = usage.then(({ behaviors }) => {
       if (!behaviors) return previous
       const snapshot = { at: Date.now(), ...behaviors }
       this.#save(snapshot).catch(err => console.warn('[usage-insights] not saved:', err.message))

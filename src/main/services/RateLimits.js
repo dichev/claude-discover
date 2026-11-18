@@ -47,17 +47,20 @@ export class RateLimits {
 
   // Refetched once over a minute old; with `ifActive`, only if Claude Code wrote a transcript since
   get({ ifActive = false } = {}) {
-    if (Date.now() - this.#fetchedAt >= EVERY && (this.#active || !ifActive)) {
-      this.#fetchedAt = Date.now()
-      this.#active    = false
-      this.#limits    = this.#fetch()
-    }
+    if (Date.now() - this.#fetchedAt >= EVERY && (this.#active || !ifActive)) this.use(this.#agentRunner.usage())
     return this.#limits
   }
 
-  async #fetch() {
+  // Takes a /usage answer, also one already on its way (UsageInsights' scans carry the limits too), so no other process starts
+  use(usage) {
+    this.#fetchedAt = Date.now()
+    this.#active    = false
+    this.#limits    = this.#map(usage)
+  }
+
+  async #map(usage) {
     try {
-      const { subscription_type: type, account, rate_limits: rl } = await this.#agentRunner.usage()
+      const { subscription_type: type, account, rate_limits: rl } = await usage
       const models = (rl?.model_scoped ?? []).filter(m => m.utilization != null)
       return rl && {
         at: Date.now(),

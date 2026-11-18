@@ -18,7 +18,7 @@ export class Application {
     this.workHours       = new WorkHours()
     this.sessionsService = new SessionsService()
     this.rateLimits      = new RateLimits(this.agentRunner)
-    this.usageInsights   = new UsageInsights(this.agentRunner)
+    this.usageInsights   = new UsageInsights(this.agentRunner, { onScan: usage => this.rateLimits.use(usage) })
     this.switchers       = new Switchers({ restart: () => this.restart() }) // the on/off features behind the StatusBar switches
   }
 

@@ -21,7 +21,7 @@ const saved  = () => new Promise(resolve => setTimeout(resolve, 20)) // the snap
 describe('UsageInsights', () => {
   it('scans on the first ask, then only by its schedule or when forced', async () => {
     const r = runner()
-    const insights = new UsageInsights(r, file)
+    const insights = new UsageInsights(r, { file })
     expect(await insights.get(today())).toMatchObject({ day: {}, week: {} })
     expect(r.usage).toHaveBeenCalledWith({ behaviors: true })
     await insights.get(today())
@@ -33,7 +33,7 @@ describe('UsageInsights', () => {
   it('rescans hourly only after Claude Code wrote a transcript', async () => {
     vi.setSystemTime(at('2026-11-10T10:00'))
     const r = runner()
-    const insights = new UsageInsights(r, file)
+    const insights = new UsageInsights(r, { file })
     await insights.get(today())
     insights.markActive()
     vi.setSystemTime(at('2026-11-10T10:59'))
@@ -50,7 +50,7 @@ describe('UsageInsights', () => {
   it("scans once more at the day's close, if there was activity", async () => {
     vi.setSystemTime(at('2026-11-10T23:30'))
     const r = runner()
-    const insights = new UsageInsights(r, file)
+    const insights = new UsageInsights(r, { file })
     await insights.get(today())
     insights.markActive()
     vi.setSystemTime(at('2026-11-10T23:55'))
@@ -59,7 +59,7 @@ describe('UsageInsights', () => {
   })
 
   it("keeps each day's last scan, shown for past periods", async () => {
-    const insights = new UsageInsights(runner(), file)
+    const insights = new UsageInsights(runner(), { file })
     for (const time of ['2026-11-10T09:00', '2026-11-10T18:00', '2026-11-12T08:00']) {
       vi.setSystemTime(at(time))
       await insights.get({ ...today(), force: true })
@@ -71,12 +71,18 @@ describe('UsageInsights', () => {
     expect((await insights.get({ date: '2026-11-11', granularity: 'week' })).at).toBe(at('2026-11-12T08:00'))
   })
 
+  it('hands each scan to `onScan` as it starts', async () => {
+    const onScan = vi.fn()
+    await new UsageInsights(runner(), { file, onScan }).get(today())
+    expect(await onScan.mock.calls[0][0]).toMatchObject({ behaviors: { day: {}, week: {} } })
+  })
+
   it('keeps showing the last scan when one fails, and is null without any', async () => {
     const r = runner()
-    const insights = new UsageInsights(r, file)
+    const insights = new UsageInsights(r, { file })
     const first = await insights.get(today())
     r.usage.mockRejectedValueOnce(new Error('timeout'))
     expect(await insights.get({ ...today(), force: true })).toBe(first)
-    expect(await new UsageInsights({ usage: async () => { throw new Error('unknown control request') } }, file).get(today())).toBeNull()
+    expect(await new UsageInsights({ usage: async () => { throw new Error('unknown control request') } }, { file }).get(today())).toBeNull()
   })
 })
