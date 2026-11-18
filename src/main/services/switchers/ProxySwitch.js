@@ -27,6 +27,7 @@ export class ProxySwitch {
 
   // Install the proxy as a login service, then point Claude Code at it — only once it answers, so
   // a failed start never touches settings.json. Throws on failure (Switchers turns that into { error }).
+  // A service, as the base URL in settings.json outlives this app and a crash: without one, every request would hit a dead port.
   async activate() {
     const settings = new ClaudeSettings() // fresh — settings.json may have changed since app launch
     const baseUrl = settings.env?.ANTHROPIC_BASE_URL
