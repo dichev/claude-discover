@@ -39,7 +39,7 @@ const contextUnit = b => {
   return { b, id, key, name: kind ?? (it.name ? `${it.name}${it.memory_type ? ` (${it.memory_type})` : ''}` : it.file_path), items: it.items ?? [] }
 }
 
-// Where a listed item counts: an MCP tool under its server, a plugin's skill under the plugin
+// Where a listed item counts: an MCP tool under its server, a namespaced skill (plugin:skill) under its namespace
 function itemPlace(unit, name) {
   if (unit.key === 'messages') return ['messages', unit.name]
   if (unit.key === 'mcp') return ['mcp', name]
@@ -48,7 +48,7 @@ function itemPlace(unit, name) {
     return server ? ['mcpTools', server] : ['systemTools', name]
   }
   const from = plugin(name)
-  return [unit.key, from ? `plugin ${from}` : 'Built-in & user']
+  return [unit.key, from ?? 'Built-in & user']
 }
 
 // What a conversation block adds to the context, as [kind, text] pairs. The System rows' folded attachments are counted

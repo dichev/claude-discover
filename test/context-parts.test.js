@@ -13,7 +13,7 @@ describe('contextParts', () => {
       strip('System Tools', { items: [{ name: 'Read', content: 'r' }, { name: 'mcp__docs__find', content: 'f' }] }),
       att('skill_listing', { content: skills, skillCount: 4 }),
     ])
-    expect(found.find(p => p.key === 'skills').children.map(c => c.name)).toEqual(['plugin a', 'plugin b', 'Built-in & user'])
+    expect(found.find(p => p.key === 'skills').children.map(c => c.name)).toEqual(['a', 'b', 'Built-in & user'])
     expect(found.find(p => p.key === 'systemTools').children.map(c => c.name)).toEqual(['Read'])
     expect(found.find(p => p.key === 'mcpTools').children.map(c => c.name)).toEqual(['docs'])
     const counted = found.filter(p => p.key !== 'messages').reduce((a, p) => a + p.tokens, 0)
