@@ -16,6 +16,15 @@ describe('RateLimits', () => {
     })
   })
 
+  it("names the model a share of the week is for only when there's one of each", async () => {
+    const fable   = { display_name: 'Fable', utilization: 49, resets_at: null }
+    const share   = { limit_index: 1, used_percent_of_weekly: 25, allowance_percent_of_weekly: 50 }
+    const usage   = scoped => runner(async () => ({ rate_limits: { model_scoped: scoped, weekly_scoped_shares: [share] } }))
+    const shareOf = async scoped => (await new RateLimits(usage(scoped)).get()).share
+    expect(await shareOf([fable])).toEqual({ name: 'Fable', used: 25, allowance: 50 })
+    expect(await shareOf([fable, { ...fable, display_name: 'Other' }])).toBeNull()
+  })
+
   it("names the plan by the account's subscription, as /usage reports Ultra as max", async () => {
     const usage = async account => (await new RateLimits(runner(async () => ({ subscription_type: 'max', account, rate_limits: {} }))).get()).plan
     expect(await usage({ subscriptionType: 'Claude Ultra' })).toBe('Ultra')
@@ -29,6 +38,14 @@ describe('RateLimits', () => {
     expect(await rl.get()).toBe(a)
     expect(b).toBe(a)
     expect(r.usage).toHaveBeenCalledTimes(1)
+  })
+
+  it("takes another's /usage answer instead of starting its own", async () => {
+    const r = runner(async () => ({ rate_limits: {} }))
+    const rl = new RateLimits(r)
+    rl.use(Promise.resolve({ rate_limits: { seven_day: { utilization: 26, resets_at: null } } }))
+    expect((await rl.get()).sevenDay.utilization).toBe(26)
+    expect(r.usage).not.toHaveBeenCalled()
   })
 
   it('is null without plan limits, or when the experimental call fails', async () => {

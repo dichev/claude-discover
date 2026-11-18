@@ -49,13 +49,16 @@ export class AgentRunner {
     return { code: 0 }
   }
 
-  // The structured /usage data plus the account, from a session that's closed whether it answers, fails or hangs
-  async usage() {
+  // The structured /usage data plus the account, from a session that's closed whether it answers, fails or hangs; `behaviors`
+  // adds the scan of the last 7 days of transcripts behind its "what's contributing" section
+  async usage({ behaviors = false } = {}) {
     const { query } = await import('@anthropic-ai/claude-agent-sdk')
     // An empty prompt stream: control requests need streaming mode, and no message means no tokens spent
-    const q = query({ prompt: (async function* () {})(), options: { tools: [], settingSources: [] } })
+    // No telemetry or claude.ai connectors for a check that runs every minute; /usage still answers in full
+    const env = { ...process.env, CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC: '1' } // @macOS - process.env must be included
+    const q   = query({ prompt: (async function* () {})(), options: { tools: [], settingSources: [], env } })
     const usage = Promise.all([
-      q.usage_EXPERIMENTAL_MAY_CHANGE_DO_NOT_RELY_ON_THIS_API_YET({ skipBehaviors: true }),
+      q.usage_EXPERIMENTAL_MAY_CHANGE_DO_NOT_RELY_ON_THIS_API_YET({ skipBehaviors: !behaviors }),
       q.accountInfo()
     ]).then(([usage, account]) => ({ ...usage, account })) // the account comes with the session's start, no extra request
     return withTimeout(usage, USAGE_TIMEOUT, () => q.close())

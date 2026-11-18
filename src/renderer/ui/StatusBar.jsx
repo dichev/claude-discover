@@ -1,10 +1,10 @@
 import { useEffect, useId, useState } from 'react'
 import { ArrowDownToLine } from 'lucide-react'
-import { format, isToday } from 'date-fns'
+import { isToday } from 'date-fns'
 import StatusSwitch, { useSwitch } from './StatusSwitch'
 import ProgressBar from './ProgressBar.jsx'
 import Tip from './Tip.jsx'
-import { tone } from '../utils/formatting'
+import { fmtTime, tone } from '../utils/formatting'
 import { useScanProgress } from '../utils/useScanProgress.js'
 import { useClock } from '../utils/useClock.js'
 import { useLocalStorage } from '../utils/useLocalStorage.js'
@@ -61,9 +61,6 @@ const npxTooltip = <>
   <p>The app will restart from the global install - this takes about a minute.</p>
 </>
 
-// "4:30 PM" today, "Wed 1:00 PM" later
-const fmtTime = ts => format(ts, isToday(ts) ? 'h:mm a' : 'EEE h:mm a')
-
 // One tooltip row per limit: label, bar, used %, and when it resets
 function LimitRow({ label, w }) {
   const pct     = Math.floor(w.utilization)
@@ -91,7 +88,7 @@ function UsageBar({ label, limit, placeholder }) {
 }
 
 // Everything /usage reported, as the bars' tooltip
-function UsageTip({ at, plan, fiveHour, sevenDay, models, sources, extra }) {
+function UsageTip({ at, plan, fiveHour, sevenDay, models, share, sources, extra }) {
   const money    = n => new Intl.NumberFormat(undefined, { style: 'currency', currency: extra.currency || 'USD' }).format(n / 10 ** extra.decimals)
   const userOff  = extra && !extra.on && !extra.reason
   const extraPct = extra?.limit ? Math.floor((extra.used ?? 0) / extra.limit * 100) : 0
@@ -110,6 +107,7 @@ function UsageTip({ at, plan, fiveHour, sevenDay, models, sources, extra }) {
         </>}
       </div>
       <div className="tip-foot">
+        {share && <div>{share.name} has used {share.used}% of your weekly limit (it can use up to {share.allowance}%)</div>}
         {sources.length > 0 && <div>This week's usage by product: {sources.map(s => `${s.name} ${s.pct}%`).join(', ')}</div>}
         <div>Last updated {fmtTime(at)}</div>
       </div>

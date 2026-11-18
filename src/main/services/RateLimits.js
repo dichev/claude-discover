@@ -20,6 +20,14 @@ const toExtra = e => e && {
   decimals: e.decimal_places ?? 2,
 }
 
+// Undocumented: a model's slice of the overall week, as used and allowed percentages of it. Its `limit_index` points into the
+// server's limits[], which model_scoped doesn't carry, so it's paired with a model only when there's one of each
+const toShare = (shares, models) => shares?.length === 1 && models.length === 1 ? {
+  name:      models[0].display_name,
+  used:      shares[0].used_percent_of_weekly,
+  allowance: shares[0].allowance_percent_of_weekly,
+} : null
+
 // The plan's 5h/7d usage, as Claude Code's /usage reports it — through the user's own Claude Code
 // login, so it covers every client (CLI, desktop, claude.ai). Null for API key / Bedrock / Vertex logins.
 export class RateLimits {
@@ -39,23 +47,28 @@ export class RateLimits {
 
   // Refetched once over a minute old; with `ifActive`, only if Claude Code wrote a transcript since
   get({ ifActive = false } = {}) {
-    if (Date.now() - this.#fetchedAt >= EVERY && (this.#active || !ifActive)) {
-      this.#fetchedAt = Date.now()
-      this.#active    = false
-      this.#limits    = this.#fetch()
-    }
+    if (Date.now() - this.#fetchedAt >= EVERY && (this.#active || !ifActive)) this.use(this.#agentRunner.usage())
     return this.#limits
   }
 
-  async #fetch() {
+  // Takes a /usage answer, also one already on its way (UsageInsights' scans carry the limits too), so no other process starts
+  use(usage) {
+    this.#fetchedAt = Date.now()
+    this.#active    = false
+    this.#limits    = this.#map(usage)
+  }
+
+  async #map(usage) {
     try {
-      const { subscription_type: type, account, rate_limits: rl } = await this.#agentRunner.usage()
+      const { subscription_type: type, account, rate_limits: rl } = await usage
+      const models = (rl?.model_scoped ?? []).filter(m => m.utilization != null)
       return rl && {
         at: Date.now(),
         plan: account?.subscriptionType?.replace(/^Claude /, '') ?? type, // 'Ultra' from 'Claude Ultra', where /usage only says 'max'
         fiveHour: toWindow(rl.five_hour),
         sevenDay: toWindow(rl.seven_day),
-        models: (rl.model_scoped ?? []).filter(m => m.utilization != null).map(m => ({ name: m.display_name, ...toWindow(m) })), // per-model weekly caps
+        models: models.map(m => ({ name: m.display_name, ...toWindow(m) })), // per-model weekly caps
+        share: toShare(rl.weekly_scoped_shares, models),
         sources: (rl.seven_day_breakdown?.rows ?? []).filter(r => r.percent > 0).map(r => ({ name: r.display_name, pct: r.percent })), // undocumented: Claude Code / Chats / Cowork shares of the week
         extra: toExtra(rl.extra_usage),
       }

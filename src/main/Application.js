@@ -4,6 +4,7 @@ import { WorkHours } from './services/WorkHours.js'
 import { AgentRunner } from './services/AgentRunner.js'
 import { Switchers } from './services/switchers/Switchers.js'
 import { RateLimits } from './services/RateLimits.js'
+import { UsageInsights } from './services/UsageInsights.js'
 import { MainWindow } from './windows/MainWindow.js'
 import { updater } from './updater.js'
 import { CLAUDE_DIR, RECENT_CLAUDE_DIRS } from './paths.js'
@@ -17,18 +18,20 @@ export class Application {
     this.workHours       = new WorkHours()
     this.sessionsService = new SessionsService()
     this.rateLimits      = new RateLimits(this.agentRunner)
+    this.usageInsights   = new UsageInsights(this.agentRunner, { onScan: usage => this.rateLimits.use(usage) })
     this.switchers       = new Switchers({ restart: () => this.restart() }) // the on/off features behind the StatusBar switches
   }
 
   start() {
-    const { deepLink, win, agentRunner, workHours, sessionsService, rateLimits, switchers } = this
+    const { deepLink, win, agentRunner, workHours, sessionsService, rateLimits, usageInsights, switchers } = this
 
     Menu.setApplicationMenu(this.#buildMenu())
 
     // main → renderer
     sessionsService.on('update', update => win.send('sessions:update', update))
     sessionsService.on('progress', p => win.send('sessions:scan-progress', p))
-    sessionsService.on('activity', () => rateLimits.markActive())
+    sessionsService.on('activity', () => { rateLimits.markActive(); usageInsights.markActive() })
+    usageInsights.start()
     deepLink?.on('open', target => {
       win.focus()
       win.send('deeplink:open-session', target)
@@ -49,6 +52,7 @@ export class Application {
     ipcMain.handle('auto-update:check', () => updater.check())
     ipcMain.handle('auto-update:install', () => updater.install())
     ipcMain.handle('rate-limits:get', (_e, opts) => rateLimits.get(opts))
+    ipcMain.handle('usage-insights:get', (_e, opts) => usageInsights.get(opts))
     ipcMain.handle('agent:run', (e, run) => agentRunner.run(run, e.sender))
     ipcMain.handle('shell:open-link', (_e, href, baseFile) => openLinkSafely(href, baseFile))
     ipcMain.handle('deeplink:take-pending', () => deepLink?.takePending() ?? null)
