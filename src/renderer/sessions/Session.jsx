@@ -8,6 +8,7 @@ import { flatten } from './view/transcript.js'
 import MultiPicker from '../ui/MultiPicker.jsx'
 import Toggle from '../ui/Toggle.jsx'
 import { ErrorMessage } from '../ui/Errors.jsx'
+import UsageBehaviors from '../usage/UsageBehaviors.jsx'
 import { useAgent } from '../agent/Agent.js'
 import { useLocalStorage } from '../utils/useLocalStorage.js'
 import './Session.css'
@@ -145,7 +146,8 @@ export default function Session({ meta, missing, date, granularity = 'day', onSh
       <div className="session-view empty">
         {missing?.error ? <ErrorMessage title={missing.text} error={missing.error} />
           : missing?.warn ? <div className="session-missing">⚠ {missing.text}</div>
-          : <div>{missing?.text || 'Select a session to inspect.'}</div>}
+          : missing?.text ? <div>{missing.text}</div>
+          : <UsageBehaviors />}
       </div>
     )
   }

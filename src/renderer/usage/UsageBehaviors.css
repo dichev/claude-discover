@@ -1,0 +1,188 @@
+.usage-behaviors {
+  width: min(960px, 100%);
+  margin-bottom: auto; /* at the top of the pane, not centred, so opening the fix prompt grows it downwards instead of shifting it up */
+  padding: 24px;
+  color: var(--text);
+  line-height: 1.6;
+  text-align: left; /* the empty pane centers its text */
+
+  h2 {
+    margin: 0;
+    font-size: 20px;
+    font-weight: 500;
+  }
+
+  section {
+    display: grid;
+    grid-template-columns: 2fr 1fr; /* both windows are as wide, so their columns line up */
+    align-items: start;
+    column-gap: 32px;
+    margin-top: 24px;
+
+    & + section {
+      margin-top: 40px;
+    }
+
+    > * {
+      min-width: 0; /* a long path wraps rather than break the 2:1 split */
+      overflow-wrap: anywhere;
+    }
+  }
+
+  h3 {
+    grid-column: 1 / -1;
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    margin: 0 0 6px;
+    padding-bottom: 4px;
+    border-bottom: 1px solid var(--border-strong);
+    font-size: 15px;
+    font-weight: 500;
+
+    span {
+      font-size: 12px;
+      font-weight: normal;
+    }
+  }
+
+  .ub-note {
+    margin: 0 0 8px;
+  }
+}
+
+.ub-fix {
+  grid-column: 1 / -1; /* the prompt takes both columns */
+
+  summary { /* .button-primary, as the session's Ask button */
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    list-style: none;
+
+    &::-webkit-details-marker {
+      display: none;
+    }
+  }
+
+  .ub-chevron {
+    color: var(--text-faint);
+    transition: transform 120ms ease;
+  }
+
+  &[open] .ub-chevron {
+    transform: rotate(180deg);
+  }
+
+  p {
+    margin: 8px 0 6px;
+  }
+}
+
+.ub-fix-message {
+  position: relative;
+  margin-bottom: 6px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--bg-elev);
+
+  pre {
+    margin: 0;
+    padding: 10px 12px;
+    padding-right: 40px; /* clear of the copy button */
+    font-family: var(--font-mono);
+    font-size: 12px;
+    font-weight: 200; /* the extra-light cut, as the conversation's text blocks */
+    line-height: 1.5;
+    white-space: pre-wrap;
+  }
+
+  button {
+    position: absolute;
+    top: 6px;
+    right: 6px;
+    display: inline-flex;
+    padding: 4px;
+    border: 1px solid transparent;
+    border-radius: 4px;
+    background: none;
+    color: var(--text-dim);
+    cursor: pointer;
+
+    &:hover {
+      border-color: var(--border-strong);
+      color: var(--text);
+    }
+  }
+}
+
+.ub-gray {
+  color: var(--text-faint);
+}
+
+.ub-top {
+  padding-left: 20px;
+  border-left: 1px solid var(--border);
+}
+
+/* A column's section title, lined up with the bars below; small caps, unlike the grey tips */
+.ub-label {
+  margin-bottom: 2px;
+  padding: 0 8px;
+  color: var(--text-faint);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.ub-source {
+  & + & {
+    margin-top: 14px;
+  }
+
+  .ub-bar + .ub-bar {
+    margin-top: 2px;
+  }
+}
+
+.ub-row {
+  margin-bottom: 20px;
+
+  > .ub-gray { /* the tip, lined up with the name */
+    margin-top: 3px;
+    padding: 0 8px;
+    line-height: 1.35;
+  }
+
+  &.ub-untipped {
+    > .ub-bar {
+      opacity: 0.55;
+    }
+
+    > .ub-gray {
+      font-style: italic;
+    }
+  }
+}
+
+/* A bar behind the line, filled to its share; the name on the left, the share on the right */
+.ub-bar {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 5px 8px;
+  font-variant-numeric: tabular-nums;
+  border-radius: 4px;
+  --fill: color-mix(in srgb, var(--accent) 45%, var(--bg-elev)); /* opaque, so the share's text can match the bar exactly */
+  background: linear-gradient(to right, var(--fill) var(--pct), var(--bg-elev) var(--pct));
+
+  > * {
+    text-box: trim-both cap alphabetic; /* centred on the letters, not the font's uneven ascent and descent */
+  }
+
+  > :last-child {
+    color: var(--fill);
+    font-weight: 600;
+  }
+}

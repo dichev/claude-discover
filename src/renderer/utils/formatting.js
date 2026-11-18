@@ -1,4 +1,4 @@
-import { intervalToDuration } from 'date-fns'
+import { format, intervalToDuration, isToday } from 'date-fns'
 
 export function fmtDuration(ms) {
   if (!ms || ms < 0) return '—'
@@ -15,6 +15,9 @@ export function fmtAgo(date) {
   if (min < 24 * 60) return `${Math.floor(min / 60)}h`
   return `${Math.floor(min / (24 * 60))}d`
 }
+
+// "4:30 PM" today, "Wed 1:00 PM" earlier or later
+export const fmtTime = ts => format(ts, isToday(ts) ? 'h:mm a' : 'EEE h:mm a')
 
 export function fmtNum(n) {
   if (n == null) return '—'

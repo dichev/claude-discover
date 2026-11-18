@@ -32,6 +32,7 @@ contextBridge.exposeInMainWorld('api', {
   installUpdate: () => ipcRenderer.invoke('auto-update:install'),
 
   getRateLimits: opts => ipcRenderer.invoke('rate-limits:get', opts),
+  getUsageInsights: opts => ipcRenderer.invoke('usage-insights:get', opts),
 
   openLink: (href, baseFile) => ipcRenderer.invoke('shell:open-link', href, baseFile),
 

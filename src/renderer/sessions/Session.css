@@ -6,7 +6,8 @@
 
   &.empty {
     align-items: center;
-    justify-content: center;
+    justify-content: safe center; /* taller than the pane, it scrolls from the top rather than clip it */
+    overflow: auto;
     color: var(--text-faint);
   }
 }
