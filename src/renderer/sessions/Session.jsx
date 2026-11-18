@@ -147,7 +147,7 @@ export default function Session({ meta, missing, date, granularity = 'day', onSh
         {missing?.error ? <ErrorMessage title={missing.text} error={missing.error} />
           : missing?.warn ? <div className="session-missing">⚠ {missing.text}</div>
           : missing?.text ? <div>{missing.text}</div>
-          : <UsageBehaviors />}
+          : <UsageBehaviors date={date} granularity={granularity} />}
       </div>
     )
   }

@@ -30,7 +30,8 @@ export class Application {
     // main → renderer
     sessionsService.on('update', update => win.send('sessions:update', update))
     sessionsService.on('progress', p => win.send('sessions:scan-progress', p))
-    sessionsService.on('activity', () => rateLimits.markActive())
+    sessionsService.on('activity', () => { rateLimits.markActive(); usageInsights.markActive() })
+    usageInsights.start()
     deepLink?.on('open', target => {
       win.focus()
       win.send('deeplink:open-session', target)

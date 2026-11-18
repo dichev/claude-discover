@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { Check, ChevronDown, Copy, WandSparkles } from 'lucide-react'
+import { format, isToday, subDays } from 'date-fns'
 import { fmtNum, fmtTime } from '../utils/formatting.js'
 import './UsageBehaviors.css'
 
@@ -72,11 +73,16 @@ function Row({ r }) {
   )
 }
 
-function Window({ title, w, at }) {
+// A past day's snapshot is titled by the dates it covers
+function Window({ title, label, days, w, at }) {
+  const past    = !isToday(at)
   const sources = SOURCES.filter(([key]) => w[key]?.length)
   return (
     <section>
-      <h3>{title}<span className="ub-gray">Last updated {fmtTime(at)}</span></h3>
+      <h3>
+        {past ? `${label} · ${format(subDays(at, days), 'MMM d')} – ${format(at, 'MMM d')}` : title}
+        <span className="ub-gray">{past ? `Snapshot of ${format(at, 'MMM d, h:mm a')}` : `Last updated ${fmtTime(at)}`}</span>
+      </h3>
       <div>
         <div className="ub-label">Patterns</div>
         {rows(w).map(r => <Row key={r.key + r.title} r={r} />)}
@@ -98,30 +104,30 @@ function Window({ title, w, at }) {
 
 let rescanned = false // once per page load, so a reload rescans (for debugging)
 
-// Read again every minute, as the main process rescans once the last scan is an hour old
-function useInsights() {
+// The period's latest scan, or the snapshot kept for a past one; read again every minute, as the main process scans on its own schedule
+function useInsights(date, granularity) {
   const [insights, setInsights] = useState()
   useEffect(() => {
     let cancelled = false
-    const check = () => document.hidden || window.api.getUsageInsights({ force: !rescanned }).then(s => cancelled || setInsights(s))
+    const check = () => document.hidden || window.api.getUsageInsights({ date, granularity, force: !rescanned }).then(s => cancelled || setInsights(s))
     check()
     rescanned = true
     const timer = setInterval(check, 60_000)
     return () => { cancelled = true; clearInterval(timer) }
-  }, [])
+  }, [date, granularity])
   return insights
 }
 
 // What /usage says is contributing to the plan's usage, from Claude Code's scan of this machine's transcripts
-export default function UsageBehaviors() {
-  const behaviors = useInsights()
-  if (!behaviors) return <div>Select a session to inspect.</div> // loading, or unavailable (API key logins)
+export default function UsageBehaviors({ date, granularity }) {
+  const behaviors = useInsights(date, granularity)
+  if (!behaviors) return <div>Select a session to inspect.</div> // loading, unavailable (API key logins), or no snapshot for the period
   return (
     <div className="usage-behaviors">
       <h2>What's contributing the most to your usage?</h2>
       <p className="ub-gray ub-note">Patterns in how you used Claude Code on this computer, each with a tip to use less of your limits. The numbers are approximate, and a request can count in more than one pattern.</p>
-      {behaviors.day && <Window title="Last 24h" w={behaviors.day} at={behaviors.at} />}
-      {behaviors.week && <Window title="Last 7d" w={behaviors.week} at={behaviors.at} />}
+      {behaviors.day && <Window title="Last 24h" label="Daily" days={1} w={behaviors.day} at={behaviors.at} />}
+      {behaviors.week && <Window title="Last 7d" label="Weekly" days={7} w={behaviors.week} at={behaviors.at} />}
     </div>
   )
 }
