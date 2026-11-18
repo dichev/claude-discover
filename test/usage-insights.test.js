@@ -16,7 +16,6 @@ afterEach(() => vi.useRealTimers())
 const runner = () => ({ usage: vi.fn(async () => ({ behaviors: { day: {}, week: {} } })) })
 const at     = iso => new Date(iso).getTime() // local time, as the days are
 const today  = () => ({ date: format(Date.now(), 'yyyy-MM-dd'), granularity: 'day' })
-const saved  = () => new Promise(resolve => setTimeout(resolve, 20)) // the snapshot is written after the answer
 
 describe('UsageInsights', () => {
   it('scans on the first ask, then only by its schedule or when forced', async () => {
@@ -63,7 +62,6 @@ describe('UsageInsights', () => {
     for (const time of ['2026-11-10T09:00', '2026-11-10T18:00', '2026-11-12T08:00']) {
       vi.setSystemTime(at(time))
       await insights.get({ ...today(), force: true })
-      await saved()
     }
     vi.setSystemTime(at('2026-11-20T10:00'))
     expect((await insights.get({ date: '2026-11-10', granularity: 'day' })).at).toBe(at('2026-11-10T18:00'))

@@ -18,6 +18,7 @@ export class UsageInsights {
   #insights  = null // the latest scan's promise, shared by concurrent callers
   #fetchedAt = 0
   #active    = false // a transcript changed since the last scan
+  #saving    = Promise.resolve() // the history's writes, one at a time: each rewrites the file from what it read
 
   // `onScan` gets each scan's /usage answer as it starts, which carries the plan limits too
   constructor(agentRunner, { file = path.join(DATA_DIR, 'usage-insights.jsonl'), onScan } = {}) {
@@ -46,6 +47,7 @@ export class UsageInsights {
     if (force || !this.#insights) this.#scan()
     const { start, end } = periodBounds(date, granularity)
     if (Date.now() <= end) return this.#insights
+    await this.#saving
     return (await this.#read()).findLast(s => s.at >= start && s.at <= end) ?? null
   }
 
@@ -59,7 +61,7 @@ export class UsageInsights {
     this.#insights  = usage.then(({ behaviors }) => {
       if (!behaviors) return previous
       const snapshot = { at: Date.now(), ...behaviors }
-      this.#save(snapshot).catch(err => console.warn('[usage-insights] not saved:', err.message))
+      this.#saving = this.#saving.then(() => this.#save(snapshot)).catch(err => console.warn('[usage-insights] not saved:', err.message))
       return snapshot
     }, err => {
       console.warn('[usage-insights]', err.message)
