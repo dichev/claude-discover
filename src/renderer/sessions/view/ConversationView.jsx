@@ -57,8 +57,9 @@ export default function ConversationView({
   const rewinds = groups.map(g => g.turns.find(t => t.rewind)?.rewind)
   const eventNames = Map.groupBy(events, e => e.row) // the Events panel's, by their dots
   // The row the Summary is read at (see contextAt), marked on the token timeline: `mark`'s, the last one for none. `onMark` picks
-  // another by its dot
+  // another by its dot, or the events named beside it
   const marked = mark == null ? groups.length - 1 : rowIndex(groups, mark)
+  const pick   = i => ({ onClick: () => onMark(groups[i].turns[0].uuid), 'data-tooltip-content': i === marked ? undefined : 'Show stats until this message' })
   // The first row still shown from where the rewound-away conversation began
   const showSince = since => {
     const from = groups.findIndex(g => g.turns.some(t => t.ts >= since))
@@ -94,10 +95,10 @@ export default function ConversationView({
               {hasTimeline && (
                 <TokenPoint
                   at={Math.max(...groups[i].turns.map(t => t.ts ?? 0))} marked={i === marked} still={groups[i].kind === 'user' || groups[i].kind === 'system'}
-                  onPick={() => onMark(groups[i].turns[0].uuid)}
+                  pick={pick(i)}
                 />
               )}
-              {hasTimeline && eventNames.has(i) && <div className="token-events">{eventNames.get(i).map(e => e.name).join(' · ')}</div>}
+              {hasTimeline && eventNames.has(i) && <div className="token-events" {...pick(i)}>{eventNames.get(i).map(e => e.name).join(' · ')}</div>}
             </div>}
             {groups[i].kind === 'user' && groups[i].turns.some(isClearTurn) && <Divider className="conv-divider">Context cleared</Divider>}
           </React.Fragment>
@@ -146,13 +147,10 @@ const ClaudeIcon = () => <img className="msg-icon claude-icon" src={claudeIcon} 
 
 // A dot in the conversation's right gutter at the row's own position, so it scrolls with the content. Only Claude's rows light up,
 // while it's still working on them (a minute since); the row the Summary is read at (`marked`) is white
-function TokenPoint({ at, marked, still, onPick }) {
+function TokenPoint({ at, marked, still, pick }) {
   const live = useActivity(at).includes('live') && !still
   return (
-    <div
-      className={`token-point${live ? ' active live' : ''}${marked ? ' marked' : ''}${onPick ? ' pickable' : ''}`} onClick={onPick}
-      data-tooltip-content={marked ? undefined : 'Show stats until this message'}
-    >
+    <div className={`token-point pickable${live ? ' active live' : ''}${marked ? ' marked' : ''}`} {...pick}>
       <span className="token-point-dot" />
     </div>
   )

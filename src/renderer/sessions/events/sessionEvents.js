@@ -3,11 +3,11 @@ import { branchPoint, groupTurns, rowIndex } from '../view/transcript.js'
 import { interruptLabel, isClearTurn } from '../view/labels.js'
 
 // The events a turn marks, as [kind, name] pairs. `last` carries the model and effort of the replies so far, a change in either
-// being one
+// being one. A compaction marks two: its own row reads the context it cut, so the one it left is the next row's (a third item, the rows on)
 function turnEvents(t, last) {
   const found = []
   const note  = t.role === 'system' ? t.blocks[0] : null
-  if (t.role === 'compact') found.push(['compact', 'Compaction'])
+  if (t.role === 'compact') found.push(['compact', 'Before compaction'], ['compacted', 'Compaction', 1])
   if (t.rewind) found.push(['rewind', 'Rewind'])
   if (isClearTurn(t)) found.push(['clear', 'Context cleared'])
   if (t.blocks.some(b => b.type === 'text' && interruptLabel(b.text))) found.push(['interrupt', 'Interrupted'])
@@ -41,8 +41,9 @@ export function sessionEvents(turns, { continuesFrom, forkedFrom, forkedAt }) {
   let ts = first // an untimestamped record (a permission mode change) is told by the one before it
   for (const t of turns) {
     ts = t.ts ?? ts
-    for (const [kind, name] of turnEvents(t, seen)) {
-      marked.push(event(kind, name, ts, rows.get(t)))
+    for (const [kind, name, after = 0] of turnEvents(t, seen)) {
+      const row = rows.get(t) + after
+      if (row < groups.length) marked.push(event(kind, name, ts, row)) // no row after the last: Latest is that context
     }
   }
   return [

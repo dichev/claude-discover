@@ -76,7 +76,7 @@
 /* The row the Summary is read at: larger, white, ringed, centered where the small dot sits; not the blue of a row still working */
 .token-point.marked .token-point-dot { --dot: var(--text); width: 7px; height: 7px; margin: -1px; animation: none; box-shadow: 0 0 0 2px rgb(255 255 255 / 0.2); }
 
-/* A row's events, right of its dot in the pane's margin, on its line */
+/* A row's events, right of its dot in the pane's margin, on its line; they pick the row as the dot does */
 .token-events {
   position: absolute;
   left: calc(100% + 26px); /* past the dot, which ends 18px right of the row */
@@ -86,7 +86,9 @@
   font-size: 11px;
   letter-spacing: 0.5px;
   color: var(--text-dim);
+  cursor: pointer;
 }
+.token-events:hover { color: var(--text); }
 
 /* msg-tokens tooltip: `Context N tokens`, the turn's usage breakdown grid
    (labels left, numbers right), then the accumulated total under a divider. */

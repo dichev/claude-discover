@@ -16,10 +16,13 @@ describe('sessionEvents', () => {
   ]
   const events = sessionEvents(turns, {})
 
-  it('lists the start, each compaction and rewind in order, and the latest row, told by their times', () => {
+  it('lists the start, each compaction (before and after it) and rewind in order, and the latest row, told by their times', () => {
     expect(events.map(e => [e.kind, e.name, e.time])).toEqual([
-      ['start', 'Session start', '10:00'], ['compact', 'Compaction', '10:30'], ['rewind', 'Rewind', '11:15'], ['latest', 'Latest', '11:16'],
+      ['start', 'Session start', '10:00'], ['compact', 'Before compaction', '10:30'], ['compacted', 'Compaction', '10:30'],
+      ['rewind', 'Rewind', '11:15'], ['latest', 'Latest', '11:16'],
     ])
+    // a compaction on the last row leaves its context to Latest
+    expect(sessionEvents(turns.slice(0, 3), {}).map(e => e.kind)).toEqual(['start', 'compact', 'latest'])
     expect(sessionEvents(turns, { continuesFrom: at('09:00') })[0].name).toBe('Period start')
     expect(sessionEvents([{ ...turns[0], ts: at('10:00') - 86400e3 }, ...turns.slice(1)], {})[1].time).toBe('Oct 24 10:30')
     expect(sessionEvents([], {})).toEqual([])
@@ -50,15 +53,16 @@ describe('sessionEvents', () => {
     expect(sessionEvents(turns, fork).find(e => e.kind === 'mode').time).toBe(format(Date.parse('2026-10-24T10:04:00.000Z'), 'HH:mm'))
   })
 
-  it("jumps to a rewind's row, which starts at the context held for its prompt", () => {
-    expect(events.map(e => e.at)).toEqual(['u1', 'c', 'ide', 'bottom'])
+  it("jumps to a rewind's row, which starts at the context held for its prompt, and to the row after a compaction for what it left", () => {
+    expect(events.map(e => e.at)).toEqual(['u1', 'c', 'u2', 'ide', 'bottom'])
   })
 
   it('marks the event the row scrolled to comes after', () => {
     const marked = row => eventsAt(turns, events, row).picked?.kind
     expect(marked('u1')).toBe('start')
     expect(marked('c')).toBe('compact')
-    expect(marked('r2')).toBe('compact')
+    expect(marked('u2')).toBe('compacted')
+    expect(marked('r2')).toBe('compacted')
     expect(marked('ide')).toBe('rewind')
     expect(marked('r3')).toBe('latest')
     expect(marked(null)).toBe('latest')
@@ -68,15 +72,15 @@ describe('sessionEvents', () => {
   it('steps to the events either side of the row, back to the one it comes after when past it', () => {
     const steps = row => { const { earlier, later } = eventsAt(turns, events, row); return [earlier?.kind, later?.kind] }
     expect(steps('u1')).toEqual([undefined, 'compact'])
-    expect(steps('c')).toEqual(['start', 'rewind'])
-    expect(steps('r2')).toEqual(['compact', 'rewind'])
+    expect(steps('c')).toEqual(['start', 'compacted'])
+    expect(steps('r2')).toEqual(['compacted', 'rewind'])
     expect(steps(null)).toEqual(['rewind', undefined])
   })
 
   it('marks by the rows, a held context turn coming before the row above its prompt', () => {
     const held = [context('ide', '10:00'), { ...turn('c', 'compact', '10:01'), blocks: [{ summary: 'before', preTokens: 5000 }] }, turn('u1', 'user', '10:02', { rewind: { since: null } }), turn('r1', 'assistant', '10:03')]
     const list = sessionEvents(held, {})
-    expect(list.map(e => e.at)).toEqual(['c', 'c', 'ide', 'bottom'])
+    expect(list.map(e => e.at)).toEqual(['c', 'c', 'ide', 'ide', 'bottom'])
     expect(eventsAt(held, list, 'c').picked.kind).toBe('compact') // the compaction is the first row
     expect(eventsAt(held, list, 'ide').picked.kind).toBe('rewind')
   })
