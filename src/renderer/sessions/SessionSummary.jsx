@@ -4,7 +4,7 @@ import { fmtDuration, fmtNum, fmtUSD, fmtCompact, fmtToolCalls, plural, tone } f
 import { THRESHOLDS as T } from '../utils/thresholds.js'
 import { cacheAdvice, CACHE_LABELS } from '../utils/cacheAdvice.js'
 import { contextWindow, contextTokens } from './view/transcript.js'
-import { contextAt, contextParts, rowUntil } from './context/contextParts.js'
+import { compactedTokens, contextAt, contextParts, rowUntil } from './context/contextParts.js'
 import { totalsBy } from './context/totalsBy.js'
 import ContextUsage, { ContextFill, ContextInfo } from './context/ContextUsage.jsx'
 import SessionEvents, { EventStep } from './events/SessionEvents.jsx'
@@ -94,7 +94,7 @@ export default function SessionSummary({ meta, items, turns, events, instruction
         )}
         {parts.length > 0 && (
           <Section title={<span>Context breakdown<ContextInfo /></span>}>
-            <ContextUsage parts={parts} />
+            <ContextUsage parts={parts} compacted={compactedTokens(point.turns, point.size)} />
           </Section>
         )}
 

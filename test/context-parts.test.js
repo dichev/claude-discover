@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { contextParts } from '../src/renderer/sessions/context/contextParts.js'
+import { compactedTokens, contextParts } from '../src/renderer/sessions/context/contextParts.js'
 import { countTokens as tokens } from '../src/shared/tokenizer/claudeTokenizer.js'
 
 describe('contextParts', () => {
@@ -127,5 +127,15 @@ describe('contextParts', () => {
 
   it('draws nothing when no System row was logged', () => {
     expect(parts([])).toEqual([])
+  })
+
+  it('counts what each compaction took out of the context: its size before it, less the next request, or the context read', () => {
+    const user    = text => ({ role: 'user', blocks: [{ type: 'text', text }] })
+    const reply   = size => ({ role: 'assistant', usage: { input_tokens: size }, blocks: [{ type: 'text', text: 'done' }] })
+    const compact = preTokens => ({ role: 'compact', blocks: [{ summary: 'what came before', preTokens }] })
+    const turns   = [user('first'), reply(4000), compact(5000), user('second'), reply(900), reply(1200), compact(2000), user('third')]
+    expect(compactedTokens(turns.slice(0, 2), 4000)).toBe(0)
+    expect(compactedTokens(turns.slice(0, 4), 900)).toBe(4100) // read at the row after it, before the request that follows
+    expect(compactedTokens(turns, 300)).toBe(4100 + 1700)
   })
 })

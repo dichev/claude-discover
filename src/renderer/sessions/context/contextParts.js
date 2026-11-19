@@ -156,3 +156,14 @@ export function contextParts(turns, size) {
   if (messages > 0) parts.push({ key: 'messages', name: CATEGORIES.messages, tokens: messages, children: messageParts(recent, messages, listed) })
   return parts.filter(p => p.tokens > 0).sort((a, b) => ORDER.indexOf(a.key) - ORDER.indexOf(b.key))
 }
+
+// The tokens the compactions of `turns` took out of a context now of `size` tokens: its size before each, as Claude Code logs it,
+// less the next request's, `size` being the one after the last
+export function compactedTokens(turns, size) {
+  return turns.reduce((sum, t, i) => {
+    const before = t.role === 'compact' && t.blocks[0].preTokens
+    if (!before) return sum
+    const next = turns.slice(i + 1).find(u => u.usage && contextSize(u.usage))
+    return sum + Math.max(0, before - (next ? contextSize(next.usage) : size))
+  }, 0)
+}

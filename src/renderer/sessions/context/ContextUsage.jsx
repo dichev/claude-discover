@@ -29,8 +29,9 @@ export function ContextFill({ size, limit, note }) {
 }
 
 // What fills the context, in Claude Desktop's categories, as bars on one scale; a category's parts expand in place.
-// No autocompact buffer or free space: where a session compacts depends on its settings, which the transcript doesn't log
-export default function ContextUsage({ parts }) {
+// No autocompact buffer or free space: where a session compacts depends on its settings, which the transcript doesn't log.
+// The last row is the tokens `compacted` away (see compactedTokens): a negative count, off the bars' scale, so it has none
+export default function ContextUsage({ parts, compacted }) {
   const [expanded, setExpanded] = useState({})
   const max    = Math.max(...parts.map(p => p.tokens))
   const toggle = key => setExpanded(prev => ({ ...prev, [key]: !prev[key] }))
@@ -53,6 +54,13 @@ export default function ContextUsage({ parts }) {
           ...open ? p.children.map(c => row(`${p.key}/${c.name}`, c.name, c.tokens, { className: 'part', color })) : [],
         ]
       })}
+      {compacted > 0 && (
+        <div className="context-row part">
+          <span className="context-name" data-tooltip-content="The tokens compactions took out of the context">Compacted away</span>
+          <span />
+          <span className="context-tokens">{fmtCompact(-compacted)}</span>
+        </div>
+      )}
     </div>
   )
 }
