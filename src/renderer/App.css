@@ -22,7 +22,6 @@
 }
 
 .gantt-pane {
-  --gantt-side-width: 280px; /* .session-summary's width, so the two line up */
   display: flex;
   flex-direction: column;
   min-height: 0;
@@ -43,7 +42,7 @@
     padding-right: 0;
     & .gantt-canvas { border-top-right-radius: 0; border-bottom-right-radius: 0; border-right: none; }
   }
-  & > .gantt-side { flex: 0 0 var(--gantt-side-width); }
+  & > .gantt-side { flex: 0 0 var(--side-width); }
 }
 
 .body-outer {

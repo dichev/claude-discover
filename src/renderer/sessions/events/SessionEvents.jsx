@@ -8,7 +8,7 @@ export default function SessionEvents({ events, picked, onJump }) {
       {events.map((e, i) => (
         <div key={i} className={`session-event ${e === picked ? 'picked' : ''}`} onClick={() => onJump(e)}>
           <span className="session-event-dot" />
-          <span className="session-event-name">{e.name}</span>
+          <span className="session-event-name">{e.name}{e.note && ` (${e.note})`}</span>
           <span className="session-event-time">{e.time}</span>
         </div>
       ))}

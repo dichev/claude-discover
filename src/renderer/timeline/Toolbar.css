@@ -76,7 +76,7 @@
 /* Starts at the period summary panel's left edge; the panel runs flush to the window, past the title bar's 16px padding. */
 .gantt-granularity {
   justify-self: end;
-  width: calc(var(--gantt-side-width) - 16px);
+  width: calc(var(--side-width) - 16px);
   display: flex;
   gap: 3px;
   padding: 3px;

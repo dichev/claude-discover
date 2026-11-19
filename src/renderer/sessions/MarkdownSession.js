@@ -155,7 +155,7 @@ export function markdownSession(meta, items, instructions = {}, requestLog = nul
     .map(p => `- ${p.name}: ${fmtCompact(p.tokens)}${p.children.length > 1 ? ` (${p.children.map(c => `${c.name} ${fmtCompact(c.tokens)}`).join(', ')})` : ''}`)
   const compacted = compactedTokens(turns, ctx)
   if (breakdown.length && compacted) breakdown.push(`- Compacted away: ${fmtCompact(-compacted)} (the tokens compactions took out of the context)`)
-  const events = sessionEvents(turns, meta).map(e => `- ${e.time} ${e.name}`)
+  const events = sessionEvents(turns, meta).map(e => `- ${e.time} ${e.name}${e.note ? ` (${e.note})` : ''}`)
   const transcript = items ? renderTranscript(turns, meta) : '_Loading…_'
   const conversation = `\n# Conversation\n\n${transcript}`
 

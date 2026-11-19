@@ -23,9 +23,25 @@ describe('sessionEvents', () => {
     ])
     // a compaction on the last row leaves its context to Latest
     expect(sessionEvents(turns.slice(0, 3), {}).map(e => e.kind)).toEqual(['start', 'compact', 'latest'])
-    expect(sessionEvents(turns, { continuesFrom: at('09:00') })[0].name).toBe('Period start')
+    // a period between others names the days on either side, its carried-over instructions (stamped before it) not widening the times
+    const continued = sessionEvents([{ ...turns[0], ts: at('08:00') - 86400e3 }, ...turns.slice(1)], { continuesFrom: at('09:00') - 86400e3, continuesTo: at('09:00') + 86400e3 })
+    expect([continued.at(0), continued.at(-1)].map(e => [e.name, e.note, e.time]))
+      .toEqual([['Continued', 'from Oct 23', '10:01'], ['Latest', 'continues on Oct 25', '11:16']])
     expect(sessionEvents([{ ...turns[0], ts: at('10:00') - 86400e3 }, ...turns.slice(1)], {})[1].time).toBe('Oct 24 10:30')
     expect(sessionEvents([], {})).toEqual([])
+  })
+
+  it('tells a period picked up by a new process from one left open, and marks a resume later on at its prompt', () => {
+    const continuesFrom = at('09:00') - 86400e3
+    const resumed = sessionEvents(turns, { continuesFrom, resumes: [at('10:00') + 500, at('11:00') + 500] })
+    expect(resumed.map(e => [e.name, e.note, e.at])).toEqual([
+      ['Resumed', 'continues from Oct 23', 'u1'], ['Before compaction', undefined, 'c'], ['Resumed', undefined, 'u2'],
+      ['Compaction', undefined, 'u2'], ['Rewind', undefined, 'ide'], ['Latest', undefined, 'bottom'],
+    ])
+    // a new process after the first reply resumed it there, the period's start was the session left open
+    expect(sessionEvents(turns, { continuesFrom, resumes: [at('11:00') + 500] }).map(e => e.name)).toEqual(['Continued', 'Before compaction', 'Resumed', 'Compaction', 'Rewind', 'Latest'])
+    // in a period the session started in, every resume is its own event
+    expect(sessionEvents(turns, { resumes: [at('10:00') + 500] }).map(e => e.name).slice(0, 2)).toEqual(['Session start', 'Resumed'])
   })
 
   it('lists a /clear, an interruption, a mode, model or effort change, a return from a break and the branch point', () => {

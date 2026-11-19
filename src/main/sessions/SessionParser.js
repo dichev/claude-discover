@@ -3,6 +3,7 @@ import { TOKEN_FIELDS, emptyBucket, addUsage, usageOf } from './usage/buckets.js
 import { AdvisorUsage } from './usage/AdvisorUsage.js'
 
 const ACTIVITY_GAP_MS = 5 * 60 * 1000
+const ZERO_UUID = '00000000-0000-0000-0000-000000000000'
 
 // Each token type's slice of a bucket, priced alone; rates are linear, so the slices' costs sum to the bucket's
 const COST_PARTS = {
@@ -85,7 +86,7 @@ function freshMeta({ sessionId, parentSessionId, filePath, parentFilePath, fileS
 // What the records add up to — a branch resets it where its own records start
 function freshMetrics() {
   return {
-    startedAt: null, lastActivityAt: null, continuesFrom: null, continuesTo: null,
+    startedAt: null, lastActivityAt: null, continuesFrom: null, continuesTo: null, resumes: [],
     model: null, models: [], efforts: [], serviceTier: null, speed: null, fastPricingUnknown: false, priceUnknown: false,
     firstUserPrompt: null, firstUserCommand: null,
     messageCount: 0, workflowAgents: 0, toolCalls: 0, skillCalls: 0,
@@ -120,6 +121,8 @@ export class SessionParser {
     this.calls = [] // one per API call, holding its final usage, for repricing the cache
     this.advisor = new AdvisorUsage()
     this.branchStarted = false
+    this.requested = false // an API request was logged yet
+    this.rewound = false // a rewind since the last request
   }
 
   // Returns true if the item passes `this.range`.
@@ -154,6 +157,14 @@ export class SessionParser {
     const inherited = parsed > 0 ? parsed : this.lastSeenTs
     const ts = inherited ?? meta.mtime
     if (parsed > 0) this.lastSeenTs = parsed
+    // A request logged whole, not as a diff on the one before (`base`), is a new process's first: past the session's own, a resume.
+    // A rewind to the first prompt logs one whole too, in the same process — it's marked by a `last-prompt` with a zeroed leaf.
+    if (t === 'last-prompt' && obj.leafUuid === ZERO_UUID) this.rewound = true
+    const resumed = t === 'api-request' && !obj.base && this.requested && !this.rewound
+    if (t === 'api-request') {
+      this.requested = true
+      this.rewound   = false
+    }
     if (this.range && (ts < this.range.start || ts > this.range.end)) {
       // Nearest activity outside the period on either side — the view marks where the shown part picks up and where it goes on
       if (inherited != null && ts < this.range.start && ts > meta.continuesFrom) meta.continuesFrom = ts
@@ -169,6 +180,7 @@ export class SessionParser {
       return false
     }
     obj._ts = ts
+    if (resumed) meta.resumes.push(ts)
     // A caveat is stamped as it's logged, after the command it introduces was typed — it still sorts ahead of it
     if (obj.parentUuid && obj.parentUuid === this.caveat?.uuid && ts < this.caveat._ts) this.caveat._ts = ts
     if (inherited != null) {

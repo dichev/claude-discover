@@ -1,5 +1,5 @@
 .session-summary {
-  width: 280px;
+  width: var(--side-width);
   flex-shrink: 0;
   display: flex;
   flex-direction: column;

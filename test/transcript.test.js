@@ -188,6 +188,28 @@ describe('SessionParser — continuesFrom / continuesTo', () => {
     expect(tokensOn('2026-10-01')).toMatchObject({ input: 0, cacheRead: 0, output: 58 })
   })
 
+  it('records the resumes in the period: the requests logged whole, past the session’s first', () => {
+    const request = (timestamp, base) => ({ type: 'api-request', timestamp, querySource: 'repl_main_thread', ...base && { base } })
+    const records = [lines[0], request('2026-09-25T10:00:01.000Z'), lines[1], request('2026-09-26T14:32:01.000Z', 'r1'), lines[2], request('2026-09-28T09:00:01.000Z')]
+    const resumesIn = range => {
+      const parser = new SessionParser({ sessionId: 's1', filePath: 's1.jsonl', range })
+      for (const l of records) parser.feed(l)
+      return parser.meta.resumes
+    }
+    expect(resumesIn(range)).toEqual([Date.parse('2026-09-28T09:00:01.000Z')])
+    expect(resumesIn({ start: Date.parse('2026-09-25T00:00:00.000Z'), end: Date.parse('2026-09-26T23:59:59.999Z') })).toEqual([])
+  })
+
+  it('does not take a rewind to the first prompt for a resume, though its request is logged whole too', () => {
+    const request = timestamp => ({ type: 'api-request', timestamp, querySource: 'repl_main_thread' })
+    const rewind  = { type: 'last-prompt', leafUuid: '00000000-0000-0000-0000-000000000000', explicit: true, sessionId: 's1' }
+    const parser  = new SessionParser({ sessionId: 's1', filePath: 's1.jsonl' })
+    for (const l of [lines[0], request('2026-09-25T10:00:01.000Z'), lines[1], rewind, request('2026-09-26T14:32:01.000Z'), lines[2], request('2026-09-28T09:00:01.000Z')]) {
+      parser.feed(l)
+    }
+    expect(parser.meta.resumes).toEqual([Date.parse('2026-09-28T09:00:01.000Z')])
+  })
+
   it('stays null for a whole-file parse', () => {
     const parser = new SessionParser({ sessionId: 's1', filePath: 's1.jsonl' })
     for (const l of lines) parser.feed(l)

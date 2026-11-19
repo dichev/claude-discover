@@ -23,12 +23,15 @@ function turnEvents(t, last) {
 }
 
 // The conversation's moments to jump to in row order, from its start to its latest row (see turnEvents, branchPoint), each as
-// { kind, name, time, at, row }: `at` the row to jump to (its first turn's uuid, or 'bottom' for the latest), `row` its index
-export function sessionEvents(turns, { continuesFrom, forkedFrom, forkedAt }) {
+// { kind, name, time, at, row }: `at` the row to jump to (its first turn's uuid, or 'bottom' for the latest), `row` its index.
+// The ends of a period between others add a `note` naming the day on that side, left out of the timeline's labels.
+// Each of the meta's `resumes` (a new process picking the session up again) marks its prompt's row
+export function sessionEvents(turns, { continuesFrom, continuesTo, forkedFrom, forkedAt, resumes = [] }) {
   const groups = groupTurns(turns)
   if (!groups.length) return []
-  // Told by the time, with the day where the turns span several
-  const first  = turns.find(t => t.ts)?.ts
+  // Told by the time, with the day where the turns span several. A continued period leads with its first request's instructions,
+  // stamped when that was sent, before the period
+  const first  = turns.find(t => t.ts > (continuesFrom ?? 0))?.ts
   const last   = turns.findLast(t => t.ts)?.ts
   const dated  = isSameDay(first, last) ? 'HH:mm' : 'MMM d HH:mm'
   const event  = (kind, name, ts, row, at = groups[row].turns[0].uuid) => ({ kind, name, time: ts ? format(ts, dated) : '', at, row })
@@ -38,6 +41,13 @@ export function sessionEvents(turns, { continuesFrom, forkedFrom, forkedAt }) {
   // First in its row, as its divider is
   const marked = branch && branch.index < groups.length
     ? [event('branch', `Branched from ${branch.from.slice(0, 8)}`, groups[branch.index].turns.find(t => t.ts)?.ts, branch.index)] : []
+  // A continued period picked up by a new process before any reply was resumed at its start, not just left open
+  const resumed = resumes.map(r => turns.findLast(t => t.ts <= r)).filter(Boolean)
+  const replied = groups.findIndex(g => g.turns.some(t => t.role === 'assistant'))
+  const atStart = continuesFrom != null && resumed.length > 0 && (replied < 0 || rows.get(resumed[0]) <= replied)
+  for (const t of atStart ? resumed.slice(1) : resumed) {
+    marked.push(event('resume', 'Resumed', t.ts, rows.get(t)))
+  }
   let ts = first // an untimestamped record (a permission mode change) is told by the one before it
   for (const t of turns) {
     ts = t.ts ?? ts
@@ -46,11 +56,11 @@ export function sessionEvents(turns, { continuesFrom, forkedFrom, forkedAt }) {
       if (row < groups.length) marked.push(event(kind, name, ts, row)) // no row after the last: Latest is that context
     }
   }
-  return [
-    event('start', continuesFrom == null ? 'Session start' : 'Period start', first, 0),
-    ...marked.sort((a, b) => a.row - b.row), // stable, so a row's events keep their order
-    event('latest', 'Latest', last, groups.length - 1, 'bottom'),
-  ]
+  const start  = event('start', continuesFrom == null ? 'Session start' : atStart ? 'Resumed' : 'Continued', first, 0)
+  if (continuesFrom != null) start.note = `${atStart ? 'continues ' : ''}from ${format(continuesFrom, 'MMM d')}`
+  const latest = event('latest', 'Latest', last, groups.length - 1, 'bottom')
+  if (continuesTo != null) latest.note = `continues on ${format(continuesTo, 'MMM d')}`
+  return [start, ...marked.sort((a, b) => a.row - b.row), latest] // stable sort, so a row's events keep their order
 }
 
 // Where the conversation row `at` (as Session holds it: null for the end) is among the events: the one it comes after, the last
