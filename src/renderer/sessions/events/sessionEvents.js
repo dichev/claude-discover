@@ -25,7 +25,8 @@ function turnEvents(t, last) {
 // The conversation's moments to jump to in row order, from its start to its latest row (see turnEvents, branchPoint), each as
 // { kind, name, time, at, row }: `at` the row to jump to (its first turn's uuid, or 'bottom' for the latest), `row` its index.
 // The ends of a period between others add a `note` naming the day on that side, left out of the timeline's labels.
-// Each of the meta's `resumes` (a new process picking the session up again) marks its prompt's row
+// Each of the meta's `resumes` (a new process picking the session up again) marks its prompt's row; a run of them with no other
+// event between is told once, at its first, its count in the note: an SDK app resumes the session for every prompt
 export function sessionEvents(turns, { continuesFrom, continuesTo, forkedFrom, forkedAt, resumes = [] }) {
   const groups = groupTurns(turns)
   if (!groups.length) return []
@@ -60,7 +61,15 @@ export function sessionEvents(turns, { continuesFrom, continuesTo, forkedFrom, f
   if (continuesFrom != null) start.note = `${atStart ? 'continues ' : ''}from ${format(continuesFrom, 'MMM d')}`
   const latest = event('latest', 'Latest', last, groups.length - 1, 'bottom')
   if (continuesTo != null) latest.note = `continues on ${format(continuesTo, 'MMM d')}`
-  return [start, ...marked.sort((a, b) => a.row - b.row), latest] // stable sort, so a row's events keep their order
+  const runs = []
+  for (const e of marked.sort((a, b) => a.row - b.row)) { // stable sort, so a row's events keep their order
+    if (e.kind === 'resume' && runs.at(-1)?.[0].kind === 'resume') {
+      runs.at(-1).push(e)
+    } else {
+      runs.push([e])
+    }
+  }
+  return [start, ...runs.map(([e, ...more]) => more.length ? { ...e, note: `${more.length + 1}×` } : e), latest]
 }
 
 // Where the conversation row `at` (as Session holds it: null for the end) is among the events: the one it comes after, the last

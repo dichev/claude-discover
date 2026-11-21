@@ -1,5 +1,10 @@
-/* Dot, name and time in columns that line up across rows */
+/* Dot, name and time in columns that line up across rows, scrolled past ~10 of them. The padding holds the dots' line where it
+   overhangs the first and last rows, which would otherwise always overflow; the margin takes it back out of the layout */
 .session-events {
+  max-height: 200px;
+  overflow-y: auto;
+  padding: 3px 0;
+  margin: -3px 0;
   display: grid;
   grid-template-columns: 5px minmax(0, 1fr) auto;
   gap: 5px 8px;

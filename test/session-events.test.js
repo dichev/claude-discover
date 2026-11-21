@@ -44,6 +44,16 @@ describe('sessionEvents', () => {
     expect(sessionEvents(turns, { resumes: [at('10:00') + 500] }).map(e => e.name).slice(0, 2)).toEqual(['Session start', 'Resumed'])
   })
 
+  it('tells a run of resumes with no other event between once, at its first, with its count, as an SDK app resumes every prompt', () => {
+    const hours = ['10', '11', '12', '13', '14', '15']
+    const turns = hours.flatMap(h => [turn(`u${h}`, 'user', `${h}:00`), turn(`r${h}`, 'assistant', `${h}:01`, { model: h < '13' ? 'claude-a' : 'claude-b' })])
+    const events = sessionEvents(turns, { resumes: hours.slice(1).map(h => at(`${h}:00`) + 500) })
+    expect(events.map(e => [e.name, e.note, e.at])).toEqual([
+      ['Session start', undefined, 'u10'], ['Resumed', '3×', 'u11'], ['Model: b', undefined, 'r13'], ['Resumed', '2×', 'u14'],
+      ['Latest', undefined, 'bottom'],
+    ])
+  })
+
   it('lists a /clear, an interruption, a mode, model or effort change, a return from a break and the branch point', () => {
     let n = 0
     const rec = (type, time, rest) => ({ type, uuid: `${type}${++n}`, parentUuid: null, timestamp: `2026-10-24T${time}:00.000Z`, ...rest })
