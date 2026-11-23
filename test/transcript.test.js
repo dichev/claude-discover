@@ -364,6 +364,12 @@ describe('systemGroups', () => {
     expect(groups([edit(), edit(), strip('Attribution')])[0].title).toBe('Session context: edited text file, attribution')
   })
 
+  // Older transcripts log no requests, so the attachment is all there is of a file loaded mid-session
+  it('counts a file loaded mid-session among the memory files', () => {
+    const loaded = att('nested_memory', { path: 'D:\\project\\.claude\\rules\\api.md', content: { content: long } })
+    expect(groups([loaded])).toMatchObject([{ key: 'memory', title: 'Memory files: 1 file' }])
+  })
+
   it('titles deferred-tool updates that added none', () => {
     const update = () => att('deferred_tools_delta', { addedNames: [], removedNames: ['x'] })
     expect(groups([update(), update()])[0].title).toBe('Deferred tools')

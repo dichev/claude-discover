@@ -80,7 +80,13 @@ export function persistedOutput(text) {
 export const SIDE_NOTE = 'separate request, not in context'
 
 // Why a tool listed again is tinted apart
-export const CHANGED_TOOL_TIP = 'Sent again with a changed description or schema\nTools come first in a request, so the cache is written again from there: a cache miss'
+const CHANGED_TOOL_TIP = 'Sent again with a changed description or schema\nTools come first in a request, so the cache is written again from there: a cache miss'
+
+// Why a memory file sent mid-session is tinted apart
+const ON_DEMAND_TIP = 'Loaded mid-session, once Claude read a file it applies to\nA rule scoped to paths, or a subfolder\'s CLAUDE.md'
+
+// A strip told apart from the routine ones, as [class, tip]
+export const stripTint = it => it?.changed ? ['changed', CHANGED_TOOL_TIP] : it?.onDemand ? ['on-demand', ON_DEMAND_TIP] : []
 
 // The variable skips the startup fetch that assigns the experiment; nothing documents it as the opt-out
 export const EXPERIMENT_TIP = 'Anthropic ran this session in an experiment\nTo stay out of them, set CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC=1,\nwhich also stops auto-updates, telemetry and Remote Control'

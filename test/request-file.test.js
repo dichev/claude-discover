@@ -201,6 +201,16 @@ Contents of C:\\Users\\me\\.claude\\projects\\p\\memory\\MEMORY.md (user's auto-
     expect(files[0].content).toBe('# CLAUDE.md\n\nBody with its own # headings.')
     expect(files[1].content).toBe('# Memory index\n\n- [Some fact](fact.md)')
   })
+
+  // A rule whose path scope is reached, or a subfolder's CLAUDE.md, arrives alone and undescribed
+  it('reads a file loaded mid-session from the reminder that holds nothing else', () => {
+    const body = '# Staff agents\n\n- Rule one.\n\nContents of the role folder:\n- role.md' // a body line shaped like a head stays its own
+    const late = `<system-reminder>\nContents of D:\\proj\\.claude\\rules\\staff-agents.md:\n\n${body}\n\n</system-reminder>`
+    const file = { file_path: 'D:\\proj\\.claude\\rules\\staff-agents.md', name: 'D:\\proj\\.claude\\rules\\staff-agents.md', memory_type: 'On demand', onDemand: true, content: body }
+    expect(splitClaudeMd(late)).toEqual({ files: [file], rest: '<system-reminder>\n</system-reminder>' })
+    expect(splitClaudeMd(late.replace(/<\/?system-reminder>\n?/g, ''))).toEqual({ files: [file], rest: '' }) // the reminder's inner text
+    expect(splitClaudeMd('See the listing.\nContents of D:\\proj:\n\na.js').files).toEqual([]) // not a reminder's opening line
+  })
 })
 
 // Every request's first-sent strips, read off the log the way readInstructions reads the side requests'

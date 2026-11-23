@@ -411,6 +411,8 @@ button.msg-summary:hover { color: var(--text); background: var(--bg-elev-2); bor
 .instruction-file.directive :is(.aux-toggle, .aux-label), .instruction-file.directive pre, .listed .aux-toggle { color: #b9b9b9 }
 /* A tool defined anew rewrites the prompt cache: tinted apart, with a tip on why */
 .instruction-file.changed > .aux-toggle { color: var(--claude-orange); }
+/* A memory file loaded mid-session is new guidance, not a routine re-send */
+.instruction-file.on-demand > .aux-toggle { color: var(--accent); }
 /* Context listed above the prompt: the user's @-files and a command's skill body */
 .listed { margin-bottom: 6px; }
 .msg-context > :is(.listed, .mcp-block) { margin-bottom: 0; }

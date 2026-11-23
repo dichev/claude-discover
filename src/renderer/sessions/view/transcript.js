@@ -368,7 +368,7 @@ const isConversation = t => ['user', 'assistant', 'tool'].includes(t.role) && !i
 export const blockTokens = b => b.type === 'instruction' ? countTokens(b.it.content) : isCounted(b) ? countTokens(blockView(b).body) : 0
 
 const STRIP_GROUPS = { 'System Prompt': 'prompt', 'System Tools': 'tools', 'MCP Tools': 'tools', 'Deferred Tools': 'tools', 'MCP Instructions': 'mcp', Skills: 'listings', 'Agent Types': 'listings' }
-const ATTACHMENT_GROUPS = { output_style: 'prompt', output_style_instructions: 'prompt', deferred_tools_delta: 'tools', mcp_instructions_delta: 'mcp', instructions: 'memory', skill_listing: 'listings', agent_listing_delta: 'listings' }
+const ATTACHMENT_GROUPS = { output_style: 'prompt', output_style_instructions: 'prompt', deferred_tools_delta: 'tools', mcp_instructions_delta: 'mcp', instructions: 'memory', nested_memory: 'memory', skill_listing: 'listings', agent_listing_delta: 'listings' }
 
 export const groupOf = b => {
   if (b.type === 'mcp') return 'mcp'

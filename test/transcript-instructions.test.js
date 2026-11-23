@@ -65,6 +65,17 @@ describe('TranscriptInstructions', () => {
       .flatMap(l => transcript.feed(l))
     expect(strips.map(s => [s.file_path, s.content])).toEqual([['D:\\proj\\CLAUDE.md', '# CLAUDE.md\n\nBe thorough.']])
   })
+
+  it('lists a rule loaded mid-session as a memory file, which its attachment then repeats', () => {
+    const transcript = new TranscriptInstructions()
+    const rule = '<system-reminder>\nContents of D:\\proj\\.claude\\rules\\api.md:\n\n# API\n\nValidate input.\n\n</system-reminder>'
+    const blob = { type: 'api-request-blob', hash: 'b3', message: { role: 'user', content: [{ type: 'tool_result', tool_use_id: 't1', content: 'file text' }, { type: 'text', text: rule }] } }
+    const strips = [...lines, blob, request('r4', '2026-10-17T10:03:00.000Z')].flatMap(l => transcript.feed(l))
+    expect(strips.at(-1)).toMatchObject({ timestamp: '2026-10-17T10:03:00.000Z', source: 'message', file_path: 'D:\\proj\\.claude\\rules\\api.md',
+      name: 'D:\\proj\\.claude\\rules\\api.md', memory_type: 'On demand', content: '# API\n\nValidate input.' })
+    expect(strips.filter(s => s.timestamp === '2026-10-17T10:03:00.000Z')).toHaveLength(1) // the reminder is nothing but its file
+    expect(TranscriptInstructions.listed({ type: 'attachment', attachment: { type: 'nested_memory' }, rendered: [{ content: rule }] }, new Set(strips.map(s => s.hash)))).toBe(true)
+  })
 })
 
 describe('SessionsService.readSession — the loop\'s strips', () => {
