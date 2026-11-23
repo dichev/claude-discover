@@ -166,7 +166,7 @@ export function flatten(items, { loop = [], side = [], compacts = [], mcp = [] }
       continue
     }
     if (it.type === 'attachment' && it.attachment) {
-      // Echoes the StructuredOutput call's input verbatim — the call already shows it.
+      // Echoes the StructuredOutput call's input verbatim — the reply already shows it.
       if (it.attachment.type === 'structured_output' && it.attachment.toolUseID) continue
       const block = { type: 'attachment', attachment: it.attachment, rendered: it.rendered, folded: !isDirective(it.attachment), unsent: !it.rendered && logsRendered(it.version) }
       const role = speaker(it)
@@ -257,9 +257,12 @@ export function flatten(items, { loop = [], side = [], compacts = [], mcp = [] }
   }
   // A result whose call lies outside the loaded period (e.g. before midnight) has nothing to merge into — it stays its own row.
   const calls = new Set(turns.flatMap(t => t.blocks.filter(b => b.type === 'tool_use').map(b => b.id)))
+  // An answer in the form an SDK app asked for is Claude's reply, given through a tool call whose result only confirms it
+  const answered = b => b.name === 'StructuredOutput' && !results[b.id]?.is_error
   for (const t of turns) {
     t.blocks = t.blocks
-      .map(b => (b.type === 'tool_use' ? { ...b, result: withCompanion(results[b.id], companions[b.id]), duration: elapsed(t.ts, resultTs[b.id]) } : b))
+      .map(b => b.type !== 'tool_use' ? b : answered(b) ? { type: 'structured_output', data: b.input }
+        : { ...b, result: withCompanion(results[b.id], companions[b.id]), duration: elapsed(t.ts, resultTs[b.id]) })
       .filter(b => !(b.type === 'tool_result' && calls.has(b.tool_use_id)))
   }
   const out = turns.filter(t => t.blocks.length > 0)
@@ -357,6 +360,9 @@ function normalizeContent(content) {
 // Injected context is a turn whose blocks are all attachments (the "N attachments" payload) — directives show as messages instead.
 export const isContextTurn = t => t.blocks.every(b => b.type === 'attachment' && b.folded)
 
+// What Claude says to the user: its text, or its answer in the form an SDK app asked for
+export const isReply = b => b.type === 'text' || b.type === 'structured_output'
+
 const isConversation = t => ['user', 'assistant', 'tool'].includes(t.role) && !isContextTurn(t)
 
 export const blockTokens = b => b.type === 'instruction' ? countTokens(b.it.content) : isCounted(b) ? countTokens(blockView(b).body) : 0
@@ -433,10 +439,10 @@ export function groupTurns(turns) {
       pending = []
     } else {
       // Tool calls/results, thinking and what Claude Code injects mid-cycle accumulate into an assistant
-      // card that closes at its next text message, so each message groups with its tool work.
+      // card that closes at its next reply, so each message groups with its tool work.
       cycle ??= { kind: 'assistant', turns: pending.splice(0) }
       cycle.turns.push(t)
-      if (t.role === 'assistant' && t.blocks.some(b => b.type === 'text')) flush()
+      if (t.role === 'assistant' && t.blocks.some(isReply)) flush()
     }
   }
   flush()

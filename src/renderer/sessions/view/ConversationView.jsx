@@ -3,7 +3,7 @@ import { format } from 'date-fns'
 import { Globe, LaptopMinimal, OctagonX, Terminal } from 'lucide-react'
 import { fmtCompact, fmtDuration, plural } from '../../utils/formatting'
 import { countTokens } from '../../../shared/tokenizer/claudeTokenizer.js'
-import { groupTurns, systemGroups, mcpGroupParts, latestServers, blockTokens, cycleDurations, tokenPoints, branchPoint, currentModel, rowIndex, unloggedRequestsVersion } from './transcript.js'
+import { groupTurns, isReply, systemGroups, mcpGroupParts, latestServers, blockTokens, cycleDurations, tokenPoints, branchPoint, currentModel, rowIndex, unloggedRequestsVersion } from './transcript.js'
 import { toolSummary, advisorTitle, parseCommand, interruptLabel, isClearTurn, instructionTitle, CHANGED_TOOL_TIP, compactTitleParts, rewindTitle, persistedOutput, attachmentView, hasText, isCounted, safeJson, SIDE_NOTE } from './labels.js'
 import ApproxTokens from './ApproxTokens.jsx'
 import McpConnections, { McpTitle } from './McpConnections.jsx'
@@ -267,7 +267,7 @@ function AssistantCard({ turns, point, index, duration, showAuthor = true }) {
   const toolBlocks = turns.flatMap(t => t.blocks.filter(b => b.type === 'tool_use'))
   const errorCount = toolBlocks.filter(b => b.result?.is_error).length
   const skillCount = toolBlocks.filter(b => b.name === 'Skill').length
-  const isAux      = t => t.role === 'system' ? isFolded(t) : !t.blocks.some(b => b.type === 'text' || b.type === 'advisor_tool_result')
+  const isAux      = t => t.role === 'system' ? isFolded(t) : !t.blocks.some(b => isReply(b) || b.type === 'advisor_tool_result')
   // Aux turns (tool calls, thinking, System's bookkeeping) fold behind the chevron, but only if there are tool calls
   const foldable   = toolBlocks.length > 0 && turns.some(isAux)
   const end        = turns.findLast(t => t.ts != null)?.ts ?? null
@@ -361,6 +361,7 @@ function Block({ block, speaker = null, ts = null }) {
     if (interrupt) return <div className="block-interrupt"><OctagonX className="block-interrupt-icon" />{interrupt}</div>
     return <Markdown className="block-text" text={block.text} autoFence />
   }
+  if (block.type === 'structured_output') return <><Label title="StructuredOutput" /><JsonBlock value={block.data} /></>
   if (block.type === 'thinking') {
     if (block.redacted) return <Label title={`Thinking (encrypted${block.redacted > 1 ? ` · ${block.redacted}` : ''})`} />
     return <Collapsible title="Thinking" defaultOpen={false} time={ts} duration={block.duration}><pre>{block.thinking}</pre></Collapsible>

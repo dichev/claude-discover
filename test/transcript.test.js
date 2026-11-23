@@ -71,6 +71,24 @@ describe('flatten — tool call and thinking durations', () => {
   })
 })
 
+describe('flatten — a structured answer', () => {
+  const record = (type, uuid, content) => ({ type, uuid, timestamp: '2026-11-23T09:00:00.000Z', message: { role: type, content } })
+  const call   = (id, input) => record('assistant', id, [{ type: 'tool_use', id, name: 'StructuredOutput', input }])
+  const result = (id, content, failed) => record('user', `r-${id}`, [{ type: 'tool_result', tool_use_id: id, content, is_error: failed }])
+  const prompt = record('user', 'u1', 'go')
+
+  it('shows the answer as the reply closing Claude\'s card, not as a tool call', () => {
+    const turns = flatten([prompt, call('a1', { written: 'done' }), result('a1', 'Structured output provided successfully'), { ...prompt, uuid: 'u2' }])
+    expect(turns.map(t => t.blocks)).toEqual([[{ type: 'text', text: 'go' }], [{ type: 'structured_output', data: { written: 'done' } }], [{ type: 'text', text: 'go' }]])
+    expect(groupTurns([...turns.slice(0, 2), { role: 'system', blocks: [{ type: 'instruction', it: {} }] }, turns[2]]).map(g => g.kind)).toEqual(['user', 'assistant', 'system', 'user'])
+  })
+
+  it('keeps a call the form rejected as a tool call with its error', () => {
+    const turns = flatten([call('a1', { written: 1 }), result('a1', 'Output does not match the schema', true), call('a2', { written: 'done' })])
+    expect(turns.map(t => t.blocks[0])).toMatchObject([{ type: 'tool_use', result: { is_error: true } }, { type: 'structured_output', data: { written: 'done' } }])
+  })
+})
+
 describe('flatten — skill companion records', () => {
   const call   = { type: 'assistant', uuid: 'a1', timestamp: '2026-09-22T00:02:00.000Z', message: { role: 'assistant', content: [{ type: 'tool_use', id: 'tu1', name: 'Skill', input: { skill: 'claude-api' } }] } }
   const result = { type: 'user', uuid: 'r1', timestamp: '2026-09-22T00:02:01.385Z', message: { role: 'user', content: [{ type: 'tool_result', tool_use_id: 'tu1', content: 'Launching skill: claude-api' }] } }

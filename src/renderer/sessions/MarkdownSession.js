@@ -58,6 +58,7 @@ function renderBlock(b, model) {
     const cmd = parseCommand(b.text)
     return cmd ? renderCommand(cmd) : truncate(b.text || '')
   }
+  if (b.type === 'structured_output') return `StructuredOutput:\n${fence(JSON.stringify(b.data, null, 2), 'json')}`
   if (b.type === 'thinking') return b.redacted ? `_Thinking (encrypted${b.redacted > 1 ? ` · ${b.redacted}` : ''})_` : `Thinking${took(b.duration)}:\n${fence(b.thinking)}`
   if (b.type === 'tool_use') {
     const tail = b.result ? `\n${b.result.is_error ? 'error' : 'result'}:\n${fence(resultText(b.result))}` : ''

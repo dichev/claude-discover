@@ -56,6 +56,7 @@ function itemPlace(unit, name) {
 function messageTexts(t, b) {
   if (t.role === 'compact') return [['Compact summary', b.summary]]
   if (b.type === 'text') return [[t.role === 'user' ? 'User messages' : t.role === 'assistant' ? 'Claude messages' : 'System messages', b.text]]
+  if (b.type === 'structured_output') return [['Claude messages', JSON.stringify(b.data)]]
   if (b.type === 'thinking') return [['Thinking', b.thinking]]
   if (b.type === 'tool_use') return [['Tool calls', JSON.stringify(b.input)], ['Tool results', contentText(b.result?.content)]]
   if (b.type === 'tool_result') return [['Tool results', contentText(b.content)]]
