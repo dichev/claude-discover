@@ -79,6 +79,33 @@ describe('sessionEvents', () => {
     expect(sessionEvents(turns, fork).find(e => e.kind === 'mode').time).toBe(format(Date.parse('2026-10-24T10:04:00.000Z'), 'HH:mm'))
   })
 
+  it('marks the subagents launched, once per row, by their type when they share one', () => {
+    const call = (id, name, type) => ({ type: 'tool_use', id, name, input: { description: id, prompt: 'go', ...type && { subagent_type: type } } })
+    const calls = (uuid, time, ...blocks) => ({ ...turn(uuid, 'assistant', time), blocks })
+    const turns = [
+      turn('u1', 'user', '10:00'), calls('a1', '10:01', call('x1', 'Agent', 'Explore')), calls('a2', '10:01', call('x2', 'Agent', 'Explore')), turn('r1', 'assistant', '10:05'),
+      turn('u2', 'user', '11:00'), calls('a3', '11:01', call('x3', 'Task'), call('x4', 'Agent', 'Plan'), call('x5', 'Read')), turn('r2', 'assistant', '11:05'),
+      turn('u3', 'user', '12:00'), calls('a4', '12:01', call('x6', 'Agent', 'Plan')), turn('r3', 'assistant', '12:05'),
+    ]
+    expect(sessionEvents(turns, {}).map(e => [e.name, e.note, e.at]).slice(1, -1)).toEqual([
+      ['Subagent: Explore', '2×', 'a1'], ['Subagents', '2×', 'a3'], ['Subagent: Plan', undefined, 'a4'],
+    ])
+  })
+
+  it("marks the workflows launched, once per row, by a saved one's name or its script's", () => {
+    const flow = (id, input) => ({ type: 'tool_use', id, name: 'Workflow', input })
+    const calls = (uuid, time, ...blocks) => ({ ...turn(uuid, 'assistant', time), blocks })
+    const script = name => `export const meta = {\n  name: '${name}',\n  description: 'Review it',\n}\nawait agent('go')`
+    const turns = [
+      turn('u1', 'user', '10:00'), calls('a1', '10:01', flow('w1', { script: script('review-changes') })), turn('r1', 'assistant', '10:05'),
+      turn('u2', 'user', '11:00'), calls('a2', '11:01', flow('w2', { name: 'deep-research' }), flow('w3', { scriptPath: 'wf.js' })), turn('r2', 'assistant', '11:05'),
+      turn('u3', 'user', '12:00'), calls('a3', '12:01', flow('w4', {})), turn('r3', 'assistant', '12:05'),
+    ]
+    expect(sessionEvents(turns, {}).map(e => [e.name, e.note, e.at]).slice(1, -1)).toEqual([
+      ['Workflow: review-changes', undefined, 'a1'], ['Workflows', '2×', 'a2'], ['Workflow', undefined, 'a3'],
+    ])
+  })
+
   it("jumps to a rewind's row, which starts at the context held for its prompt, and to the row after a compaction for what it left", () => {
     expect(events.map(e => e.at)).toEqual(['u1', 'c', 'u2', 'ide', 'bottom'])
   })
