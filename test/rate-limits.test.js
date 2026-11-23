@@ -48,8 +48,12 @@ describe('RateLimits', () => {
     expect(r.usage).not.toHaveBeenCalled()
   })
 
-  it('is null without plan limits, or when the experimental call fails', async () => {
+  it('is null without plan limits', async () => {
     expect(await new RateLimits(runner(async () => ({ rate_limits_available: false, rate_limits: null }))).get()).toBeNull()
-    expect(await new RateLimits(runner(async () => { throw new Error('unknown control request') })).get()).toBeNull()
+  })
+
+  it("is undefined when a plan's limits failed to fetch, or the experimental call fails", async () => {
+    expect(await new RateLimits(runner(async () => ({ rate_limits_available: true, rate_limits: null }))).get()).toBeUndefined()
+    expect(await new RateLimits(runner(async () => { throw new Error('unknown control request') })).get()).toBeUndefined()
   })
 })

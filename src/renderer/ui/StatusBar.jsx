@@ -136,9 +136,10 @@ function UsageLimits({ limits }) {
 // Asked at mount, on refocus, and every minute in case Claude Code was used meanwhile (schedule atop RateLimits.js)
 // The last answer is kept across launches, so the bars start as they were rather than reshuffle once it arrives
 function useRateLimits() {
-  const [limits, setLimits] = useLocalStorage('usage.limits') // undefined until the first answer ever; null without plan limits (API key logins) or if the SDK call fails
+  const [limits, setLimits] = useLocalStorage('usage.limits') // undefined until the first answer ever; null without plan limits (API key logins)
   useEffect(() => {
-    const check = opts => document.hidden || window.api.getRateLimits(opts).then(setLimits)
+    // An undefined answer is a failed fetch, so the last one stands
+    const check = opts => document.hidden || window.api.getRateLimits(opts).then(l => l !== undefined && setLimits(l))
     const onFocus = () => check()
     check()
     const timer = setInterval(() => check({ ifActive: true }), 60_000)

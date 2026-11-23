@@ -30,6 +30,7 @@ const toShare = (shares, models) => shares?.length === 1 && models.length === 1 
 
 // The plan's 5h/7d usage, as Claude Code's /usage reports it — through the user's own Claude Code
 // login, so it covers every client (CLI, desktop, claude.ai). Null for API key / Bedrock / Vertex logins.
+// Undefined when the fetch failed, so the status bar keeps its last answer until the next one.
 export class RateLimits {
   #agentRunner
   #limits    = null // the latest fetch's promise, shared by concurrent callers
@@ -60,9 +61,10 @@ export class RateLimits {
 
   async #map(usage) {
     try {
-      const { subscription_type: type, account, rate_limits: rl } = await usage
-      const models = (rl?.model_scoped ?? []).filter(m => m.utilization != null)
-      return rl && {
+      const { subscription_type: type, account, rate_limits: rl, rate_limits_available: available } = await usage
+      if (!rl) return available ? undefined : null // available: the plan has limits, but claude.ai's usage endpoint didn't answer
+      const models = rl.model_scoped?.filter(m => m.utilization != null) ?? []
+      return {
         at: Date.now(),
         plan: account?.subscriptionType?.replace(/^Claude /, '') ?? type, // 'Ultra' from 'Claude Ultra', where /usage only says 'max'
         fiveHour: toWindow(rl.five_hour),
@@ -73,8 +75,8 @@ export class RateLimits {
         extra: toExtra(rl.extra_usage),
       }
     } catch (err) {
-      console.warn('[rate-limits]', err.message) // the API is experimental — hide the bars rather than fail
-      return null
+      console.warn('[rate-limits]', err.message) // also a timeout, or the experimental API changed
+      return undefined
     }
   }
 }
