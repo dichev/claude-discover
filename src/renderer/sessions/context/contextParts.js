@@ -140,9 +140,12 @@ export function contextParts(turns, size) {
   }
   // A deferred tool's definition is in the context only through the ToolSearch result naming it, a message like the rest
   const found = new Set(recent.flatMap(t => t.blocks).flatMap(b => b.result?.content ?? b.content ?? []).filter(c => c?.type === 'tool_reference').map(c => c.tool_name))
+  // A tool defined anew replaces its earlier definition
+  const defined = new Map([...latest.values()].flatMap(u => u.key === 'systemTools' ? u.items.map(it => [it.name, it]) : []))
   for (const unit of latest.values()) {
     if (!unit.items.length) add([unit.key, unit.name], blockTokens(unit.b))
-    for (const it of unit.items.filter(it => !it.deferred || found.has(it.name))) {
+    const counted = unit.items.filter(it => (unit.key !== 'systemTools' || defined.get(it.name) === it) && (!it.deferred || found.has(it.name)))
+    for (const it of counted) {
       add(itemPlace(unit, it.name), countTokens(`${it.name}: ${it.content}`))
     }
   }

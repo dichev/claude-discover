@@ -4,7 +4,7 @@ import { Globe, LaptopMinimal, OctagonX, Terminal } from 'lucide-react'
 import { fmtCompact, fmtDuration, plural } from '../../utils/formatting'
 import { countTokens } from '../../../shared/tokenizer/claudeTokenizer.js'
 import { groupTurns, systemGroups, mcpGroupParts, latestServers, blockTokens, cycleDurations, tokenPoints, branchPoint, currentModel, rowIndex, unloggedRequestsVersion } from './transcript.js'
-import { toolSummary, advisorTitle, parseCommand, interruptLabel, isClearTurn, instructionTitle, compactTitleParts, rewindTitle, persistedOutput, attachmentView, hasText, isCounted, safeJson, SIDE_NOTE } from './labels.js'
+import { toolSummary, advisorTitle, parseCommand, interruptLabel, isClearTurn, instructionTitle, CHANGED_TOOL_TIP, compactTitleParts, rewindTitle, persistedOutput, attachmentView, hasText, isCounted, safeJson, SIDE_NOTE } from './labels.js'
 import ApproxTokens from './ApproxTokens.jsx'
 import McpConnections, { McpTitle } from './McpConnections.jsx'
 import { ExpandAllContext, useCollapsed } from './useCollapsed.js'
@@ -244,7 +244,8 @@ function SystemGroup({ group: { blocks, title, tokens } }) {
     return block.type === 'attachment' ? <div className="listed"><Block block={block} /></div> : <Block block={block} />
   }
   if (!blocks.some(b => b.type === 'mcp')) {
-    return <Collapsible title={title} className="instruction-file directive system-group" defaultOpen={false} tokens={tokens}>{blocks.map((b, i) => <Block key={i} block={b} />)}</Collapsible>
+    const changed = blocks.some(b => b.it?.changed)
+    return <Collapsible title={changed ? <span data-tooltip-content={CHANGED_TOOL_TIP}>{title}</span> : title} className={`instruction-file directive system-group${changed ? ' changed' : ''}`} defaultOpen={false} tokens={tokens}>{blocks.map((b, i) => <Block key={i} block={b} />)}</Collapsible>
   }
   const { turns, instructions, rest } = mcpGroupParts(blocks)
   return <McpBlock turns={turns} instructions={instructions} tokens={tokens}>{rest.map((b, i) => <Block key={i} block={b} />)}</McpBlock>
@@ -491,10 +492,10 @@ function InstructionFile({ it, model, tokens, speaker = null, className = '' }) 
   const [open, setOpen] = useCollapsed(false)
   const title           = instructionTitle(it, model)
   return (
-    <div className={`aux instruction-file ${className}`}>
+    <div className={`aux instruction-file ${className}${it.changed ? ' changed' : ''}`}>
       <button className="aux-toggle" onClick={() => setOpen(v => !v)}>
         <span className="aux-chevron">{open ? '▾' : '▸'}</span>
-        <span className="instruction-title" data-tooltip-content={title} data-tip-if-truncated>{said(speaker, title)}</span>
+        <span className="instruction-title" data-tooltip-content={it.changed ? CHANGED_TOOL_TIP : title} data-tip-if-truncated={it.changed ? undefined : ''}>{said(speaker, title)}</span>
         <ApproxTokens tokens={tokens} />
       </button>
       {open && (

@@ -79,6 +79,9 @@ export function persistedOutput(text) {
 // A side request's Proxy block, as told apart from the conversation
 export const SIDE_NOTE = 'separate request, not in context'
 
+// Why a tool listed again is tinted apart
+export const CHANGED_TOOL_TIP = 'Sent again with a changed description or schema\nTools come first in a request, so the cache is written again from there: a cache miss'
+
 // The variable skips the startup fetch that assigns the experiment; nothing documents it as the opt-out
 export const EXPERIMENT_TIP = 'Anthropic ran this session in an experiment\nTo stay out of them, set CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC=1,\nwhich also stops auto-updates, telemetry and Remote Control'
 
@@ -242,9 +245,10 @@ const TOOL_KINDS = { 'System Tools': 'system', 'MCP Tools': 'MCP', 'Deferred Too
 const GROUP_TITLES = {
   prompt: blocks => blocks.every(b => b.type === 'attachment') ? 'Output style' : blocks.some(b => b.type === 'attachment') ? 'System Prompt (+ output style)' : 'System Prompt',
   tools: blocks => {
-    const counts = { system: 0, MCP: 0, deferred: 0 }
+    const counts = { system: 0, MCP: 0, deferred: 0, changed: 0 }
     for (const b of blocks) {
       counts[TOOL_KINDS[b.it?.file_path] ?? 'deferred'] += b.it?.count ?? b.attachment?.addedNames?.length ?? 0
+      counts.changed += b.it?.changed ?? 0
     }
     const listed = Object.entries(counts).filter(([, n]) => n).map(([kind, n]) => `${n} ${kind}`)
     return listed.length ? `Tools: ${listed.join(', ')}` : 'Deferred tools' // updates that added none: statuses, removals

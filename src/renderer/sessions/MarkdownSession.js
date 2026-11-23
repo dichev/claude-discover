@@ -42,7 +42,7 @@ const took = ms => ms >= 1000 ? ` · ${fmtDuration(ms)}` : ''
 
 // A listing's entries by name and size, in place of its text cut off after the first few
 function renderItems({ intro, items, outro }) {
-  const list = items.map(i => `- ${i.name}${size(i.content)}`).join('\n')
+  const list = items.map(i => `- ${instructionTitle(i)}${size(i.content)}`).join('\n')
   return [intro && fence(intro), list, outro && fence(outro)].filter(Boolean).join('\n')
 }
 

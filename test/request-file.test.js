@@ -344,6 +344,26 @@ describe('RequestParser.strips', () => {
     expect(files[0].hash).not.toBe(files[1].hash) // content hash — distinct per batch, used as the dedup key
   })
 
+  it('lists a tool again once its definition changed, each definition once', async () => {
+    const base = { type: 'api-request', url: 'POST /v1/messages', status: 200, request: { model: 'claude-sonnet-5', messages: [] } }
+    const read = { name: 'Read', description: 'Reads a file' }
+    const answer = (...keys) => ({ name: 'StructuredOutput', description: 'Answers', input_schema: { required: keys } })
+    const sent = (minute, ...tools) => ({ ...base, timestamp: `2026-07-14T10:0${minute}:00.000Z`, request: { ...base.request, tools } })
+    fs.writeFileSync(path.join(dir, 'sess-c.requests.jsonl'), [
+      sent(0, read, answer('timeline')),
+      sent(1, read, answer('written'), { name: 'Bash', description: 'Runs a command' }),
+      sent(2, read, answer('timeline')), // back to a definition already listed
+      sent(3, read), // a removed tool leaves nothing to list
+      { ...sent(4, { ...read, description: 'Reads a page' }), url: 'POST /v1/messages/count_tokens' }, // nor do a side request's own tools
+    ].map(r => JSON.stringify(r)).join('\n') + '\n')
+    const files = await stripsOf('sess-c')
+    expect(files.map(f => [f.timestamp.slice(14, 16), f.memory_type, f.count, f.changed])).toEqual([['00', '2 tools', 2, 0], ['01', '1 tool, 1 changed', 1, 1]])
+    expect(files[1].items).toEqual([
+      { name: 'StructuredOutput', content: 'Answers\n\n```json\n{\n  "required": [\n    "written"\n  ]\n}\n```', memory_type: 'changed', changed: true },
+      { name: 'Bash', content: 'Runs a command' },
+    ])
+  })
+
   it("leaves Claude Code's billing header out of the System Prompt strip: the API bills nothing for it", async () => {
     fs.writeFileSync(path.join(dir, 'sess-b.requests.jsonl'), JSON.stringify({ type: 'api-request', url: 'POST /v1/messages',
       status: 200, timestamp: '2026-07-14T10:00:00.000Z', request: { model: 'claude-sonnet-5',

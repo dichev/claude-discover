@@ -45,6 +45,14 @@ describe('contextParts', () => {
     expect(found.find(p => p.key === 'memory').children).toEqual([{ name: 'CLAUDE.md (Project)', tokens: tokens('v2 longer') }])
   })
 
+  it('counts a tool defined anew once, as last defined', () => {
+    const found = parts([
+      strip('System Tools', { hash: 't1', items: [{ name: 'Read', content: 'r' }, { name: 'StructuredOutput', content: 'the first answer schema' }] }),
+      strip('System Tools', { hash: 't2', items: [{ name: 'StructuredOutput', content: 'another', memory_type: 'changed' }] }),
+    ])
+    expect(found.find(p => p.key === 'systemTools').children).toEqual([{ name: 'StructuredOutput', tokens: tokens('StructuredOutput: another') }, { name: 'Read', tokens: tokens('Read: r') }])
+  })
+
   it('counts a listing sent again word for word once, and no attachment from before the last compaction', () => {
     const listing = () => att('skill_listing', { content: '- mine: my own', skillCount: 1 })
     const found = contextParts([

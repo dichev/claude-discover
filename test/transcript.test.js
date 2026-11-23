@@ -320,6 +320,12 @@ describe('systemGroups', () => {
     ])
   })
 
+  it('titles the tools defined anew as changed, apart from the added ones', () => {
+    const titles = (...strips) => groups(strips).map(g => g.title)
+    expect(titles(strip('System Tools', { count: 0, changed: 1 }))).toEqual(['Tools: 1 changed'])
+    expect(titles(strip('System Tools', { count: 0, changed: 1 }), strip('MCP Tools', { count: 2, changed: 1 }))).toEqual(['Tools: 2 MCP, 2 changed'])
+  })
+
   it('lists the system prompt above its output style, whichever came first', () => {
     const [group] = groups([att('output_style_instructions', { name: 'persona', text: long }), strip('System Prompt')])
     expect(group.blocks.map(b => b.type)).toEqual(['instruction', 'attachment'])

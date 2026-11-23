@@ -1,5 +1,5 @@
 import crypto from 'node:crypto'
-import { classifyRequest, splitClaudeMd, reminderView, DEFERRED_INTRO } from './claudeMarkers.js'
+import { classifyRequest, isLoop, splitClaudeMd, reminderView, DEFERRED_INTRO } from './claudeMarkers.js'
 
 const jsonBytes = x => x == null ? 0 : Buffer.byteLength(JSON.stringify(x))
 
@@ -47,7 +47,7 @@ const isBilled = text => !text.startsWith('x-anthropic-billing-header')
 export class RequestParser {
   constructor() {
     this.hashes = new Map() // $hash → value
-    this.seenTools = new Set() // tool names already returned by systemTools
+    this.seenTools = new Map() // tool name → its definitions already returned by systemTools
     this.deferred = null // the session's deferred-tool roster, parsed from the first record that carries it
     this.deferredRoster = null // and its strip
     this.seenStrips = new Set() // hash of every strip returned by strips
@@ -156,27 +156,38 @@ export class RequestParser {
   // The request's tool definitions, from a resolveRefs'd record, as a native and an MCP strip —
   // MCP schemas are often the bulk of a prompt, so they are worth costing on their own. The array
   // grows as deferred tools load mid-session, so only tools this parser hasn't seen yet are
-  // returned — the first request yields the full set, later arrays just the additions.
+  // returned — the first request yields the full set, later arrays just the additions. A seen tool
+  // defined anew is returned again, as changed: the tools lead the request, so the prompt cache is
+  // rewritten from there (the SDK's StructuredOutput takes each turn's answer schema).
   systemTools(rec) {
     const listed = rec.request?.tools // absent, or an unresolvable ref (truncated log), where the tools aren't an array
     const tools  = [...Array.isArray(listed) ? listed : [], ...addedTools(rec.request)]
-    const fresh = tools.filter(t => t?.name && !this.seenTools.has(t.name))
-    for (const t of fresh) this.seenTools.add(t.name)
     // Schemas included: they are a large part of what a tool actually costs, so leaving them
     // out made the strip's token estimate far too low.
     const json = v => '```json\n' + JSON.stringify(v, null, 2) + '\n```'
     const schema = t => t.input_schema ? json(t.input_schema) : ''
     // Server tools (web_search, …) carry no description or schema — their definition is all there is
     const definition = ({ name, ...rest }) => json(rest)
-    const strip = (file_path, pick) => {
+    // A side request is a request of its own, whose tools differ from the loop's without changing them
+    const loop  = isLoop(rec.kind)
+    const fresh = []
+    for (const t of tools.filter(t => t?.name)) {
+      const content = [t.description || '', schema(t)].filter(Boolean).join('\n\n') || definition(t)
+      const seen    = this.seenTools.get(t.name)
+      if (seen && (!loop || seen.has(content))) continue
       // `deferred`: found through ToolSearch, whose result is what puts the definition in the context
-      const list = fresh.filter(t => pick(t.name)).map(t => ({
-        name: t.name, content: [t.description || '', schema(t)].filter(Boolean).join('\n\n') || definition(t), ...t.defer_loading && { deferred: true },
-      }))
+      fresh.push({ name: t.name, content, ...t.defer_loading && { deferred: true }, ...seen && { memory_type: 'changed', changed: true } })
+      this.seenTools.set(t.name, (seen ?? new Set()).add(content))
+    }
+    const strip = (file_path, pick) => {
+      const list = fresh.filter(t => pick(t.name))
       if (!list.length) return null
+      const changed = list.filter(t => t.changed).length
+      const added   = list.length - changed
+      const label   = [added && plural(added, 'tool'), changed && `${changed} changed`].filter(Boolean).join(', ')
       const content = list.map(t => [`## ${t.name}`, t.content].filter(Boolean).join('\n\n')).join('\n\n')
       // `items` keeps each definition apart, so the UI can fold them one by one
-      return { ...toStrip(rec, 'tools', file_path, plural(list.length, 'tool'), content), items: list, count: list.length }
+      return { ...toStrip(rec, 'tools', file_path, label, content), items: list, count: added, changed }
     }
     return [strip('System Tools', n => !isMcp(n)), strip('MCP Tools', isMcp)].filter(Boolean)
   }
