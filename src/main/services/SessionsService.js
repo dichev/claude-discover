@@ -55,6 +55,7 @@ export class SessionsService extends EventEmitter {
     this.activeDay = null
     this.scanAbort = null
     this.updateTimer = null
+    this.paused = false
     this.lastUpdateAt = 0
     this.updateSeq = 0
     this.emittedSeq = 0
@@ -209,6 +210,18 @@ export class SessionsService extends EventEmitter {
     return this.scan({ ...periodBounds(date, granularity), date, granularity, key }, { watch: true })
   }
 
+  // Nobody is looking at the period (the window is hidden in the tray), so changes stop being parsed as they land
+  pause() {
+    this.paused = true
+  }
+
+  // Catches up, parsing only the files that changed meanwhile, and sends the period afresh
+  resume() {
+    if (!this.paused) return
+    this.paused = false
+    if (this.activeDay) this.scan(this.activeDay, { watch: true }).catch(console.error)
+  }
+
   start() {
     // wired here, not in the constructor — repricing is for the watched UI mode, not CLI scans
     this.pricing.on('update', () => this._reprice())
@@ -298,7 +311,7 @@ export class SessionsService extends EventEmitter {
 
   async _refresh(filePath, stat) {
     const day = this.activeDay
-    if (!day || !stat) return
+    if (!day || !stat || this.paused) return
     const cached = this.metaCache.get(filePath)
     const isChanged = !cached || cached.fileSize !== stat.size || cached.mtime !== stat.mtimeMs
     if (!isChanged) return

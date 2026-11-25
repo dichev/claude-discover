@@ -10,6 +10,7 @@ const DEV_URL = process.env.ELECTRON_RENDERER_URL
 export class MainWindow {
   constructor() {
     this.win = null
+    this.hideOnClose = false // set by the tray while it keeps the app running
   }
 
   create() {
@@ -46,6 +47,11 @@ export class MainWindow {
     // let the app mount all entries while open so findInPage can match off-screen content
     this.findBar.on('show', () => this.send('find:active', true))
     this.findBar.on('hide', () => this.send('find:active', false))
+    this.win.on('close', e => {
+      if (!this.hideOnClose) return
+      e.preventDefault()
+      this.win.hide()
+    })
     this.win.on('closed', () => this.findBar = null) // @macOS the menu outlives the window, so its find accelerators must not reach a destroyed one
     return this.win
   }
@@ -59,5 +65,10 @@ export class MainWindow {
     if (this.win.isMinimized()) this.win.restore()
     this.win.show()
     this.win.focus()
+  }
+
+  toggle() { // the tray icon's click
+    if (this.win.isVisible() && !this.win.isMinimized()) this.win.hide()
+    else this.focus()
   }
 }
