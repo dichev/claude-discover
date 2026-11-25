@@ -6,14 +6,16 @@ import { Switchers } from './services/switchers/Switchers.js'
 import { RateLimits } from './services/RateLimits.js'
 import { UsageInsights } from './services/UsageInsights.js'
 import { MainWindow } from './windows/MainWindow.js'
+import { AppTray } from './windows/AppTray.js'
 import { updater } from './updater.js'
 import { CLAUDE_DIR, RECENT_CLAUDE_DIRS } from './paths.js'
 import { openLinkSafely, webpDataUrl } from './utils.js'
 
 export class Application {
-  constructor({ deepLink }) {
+  constructor({ deepLink, withTray }) {
     this.deepLink        = deepLink
     this.win             = new MainWindow()
+    this.tray            = withTray ? new AppTray({ window: this.win }) : null
     this.agentRunner     = new AgentRunner()
     this.workHours       = new WorkHours()
     this.sessionsService = new SessionsService()
@@ -23,8 +25,9 @@ export class Application {
   }
 
   start() {
-    const { deepLink, win, agentRunner, workHours, sessionsService, rateLimits, usageInsights, switchers } = this
+    const { deepLink, win, tray, agentRunner, workHours, sessionsService, rateLimits, usageInsights, switchers } = this
 
+    tray?.start() // before the menu, whose checkbox shows it
     Menu.setApplicationMenu(this.#buildMenu())
 
     // main → renderer
@@ -61,6 +64,7 @@ export class Application {
 
     // app lifecycle
     app.on('window-all-closed', () => app.quit()) // @macOS too — a windowless app would keep the watchers and switches alive
+    app.on('activate', () => win.focus()) // @macOS a dock click, with the window hidden in the tray
     // Switches not marked "keep active when the app is closed" are undone on quit, so their
     // settings.json config dies with the app (deactivate is async — hold the quit)
     app.on('will-quit', async e => {
@@ -94,8 +98,9 @@ export class Application {
   }
 
   #buildMenu() {
-    const { win, switchers } = this
+    const { win, tray, switchers } = this
     const changeDir = dir => switchers.activate('claudedir', dir)
+    const trayName  = process.platform === 'darwin' ? 'menu bar' : 'tray' // @macOS
     return Menu.buildFromTemplate([
       ...(process.platform === 'darwin' ? [{ role: 'appMenu' }] : []), // @macOS
       {
@@ -109,6 +114,10 @@ export class Application {
             label: p, type: 'checkbox', checked: p === CLAUDE_DIR, click: () => changeDir(p),
           })),
           { type: 'separator' },
+          ...(tray ? [
+            { label: `Keep running in the ${trayName}`, type: 'checkbox', checked: tray.enabled, click: item => tray.set(item.checked) },
+            { type: 'separator' },
+          ] : []),
           { role: 'quit' },
         ],
       },

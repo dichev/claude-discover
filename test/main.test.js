@@ -10,9 +10,13 @@ vi.mock('electron', () => ({ app: {
   setAsDefaultProtocolClient: vi.fn(),
   getAppPath: () => 'C:\\repo',
 } }))
-vi.mock('../src/main/paths.js', () => ({ LAUNCH_MODES: { NPX_TEMP: 'npx-temp' }, LAUNCH_MODE: 'npm-start' }))
+// stands in for LAUNCH_MODE, flipped per launch — a getter, so it reads this at call time
+const paths = { ephemeral: false }
+vi.mock('../src/main/paths.js', () => ({ LAUNCH_MODES: { NPX_TEMP: 'npx-temp' }, get LAUNCH_MODE() { return paths.ephemeral ? 'npx-temp' : 'npm-start' } }))
 const restart = vi.fn()
+const created = vi.fn() // the options each Application was built with
 vi.mock('../src/main/Application.js', () => ({ Application: class {
+  constructor(options) { created(options) }
   start() {}
   restart = restart
 } }))
@@ -24,8 +28,9 @@ import { app } from 'electron'
 const LINK = 'claude-discover://session?id=abc123&date=2026-07-23'
 
 // runs main.js afresh as `electron.exe . <args>`
-async function launch(args = [], { lock = true } = {}) {
+async function launch(args = [], { lock = true, ephemeral = false } = {}) {
   app.requestSingleInstanceLock.mockReturnValue(lock)
+  paths.ephemeral = ephemeral
   const [argv, plat] = [process.argv, Object.getOwnPropertyDescriptor(process, 'platform')]
   process.argv = ['electron.exe', '.', ...args]
   Object.defineProperty(process, 'platform', { value: 'win32', configurable: true })
@@ -55,5 +60,16 @@ describe('single instance', () => {
     expect(app.on).not.toHaveBeenCalled()
     expect(app.whenReady).not.toHaveBeenCalled()
     expect(app.setAsDefaultProtocolClient).not.toHaveBeenCalled()
+  })
+})
+
+// An npx run is a tryout: closing its window must quit it, so it's built with no tray to stay behind in
+describe('tray', () => {
+  it.each([
+    ['an install can keep running in it', false, true],
+    ['an npx run gets none', true, false],
+  ])('%s', async (_why, ephemeral, withTray) => {
+    await launch([], { ephemeral })
+    expect(created).toHaveBeenCalledWith(expect.objectContaining({ withTray }))
   })
 })

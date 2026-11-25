@@ -3,7 +3,7 @@ import {homedir} from 'node:os'
 import {join} from 'node:path'
 import { sync as writeFileAtomic } from 'write-file-atomic'
 
-// ~/.claude-discover/config.json — this app's own preferences (claudeDir, recents, work_hours)
+// ~/.claude-discover/config.json — this app's own preferences (claudeDir, recents, work_hours, keepInTray)
 class ConfigFile {
   dataDir    = join(homedir(), '.claude-discover')
   configFile = join(this.dataDir, 'config.json')

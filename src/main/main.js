@@ -2,6 +2,7 @@ import { app } from 'electron'
 import { DeepLink, findTarget } from './services/DeepLink.js'
 import { Application } from './Application.js'
 import { updater } from './updater.js'
+import { LAUNCH_MODE, LAUNCH_MODES } from './paths.js'
 
 if (import.meta.env.DEV) await import('./debug.js')  // note dev uses a separate userData profile
 
@@ -16,7 +17,8 @@ if (isFirstInstance) {
   updater.createShortcuts({ appId: 'com.dichev.claude-discover', name: 'Claude Discover', description: 'Browse your local Claude Code sessions' }) // never throws
 
   app.whenReady().then(() => {
-    application = new Application({ deepLink })
+    // An npx run is a tryout that mustn't be left running by surprise: it gets no tray, nor the choice of one
+    application = new Application({ deepLink, withTray: LAUNCH_MODE !== LAUNCH_MODES.NPX_TEMP })
     application.start()
   })
 

@@ -42,7 +42,7 @@ Not a hard constraint — restructure when it serves the code, just update this 
 │   │   ├── requests/               API-request reading & parsing (the proxy's log + the transcript's own request records)
 │   │   ├── services/               backend services (LoginService = a generic per-OS login service) + the StatusBar switchers
 │   │   ├── sessions/               transcript scanning, caching & parsing, each turn's MCP servers (request tools + debug log) (utils/: the file watchers; usage/: what a reply bills — token buckets, the advisor's calls)
-│   │   └── windows/                the app window (find bar: electron-find-overlay)
+│   │   └── windows/                the app window (find bar: electron-find-overlay) + the tray icon it hides to
 │   ├── preload/                    contextBridge preload (main window)
 │   ├── shared/                     pure helpers both main and renderer import (Claude Code's listing formats, the user's own attachment types, a reply's context size, offline Claude token counts in tokenizer/)
 │   └── renderer/                   React frontend (functional)
@@ -90,7 +90,7 @@ Token totals must match `ccusage` to the cent, and each stage has rules they dep
 
 Optional features, secondary to the core timeline. The switchable ones are a class in `src/main/services/switchers/` with `status()/activate()/deactivate()`, toggled from the StatusBar; switches not marked keep-active are undone on quit.
 
-Each is explained atop its own file: the capture proxy (`bin/proxy.mjs`, `ProxySwitch`, `LoginService`), plan limits (`RateLimits`, `UsageInsights`), statusline (`StatuslineSwitch`), Claude settings (`ClaudeSettingsSwitch`), Claude dir (`ClaudeDirSwitch`), deep links (`DeepLink`), shortcuts and auto update (`src/main/updater.js`, the `NpmUpdater` from [`electron-update-from-npm`](https://github.com/dichev/electron-update-from-npm)). Hard rule for the proxy: **capture must never fail, delay, or alter a request**.
+Each is explained atop its own file: the capture proxy (`bin/proxy.mjs`, `ProxySwitch`, `LoginService`), plan limits (`RateLimits`, `UsageInsights`), statusline (`StatuslineSwitch`), Claude settings (`ClaudeSettingsSwitch`), Claude dir (`ClaudeDirSwitch`), deep links (`DeepLink`), the tray (`AppTray`), shortcuts and auto update (`src/main/updater.js`, the `NpmUpdater` from [`electron-update-from-npm`](https://github.com/dichev/electron-update-from-npm)). Hard rule for the proxy: **capture must never fail, delay, or alter a request**.
 
 ### Dev-only bits
 
