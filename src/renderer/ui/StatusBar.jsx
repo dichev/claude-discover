@@ -116,12 +116,16 @@ function UsageTip({ at, plan, fiveHour, sevenDay, models, share, sources, extra 
 }
 
 // The daily and weekly bars, sharing one tooltip
-// The bars show from startup on, so they don't pop in later: `limits` is undefined while loading, null when unavailable
-// Plans without a 5h window (Ultra) get a null `fiveHour`, and no daily bar
-function UsageLimits({ limits }) {
+// The bars show from startup on, so they don't pop in later: `limits` is undefined while loading, or with `failed` when no
+// answer ever came, and null when unavailable. Plans without a 5h window (Ultra) get a null `fiveHour`, and no daily bar
+function UsageLimits({ limits, failed }) {
   const id          = useId()
-  const placeholder = limits === undefined ? '…' : '—'
-  const tip         = limits ? <UsageTip {...limits} /> : limits === undefined ? 'Loading Claude usage…' : "Claude usage isn't available - it needs Claude Code logged in with a Claude subscription"
+  const loading     = limits === undefined && !failed
+  const placeholder = loading ? '…' : '—'
+  const tip         = limits ? <UsageTip {...limits} />
+    : loading ? 'Loading Claude usage…'
+    : failed ? "Couldn't load Claude usage"
+    : "Claude usage isn't available - it needs Claude Code logged in with a Claude subscription"
   return (
     <span className="statusbar-limits" data-tooltip-id={id}>
       {limits?.fiveHour !== null && <UsageBar label="Daily" limit={limits?.fiveHour} placeholder={placeholder} />}
@@ -137,16 +141,20 @@ function UsageLimits({ limits }) {
 // The last answer is kept across launches, so the bars start as they were rather than reshuffle once it arrives
 function useRateLimits() {
   const [limits, setLimits] = useLocalStorage('usage.limits') // undefined until the first answer ever; null without plan limits (API key logins)
+  const [failed, setFailed] = useState(false) // the latest fetch failed
   useEffect(() => {
     // An undefined answer is a failed fetch, so the last one stands
-    const check = opts => document.hidden || window.api.getRateLimits(opts).then(l => l !== undefined && setLimits(l))
+    const check = opts => document.hidden || window.api.getRateLimits(opts).then(l => {
+      setFailed(l === undefined)
+      if (l !== undefined) setLimits(l)
+    })
     const onFocus = () => check()
     check()
     const timer = setInterval(() => check({ ifActive: true }), 60_000)
     window.addEventListener('focus', onFocus)
     return () => { clearInterval(timer); window.removeEventListener('focus', onFocus) }
   }, [setLimits])
-  return limits
+  return { limits, failed }
 }
 
 export default function StatusBar({ sessionCount = 0 }) {
@@ -159,7 +167,7 @@ export default function StatusBar({ sessionCount = 0 }) {
   const claudedir  = useSwitch({ name: 'claudedir' }) // action-style: its button always activates (opens the folder picker)
   const [update, setUpdate]     = useState(null) // { type: 'update', current, latest, spec } when a global install is outdated, or { type: 'install', spec } for an npx run
   const [updating, setUpdating] = useState(false)
-  const limits                  = useRateLimits()
+  const usage                   = useRateLimits()
   const progress                = useScanProgress()
   useEffect(() => {
     window.api.checkUpdate().then(setUpdate)
@@ -194,7 +202,7 @@ export default function StatusBar({ sessionCount = 0 }) {
           <ArrowDownToLine size={12} /> {npx ? 'Install this app' : 'Update available'}
         </StatusSwitch>
       )}
-      <UsageLimits limits={limits} />
+      <UsageLimits {...usage} />
       <StatusSwitch service={settings} on={settingsOn} warn={!!(settings.status && !settingsOn)} tooltip={settingsTooltip} changes={settingsChanges}>
         Claude settings : <span className="statusbar-state">{settingsLabel(settings.status)}</span>
       </StatusSwitch>
