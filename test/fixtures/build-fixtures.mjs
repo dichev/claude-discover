@@ -11,8 +11,8 @@
 // multi-day session (per-line, not per-file, day attribution); a UTC-midnight boundary
 // pair; a sidechain replay of a parent turn AND a non-sidechain resume replay across
 // files (both deduped); a rewound reply re-appended with zeroed usage (must not subtract);
-// a synthetic no-usage notice (skipped); deep subagents/workflows/
-// nesting; and two separate projects.
+// a synthetic no-usage notice (skipped); a prompt past a model's long-prompt threshold and
+// one exactly at it; deep subagents/workflows/ nesting; and two separate projects.
 import fs from 'node:fs'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
@@ -110,6 +110,10 @@ writeFile('proj-alpha/main-session/subagents/workflows/wf_demo/agent-1.jsonl', [
 writeFile('proj-beta/another.jsonl', [
   // e9: haiku in another project on the latest day
   asst({ ts: '2025-03-13T16:00:00Z', model: 'claude-haiku-4-5', rid: 'rI', mid: 'M8', sessionId: 'S2', u: usage({ input: 70, output: 110, cacheRead: 300, cc5m: 50 }) }),
+  // e14: a long prompt — past 100K tokens Haiku 5.5 bills the whole call, output included, at its higher rates
+  asst({ ts: '2025-03-13T16:10:00Z', model: 'claude-haiku-5-5', rid: 'rO', mid: 'M14', sessionId: 'S2', u: usage({ input: 50_000, output: 20_000, cacheRead: 400_000, cc5m: 30_000, cc1h: 20_000 }) }),
+  // e15: a prompt of exactly 100K (cache included) stays at the base rates, whatever its output
+  asst({ ts: '2025-03-13T16:11:00Z', model: 'claude-haiku-5-5', rid: 'rP', mid: 'M15', sessionId: 'S2', u: usage({ input: 60_000, output: 50_000, cacheRead: 30_000, cc5m: 10_000 }) }),
 ])
 
 // Sidecar that must be ignored by the scanner (.ndjson, not .jsonl)

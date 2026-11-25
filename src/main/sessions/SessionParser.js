@@ -26,7 +26,7 @@ function promptCosts(calls, pricing) {
   const prevByModel = new Map() // the cache is per model
   let ttl = writeTtl(calls.find(c => c.usage.cacheCreation)?.usage ?? {}) ?? CACHE_TTL_MS['5m'] // of the cache in use
   for (const { ts, model, fast, usage: u } of calls) {
-    const price = bucket => pricing.costForDelta(model, bucket, { fast }) || 0
+    const price = bucket => pricing.costForDelta(pricing.billedAs(model, bucket), bucket, { fast }) || 0
     const prefix = u.cacheRead + u.cacheCreation
     const prev = prevByModel.get(model)
     const gap = prev ? ts - prev.ts : Infinity
@@ -345,14 +345,20 @@ export class SessionParser {
         if (obj._ts != null && (webSearch || webFetch)) meta.serverToolSamples.push({ end: obj._ts, webSearch, webFetch })
       }
     }
-    this._addGrowth(obj, model, fast, this._growth(msgId, usage))
+    this._addGrowth(obj, this._billedAs(model, usage), fast, this._growth(msgId, usage))
     for (const call of AdvisorUsage.inReply(msgId, u)) {
+      call.model = this._billedAs(call.model, call.usage)
       const firstSeen = !this.appliedById.has(call.key)
       if (firstSeen && this.pricing && this.pricing.priceFor(call.model) == null) meta.priceUnknown = true
       const growth = this._growth(call.key, call.usage)
       this.advisor.add(call, growth, firstSeen)
       this._addGrowth(obj, call.model, call.fast, growth)
     }
+  }
+
+  // The id a call's tokens count under: its model's, or one of its own for a long prompt (see Pricing)
+  _billedAs(model, usage) {
+    return this.pricing?.billedAs(model, usage) ?? model
   }
 
   // Folds a line's growth into the totals and the cost samples

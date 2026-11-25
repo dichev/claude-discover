@@ -111,6 +111,41 @@ describe('fast mode', () => {
   })
 })
 
+describe('long prompts', () => {
+  // claude-haiku-5-5: input $0.1, output $0.5, cache read $0.01 per 1M; with a prompt past 100K: $0.5, $2.5, $0.05
+  const long = pricing.billedAs('claude-haiku-5-5', { input: 10, output: 0, cacheRead: 60_000, cacheCreation: 40_000 })
+
+  it('bills a call as a model of its own once its prompt, cache included, passes the threshold', () => {
+    expect(long).not.toBe('claude-haiku-5-5')
+    expect(pricing.billedAs('claude-haiku-5-5', { input: 60_000, output: 50_000, cacheRead: 40_000, cacheCreation: 0 })).toBe('claude-haiku-5-5') // exactly 100K
+    expect(pricing.billedAs('claude-opus-4-7', { input: 900_000, output: 0, cacheRead: 0, cacheCreation: 0 })).toBe('claude-opus-4-7') // one set of rates
+  })
+
+  it('prices every token type at the long rates', () => {
+    const M = 1_000_000
+    const bucket = { input: M, output: M, cacheRead: M, cacheCreation: 2 * M, cacheCreation5m: M, cacheCreation1h: M }
+    expect(pricing.costForDelta(long, bucket)).toBeCloseTo(0.5 + 2.5 + 0.05 + 0.625 + 1, 6)
+  })
+
+  it('bills a call past the threshold at them in each of the session\'s figures', () => {
+    const reply = (id, second, read, output) => ({
+      type: 'assistant', uuid: `${id}-${second}`, timestamp: new Date(Date.UTC(2026, 10, 21, 0, 0, second)).toISOString(),
+      message: { id, role: 'assistant', model: 'claude-haiku-5-5', content: [], usage: { input_tokens: 0, output_tokens: output, cache_read_input_tokens: read, cache_creation_input_tokens: 0 } },
+    })
+    const parser = new SessionParser({ sessionId: 's1', filePath: 's1.jsonl', pricing })
+    for (const r of [reply('a1', 0, 100_000, 10_000), reply('a2', 30, 200_000, 100), reply('a2', 31, 200_000, 10_000)]) {
+      parser.feed(r)
+    }
+    const meta = parser.finalize(0)
+    const sum = list => list.reduce((a, b) => a + b, 0)
+    expect(meta.cost).toBeCloseTo(0.006 + 0.035, 6) // a1 at the base rates, a2 at the long ones
+    expect(meta.tokensByModel[long]).toMatchObject({ cacheRead: 200_000, output: 10_000 })
+    expect(sum(Object.values(meta.costByType))).toBeCloseTo(meta.cost, 6)
+    expect(sum(meta.costSamples.map(s => s.cost))).toBeCloseTo(meta.cost, 6)
+    expect(meta.cacheCosts['5m']).toBeCloseTo(meta.cost, 6)
+  })
+})
+
 describe('SessionParser — cache costs', () => {
   // claude-opus-4-7: input $5, cache read $0.5, write $6.25 (5m) / $10 (1h) per 1M
   const at = minute => new Date(Date.UTC(2026, 9, 1, 0, 0, minute * 60)).toISOString()
@@ -195,5 +230,7 @@ describe.skipIf(!process.env.LIVE_TESTS)('refreshPricesFromLiteLLM (live)', () =
     expect(opus?.output).toBeGreaterThan(0)
     expect(opus?.cacheRead).toBeGreaterThan(0)
     expect(opus?.cacheWrite).toBeGreaterThan(0)
+    const haiku = pricing.priceFor('claude-haiku-5-5')
+    expect(haiku?.long?.input).toBeGreaterThan(haiku.input) // its long-prompt rates are still listed under the names we read
   }, 20_000)
 })

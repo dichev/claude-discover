@@ -1,4 +1,6 @@
 // Rates per 1M tokens, sourced from LiteLLM's model_prices_and_context_window.json.
+// A model can list a second set for long prompts (`long`), which ccusage and Claude Code's own cost apply too:
+// a call past the threshold bills as a model of its own, its id suffixed with LONG.
 import { EventEmitter } from 'node:events'
 import fs from 'node:fs'
 import path from 'node:path'
@@ -9,6 +11,7 @@ const CURRENT_PATH = path.join(DATA_DIR, 'prices.current.json') // daily refresh
 const LITELLM_URL = 'https://raw.githubusercontent.com/BerriAI/litellm/main/model_prices_and_context_window.json'
 const DAY_MS = 24 * 3600 * 1000
 const MILLION = 1e6
+const LONG = '+long'
 
 // Emits 'update' when a background refresh changes the rate table.
 export class Pricing extends EventEmitter {
@@ -39,7 +42,15 @@ export class Pricing extends EventEmitter {
     const m = model.toLowerCase()
     // the prefix must end on a token boundary: 'claude-opus-4-10' is a 4.x, not a 4-1
     const key = this.#keys.find(k => m.startsWith(k) && !/^\w/.test(m.slice(k.length)))
-    return key ? this.#prices[key] : null
+    const p = key ? this.#prices[key] : null
+    return p && m.endsWith(LONG) ? { ...p, ...p.long } : p // a rate the long set doesn't list keeps its base value
+  }
+
+  // The id a call's tokens count and price under. A prompt (fresh input plus the cache read and written) past the
+  // model's `long.over` bills the whole call, output included, at the `long` rates.
+  billedAs(model, usage) {
+    const over = this.priceFor(model)?.long?.over
+    return over && usage.input + usage.cacheRead + usage.cacheCreation > over ? model + LONG : model
   }
 
   // Fast mode (usage.speed === "fast") bills at a flat per-model multiple of
@@ -106,13 +117,17 @@ export class Pricing extends EventEmitter {
     for (const name of models) {
       const m = Object.assign({}, anthropic[name], claude[name]) // Merge each model: anthropic.* backfills, claude-* wins (they disagree on claude-3-haiku's cache rates)
       const per = c => Number.isFinite(c) ? Number((c * MILLION).toPrecision(12)) : undefined // absent field → omitted, never NaN→null→$0; toPrecision kills float noise (0.199999… → 0.2)
-      out['claude-' + name] = {
-        input: per(m.input_cost_per_token),
-        output: per(m.output_cost_per_token),
-        cacheRead: per(m.cache_read_input_token_cost),
-        cacheWrite: per(m.cache_creation_input_token_cost),
-        cacheWrite1h: per(m.cache_creation_input_token_cost_above_1hr),
-      }
+      const rates = (above = '') => ({
+        input: per(m[`input_cost_per_token${above}`]),
+        output: per(m[`output_cost_per_token${above}`]),
+        cacheRead: per(m[`cache_read_input_token_cost${above}`]),
+        cacheWrite: per(m[`cache_creation_input_token_cost${above}`]),
+        cacheWrite1h: per(m[`cache_creation_input_token_cost_above_1hr${above}`]),
+      })
+      out['claude-' + name] = rates()
+      // The long-prompt rates repeat each field with the threshold in its name: input_cost_per_token_above_100k_tokens
+      const over = Object.keys(m).map(k => k.match(/^input_cost_per_token_above_(\d+)k_tokens$/)?.[1]).find(Boolean)
+      if (over) out['claude-' + name].long = { over: over * 1000, ...rates(`_above_${over}k_tokens`) }
       // Fast-mode multiplier lives only on the first-party claude-* variant.
       const fast = m.provider_specific_entry?.fast
       if (typeof fast === 'number') out['claude-' + name].fastModeMplr = fast
