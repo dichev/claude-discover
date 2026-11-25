@@ -75,7 +75,9 @@ export class Application {
 
     // Finish wiring before starting services or loading the renderer.
     sessionsService.start()
-    win.create()
+    const window = win.create()
+    window.on('hide', () => sessionsService.pause()) // in the tray: nobody to keep the period fresh for
+    window.on('show', () => sessionsService.resume())
   }
 
   // app.exit skips will-quit, so switches stay active across the restart

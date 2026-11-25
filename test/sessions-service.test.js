@@ -44,6 +44,27 @@ describe('SessionsService update emits', () => {
   })
 })
 
+// The window is hidden in the tray: nothing is parsed for a period nobody sees, and it's fresh again once someone does
+describe('SessionsService.pause', () => {
+  it('leaves a change unparsed, then catches up on resume and sends the period afresh', async () => {
+    const line = (uuid, timestamp) => JSON.stringify({ type: 'user', uuid, sessionId: 's1', cwd: '/proj', timestamp, message: { role: 'user', content: 'hi' } }) + '\n'
+    const file = path.join(await fs.mkdtemp(path.join(os.tmpdir(), 'pause-')), 'proj', 's1.jsonl')
+    await fs.mkdir(path.dirname(file))
+    await fs.writeFile(file, line('u1', '2026-03-01T10:00:00.000Z'))
+    const service = new SessionsService({ root: path.dirname(path.dirname(file)), throttleMs: 0 })
+    expect(await service.scan({ start: Date.parse('2026-03-01'), end: Date.parse('2026-04-01') })).toMatchObject([{ messageCount: 1 }])
+
+    service.pause()
+    await fs.appendFile(file, line('u2', '2026-03-02T10:00:00.000Z'))
+    await service._refresh(file, await fs.stat(file)) // what the watcher calls on the append
+    expect(service.metaCache.get(file).messageCount).toBe(1)
+
+    const update = new Promise(resolve => service.once('update', resolve))
+    service.resume()
+    expect((await update).sessions).toMatchObject([{ messageCount: 2 }])
+  })
+})
+
 // A transcript someone sent over, outside the projects dir: read whole, with no period
 describe('SessionsService.openFile', () => {
   const lines = [
