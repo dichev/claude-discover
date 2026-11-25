@@ -122,7 +122,7 @@ export class SessionParser {
     this.advisor = new AdvisorUsage()
     this.branchStarted = false
     this.requested = false // an API request was logged yet
-    this.rewound = false // a rewind since the last request
+    this.restated = false // a rewind or a compaction since the last request: the next one is logged whole
   }
 
   // Returns true if the item passes `this.range`.
@@ -158,12 +158,12 @@ export class SessionParser {
     const ts = inherited ?? meta.mtime
     if (parsed > 0) this.lastSeenTs = parsed
     // A request logged whole, not as a diff on the one before (`base`), is a new process's first: past the session's own, a resume.
-    // A rewind to the first prompt logs one whole too, in the same process — it's marked by a `last-prompt` with a zeroed leaf.
-    if (t === 'last-prompt' && obj.leafUuid === ZERO_UUID) this.rewound = true
-    const resumed = t === 'api-request' && !obj.base && this.requested && !this.rewound
+    // The same process logs one whole too after a rewind to the first prompt (a `last-prompt` with a zeroed leaf) and after a compaction.
+    if ((t === 'last-prompt' && obj.leafUuid === ZERO_UUID) || obj.subtype === 'compact_boundary') this.restated = true
+    const resumed = t === 'api-request' && !obj.base && this.requested && !this.restated
     if (t === 'api-request') {
       this.requested = true
-      this.rewound   = false
+      this.restated  = false
     }
     if (this.range && (ts < this.range.start || ts > this.range.end)) {
       // Nearest activity outside the period on either side — the view marks where the shown part picks up and where it goes on

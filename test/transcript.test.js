@@ -228,6 +228,16 @@ describe('SessionParser — continuesFrom / continuesTo', () => {
     expect(parser.meta.resumes).toEqual([Date.parse('2026-09-28T09:00:01.000Z')])
   })
 
+  it('does not take the request after a compaction for a resume either', () => {
+    const request = timestamp => ({ type: 'api-request', timestamp, querySource: 'repl_main_thread' })
+    const compact = { type: 'system', subtype: 'compact_boundary', timestamp: '2026-09-26T14:32:00.000Z', compactMetadata: { trigger: 'auto', preTokens: 150000 } }
+    const parser  = new SessionParser({ sessionId: 's1', filePath: 's1.jsonl' })
+    for (const l of [lines[0], request('2026-09-25T10:00:01.000Z'), lines[1], compact, request('2026-09-26T14:32:01.000Z'), lines[2], request('2026-09-28T09:00:01.000Z')]) {
+      parser.feed(l)
+    }
+    expect(parser.meta.resumes).toEqual([Date.parse('2026-09-28T09:00:01.000Z')])
+  })
+
   it('stays null for a whole-file parse', () => {
     const parser = new SessionParser({ sessionId: 's1', filePath: 's1.jsonl' })
     for (const l of lines) parser.feed(l)
