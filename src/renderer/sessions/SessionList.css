@@ -29,7 +29,25 @@
   margin-right: auto;
 }
 
+.session-list-rows {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+}
+
 .session-list-scroll { overflow-y: auto; flex: 1; }
+
+/* Stays put above the scroller; scrolls itself only once it grows past its cap */
+.session-list-pinned {
+  flex: none;
+  max-height: 40%;
+  overflow-y: auto;
+  border-bottom: 2px solid var(--accent);
+  box-shadow: 0 2px 6px rgb(0 0 0 / 40%);
+  position: relative; /* lifts its shadow over the scroller's rows */
+  z-index: 1;
+}
 
 .filter-wrap {
   position: relative;
@@ -115,6 +133,7 @@
   /* A month lists thousands of rows: skip laying out the off-screen ones, or every panel resize frame relayouts them all */
   content-visibility: auto;
   contain-intrinsic-size: auto 51px;
+  --dot: var(--text-faint); /* on the row, so the pin that takes the dot's place shares it */
 
   /* A timeline after the time: a dot on the label's line (accent while active), over a track whose negative margins run it through the row's padding */
   &::before, &::after {
@@ -133,9 +152,8 @@
     margin: 6.5px 11px 0 8px;
     border-radius: 50%;
     background: var(--dot);
-    --dot: var(--text-faint);
   }
-  &.active::after { --dot: var(--accent); }
+  &.active { --dot: var(--accent); }
   &.live::after { animation: pulse 2s ease-out infinite; }
 
   &.is-subagent-child { background-color: var(--bg); } /* before :hover and .selected, so they still win */
@@ -357,3 +375,28 @@
   text-overflow: ellipsis;
   white-space: nowrap;
 }
+
+/* Takes the timeline dot's place: a faint pin on the row's hover, and once pinned the dot's colors (accent while active, pulsing while live) */
+.pin-button {
+  grid-area: bar;
+  z-index: 1;
+  width: 24px;
+  height: 18px;
+  padding: 0 11px 0 8px; /* the dot's margins, so the icon centers where the dot is */
+  display: none;
+  align-items: center;
+  justify-content: center;
+  border: none;
+  background: none;
+  color: var(--text-faint);
+  cursor: pointer;
+
+  & .pin-icon { flex: none; width: 12px; height: 15px; background-color: currentColor; mask: url("../assets/pin.svg") center / contain no-repeat; }
+  &:hover { color: var(--text); background: none; } /* over the global button:hover */
+  .session-row:is(:hover, .pinned) &, &:focus-visible { display: inline-flex; }
+  .session-row.pinned & { color: var(--dot); & .pin-icon { mask-image: url("../assets/pin-filled.svg"); } }
+  .session-row.pinned &:hover { color: var(--text); & .pin-icon { mask-image: url("../assets/pin.svg"); } } /* previews the unpinned outline */
+}
+/* The pin covers the dot, which stays there unpainted so its live pulse still rings out behind the pin; a subagent row has no pin */
+.session-row:not(.is-subagent-child, .subagent-run):hover::after,
+.session-row.pinned::after { background: transparent; }

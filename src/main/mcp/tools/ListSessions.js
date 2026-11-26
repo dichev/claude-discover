@@ -49,13 +49,7 @@ function runRow(run) {
 
 // The list's rows in blocks to page by: each session with the runs of its subagents under it
 function blocksOf(listRows) {
-  const blocks = []
-  for (const { session, run, runKey } of listRows) {
-    if (!runKey) blocks.push({ session, runs: [] })
-    else if (run) blocks.at(-1).runs.push([])
-    else blocks.at(-1).runs.at(-1).push(session)
-  }
-  return blocks
+  return [...Map.groupBy(listRows, r => r.top)].map(([session, rows]) => ({ session, runs: rows.filter(r => r.run).map(r => r.run) }))
 }
 
 const chars = rows => rows.reduce((sum, r) => sum + Object.values(r).join(' | ').length, 0)

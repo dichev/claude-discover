@@ -35,6 +35,13 @@ const ProjectModels = ({ s }) => <>
   {s.models?.length > 0 && <span className="session-model">{modelsLabel(s)}</span>}
 </>
 
+// Floats its session to the top of the list, whatever the sort
+const PinButton = ({ pinned, onToggle }) => (
+  <button type="button" className="pin-button" aria-pressed={pinned} aria-label={pinned ? 'Unpin' : 'Pin to the top'} onClick={e => { e.stopPropagation(); onToggle() }}>
+    <span className="pin-icon" />
+  </button>
+)
+
 // Read once per avatar file, however many sessions share it
 const avatars = new Map()
 const Avatar = ({ session }) => {
@@ -55,6 +62,7 @@ export default function SessionList({ sessions, selectedId, deepLink, onSelect }
   const selectedRef             = useRef(null)
   const [sortBy, setSortBy]     = useLocalStorage('session-list.sort', 'time')
   const [filter, setFilter]     = useState('')
+  const [pinned, setPinned]     = useLocalStorage('session-list.pinned', [])
   const [expanded, setExpanded] = useState(() => new Map())
 
   useEffect(() => {
@@ -75,9 +83,72 @@ export default function SessionList({ sessions, selectedId, deepLink, onSelect }
   const toggleRun   = key => setExpanded(prev => new Map(prev).set(key, !isOpen(key)))
   const rows        = grouped.filter(i => i.run || !i.runKey || isOpen(i.runKey))
 
+  // Pinned sessions, with their subagent runs, go in a pane above the scroller
+  const isPinned   = r => pinned.includes(r.top.filePath)
+  const pinnedRows = rows.filter(isPinned)
+  const otherRows  = rows.filter(r => !isPinned(r))
+
+  const togglePin = filePath => setPinned(pinned.includes(filePath) ? pinned.filter(p => p !== filePath) : [...pinned, filePath])
+
+  const renderRows = list => list.map(({ session: s, run, runKey }, i) => {
+    // The branch stroke runs on below a row while a run's row follows it: from the parent (its start) or within its runs
+    const branch = list[i + 1]?.runKey ? (runKey ? 'branch-below' : 'branch-start') : ''
+    if (run) {
+      const isCollapsed = !isOpen(runKey)
+      const Chevron = isCollapsed ? ChevronRight : ChevronDown
+      const hidesSelected = isCollapsed && runKey === selectedRun
+      const summary = runSummary(run)
+      return (
+        <button
+          type="button"
+          key={runKey}
+          ref={hidesSelected ? selectedRef : null}
+          className={`session-row subagent-run ${branch} ${hidesSelected ? 'selected' : ''} ${activity(summary.lastActivityAt, now)}`}
+          aria-expanded={!isCollapsed}
+          onClick={() => toggleRun(runKey)}
+        >
+          <span className="subagent-run-arrow" aria-hidden="true" />
+          <span className="session-label subagent-run-title">
+            Subagents ({run.length})
+            <Chevron size={14} aria-hidden="true" />
+          </span>
+          <span className="session-time-bottom">
+            <ProjectModels s={{ ...run[0], ...summary }} />
+          </span>
+          <Badges s={summary} run />
+          <RowStats s={summary} sortBy={sortBy} />
+        </button>
+      )
+    }
+    const linked   = !!deepLink && s.filePath === selectedId // opened by a claude-discover:// link, see App.jsx
+    const isPinRow = !runKey && pinned.includes(s.filePath)
+    return (
+      <div
+        key={s.filePath}
+        ref={selectedId === s.filePath ? selectedRef : null}
+        className={`session-row ${branch} ${selectedId === s.filePath ? 'selected' : ''} ${runKey ? 'is-subagent-child' : ''} ${isPinRow ? 'pinned' : ''} ${linked ? 'deep-linked' : ''} ${activity(s.lastActivityAt, now)}`}
+        onClick={() => onSelect(selectedId === s.filePath ? null : s.filePath)}
+      >
+        <div className="session-label">
+          <span className="session-label-text">{rowLabel(s)}</span>
+        </div>
+        {!runKey && <PinButton pinned={isPinRow} onToggle={() => { togglePin(s.filePath); onSelect(s.filePath) }} />}
+        <div className="session-time-bottom">
+          {rowTags(s).map(t => t.text
+            ? <span key={t.key} className={t.key} data-tooltip-content={t.tip}>{t.text}</span>
+            : <span key={t.key} className={t.key} role="img" aria-label="Forked" data-tooltip-content={t.tip}><GitBranch size={12} /></span>)}
+          <ProjectModels s={s} />
+          {linked && <span className="deeplink-note">opened from deep link</span>}
+        </div>
+        <Badges s={s} />
+        <RowStats s={s} sortBy={sortBy} />
+      </div>
+    )
+  })
+
   const moveSelection = e => {
     const step    = { ArrowDown: 1, ArrowUp: -1 }[e.key]
-    const visible = rows.flatMap(r => r.session ?? [])
+    const visible = [...pinnedRows, ...otherRows].flatMap(r => r.session ?? [])
     const current = visible.findIndex(s => s.filePath === selectedId)
     if (!step || current < 0) return
     e.preventDefault()
@@ -110,63 +181,14 @@ export default function SessionList({ sessions, selectedId, deepLink, onSelect }
           </div>
         </div>
       </div>
-      <div className="session-list-scroll" tabIndex={0} onKeyDown={moveSelection}>
-        {sorted.length === 0 && (
-          <div className="empty">No sessions on this day.</div>
-        )}
-        {rows.map(({ session: s, run, runKey }, i) => {
-          // The branch stroke runs on below a row while a run's row follows it: from the parent (its start) or within its runs
-          const branch = rows[i + 1]?.runKey ? (runKey ? 'branch-below' : 'branch-start') : ''
-          if (run) {
-            const isCollapsed = !isOpen(runKey)
-            const Chevron = isCollapsed ? ChevronRight : ChevronDown
-            const hidesSelected = isCollapsed && runKey === selectedRun
-            const summary = runSummary(run)
-            return (
-              <button
-                type="button"
-                key={runKey}
-                ref={hidesSelected ? selectedRef : null}
-                className={`session-row subagent-run ${branch} ${hidesSelected ? 'selected' : ''} ${activity(summary.lastActivityAt, now)}`}
-                aria-expanded={!isCollapsed}
-                onClick={() => toggleRun(runKey)}
-              >
-                <span className="subagent-run-arrow" aria-hidden="true" />
-                <span className="session-label subagent-run-title">
-                  Subagents ({run.length})
-                  <Chevron size={14} aria-hidden="true" />
-                </span>
-                <span className="session-time-bottom">
-                  <ProjectModels s={{ ...run[0], ...summary }} />
-                </span>
-                <Badges s={summary} run />
-                <RowStats s={summary} sortBy={sortBy} />
-              </button>
-            )
-          }
-          const linked = !!deepLink && s.filePath === selectedId // opened by a claude-discover:// link, see App.jsx
-          return (
-            <div
-              key={s.filePath}
-              ref={selectedId === s.filePath ? selectedRef : null}
-              className={`session-row ${branch} ${selectedId === s.filePath ? 'selected' : ''} ${runKey ? 'is-subagent-child' : ''} ${linked ? 'deep-linked' : ''} ${activity(s.lastActivityAt, now)}`}
-              onClick={() => onSelect(selectedId === s.filePath ? null : s.filePath)}
-            >
-              <div className="session-label">
-                <span className="session-label-text">{rowLabel(s)}</span>
-              </div>
-              <div className="session-time-bottom">
-                {rowTags(s).map(t => t.text
-                  ? <span key={t.key} className={t.key} data-tooltip-content={t.tip}>{t.text}</span>
-                  : <span key={t.key} className={t.key} role="img" aria-label="Forked" data-tooltip-content={t.tip}><GitBranch size={12} /></span>)}
-                <ProjectModels s={s} />
-                {linked && <span className="deeplink-note">opened from deep link</span>}
-              </div>
-              <Badges s={s} />
-              <RowStats s={s} sortBy={sortBy} />
-            </div>
-          )
-        })}
+      <div className="session-list-rows" tabIndex={0} onKeyDown={moveSelection}>
+        {pinnedRows.length > 0 && <div className="session-list-pinned">{renderRows(pinnedRows)}</div>}
+        <div className="session-list-scroll">
+          {sorted.length === 0 && (
+            <div className="empty">No sessions on this day.</div>
+          )}
+          {renderRows(otherRows)}
+        </div>
       </div>
     </div>
   )

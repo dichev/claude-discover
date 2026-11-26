@@ -46,15 +46,17 @@ export function sortSessions(sessions, sortBy) {
   return sessions
 }
 
-// The list's rows: each session, then its subagents under a header per run they were spawned in, newest run first, each run in the list's order
+// The list's rows: each session, then its subagents under a header per run they were spawned in, newest run first, each run in the list's order.
+// Each row's `top` is the session it's listed under (itself for a session's own row); a run's header holds its subagents in their rows' order
 export function groupRuns(sorted) {
   const runsOf = Map.groupBy(subagentClusters(sorted), run => run[0].parentFilePath)
   const rank   = new Map(sorted.map((s, i) => [s, i]))
   return sorted.flatMap(s => runsOf.has(s.parentFilePath) ? [] : [
-    { session: s },
-    ...(runsOf.get(s.filePath) ?? []).toReversed().flatMap(run => {
-      const runKey = `${run[0].filePath}::run`
-      return [{ run, runKey }, ...run.toSorted((a, b) => rank.get(a) - rank.get(b)).map(c => ({ session: c, runKey }))]
+    { session: s, top: s },
+    ...(runsOf.get(s.filePath) ?? []).toReversed().flatMap(cluster => {
+      const runKey = `${cluster[0].filePath}::run`
+      const run    = cluster.toSorted((a, b) => rank.get(a) - rank.get(b))
+      return [{ run, runKey, top: s }, ...run.map(c => ({ session: c, runKey, top: s }))]
     }),
   ])
 }
