@@ -22,6 +22,9 @@ const TIPS = {
 
 const EFFORT_BADGE = { xhigh: 'warn-badge', max: 'danger-badge' }
 
+// A path is found typed with either slash, so by its row's label too (`AI/claude-discover` of D:\AI\claude-discover)
+const findable = text => text.toLowerCase().replace(/\\/g, '/')
+
 const sumOf = (sessions, key) => sessions.reduce((sum, s) => sum + (s[key] || 0), 0)
 
 // A run's row reads as one session: its subagents' totals, and for each per-session badge the worst of them
@@ -82,8 +85,7 @@ const Badges = ({ s, run }) => {
     <span className="session-row-badges">
       {s.avatar && <Suspense><Avatar session={s} /></Suspense>}
       {advice && <Badge className="warn-badge" tip={`−${advice.pct.toFixed(0)}% (${fmtUSD(advice.saving)}) ${CACHE_LABELS[advice.policy]}\n${TIPS.cache[advice.policy]}`} text={advice.policy} />}
-      {s.lastContextTokens > T.context.danger && <Badge className="danger-badge" tip={`${worst}Context size:${fmtCompact(s.lastContextTokens)} tokens\n${TIPS.context}`} icon={Gauge} />}
-      {s.lastContextTokens > T.context.warn && s.lastContextTokens <= T.context.danger && <Badge className="warn-badge" tip={`${worst}Context size:${fmtCompact(s.lastContextTokens)} tokens\n${TIPS.context}`} icon={Gauge} />}
+      {s.lastContextTokens > T.context.warn && <Badge className={s.lastContextTokens > T.context.danger ? 'danger-badge' : 'warn-badge'} tip={`${worst}Context size: ${fmtCompact(s.lastContextTokens)} tokens\n${TIPS.context}`} icon={Gauge} />}
       {topEffort && <Badge className={EFFORT_BADGE[topEffort]} tip={`Effort: ${topEffort}\n${TIPS.effort}`} icon={Brain} />}
       {s.speed === 'fast' && <Badge className={`fast-badge ${s.fastPricingUnknown ? 'fast-badge-unknown' : ''}`} tip={s.fastPricingUnknown ? 'Used fast mode — cost is INACCURATE: no fast-mode price multiplier known for this model' : 'Used fast mode (speed: fast)'} icon={Zap} />}
       {s.priceUnknown && <Badge className="danger-badge" tip={`No price entry for ${s.models?.join(', ') || 'this model'} — cost is missing or understated`} icon={DollarSign} />}
@@ -128,11 +130,12 @@ export default function SessionList({ sessions, selectedId, deepLink, onSelect }
     return c ? `${c.name || c.message} ${c.args}` : (s.agentDescription || s.aiTitle || s.summary || s.firstUserPrompt || s.sessionId || '')
   }
 
-  const q = filter.trim().toLowerCase()
-  const filtered = q ? sessions.filter(s => [
+  // A subagent is held by its session's id too, so that id lists them with it
+  const q = findable(filter.trim())
+  const filtered = q ? sessions.filter(s => findable([
     s.customTitle, s.agentName, s.agentDescription, s.tag, s.aiTitle, s.summary, s.firstUserPrompt, s.firstUserCommand,
-    s.project, s.subdir, s.worktree, s.tempPath, s.sessionId, s.model, s.gitBranch,
-  ].filter(Boolean).join(' ').toLowerCase().includes(q)) : sessions
+    s.project, s.projectShort, s.subdir, s.worktree, s.tempPath, s.sessionId, s.parentSessionId, s.model, s.gitBranch,
+  ].filter(Boolean).join(' ')).includes(q)) : sessions
 
   const sorted = sortBy === 'cost'   ? [...filtered].sort((a, b) => (b.cost || 0) - (a.cost || 0))
                : sortBy === 'tokens' ? [...filtered].sort((a, b) => (b.totalTokens || 0) - (a.totalTokens || 0))

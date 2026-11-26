@@ -67,7 +67,7 @@ const buildTrie = pieces => {
 }
 
 // The vocabulary's lookup tables, and the texts counted so far: the view re-renders on every transcript append, re-counting the same prompts and tools
-const trie     = buildTrie(vocab.pieces)
+let trie // built on the first count, 10ms a process that never counts doesn't pay as it starts
 const prefixes = new Set(vocab.bytePrefixes)
 const counts   = new Map()
 
@@ -86,6 +86,7 @@ const byteCost = c => {
 
 // The fewest pieces that cover the text's marked stream
 const cover = text => {
+  trie ??= buildTrie(vocab.pieces)
   const chars = Array.from(stream(normalize(text)))
   const best  = new Float64Array(chars.length + 1).fill(Infinity) // best[i]: the fewest tokens covering the first i characters
   best[0] = 0

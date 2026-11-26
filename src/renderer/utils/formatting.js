@@ -1,10 +1,11 @@
-import { format, intervalToDuration, isToday } from 'date-fns'
+import { format, isToday } from 'date-fns'
 
 export function fmtDuration(ms) {
   if (!ms || ms < 0) return '—'
   if (ms < 60_000) return `${Math.round(ms / 1000)}s`
-  const { hours = 0, minutes = 0, seconds = 0 } = intervalToDuration({ start: 0, end: ms })
-  if (!hours) return `${minutes}m ${seconds}s`
+  const hours   = Math.floor(ms / 3_600_000) // past a day too: a week's working time is "39h 30m"
+  const minutes = Math.floor(ms / 60_000) % 60
+  if (!hours) return `${minutes}m ${Math.floor(ms / 1000) % 60}s`
   return `${hours}h ${minutes}m`
 }
 
