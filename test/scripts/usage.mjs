@@ -14,14 +14,15 @@
 
 import { addDays, addWeeks, addMonths, parseISO, isValid, format } from 'date-fns'
 import { tz } from '@date-fns/tz'
-import { SessionsService, periodBounds } from '../../src/main/services/SessionsService.js'
+import { SessionsReader, periodBounds } from '../../src/main/sessions/SessionsReader.js'
+import { Pricing } from '../../src/main/services/Pricing.js'
 
 const USAGE = 'Usage: node test/scripts/usage.mjs [daily|weekly|monthly] [--since yyyy-MM-dd] [--until yyyy-MM-dd] [--timezone Area/City]'
 const die = msg => { console.error(msg); process.exit(1) }
 
 const GRANULARITIES = {
   daily:   { granularity: 'day',   step: addDays,   labelFmt: 'yyyy-MM-dd' },
-  weekly:  { granularity: 'week',  step: addWeeks,  labelFmt: 'yyyy-MM-dd' }, // week start (Monday, per SessionsService)
+  weekly:  { granularity: 'week',  step: addWeeks,  labelFmt: 'yyyy-MM-dd' }, // week start (Monday, per periodBounds)
   monthly: { granularity: 'month', step: addMonths, labelFmt: 'yyyy-MM' },
 }
 
@@ -70,7 +71,7 @@ function parseCli(argv) {
 // Scan one period at a time across the range, returning a row { period, totals } per
 // non-empty period. Tokens are clipped to [since, until] so edge periods aren't over-counted.
 async function collectRows({ opt, inTz, since, until }) {
-  const service = new SessionsService()
+  const reader = new SessionsReader({ pricing: new Pricing() })
   const fmtDate = (d, f = 'yyyy-MM-dd') => format(d, f, inTz)
   const dayBounds = d => periodBounds(fmtDate(d), 'day', inTz.in)
   const untilMs = dayBounds(until).end
@@ -79,7 +80,7 @@ async function collectRows({ opt, inTz, since, until }) {
   // Start at the --since period, else the earliest session on disk.
   let cursor = since
   if (!cursor) {
-    const all = await service.scan({ start: 0, end: untilMs })
+    const all = await reader.scan({ start: 0, end: untilMs })
     if (!all.length) return []
     cursor = new Date(Math.min(...all.map(s => s.startedAt)))
   }
@@ -88,7 +89,7 @@ async function collectRows({ opt, inTz, since, until }) {
   for (let d = cursor; ; d = opt.step(d, 1, inTz)) {
     const pb = periodBounds(fmtDate(d), opt.granularity, inTz.in)
     if (pb.start > untilMs) break
-    const sessions = await service.scan({ start: Math.max(pb.start, sinceMs), end: Math.min(pb.end, untilMs) })
+    const sessions = await reader.scan({ start: Math.max(pb.start, sinceMs), end: Math.min(pb.end, untilMs) })
     const totals = aggregate(sessions)
     if (totals.some(v => v)) rows.push({ period: fmtDate(pb.start, opt.labelFmt), totals })
   }

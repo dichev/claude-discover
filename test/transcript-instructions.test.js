@@ -5,8 +5,7 @@ import os from 'node:os'
 import path from 'node:path'
 import { describe, it, expect, beforeAll, afterAll } from 'vitest'
 import { TranscriptInstructions } from '../src/main/requests/TranscriptInstructions.js'
-import { SessionsService } from '../src/main/services/SessionsService.js'
-import { SessionFile } from '../src/main/sessions/SessionFile.js'
+import { SessionsReader, periodBounds } from '../src/main/sessions/SessionsReader.js'
 
 const system = [{ type: 'text', text: "You are Claude Code, Anthropic's official CLI for Claude." }]
 const read   = { name: 'Read', description: 'reads' }
@@ -78,7 +77,9 @@ describe('TranscriptInstructions', () => {
   })
 })
 
-describe('SessionsService.readSession — the loop\'s strips', () => {
+describe('SessionsReader.read — the loop\'s strips', () => {
+  const readDay = (file, day, meta = { filePath: file, mtime: Date.now() }) => new SessionsReader({ root: dir }).read(meta, periodBounds(day, 'day'))
+
   let dir
   beforeAll(() => { dir = fs.mkdtempSync(path.join(os.tmpdir(), 'cd-loop-')) })
   afterAll(() => fs.rmSync(dir, { recursive: true, force: true }))
@@ -91,9 +92,7 @@ describe('SessionsService.readSession — the loop\'s strips', () => {
     ]
     const file = path.join(dir, `${crypto.randomUUID()}.jsonl`)
     fs.writeFileSync(file, [...lines.slice(0, 4), ...day2].map(l => JSON.stringify(l)).join('\n') + '\n')
-    const service = new SessionsService({ root: dir })
-    service.metaCache.periodMetas.set(file, { filePath: file, mtime: Date.now() })
-    const { instructions } = await service.readSession(file, '2026-10-18', 'day')
+    const { instructions } = await readDay(file, '2026-10-18')
     expect(instructions.loop.map(s => s.file_path)).toEqual(['System Prompt', 'System Tools', 'D:\\proj\\CLAUDE.md', 'Tools added'])
   })
 
@@ -104,9 +103,7 @@ describe('SessionsService.readSession — the loop\'s strips', () => {
     const blob = { type: 'api-request-blob', hash: 'b0', message: { role: 'user', content: [{ type: 'text', text: called }, { type: 'text', text: result }] } }
     const file = path.join(dir, `${crypto.randomUUID()}.jsonl`)
     fs.writeFileSync(file, [lines[0], mention, lines[1], lines[2], blob, lines[3]].map(l => JSON.stringify(l)).join('\n') + '\n')
-    const service = new SessionsService({ root: dir })
-    service.metaCache.periodMetas.set(file, { filePath: file, mtime: Date.now() })
-    const { items, instructions } = await service.readSession(file, '2026-10-17', 'day')
+    const { items, instructions } = await readDay(file, '2026-10-17')
     expect(items.find(o => o.uuid === 'a1')._listed).toBeUndefined()
     expect(instructions.loop.map(s => s.file_path)).toEqual(['System Prompt', 'System Tools', 'D:\\proj\\CLAUDE.md'])
   })
@@ -123,9 +120,8 @@ describe('SessionsService.readSession — the loop\'s strips', () => {
     ]
     const file = path.join(dir, `${crypto.randomUUID()}.jsonl`)
     fs.writeFileSync(file, [...copied, ...branch].map(l => JSON.stringify(l)).join('\n') + '\n')
-    const service = new SessionsService({ root: dir })
-    service.metaCache.periodMetas.set(file, await service._scanSession(new SessionFile(file)))
-    const { instructions } = await service.readSession(file, '2026-10-17', 'day')
+    const meta = await new SessionsReader({ root: dir }).meta(file, fs.statSync(file), { start: 0, end: Infinity }) // it tells what the file branched from
+    const { instructions } = await readDay(file, '2026-10-17', meta)
     expect(instructions.loop.map(s => [s.timestamp, s.file_path])).toEqual([ // the branch's first request sent nothing new
       ['2026-10-17T10:00:00.300Z', 'System Prompt'],
       ['2026-10-17T10:00:00.300Z', 'System Tools'],

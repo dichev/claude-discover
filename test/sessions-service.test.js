@@ -44,24 +44,57 @@ describe('SessionsService update emits', () => {
   })
 })
 
+const line = (uuid, timestamp) => JSON.stringify({ type: 'user', uuid, sessionId: 's1', cwd: '/proj', timestamp, message: { role: 'user', content: 'hi' } }) + '\n'
+const sent = service => new Promise(resolve => service.once('update', resolve))
+
+// A service watching March as the window does, over one transcript with a prompt typed on the 1st: `sessions` are what it was sent
+async function watchingMarch() {
+  const file = path.join(await fs.mkdtemp(path.join(os.tmpdir(), 'watched-')), 'proj', 's1.jsonl')
+  await fs.mkdir(path.dirname(file))
+  await fs.writeFile(file, line('u1', '2026-03-01T10:00:00.000Z'))
+  const service = new SessionsService({ root: path.dirname(path.dirname(file)), throttleMs: 0 })
+  service.list('2026-03-01', 'month')
+  return { service, file, ...await sent(service) }
+}
+
 // The window is hidden in the tray: nothing is parsed for a period nobody sees, and it's fresh again once someone does
 describe('SessionsService.pause', () => {
   it('leaves a change unparsed, then catches up on resume and sends the period afresh', async () => {
-    const line = (uuid, timestamp) => JSON.stringify({ type: 'user', uuid, sessionId: 's1', cwd: '/proj', timestamp, message: { role: 'user', content: 'hi' } }) + '\n'
-    const file = path.join(await fs.mkdtemp(path.join(os.tmpdir(), 'pause-')), 'proj', 's1.jsonl')
-    await fs.mkdir(path.dirname(file))
-    await fs.writeFile(file, line('u1', '2026-03-01T10:00:00.000Z'))
-    const service = new SessionsService({ root: path.dirname(path.dirname(file)), throttleMs: 0 })
-    expect(await service.scan({ start: Date.parse('2026-03-01'), end: Date.parse('2026-04-01') })).toMatchObject([{ messageCount: 1 }])
+    const { service, file, sessions } = await watchingMarch()
+    expect(sessions).toMatchObject([{ messageCount: 1 }])
 
     service.pause()
     await fs.appendFile(file, line('u2', '2026-03-02T10:00:00.000Z'))
     await service._refresh(file, await fs.stat(file)) // what the watcher calls on the append
-    expect(service.metaCache.get(file).messageCount).toBe(1)
+    expect(service.periodMetas.get(file).messageCount).toBe(1)
 
-    const update = new Promise(resolve => service.once('update', resolve))
+    const update = sent(service)
     service.resume()
     expect((await update).sessions).toMatchObject([{ messageCount: 2 }])
+  })
+})
+
+// What the window is on stays its own, whatever is asked of the reader beside it or still arriving from where it was
+describe('SessionsService watched period', () => {
+  it('is left as it is by the reader\'s scans of any period, running together', async () => {
+    const { service, file } = await watchingMarch()
+    const march = { start: Date.parse('2026-03-01'), end: Date.parse('2026-04-01') }
+    const april = { start: Date.parse('2026-04-02'), end: Date.parse('2026-05-01') }
+    const [inMarch, inApril] = await Promise.all([service.reader.scan(march), service.reader.scan(april)])
+    expect(inMarch).toMatchObject([{ messageCount: 1 }])
+    expect(inApril).toEqual([])
+    expect(service.activeDay).toMatchObject({ date: '2026-03-01', granularity: 'month' })
+    expect([...service.periodMetas.keys()]).toEqual([file])
+  })
+
+  it('takes no meta from a scan of the period it has left, and drops its own on moving to another', async () => {
+    const { service, file } = await watchingMarch()
+    const stat  = await fs.stat(file)
+    const march = service.activeDay
+    service.list('2026-04-01', 'month')
+    expect(service.periodMetas.size).toBe(0)
+    expect(await service._processFile(file, march, stat)).toMatchObject({ messageCount: 1 }) // still answered, from the reader's whole-file meta
+    expect(service.periodMetas.size).toBe(0)
   })
 })
 
@@ -86,6 +119,17 @@ describe('SessionsService.openFile', () => {
     expect(meta.seenMessageIds).toBeUndefined()
     const { items } = await service.readSession(file)
     expect(items.map(o => o.uuid)).toEqual(['u1', 'a1'])
+  })
+
+  it('reads another file whole beside it, leaving the opened one open', async () => {
+    const service = new SessionsService({ scanner: {} })
+    const opened  = await write('shared.jsonl', JSON.stringify(lines[0]) + '\n')
+    const other   = await write('other.jsonl', lines.map(l => JSON.stringify(l)).join('\n') + '\n')
+    await service.openFile(opened)
+    const read = await service.reader.readFile(other)
+    expect(read.meta).toMatchObject({ filePath: other, messageCount: 2 })
+    expect(read.items.map(o => o.uuid)).toEqual(['u1', 'a1'])
+    expect((await service.readSession(opened)).items.map(o => o.uuid)).toEqual(['u1'])
   })
 
   it('sorts an untimestamped line by its neighbours in the file, not the file time', async () => {

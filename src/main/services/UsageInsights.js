@@ -3,7 +3,7 @@ import path from 'node:path'
 import { isSameDay, set } from 'date-fns'
 import writeFileAtomic from 'write-file-atomic'
 import { DATA_DIR } from '../paths.js'
-import { periodBounds } from './SessionsService.js'
+import { periodBounds } from '../sessions/SessionsReader.js'
 
 const EVERY     = 60 * 60_000
 const DAY_CLOSE = { hours: 23, minutes: 55 } // one more scan before midnight, so the day's snapshot covers its evening

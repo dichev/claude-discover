@@ -5,7 +5,7 @@ import {
 } from 'date-fns'
 
 // Week-scoped views start on Monday — keep this in sync with periodBounds() in
-// src/main/services/SessionsService.js.
+// src/main/sessions/SessionsReader.js.
 const WEEK = { weekStartsOn: 1 }
 
 export function startOfPeriod(ts, granularity) {

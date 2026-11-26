@@ -10,7 +10,7 @@ import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { spawnSync } from 'node:child_process'
 import { tz } from '@date-fns/tz'
-import { SessionsService, periodBounds } from '../src/main/services/SessionsService.js'
+import { SessionsReader, periodBounds } from '../src/main/sessions/SessionsReader.js'
 import { Pricing } from '../src/main/services/Pricing.js'
 
 const COST_TOL_ABS = 0.01
@@ -26,8 +26,8 @@ const mapModels = (byModel, f) => Object.fromEntries(Object.entries(byModel).map
 async function ourTotals(claudeDir, range, f = b => b) {
   const totals = { input: 0, output: 0, cacheRead: 0, cacheCreation: 0 }
   let cost = 0
-  const service = new SessionsService({ root: path.join(claudeDir, 'projects') })
-  for (const m of await service.scan(range)) {
+  const reader = new SessionsReader({ root: path.join(claudeDir, 'projects'), pricing })
+  for (const m of await reader.scan(range)) {
     const tokens = f(m.tokens)
     totals.input += tokens.input
     totals.output += tokens.output
