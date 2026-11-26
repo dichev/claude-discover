@@ -2,6 +2,7 @@
 // - when the app opens or the window regains focus, if over a minute old
 // - within a minute of Claude Code writing a transcript, repeating while it keeps writing
 // - never while the window is hidden; regaining focus catches up
+// - after a failed fetch, at the next ask: claude.ai's usage endpoint drops out for minutes at a time
 // The status bar does the asking; this decides when an ask is worth a fetch.
 const EVERY = 60_000
 
@@ -56,13 +57,23 @@ export class RateLimits {
   use(usage) {
     this.#fetchedAt = Date.now()
     this.#active    = false
-    this.#limits    = this.#map(usage)
+    const limits = this.#limits = this.#map(usage).then(l => {
+      if (l === undefined && this.#limits === limits) { // not waited out, unless a newer fetch already replaced it
+        this.#fetchedAt = 0
+        this.#active    = true
+      }
+      return l
+    })
   }
 
   async #map(usage) {
     try {
       const { subscription_type: type, account, rate_limits: rl, rate_limits_available: available } = await usage
-      if (!rl) return available ? undefined : null // available: the plan has limits, but claude.ai's usage endpoint didn't answer
+      if (!rl && available) {
+        console.warn("[rate-limits] the plan has limits, but claude.ai's usage endpoint didn't answer")
+        return undefined
+      }
+      if (!rl) return null
       const models = rl.model_scoped?.filter(m => m.utilization != null) ?? []
       return {
         at: Date.now(),

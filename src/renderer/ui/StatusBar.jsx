@@ -61,9 +61,12 @@ const npxTooltip = <>
   <p>The app will restart from the global install - this takes about a minute.</p>
 </>
 
+// A window past its reset has started over, even while failed fetches keep the last answer up
+const useUsedPct = w => useClock(() => !w ? null : w.resetsAt && w.resetsAt <= Date.now() ? 0 : Math.floor(w.utilization))
+
 // One tooltip row per limit: label, bar, used %, and when it resets
 function LimitRow({ label, w }) {
-  const pct     = Math.floor(w.utilization)
+  const pct     = useUsedPct(w)
   const pctTone = tone(pct, THRESHOLDS.limit)
   const resets  = useClock(() => w.resetsAt > Date.now() ? `resets ${isToday(w.resetsAt) ? 'at ' : ''}${fmtTime(w.resetsAt)}` : '')
   return <>
@@ -76,7 +79,7 @@ function LimitRow({ label, w }) {
 
 // `limit` is missing while loading or when usage isn't available; the bar then stays empty
 function UsageBar({ label, limit, placeholder }) {
-  const pct     = limit ? Math.floor(limit.utilization) : null
+  const pct     = useUsedPct(limit)
   const pctTone = tone(pct, THRESHOLDS.limit)
   return (
     <span className={`statusbar-group statusbar-limit ${pctTone}`}>

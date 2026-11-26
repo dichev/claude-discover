@@ -56,4 +56,14 @@ describe('RateLimits', () => {
     expect(await new RateLimits(runner(async () => ({ rate_limits_available: true, rate_limits: null }))).get()).toBeUndefined()
     expect(await new RateLimits(runner(async () => { throw new Error('unknown control request') })).get()).toBeUndefined()
   })
+
+  it('asks again right after a failed fetch, also on an idle tick', async () => {
+    const r = runner(async () => ({ rate_limits_available: true, rate_limits: null }))
+    const rl = new RateLimits(r)
+    await rl.get()
+    r.usage.mockImplementation(async () => ({ rate_limits: { seven_day: { utilization: 2, resets_at: null } } }))
+    expect((await rl.get({ ifActive: true })).sevenDay.utilization).toBe(2)
+    await rl.get({ ifActive: true })
+    expect(r.usage).toHaveBeenCalledTimes(2)
+  })
 })
