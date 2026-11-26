@@ -38,9 +38,9 @@ const main  = [prompt(MAIN, 'u1', 0, 'Fix the login bug'), reply(MAIN, 'a1', 1, 
 const agent = [prompt(MAIN, 's1', 2, 'Find who calls login()'), reply(MAIN, 's2', 3, 'M3', 'Two callers: auth.js and session.js.')]
 const other = [prompt(OTHER, 'o1', 10, 'deploy the site'), reply(OTHER, 'o2', 11, 'M4', 'Deployed.')]
 
-let root, endpoint, client
+let root, reader, endpoint, client
 const opens       = [] // what session_open had the app show
-const newEndpoint = (dir = root) => new McpEndpoint({ sessions: new SessionsService({ root: dir }).reader, open: target => opens.push(target), port: 0 })
+const newEndpoint = (dir = root, sessions = new SessionsService({ root: dir }).reader) => new McpEndpoint({ sessions, open: to => opens.push(to), port: 0 })
 const connect     = async to => {
   const session = new Client({ name: 'test', version: '0' })
   await session.connect(new StreamableHTTPClientTransport(new URL(to.url)))
@@ -64,8 +64,8 @@ const jsonl = (file, records) => {
 }
 // A tree of the one session MAIN, for withTree to build
 const lone    = records => dir => jsonl(path.join(dir, 'proj', `${MAIN}.jsonl`), records)
-// The sessions as the app's own scan gives them
-const scanned = () => new SessionsService({ root }).reader.scan({ start: T0 - 3_600_000, end: Date.now() })
+// The sessions as the app's own scan gives them, priced by the endpoint's rates: on a machine without a fresh price table, a second reader's could refresh in between
+const scanned = () => reader.scan({ start: T0 - 3_600_000, end: Date.now() })
 // A subagent's transcript under its session's folder, and the meta file beside it
 const subagent = (sessionDir, name, records, description) => {
   jsonl(path.join(sessionDir, 'subagents', `${name}.jsonl`), records)
@@ -93,7 +93,8 @@ beforeAll(async () => {
   jsonl(path.join(root, 'proj-one', `${MAIN}.jsonl`), main)
   subagent(path.join(root, 'proj-one', MAIN), 'agent-abc123', agent, 'Find login callers')
   jsonl(path.join(root, 'proj-two', `${OTHER}.jsonl`), other)
-  endpoint = newEndpoint()
+  reader   = new SessionsService({ root }).reader
+  endpoint = newEndpoint(root, reader)
   await endpoint.start()
   client = await connect(endpoint)
 })
