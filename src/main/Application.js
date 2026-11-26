@@ -7,6 +7,7 @@ import { RateLimits } from './services/RateLimits.js'
 import { UsageInsights } from './services/UsageInsights.js'
 import { MainWindow } from './windows/MainWindow.js'
 import { AppTray } from './windows/AppTray.js'
+import { McpEndpoint } from './mcp/McpEndpoint.js'
 import { updater } from './updater.js'
 import { CLAUDE_DIR, RECENT_CLAUDE_DIRS } from './paths.js'
 import { openLinkSafely, webpDataUrl } from './utils.js'
@@ -21,11 +22,12 @@ export class Application {
     this.sessionsService = new SessionsService()
     this.rateLimits      = new RateLimits(this.agentRunner)
     this.usageInsights   = new UsageInsights(this.agentRunner, { onScan: usage => this.rateLimits.use(usage) })
+    this.mcp             = new McpEndpoint({ sessions: this.sessionsService.reader, version: app.getVersion() })
     this.switchers       = new Switchers({ restart: () => this.restart() }) // the on/off features behind the StatusBar switches
   }
 
   start() {
-    const { deepLink, win, tray, agentRunner, workHours, sessionsService, rateLimits, usageInsights, switchers } = this
+    const { deepLink, win, tray, agentRunner, workHours, sessionsService, rateLimits, usageInsights, mcp, switchers } = this
 
     tray?.start() // before the menu, whose checkbox shows it
     Menu.setApplicationMenu(this.#buildMenu())
@@ -75,6 +77,7 @@ export class Application {
 
     // Finish wiring before starting services or loading the renderer.
     sessionsService.start()
+    mcp.start().catch(err => console.warn('[mcp] not serving:', err.message))
     const window = win.create()
     window.on('hide', () => sessionsService.pause()) // in the tray: nobody to keep the period fresh for
     window.on('show', () => sessionsService.resume())

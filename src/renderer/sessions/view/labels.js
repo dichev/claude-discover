@@ -11,7 +11,7 @@ export const humanize = type => type.replace(/[_-]/g, ' ').replace(/^./, c => c.
 
 // One-line tool-call titles: an explicit `description` (Bash, Task) wins; standard
 // tools derive one from their key argument. Unknown/MCP tools fall back to the bare name.
-const clip = (s, n = 100) => { s = String(s).replace(/\s+/g, ' ').trim(); return s.length > n ? s.slice(0, n - 1) + '…' : s }
+export const clip = (s, n = 100) => { s = String(s).replace(/\s+/g, ' ').trim(); return s.length > n ? s.slice(0, n - 1) + '…' : s }
 const basename = p => p ? String(p).split(/[\\/]/).pop() : ''
 
 const TOOL_ARG_SUMMARY = {

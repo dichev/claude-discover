@@ -39,6 +39,7 @@ Not a hard constraint — restructure when it serves the code, just update this 
 ├── src/
 │   ├── main/                       main process (OOP): entry point, app wiring & menu (Application), path/config resolution
 │   │   ├── config/                 the app's own config: ConfigFile (~/.claude-discover/config.json) + pricing seed
+│   │   ├── mcp/                    the MCP server other Claude Code sessions list sessions through: its HTTP endpoint, its tools (tools/: one class each, its reply's mustache template beside it as .md, what they share in utils.js), and how sessions read on screen, for the tools to answer with (sessions/fromRenderer.js)
 │   │   ├── requests/               API-request reading & parsing (the proxy's log + the transcript's own request records)
 │   │   ├── services/               backend services (LoginService = a generic per-OS login service) + the StatusBar switchers
 │   │   ├── sessions/               transcript scanning, caching, parsing & reading (SessionsReader: a period's sessions, a transcript's records), each turn's MCP servers (request tools + debug log) (utils/: the file watchers; usage/: what a reply bills — token buckets, the advisor's calls)
@@ -90,7 +91,7 @@ Token totals must match `ccusage` to the cent, and each stage has rules they dep
 
 Optional features, secondary to the core timeline. The switchable ones are a class in `src/main/services/switchers/` with `status()/activate()/deactivate()`, toggled from the StatusBar; switches not marked keep-active are undone on quit.
 
-Each is explained atop its own file: the capture proxy (`bin/proxy.mjs`, `ProxySwitch`, `LoginService`), plan limits (`RateLimits`, `UsageInsights`), statusline (`StatuslineSwitch`), Claude settings (`ClaudeSettingsSwitch`), Claude dir (`ClaudeDirSwitch`), deep links (`DeepLink`), the tray (`AppTray`), shortcuts and auto update (`src/main/updater.js`, the `NpmUpdater` from [`electron-update-from-npm`](https://github.com/dichev/electron-update-from-npm)). Hard rule for the proxy: **capture must never fail, delay, or alter a request**.
+Each is explained atop its own file: the capture proxy (`bin/proxy.mjs`, `ProxySwitch`, `LoginService`), plan limits (`RateLimits`, `UsageInsights`), statusline (`StatuslineSwitch`), MCP tools (`McpEndpoint`), Claude settings (`ClaudeSettingsSwitch`), Claude dir (`ClaudeDirSwitch`), deep links (`DeepLink`), the tray (`AppTray`), shortcuts and auto update (`src/main/updater.js`, the `NpmUpdater` from [`electron-update-from-npm`](https://github.com/dichev/electron-update-from-npm)). Hard rule for the proxy: **capture must never fail, delay, or alter a request**.
 
 ### Dev-only bits
 
@@ -102,6 +103,7 @@ Each is explained atop its own file: the capture proxy (`bin/proxy.mjs`, `ProxyS
 - **Frontend (`src/renderer/`) is functional** — function components, hooks for state, shared logic in custom hooks
 - The React Compiler (`react({ compiler: true })`, the plugin's Rust port) memoizes the renderer — don't add `memo`/`useMemo`/`useCallback` by hand, except `memo` on a component rendered in a list's loop (the compiler doesn't cache per item)
 - Renderer never imports from `bin/` or `src/main/`; the only channel is `window.api` (`src/shared/` pure helpers excepted)
+- Main imports from `src/renderer/` only through `src/main/mcp/sessions/fromRenderer.js`, and only pure modules of how sessions read on screen (eslint enforces the one file)
 - Every markdown surface renders through `ui/Markdown.jsx` — never instantiate ReactMarkdown directly
 - `MarkdownSession.js` duplicates fields from `ConversationView.jsx`/`SessionSummary.jsx` by hand — changing either means updating it too
 - IPC channel names are `namespace:kebab-case-action` (e.g. `sessions:read-requests`)

@@ -21,6 +21,11 @@ export default [
     },
   },
   { files: ['src/main/**', 'src/preload/**', 'src/shared/**', 'test/**', 'bin/**', '*.js'], languageOptions: { globals: globals.node } },
+  { // main reads the renderer's session view model through one file, so what it depends on there stays in sight
+    files: ['src/main/**'],
+    ignores: ['src/main/mcp/sessions/fromRenderer.js'],
+    rules: { 'no-restricted-imports': ['error', { patterns: [{ group: ['**/renderer/**'], message: 'Import it through src/main/mcp/sessions/fromRenderer.js.' }] }] },
+  },
   {
     files: ['src/renderer/**'],
     languageOptions: { globals: globals.browser },
