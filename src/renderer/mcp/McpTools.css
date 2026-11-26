@@ -1,0 +1,129 @@
+.mcp-tools {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+
+.mcp-tools-header {
+  --section-accent: var(--mcp);
+  height: var(--pane-header-height);
+  gap: 10px;
+}
+
+/* Two panes: the tools' schemas, and the picked one's call */
+.mcp-tools-body { flex: 1; min-height: 0; }
+.mcp-tools-pane {
+  overflow: auto;
+  padding: 12px 16px 24px;
+  user-select: text;
+}
+
+/* Inset by a tool card's padding + border, so it ends where a tool's size does */
+.mcp-tools-size { margin-bottom: 8px; padding-right: 13px; text-align: right; font-size: 11px; color: var(--text-faint); }
+.mcp-tools-instructions { margin: 0 0 16px; color: var(--text-dim); line-height: 1.5; }
+
+/* Not .mcp-tool: that's the conversation's MCP table cell */
+.mcp-tool-card {
+  margin-bottom: 8px;
+  padding: 8px 12px;
+  border: 1px solid var(--border);
+  border-left: 3px solid var(--border-strong);
+  border-radius: 6px;
+  background: var(--bg-elev);
+
+  &:has(> summary:hover) { border-color: var(--border-strong); }
+  &.picked { border-color: var(--mcp); background: var(--bg-elev-2); }
+  /* The row takes in the card's padding, so all of its top is the click target */
+  & summary {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    margin: -8px -12px;
+    padding: 8px 12px;
+    list-style: none;
+    cursor: pointer;
+    user-select: none;
+    &::-webkit-details-marker { display: none; }
+  }
+  & .mcp-tool-chevron { flex: none; color: var(--text-dim); transition: transform 0.15s; }
+  &[open] .mcp-tool-chevron { transform: rotate(90deg); }
+  /* Load, annotations and size at the row's end, in columns as wide as their longest (monospace) text */
+  & :is(.mcp-tool-loaded, .mcp-tool-hint, .mcp-tool-tokens) { flex: none; margin-left: 12px; font-size: 11px; font-weight: 400; color: var(--text-faint); }
+  & :is(.mcp-tool-loaded, .mcp-tool-hint) { width: 13ch; }
+  & .mcp-tool-tokens { width: 5ch; text-align: right; }
+  & .mcp-tool-loaded { margin-left: auto; color: var(--mcp); }
+  & .mcp-tool-loaded.deferred { color: var(--text-faint); }
+  & .mcp-tool-hint.acts { color: var(--warn); }
+  & .mcp-tool-description { margin: 8px 0 10px; line-height: 1.5; }
+}
+
+.mcp-tool-name { font-family: var(--font-mono); font-size: 14px; font-weight: 700; color: var(--mcp); }
+
+.mcp-tool-params {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 12px;
+
+  & :is(th, td) { padding: 3px 12px 3px 0; color: var(--text-dim); }
+  & th { text-align: left; font-weight: 500; }
+  & td { vertical-align: top; }
+  & td:first-child { white-space: nowrap; color: var(--text); }
+  & .mcp-param-type { white-space: nowrap; font-family: var(--font-mono); }
+  & .mcp-required { color: var(--warn); margin-left: 2px; }
+}
+
+/* Fills its pane, the answer taking what the rest leaves */
+.mcp-call {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  height: 100%;
+
+  & .mcp-call-stats { font-size: 11px; color: var(--text-faint); }
+}
+
+/* The <pre> and the textarea share one grid cell and the same box metrics, so the drawn text sits under the typed one */
+.mcp-args {
+  display: grid;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  background: var(--bg);
+  &:focus-within { border-color: var(--border-strong); }
+
+  & > pre, & > textarea {
+    grid-area: 1 / 1;
+    margin: 0;
+    padding: 6px 8px;
+    border: none;
+    font-family: var(--font-mono);
+    font-size: 12px;
+    line-height: 1.5;
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
+  }
+  & > pre { color: var(--text); }
+  & > textarea {
+    overflow: hidden;
+    resize: none;
+    outline: none;
+    background: transparent;
+    color: transparent;
+    caret-color: var(--text);
+  }
+  & .blank { color: var(--text-faint); }
+  & > button { grid-area: 1 / 1; place-self: end; margin: 6px; } /* Run, in the box's corner */
+}
+
+.mcp-call-result {
+  flex: 1;
+  min-height: 120px; /* under taller arguments the pane scrolls instead */
+  overflow: auto;
+  padding: 8px 12px;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  background: var(--bg);
+
+  &.mcp-call-error { border-color: var(--danger); }
+  /* This box is the one scroller, so lift Markdown's own cap */
+  & .markdown { max-height: none; overflow: visible; }
+}

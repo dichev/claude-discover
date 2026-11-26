@@ -6,6 +6,7 @@ import PeriodSummary from './timeline/PeriodSummary.jsx'
 import SessionList from './sessions/SessionList.jsx'
 import Session from './sessions/Session.jsx'
 import { useOpenedFile, OpenedFileHeader } from './sessions/OpenedFile.jsx'
+import McpTools, { useMcpTools } from './mcp/McpTools.jsx'
 import StatusBar from './ui/StatusBar.jsx'
 import { PaneErrorBoundary } from './ui/Errors.jsx'
 import { closeFind } from './ui/useFindActive.js'
@@ -36,7 +37,8 @@ export default function App() {
   const [anchor, setAnchor]                     = useState(() => startOfPeriod(Date.now(), granularity))
   const [selectedId, setSelectedId]             = useState(null)
   const [deepLink, setDeepLink]                 = useState(null) // the link the current selection came from, if any
-  const [opened, setOpened]                     = useOpenedFile() // shown in place of the selection
+  const [mcpToolsShown, showMcpTools]           = useMcpTools() // the debug panel, in place of the selection or the opened file
+  const [opened, setOpened]                     = useOpenedFile({ onOpen: () => showMcpTools(false) }) // shown in place of the selection
   const [sourceFilter, setSourceFilter]         = useState(null)
   const [projectFilter, setProjectFilter]       = useLocalStorage('app.projects', [])
   const [expandedProjects, setExpandedProjects] = useLocalStorage('gantt-chart.expanded', [])
@@ -102,12 +104,16 @@ export default function App() {
     ? { meta: opened.meta ?? null, missing: opened.error ? { text: "Couldn't open this file", error: opened.error } : { text: 'Opening…' }, date: null, granularity: null }
     : { meta: selected, missing, date: format(anchor, 'yyyy-MM-dd'), granularity, onShowPeriodOf: ts => setAnchor(startOfPeriod(ts, granularity)) }
 
+  // What the MCP tools' `session` argument starts with: the session in the pane, else the period's latest
+  const mcpSession = (detail.meta ?? dayItems.past.find(s => !s.parentSessionId))?.sessionId
+
   // `link` is set only by the deep-link handler below — picking a session by hand clears the notice
   const selectSession = (id, link = null) => {
     closeFind() // Close find synchronously on switch so the new transcript renders with forceMount off (no lag)
     setSelectedId(id)
     setDeepLink(link)
     setOpened(null)
+    showMcpTools(false)
   }
 
   // Deep link (claude-discover://session?id=…&date=…): jump to the session's day and select it
@@ -201,16 +207,18 @@ export default function App() {
         </Panel>
         <Separator className="resize-handle resize-handle-v" />
         <Panel id="detail" minSize={30} className="body-pane">
-          {opened && <OpenedFileHeader filePath={opened.filePath} onClose={() => setOpened(null)} />}
-          {/* one transcript that fails to render must not take the timeline down with it */}
-          <PaneErrorBoundary title="Couldn't render this session" resetKeys={[opened?.filePath, selected?.filePath, anchor, granularity]}>
-            <Session {...detail} />
-          </PaneErrorBoundary>
+          {mcpToolsShown ? <McpTools session={mcpSession} onClose={() => showMcpTools(false)} /> : <>
+            {opened && <OpenedFileHeader filePath={opened.filePath} onClose={() => setOpened(null)} />}
+            {/* one transcript that fails to render must not take the timeline down with it */}
+            <PaneErrorBoundary title="Couldn't render this session" resetKeys={[opened?.filePath, selected?.filePath, anchor, granularity]}>
+              <Session {...detail} />
+            </PaneErrorBoundary>
+          </>}
         </Panel>
         </Group>
       </Panel>
     </Group>
-    <StatusBar sessionCount={sessions.length} />
+    <StatusBar sessionCount={sessions.length} mcpToolsShown={mcpToolsShown} onToggleMcpTools={() => showMcpTools(!mcpToolsShown)} />
     </div>
   )
 }

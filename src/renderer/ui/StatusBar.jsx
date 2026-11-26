@@ -1,5 +1,5 @@
 import { useEffect, useId, useState } from 'react'
-import { ArrowDownToLine } from 'lucide-react'
+import { ArrowDownToLine, Wrench } from 'lucide-react'
 import { isToday } from 'date-fns'
 import StatusSwitch, { useSwitch } from './StatusSwitch'
 import ProgressBar from './ProgressBar.jsx'
@@ -168,7 +168,7 @@ function useRateLimits() {
   return { limits, failed }
 }
 
-export default function StatusBar({ sessionCount = 0 }) {
+export default function StatusBar({ sessionCount = 0, mcpToolsShown, onToggleMcpTools }) {
   const { claudeDir } = window.api.claudeSettings
   // Status shapes come from the matching *Switch in src/main/services/switchers/:
   // proxy { running, configured } · statusline { installed } · settings { applied, total } · claudedir { dir } · mcp { running, configured, url }
@@ -222,6 +222,9 @@ export default function StatusBar({ sessionCount = 0 }) {
       </StatusSwitch>
       <StatusSwitch service={mcp} warn={!!mcpDown} tooltip={mcpTooltip} changes={mcpChanges(mcp.status?.url)} changesTitle="Changes in ~/.claude.json" keepLabel="Stay registered after the app closes">
         MCP tools : <span className="statusbar-state">{mcp.on ? 'ON' : mcpDown ? 'DOWN' : 'off'}</span>
+        <button type="button" className={`statusbar-icon${mcpToolsShown ? ' active' : ''}`} onClick={onToggleMcpTools} aria-label="MCP tools debug panel" aria-pressed={!!mcpToolsShown} data-tooltip-content="MCP tools debug panel">
+          <Wrench size={12} />
+        </button>
       </StatusSwitch>
       <StatusSwitch service={statusline} tooltip={statuslineTooltip} changes={statuslineChanges}>
         Status line : <span className="statusbar-state">{statusline.on ? 'ON' : 'off'}</span>

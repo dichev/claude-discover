@@ -79,6 +79,31 @@
   white-space: nowrap;
 }
 
+/* A title bar's extras: its icon, a mono caption taking the room left, icon buttons */
+.section-title-icon { flex: none; color: var(--section-accent); }
+.section-title-caption {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-family: var(--font-mono);
+  font-size: 12px;
+  color: var(--text-dim);
+  user-select: text;
+}
+.section-title-button {
+  flex: none;
+  display: flex;
+  padding: 4px;
+  border: none;
+  border-radius: 4px;
+  background: none;
+  color: var(--text-dim);
+  cursor: pointer;
+  &:hover { background: var(--selected); color: var(--text); }
+}
+
 .body {
   flex: 1;
   min-height: 0;

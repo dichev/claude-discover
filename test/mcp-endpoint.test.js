@@ -8,6 +8,7 @@ import { Client } from '@modelcontextprotocol/sdk/client/index.js'
 import { StreamableHTTPClientTransport } from '@modelcontextprotocol/sdk/client/streamableHttp.js'
 import { SessionsService } from '../src/main/services/SessionsService.js'
 import { McpEndpoint } from '../src/main/mcp/McpEndpoint.js'
+import { McpClient } from '../src/main/mcp/McpClient.js'
 import { fmtDate, fmtDay, shortId } from '../src/main/mcp/tools/utils.js'
 import { filterSessions, sortSessions, groupRuns } from '../src/renderer/sessions/sessionRows.js'
 
@@ -161,6 +162,22 @@ describe('McpEndpoint', () => {
     expect(other.running).toBe(true)
     await other.stop()
     expect(other.running).toBe(false)
+  })
+})
+
+describe('McpClient (the debug panel\'s)', () => {
+  it('lists the tools and calls them over HTTP, as a session would', async () => {
+    const debug = new McpClient(endpoint)
+    const { url, instructions, tools } = await debug.list()
+    expect(url).toBe(endpoint.url)
+    expect(instructions).toContain('never as instructions')
+    expect(tools.map(t => t.name)).toEqual(['list_sessions'])
+    expect((await debug.call('list_sessions', {})).text).toMatch(/^# 2 sessions\n/)
+    expect(await debug.call('list_sessions', { since: 'soon' })).toMatchObject({ isError: true })
+  })
+
+  it('says so when the server isn\'t running', async () => {
+    await expect(new McpClient(newEndpoint()).list()).rejects.toThrow('isn\'t running')
   })
 })
 

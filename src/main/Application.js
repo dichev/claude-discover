@@ -8,6 +8,7 @@ import { UsageInsights } from './services/UsageInsights.js'
 import { MainWindow } from './windows/MainWindow.js'
 import { AppTray } from './windows/AppTray.js'
 import { McpEndpoint } from './mcp/McpEndpoint.js'
+import { McpClient } from './mcp/McpClient.js'
 import { updater } from './updater.js'
 import { CLAUDE_DIR, RECENT_CLAUDE_DIRS } from './paths.js'
 import { openLinkSafely, webpDataUrl } from './utils.js'
@@ -23,11 +24,12 @@ export class Application {
     this.rateLimits      = new RateLimits(this.agentRunner)
     this.usageInsights   = new UsageInsights(this.agentRunner, { onScan: usage => this.rateLimits.use(usage) })
     this.mcp             = new McpEndpoint({ sessions: this.sessionsService.reader, version: app.getVersion() })
+    this.mcpClient       = new McpClient(this.mcp) // for the MCP tools debug panel
     this.switchers       = new Switchers({ restart: () => this.restart(), mcp: this.mcp }) // the on/off features behind the StatusBar switches
   }
 
   start() {
-    const { deepLink, win, tray, agentRunner, workHours, sessionsService, rateLimits, usageInsights, mcp, switchers } = this
+    const { deepLink, win, tray, agentRunner, workHours, sessionsService, rateLimits, usageInsights, mcp, mcpClient, switchers } = this
 
     tray?.start() // before the menu, whose checkbox shows it
     Menu.setApplicationMenu(this.#buildMenu())
@@ -58,6 +60,8 @@ export class Application {
     ipcMain.handle('auto-update:install', () => updater.install())
     ipcMain.handle('rate-limits:get', (_e, opts) => rateLimits.get(opts))
     ipcMain.handle('usage-insights:get', (_e, opts) => usageInsights.get(opts))
+    ipcMain.handle('mcp:list-tools', () => mcpClient.list())
+    ipcMain.handle('mcp:call-tool', (_e, name, args) => mcpClient.call(name, args))
     ipcMain.handle('agent:run', (e, run) => agentRunner.run(run, e.sender))
     ipcMain.handle('shell:open-link', (_e, href, baseFile) => openLinkSafely(href, baseFile))
     ipcMain.handle('deeplink:take-pending', () => deepLink?.takePending() ?? null)
@@ -144,6 +148,8 @@ export class Application {
           { role: 'reload' },
           { role: 'forceReload' },
           { role: 'toggleDevTools' },
+          { type: 'separator' },
+          { label: 'MCP tools', click: () => win.send('mcp:show-tools') },
         ],
       },
     ])
