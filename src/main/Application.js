@@ -6,7 +6,7 @@ import { Switchers } from './services/switchers/Switchers.js'
 import { RateLimits } from './services/RateLimits.js'
 import { UsageInsights } from './services/UsageInsights.js'
 import { MainWindow } from './windows/MainWindow.js'
-import { AppTray } from './windows/AppTray.js'
+import { AppTray, TRAY_NAME } from './windows/AppTray.js'
 import { McpEndpoint } from './mcp/McpEndpoint.js'
 import { McpClient } from './mcp/McpClient.js'
 import { updater } from './updater.js'
@@ -112,7 +112,6 @@ export class Application {
   #buildMenu() {
     const { win, tray, switchers } = this
     const changeDir = dir => switchers.activate('claudedir', dir)
-    const trayName  = process.platform === 'darwin' ? 'menu bar' : 'tray' // @macOS
     return Menu.buildFromTemplate([
       ...(process.platform === 'darwin' ? [{ role: 'appMenu' }] : []), // @macOS
       {
@@ -127,7 +126,7 @@ export class Application {
           })),
           { type: 'separator' },
           ...(tray ? [
-            { label: `Keep running in the ${trayName}`, type: 'checkbox', checked: tray.enabled, click: item => tray.set(item.checked) },
+            { label: `Keep running in the ${TRAY_NAME}`, type: 'checkbox', checked: tray.enabled, click: item => tray.set(item.checked) },
             { type: 'separator' },
           ] : []),
           { role: 'quit' },

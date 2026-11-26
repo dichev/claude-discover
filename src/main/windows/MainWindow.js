@@ -10,7 +10,7 @@ const DEV_URL = process.env.ELECTRON_RENDERER_URL
 export class MainWindow {
   constructor() {
     this.win = null
-    this.hideOnClose = false // set by the tray while it keeps the app running
+    this.closeToTray = null // set by the tray while it keeps the app running: a close hides the window, then calls it
   }
 
   create() {
@@ -48,8 +48,9 @@ export class MainWindow {
     this.findBar.on('show', () => this.send('find:active', true))
     this.findBar.on('hide', () => this.send('find:active', false))
     this.win.on('close', e => {
-      if (!this.hideOnClose) return
+      if (!this.closeToTray) return
       e.preventDefault()
+      this.closeToTray()
       // @macOS hidden in full screen, a window leaves its black space behind: it leaves full screen first
       if (this.win.isFullScreen()) {
         this.win.once('leave-full-screen', () => this.win.hide())

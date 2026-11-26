@@ -1,10 +1,12 @@
-import { app, Menu, Tray, nativeImage } from 'electron'
+import { app, Menu, Notification, Tray, nativeImage } from 'electron'
 import { config } from '../config/ConfigFile.js'
 
 const NAME = 'Claude Discover'
+export const TRAY_NAME = process.platform === 'darwin' ? 'menu bar' : 'tray' // @macOS
 
 // Keeps the app running after its window closes, behind a tray icon that shows it again (keepInTray in config.json, on unless turned off).
-// While the icon is up, closing the window only hides it, so what's on screen is still there when it comes back.
+// While the icon is up, closing the window only hides it, so what's on screen is still there when it comes back. The first
+// such close says so (trayHintShown in config.json), or the app would look like it quit while it's still running.
 // @linux a desktop with no tray (stock GNOME) shows no icon: launching the app again shows the window, whose File → Quit still quits.
 export class AppTray {
   #window
@@ -29,7 +31,7 @@ export class AppTray {
   }
 
   #show() {
-    this.#window.hideOnClose = true
+    this.#window.closeToTray = () => this.#hintOnce()
     this.#tray = new Tray(icon())
     this.#tray.setToolTip(NAME)
     this.#tray.setContextMenu(Menu.buildFromTemplate([
@@ -42,9 +44,17 @@ export class AppTray {
   }
 
   #hide() {
-    this.#window.hideOnClose = false
+    this.#window.closeToTray = null
     this.#tray?.destroy()
     this.#tray = null
+  }
+
+  #hintOnce() {
+    if (config.read().trayHintShown) return
+    config.save({ trayHintShown: true })
+    const title = `${NAME} is still running`
+    const body  = `Its ${TRAY_NAME} icon brings it back or quits it. To quit on close, uncheck File → Keep running in the ${TRAY_NAME}.`
+    if (Notification.isSupported()) new Notification({ title, body }).show()
   }
 }
 
