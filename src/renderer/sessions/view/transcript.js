@@ -450,6 +450,16 @@ export function groupTurns(turns) {
   return groups
 }
 
+// The conversation's filter, and what it counts a turn of the row `g` as: System's turns are `system` even mid-cycle inside a Claude card
+export const FILTERS = [
+  { value: 'user', label: 'User messages' },
+  { value: 'assistant', label: 'Claude messages' },
+  { value: 'system', label: 'System & memory files' },
+  { value: 'other', label: 'Everything else' },
+]
+const CATEGORY = { compact: 'system', instruction: 'other' }
+export const turnCategory = (g, t) => CATEGORY[g.kind] ?? (t.role === 'system' ? 'system' : g.kind)
+
 // Response time per assistant cycle: from the previous row's last event to the cycle's last one.
 export function cycleDurations(groups) {
   let prevEnd = null

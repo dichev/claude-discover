@@ -2,7 +2,7 @@ import { useEffect, useId, useState } from 'react'
 import Tip from './Tip.jsx'
 import './StatusSwitch.css'
 
-// On/off feature switch in the StatusBar: tinted while `on`, with a tooltip carrying the prose and
+// On/off feature switch in the StatusBar: tinted while its service is `on`, with a tooltip carrying the prose and
 // an Activate/Deactivate button — or, given a `button` label, an action button that always activates.
 // The ⚠ slot keeps its width whenever a `warn` prop is passed (even when false), so toggling the
 // warning doesn't shift the label — callers wrap varying values in .statusbar-state for the same reason.
@@ -21,9 +21,10 @@ export function useSwitch({ name, isOn = () => false }) {
     const timer = setInterval(check, 5000)
     return () => { alive = false; clearInterval(timer) }
   }, [name])
+  const on     = !!isOn(status)
   const toggle = async () => {
     setBusy(true)
-    const next = await (isOn(status) ? window.api.deactivateSwitch(name) : window.api.activateSwitch(name))
+    const next = await (on ? window.api.deactivateSwitch(name) : window.api.activateSwitch(name))
     setStatus(next)
     setBusy(false)
     if (next.error) alert(next.error)
@@ -33,12 +34,13 @@ export function useSwitch({ name, isOn = () => false }) {
     setStatus(next)
     if (next.error) alert(next.error)
   }
-  return { status, busy, toggle, setKeepActive }
+  return { status, on, busy, toggle, setKeepActive }
 }
 
-export default function StatusSwitch({ service, on, warn, button, className = '', tooltip, changes, changesTitle = 'Changes in settings.json', children }) {
+export default function StatusSwitch({ service, warn, button, className = '', tooltip, changes, changesTitle = 'Changes in settings.json', children }) {
   const id                        = useId()
   const [showChanges, setChanges] = useState(false)
+  const { on }                    = service
   return (
     <span className={`statusbar-group statusbar-seg ${className} ${on ? 'statusbar-seg-on' : ''}`} data-tooltip-id={id}>
       <span className={`statusbar-msg ${button ? '' : on ? 'statusbar-active' : warn ? 'statusbar-alert' : ''}`}>

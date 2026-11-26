@@ -183,9 +183,7 @@ export default function StatusBar({ sessionCount = 0 }) {
     setUpdating(false)
   } }
   const npx       = update?.type === 'install'
-  const proxyOn   = proxy.status?.running && proxy.status.configured
   const proxyDown = proxy.status?.configured && proxy.status.running === false // Claude Code is pointed at a dead proxy — it can't reach the API
-  const settingsOn = settings.status && settings.status.applied === settings.status.total
   const scanning = progress?.scanning && progress.total > 0
   const finished = progress && !progress.scanning // keep "Loaded N" visible after the scan completes
   const pct = scanning ? (progress.done / progress.total) * 100 : 0
@@ -206,14 +204,14 @@ export default function StatusBar({ sessionCount = 0 }) {
         </StatusSwitch>
       )}
       <UsageLimits {...usage} />
-      <StatusSwitch service={settings} on={settingsOn} warn={!!(settings.status && !settingsOn)} tooltip={settingsTooltip} changes={settingsChanges}>
+      <StatusSwitch service={settings} warn={!!(settings.status && !settings.on)} tooltip={settingsTooltip} changes={settingsChanges}>
         Claude settings : <span className="statusbar-state">{settingsLabel(settings.status)}</span>
       </StatusSwitch>
-      <StatusSwitch service={proxy} on={proxyOn} warn={!!proxyDown} tooltip={proxyTooltip} changes={proxyChanges}>
-        Capture proxy : <span className="statusbar-state">{proxyOn ? 'ON' : proxyDown ? 'DOWN' : 'off'}</span>
+      <StatusSwitch service={proxy} warn={!!proxyDown} tooltip={proxyTooltip} changes={proxyChanges}>
+        Capture proxy : <span className="statusbar-state">{proxy.on ? 'ON' : proxyDown ? 'DOWN' : 'off'}</span>
       </StatusSwitch>
-      <StatusSwitch service={statusline} on={statusline.status?.installed} tooltip={statuslineTooltip} changes={statuslineChanges}>
-        Status line : <span className="statusbar-state">{statusline.status?.installed ? 'ON' : 'off'}</span>
+      <StatusSwitch service={statusline} tooltip={statuslineTooltip} changes={statuslineChanges}>
+        Status line : <span className="statusbar-state">{statusline.on ? 'ON' : 'off'}</span>
       </StatusSwitch>
       <StatusSwitch service={claudedir} button="Change directory" className="statusbar-claude-dir" tooltip={claudeDirTooltip} changes={claudeDirChanges} changesTitle="Changes in ~/.claude-discover/config.json">
         Claude dir: <code>{claudeDir}</code>

@@ -1,6 +1,7 @@
 import { format, addHours, addDays, startOfMonth, getDaysInMonth } from 'date-fns'
 import { startOfPeriod } from '../utils/period.js'
 import { fmtUSD, fmtCompact } from '../utils/formatting.js'
+import { bucketTotals } from './periodTotals.js'
 import './CostBreakdownChart.css'
 
 const BAR_MAX_PX = 52
@@ -16,14 +17,8 @@ function buckets(sessions, dayAnchor, granularity, stat) {
   } else {
     bs = Array.from({ length: 24 }, (_, i) => ({ start: +addHours(start, i), label: String(i).padStart(2, '0'), tip: `${i}h`, showLabel: i % 6 === 0 }))
   }
-  for (const b of bs) b.value = 0
-  for (const s of sessions) {
-    for (const sample of s.costSamples ?? []) {
-      let i = bs.length - 1
-      while (i > 0 && bs[i].start > sample.start) i--
-      bs[i].value += sample[stat] || 0
-    }
-  }
+  const totals = bucketTotals(bs.map(b => b.start), sessions)
+  bs.forEach((b, i) => { b.value = totals[i][stat] })
   return { bs, max: Math.max(0, ...bs.map(b => b.value)) }
 }
 

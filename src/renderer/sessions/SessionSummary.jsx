@@ -3,9 +3,8 @@ import { format } from 'date-fns'
 import { fmtDuration, fmtNum, fmtUSD, fmtCompact, fmtToolCalls, plural, tone } from '../utils/formatting.js'
 import { THRESHOLDS as T } from '../utils/thresholds.js'
 import { cacheAdvice, CACHE_LABELS } from '../utils/cacheAdvice.js'
-import { contextWindow, contextTokens } from './view/transcript.js'
-import { compactedTokens, contextAt, contextParts, rowUntil } from './context/contextParts.js'
-import { totalsBy } from './context/totalsBy.js'
+import { contextWindow } from './view/transcript.js'
+import { compactedTokens, contextParts, figuresAt } from './context/contextParts.js'
 import ContextUsage, { ContextFill, ContextInfo } from './context/ContextUsage.jsx'
 import SessionEvents, { EventStep } from './events/SessionEvents.jsx'
 import { eventsAt } from './events/sessionEvents.js'
@@ -22,18 +21,14 @@ export default function SessionSummary({ meta, items, turns, events, instruction
   const advice = cacheAdvice(meta)
   const advisor = meta.advisor
   const ctxLimit = contextWindow(meta.models)
-  const ctx = contextTokens(meta, instructions)
   // Counted in the loaded period's transcript (`turns`, flattened from `items`), like the Conversation view
   const rewinds = turns.filter(t => t.rewind).length
   const compactions = turns.filter(t => t.role === 'compact').length
-  const sofar = totalsBy(meta, at == null ? null : rowUntil(turns, at)) // the Summary and Tokens figures by the row the context is shown at
+  // The Summary and Tokens figures, and the context, by the row scrolled to, else now
+  const { sofar, point, rough } = figuresAt(meta, turns, instructions, at)
   const t = sofar.tokens
   const stu = sofar.serverToolUse
-  // The context at the row scrolled to (see contextAt), else now: a guess until the reply after a compaction
-  const read  = at != null && contextAt(turns, at)
-  const point = read || { turns, size: ctx }
   const parts = contextParts(point.turns, point.size)
-  const rough = meta.contextCompacted && !read
   const { picked, earlier, later } = eventsAt(turns, events, at)
 
   const busy = agent.running || !items

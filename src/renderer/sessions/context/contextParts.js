@@ -1,7 +1,8 @@
 import { countTokens } from '../../../shared/tokenizer/claudeTokenizer.js'
 import { contextSize } from '../../../shared/usage.js'
-import { blockTokens, contentText, groupOf, groupTurns, rowIndex } from '../view/transcript.js'
+import { blockTokens, contentText, contextTokens, groupOf, groupTurns, rowIndex } from '../view/transcript.js'
 import { blockView, humanize, isClearTurn, isCounted } from '../view/labels.js'
+import { totalsBy } from './totalsBy.js'
 
 // Claude Desktop's categories, in a fixed order so the rows stay put. Its System tools is smaller and its Messages larger by Skills:
 // /context takes them out of the tool definitions, though the listing is sent as a message; here each row counts what it holds
@@ -118,6 +119,17 @@ export function contextAt(turns, at) {
     if (size) return before(i, size)
   }
   return null
+}
+
+// What the Summary shows at the conversation row `at` (null: the end): what the session had spent by then (`sofar`), the context
+// holding the row (`point`, see contextAt), and whether its size is `rough`, a guess until the reply after a compaction
+export function figuresAt(meta, turns, instructions, at) {
+  const read = at != null && contextAt(turns, at)
+  return {
+    sofar: totalsBy(meta, at == null ? null : rowUntil(turns, at)),
+    point: read || { turns, size: contextTokens(meta, instructions) },
+    rough: meta.contextCompacted && !read,
+  }
 }
 
 // What fills a context of `size` tokens, as categories of { name, tokens } parts: what its System rows list, then Messages as what's left

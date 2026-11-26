@@ -3,7 +3,7 @@ import { format } from 'date-fns'
 import { Globe, LaptopMinimal, OctagonX, Terminal } from 'lucide-react'
 import { fmtCompact, fmtDuration, plural } from '../../utils/formatting'
 import { countTokens } from '../../../shared/tokenizer/claudeTokenizer.js'
-import { groupTurns, isReply, systemGroups, mcpGroupParts, latestServers, blockTokens, cycleDurations, tokenPoints, branchPoint, currentModel, rowIndex, unloggedRequestsVersion } from './transcript.js'
+import { groupTurns, turnCategory, isReply, systemGroups, mcpGroupParts, latestServers, blockTokens, cycleDurations, tokenPoints, branchPoint, currentModel, rowIndex, unloggedRequestsVersion } from './transcript.js'
 import { toolSummary, advisorTitle, parseCommand, interruptLabel, isClearTurn, instructionTitle, stripTint, compactTitleParts, rewindTitle, persistedOutput, attachmentView, hasText, isCounted, safeJson, SIDE_NOTE } from './labels.js'
 import ApproxTokens from './ApproxTokens.jsx'
 import McpConnections, { McpTitle } from './McpConnections.jsx'
@@ -22,18 +22,10 @@ import claudeIcon from '../../assets/claude-icon.svg'
 // The top-level transcript's path — saved tool outputs resolve against it (see persistedOutput)
 const TranscriptFileContext = React.createContext(null)
 
-export const FILTERS = [
-  { value: 'user', label: 'User messages' },
-  { value: 'assistant', label: 'Claude messages' },
-  { value: 'system', label: 'System & memory files' },
-  { value: 'other', label: 'Everything else' },
-]
-const CATEGORY = { compact: 'system', instruction: 'other' }
-
-// System's turns count as `system` even mid-cycle inside a Claude card; a card left with only those shows as System's row
+// A card left with only System's turns shows as System's row
 function filtered(g, filter) {
   if (!filter.length) return g
-  const turns = g.turns.filter(t => filter.includes(CATEGORY[g.kind] ?? (t.role === 'system' ? 'system' : g.kind)))
+  const turns = g.turns.filter(t => filter.includes(turnCategory(g, t)))
   if (!turns.length) return null
   return { kind: turns.every(t => t.role === 'system') ? 'system' : g.kind, turns }
 }

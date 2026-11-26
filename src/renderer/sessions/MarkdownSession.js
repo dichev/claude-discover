@@ -2,8 +2,8 @@ import { format } from 'date-fns'
 import { fmtDuration, fmtNum, fmtUSD, fmtCompact, fmtToolCalls, plural } from '../utils/formatting.js'
 import { countTokens } from '../../shared/tokenizer/claudeTokenizer.js'
 import { contextSize } from '../../shared/usage.js'
-import { flatten, groupTurns, branchPoint, contextTokens, currentModel, contextWindow } from './view/transcript.js'
-import { compactedTokens, contextParts } from './context/contextParts.js'
+import { flatten, groupTurns, branchPoint, currentModel, contextWindow } from './view/transcript.js'
+import { compactedTokens, contextParts, figuresAt } from './context/contextParts.js'
 import { sessionEvents } from './events/sessionEvents.js'
 import { toolSummary, advisorTitle, parseCommand, isClearTurn, instructionTitle, compactTitle, rewindTitle, attachmentView, hasText, safeJson, SIDE_NOTE } from './view/labels.js'
 import { fenced } from '../utils/textBlock.js'
@@ -135,44 +135,40 @@ function renderMcp(turn) {
   return `_${title}_\n${turn.servers.map(server).join('\n')}`
 }
 
-export function markdownSession(meta, items, instructions = {}, requestLog = null, debugLog = null) {
-  const t = meta.tokens
-  const stu = meta.serverToolUse
+// The session's figures as the Summary lists them at its end (see figuresAt)
+function sessionSummary(meta, turns, instructions = {}, { requestLog = null, debugLog = null } = {}) {
+  const { sofar, point, rough } = figuresAt(meta, turns, instructions, null)
+  const t = sofar.tokens
+  const stu = sofar.serverToolUse
   const wallDuration = meta.lastActivityAt - meta.startedAt
   const ctxLimit = contextWindow(meta.models)
-  const ctx = contextTokens(meta, instructions)
-  const contextPct = Math.round((ctx / ctxLimit) * 100)
+  const contextPct = Math.round((point.size / ctxLimit) * 100)
   const advice = cacheAdvice(meta)
   const advisor = meta.advisor
   const savings = [
     advice && `- ${CACHE_LABELS[advice.policy]}: (${advice.pct.toFixed(0)}%) −${fmtUSD(advice.saving)}`,
     advisor?.cost > 0 && `- Advisor, ${plural(advisor.calls, 'call')} on ${advisor.models.join(', ')}: (${(advisor.cost / meta.cost * 100).toFixed(0)}%) −${fmtUSD(advisor.cost)}`,
   ].filter(Boolean)
-  const cacheHitPct = (meta.cacheHitRatio * 100).toFixed(0)
-  const turns = items ? flatten(items, instructions) : []
+  const cacheHitPct = (sofar.cacheHitRatio * 100).toFixed(0)
   const rewinds = turns.filter(t => t.rewind).length
   const compactions = turns.filter(t => t.role === 'compact').length
-  const breakdown = contextParts(turns, ctx)
+  const breakdown = contextParts(point.turns, point.size)
     .map(p => `- ${p.name}: ${fmtCompact(p.tokens)}${p.children.length > 1 ? ` (${p.children.map(c => `${c.name} ${fmtCompact(c.tokens)}`).join(', ')})` : ''}`)
-  const compacted = compactedTokens(turns, ctx)
+  const compacted = compactedTokens(point.turns, point.size)
   if (breakdown.length && compacted) breakdown.push(`- Compacted away: ${fmtCompact(-compacted)} (the tokens compactions took out of the context)`)
   const events = sessionEvents(turns, meta).map(e => `- ${e.time} ${e.name}${e.note ? ` (${e.note})` : ''}`)
-  const transcript = items ? renderTranscript(turns, meta) : '_Loading…_'
-  const conversation = `\n# Conversation\n\n${transcript}`
 
-  const summary = `
-# Session: ${meta.sessionId}
-
+  return `
 # Summary
-- Estimated cost: ${fmtUSD(meta.cost)}
-- Total tokens: ${fmtCompact(meta.totalTokens)}
-- Working time: ${fmtDuration(meta.activeMs)}${events.length ? `
+- Estimated cost: ${fmtUSD(sofar.cost)}
+- Total tokens: ${fmtCompact(sofar.totalTokens)}
+- Working time: ${fmtDuration(sofar.activeMs)}${events.length ? `
 
 ## Events
 ${events.join('\n')}` : ''}
 
 ## Context size
-- Last context size: ${meta.contextCompacted ? '~' : ''}${fmtCompact(ctx)} / ${fmtCompact(ctxLimit)} (${contextPct}%${meta.contextCompacted ? ', estimated until the next reply' : ''})${breakdown.length ? `
+- Last context size: ${rough ? '~' : ''}${fmtCompact(point.size)} / ${fmtCompact(ctxLimit)} (${contextPct}%${rough ? ', estimated until the next reply' : ''})${breakdown.length ? `
 
 ## Context breakdown
 ${breakdown.join('\n')}` : ''}${savings.length ? `
@@ -217,7 +213,14 @@ ${meta.tag ? `- Tag: ${meta.tag}
 ${meta.subdir ? `- Subfolder: ${meta.subdir}\n` : ''}${meta.worktreePath ? `- Worktree: ${meta.worktreePath}\n` : ''}- Log file: ${meta.filePath}
 ${requestLog ? `- Proxy log: ${requestLog}
 ` : ''}${debugLog ? `- Debug log: ${debugLog}
-` : ''}`
+` : ''}`.trim()
+}
+
+export function markdownSession(meta, items, instructions = {}, requestLog = null, debugLog = null) {
+  const turns = items ? flatten(items, instructions) : []
+  const transcript = items ? renderTranscript(turns, meta) : '_Loading…_'
+  const conversation = `\n# Conversation\n\n${transcript}`
+  const summary = `\n# Session: ${meta.sessionId}\n\n${sessionSummary(meta, turns, instructions, { requestLog, debugLog })}\n`
 
   const body = `
 <summary>

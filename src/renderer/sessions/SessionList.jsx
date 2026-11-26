@@ -2,46 +2,13 @@ import { Suspense, use, useEffect, useRef, useState } from 'react'
 import { Gauge, Zap, DollarSign, Brain, GitBranch, ChevronDown, ChevronRight, Bug, FlaskConical, Lightbulb } from 'lucide-react'
 import { fmtCompact, fmtUSD, fmtAgo, tone } from '../utils/formatting.js'
 import { THRESHOLDS as T } from '../utils/thresholds.js'
-import { cacheAdvice, CACHE_LABELS } from '../utils/cacheAdvice.js'
-import { parseCommand, EXPERIMENT_TIP } from './view/labels.js'
-import { subagentClusters, isJournal } from '../utils/subagents.js'
+import { filterSessions, sortSessions, groupRuns, runSummary, rowLabel, rowTags, projectLabel, modelsLabel, sessionBadges } from './sessionRows.js'
 import { useLocalStorage } from '../utils/useLocalStorage.js'
 import { activity, lastChange } from '../utils/activity.js'
 import { useClock } from '../utils/useClock.js'
 import './SessionList.css'
 
-const TIPS = {
-  cache: {
-    '5m': 'Its 1h cache writes, billed 2×, were mostly reused within 5 min',
-    '1h': 'Its pauses outlived the 5m cache, so the context was rewritten',
-  },
-  context: `Consider keeping it below ${fmtCompact(T.context.warn)} tokens`,
-  effort: 'Thinks longer and spends more output tokens than high',
-  debug: 'Run with --debug',
-}
-
-const EFFORT_BADGE = { xhigh: 'warn-badge', max: 'danger-badge' }
-
-// A path is found typed with either slash, so by its row's label too (`AI/claude-discover` of D:\AI\claude-discover)
-const findable = text => text.toLowerCase().replace(/\\/g, '/')
-
-const sumOf = (sessions, key) => sessions.reduce((sum, s) => sum + (s[key] || 0), 0)
-
-// A run's row reads as one session: its subagents' totals, and for each per-session badge the worst of them
-function runSummary(run) {
-  const max    = key => Math.max(...run.map(c => c[key] || 0))
-  const uniq   = key => [...new Set(run.flatMap(c => c[key] ?? []))]
-  const any    = key => run.some(c => c[key])
-  const caches = run.map(c => c.cacheCosts)
-  return {
-    lastActivityAt: max('lastActivityAt'), totalTokens: sumOf(run, 'totalTokens'), cost: sumOf(run, 'cost'),
-    cacheCosts: caches.every(Boolean) ? Object.fromEntries(Object.keys(CACHE_LABELS).map(p => [p, sumOf(caches, p)])) : null,
-    lastContextTokens: max('lastContextTokens'),
-    models: uniq('models'), efforts: uniq('efforts'), speed: run.some(c => c.speed === 'fast') ? 'fast' : null,
-    fastPricingUnknown: any('fastPricingUnknown'), priceUnknown: any('priceUnknown'), experiment: any('experiment'), debug: any('debug'),
-    advisor: { calls: Math.max(...run.map(c => c.advisor?.calls ?? 0)) },
-  }
-}
+const BADGE_ICONS = { context: Gauge, effort: Brain, fast: Zap, price: DollarSign, advisor: Lightbulb, experiment: FlaskConical, debug: Bug }
 
 // Icon (or short text) badge: its tip doubles as its accessible name
 const Badge = ({ className, tip, icon: Icon, text }) => <span className={className} role="img" aria-label={tip} data-tooltip-content={tip}>{text ?? <Icon size={11} />}</span>
@@ -63,9 +30,9 @@ const RowStats = ({ s, sortBy }) => <>
 </>
 
 // The project and model(s) that end a row's second line
-const ProjectModels = ({ project, projectShort, subdir, models, efforts }) => <>
-  {project && <span className="session-project">{projectShort}{subdir && ` › ${subdir}`}</span>}
-  {models?.length > 0 && <span className="session-model">{models.map(m => m.replace(/^claude-/, '')).join(', ')}{efforts?.length > 0 && ` ${efforts.join(', ')}`}</span>}
+const ProjectModels = ({ s }) => <>
+  {s.project && <span className="session-project">{projectLabel(s)}</span>}
+  {s.models?.length > 0 && <span className="session-model">{modelsLabel(s)}</span>}
 </>
 
 // Read once per avatar file, however many sessions share it
@@ -77,37 +44,12 @@ const Avatar = ({ session }) => {
 }
 
 // A span, so it can sit in a run's button too; there the per-session badges show its worst subagent
-const Badges = ({ s, run }) => {
-  const worst     = run ? 'Largest subagent: ' : ''
-  const advice    = cacheAdvice(s)
-  const topEffort = ['max', 'xhigh'].find(e => s.efforts?.includes(e))
-  return (
-    <span className="session-row-badges">
-      {s.avatar && <Suspense><Avatar session={s} /></Suspense>}
-      {advice && <Badge className="warn-badge" tip={`−${advice.pct.toFixed(0)}% (${fmtUSD(advice.saving)}) ${CACHE_LABELS[advice.policy]}\n${TIPS.cache[advice.policy]}`} text={advice.policy} />}
-      {s.lastContextTokens > T.context.warn && <Badge className={s.lastContextTokens > T.context.danger ? 'danger-badge' : 'warn-badge'} tip={`${worst}Context size: ${fmtCompact(s.lastContextTokens)} tokens\n${TIPS.context}`} icon={Gauge} />}
-      {topEffort && <Badge className={EFFORT_BADGE[topEffort]} tip={`Effort: ${topEffort}\n${TIPS.effort}`} icon={Brain} />}
-      {s.speed === 'fast' && <Badge className={`fast-badge ${s.fastPricingUnknown ? 'fast-badge-unknown' : ''}`} tip={s.fastPricingUnknown ? 'Used fast mode — cost is INACCURATE: no fast-mode price multiplier known for this model' : 'Used fast mode (speed: fast)'} icon={Zap} />}
-      {s.priceUnknown && <Badge className="danger-badge" tip={`No price entry for ${s.models?.join(', ') || 'this model'} — cost is missing or understated`} icon={DollarSign} />}
-      {s.advisor?.calls > 0 && <Badge className={s.advisor.calls >= T.advisorCalls.danger ? 'danger-badge' : 'warn-badge'} tip={`${worst}Consulted the advisor ${s.advisor.calls === 1 ? 'once' : `${s.advisor.calls} times`}`} icon={Lightbulb} />}
-      {s.experiment && <Badge className="experiment-badge" tip={EXPERIMENT_TIP} icon={FlaskConical} />}
-      {s.debug && <Badge className="debug-badge" tip={TIPS.debug} icon={Bug} />}
-    </span>
-  )
-}
-
-function groupRuns(sorted) {
-  // Subagents list under a header per run they were spawned in, newest run first, each run in the list's order
-  const runsOf = Map.groupBy(subagentClusters(sorted), run => run[0].parentFilePath)
-  const rank   = new Map(sorted.map((s, i) => [s, i]))
-  return sorted.flatMap(s => runsOf.has(s.parentFilePath) ? [] : [
-    { session: s },
-    ...(runsOf.get(s.filePath) ?? []).toReversed().flatMap(run => {
-      const runKey = `${run[0].filePath}::run`
-      return [{ run, runKey }, ...run.toSorted((a, b) => rank.get(a) - rank.get(b)).map(c => ({ session: c, runKey }))]
-    }),
-  ])
-}
+const Badges = ({ s, run }) => (
+  <span className="session-row-badges">
+    {s.avatar && <Suspense><Avatar session={s} /></Suspense>}
+    {sessionBadges(s, run).map(b => <Badge key={b.key} className={b.className} tip={b.tip} text={b.text} icon={BADGE_ICONS[b.key]} />)}
+  </span>
+)
 
 export default function SessionList({ sessions, selectedId, deepLink, onSelect }) {
   const selectedRef             = useRef(null)
@@ -122,27 +64,10 @@ export default function SessionList({ sessions, selectedId, deepLink, onSelect }
   // Keep the live dots fresh: re-render only when some row's activity changes
   const now = useClock(() => lastChange(sessions.map(s => s.lastActivityAt)))
 
-
-  // The first command, when nothing better names the session.
-  const labelCommand = s => !(s.agentDescription || s.aiTitle || s.summary || s.firstUserPrompt) && parseCommand(s.firstUserCommand)
-  const sessionLabel = s => {
-    const c = labelCommand(s)
-    return c ? `${c.name || c.message} ${c.args}` : (s.agentDescription || s.aiTitle || s.summary || s.firstUserPrompt || s.sessionId || '')
-  }
-
-  // A subagent is held by its session's id too, so that id lists them with it
-  const q = findable(filter.trim())
-  const filtered = q ? sessions.filter(s => findable([
-    s.customTitle, s.agentName, s.agentDescription, s.tag, s.aiTitle, s.summary, s.firstUserPrompt, s.firstUserCommand,
-    s.project, s.projectShort, s.subdir, s.worktree, s.tempPath, s.sessionId, s.parentSessionId, s.model, s.gitBranch,
-  ].filter(Boolean).join(' ')).includes(q)) : sessions
-
-  const sorted = sortBy === 'cost'   ? [...filtered].sort((a, b) => (b.cost || 0) - (a.cost || 0))
-               : sortBy === 'tokens' ? [...filtered].sort((a, b) => (b.totalTokens || 0) - (a.totalTokens || 0))
-               : sortBy === 'name'   ? [...filtered].sort((a, b) => sessionLabel(a).toLowerCase().localeCompare(sessionLabel(b).toLowerCase()))
-               : filtered
-
-  const grouped = groupRuns(sorted)
+  const q        = filter.trim()
+  const filtered = filterSessions(sessions, filter)
+  const sorted   = sortSessions(filtered, sortBy)
+  const grouped  = groupRuns(sorted)
 
   // Runs start collapsed, except the one holding the selected subagent; a click overrides either
   const selectedRun = grouped.find(i => i.runKey && i.session?.filePath === selectedId)?.runKey
@@ -212,22 +137,14 @@ export default function SessionList({ sessions, selectedId, deepLink, onSelect }
                   <Chevron size={14} aria-hidden="true" />
                 </span>
                 <span className="session-time-bottom">
-                  <ProjectModels {...run[0]} {...summary} />
+                  <ProjectModels s={{ ...run[0], ...summary }} />
                 </span>
                 <Badges s={summary} run />
                 <RowStats s={summary} sortBy={sortBy} />
               </button>
             )
           }
-          const journal = isJournal(s)
-          const isFork = !!s.forkedFrom
           const linked = !!deepLink && s.filePath === selectedId // opened by a claude-discover:// link, see App.jsx
-          const command = labelCommand(s)
-          const commandName = command && (command.name || command.message)
-          const commandArgs = command && command.args.trim()
-          const sessionName = s.customTitle && s.agentName && s.customTitle !== s.agentName
-            ? `${s.customTitle} [${s.agentName}]`
-            : (s.customTitle || s.agentName || '')
           return (
             <div
               key={s.filePath}
@@ -236,18 +153,13 @@ export default function SessionList({ sessions, selectedId, deepLink, onSelect }
               onClick={() => onSelect(selectedId === s.filePath ? null : s.filePath)}
             >
               <div className="session-label">
-                <span className="session-label-text">
-                  {command ? commandArgs || commandName : sessionLabel(s)}
-                </span>
+                <span className="session-label-text">{rowLabel(s)}</span>
               </div>
               <div className="session-time-bottom">
-                {journal && <span className="subagent-tag">[journal: {s.workflowAgents} subagent{s.workflowAgents === 1 ? '' : 's'}]</span>}
-                {s.worktree && <span className="worktree-tag" data-tooltip-content={`Worktree of ${s.projectShort}`}>[{s.worktree}]</span>}
-                {isFork && <span className="fork-tag" role="img" aria-label="Forked" data-tooltip-content={`Forked from session ${s.forkedFrom.sessionId}`}><GitBranch size={12} /></span>}
-                {sessionName && <span className="session-name">{sessionName}</span>}
-                {command && <span className="session-command">{commandName}</span>}
-                {s.tag && <span className="session-tag">#{s.tag}</span>}
-                <ProjectModels {...s} />
+                {rowTags(s).map(t => t.text
+                  ? <span key={t.key} className={t.key} data-tooltip-content={t.tip}>{t.text}</span>
+                  : <span key={t.key} className={t.key} role="img" aria-label="Forked" data-tooltip-content={t.tip}><GitBranch size={12} /></span>)}
+                <ProjectModels s={s} />
                 {linked && <span className="deeplink-note">opened from deep link</span>}
               </div>
               <Badges s={s} />
