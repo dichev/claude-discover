@@ -60,6 +60,12 @@ Install the bundled Claude Code status line to see context usage, token counts, 
 [Opus 4.8] Context: ▓▓▓░░░░░░░ 32% used (45.2k, 87% cached)  |  Tokens: 1.2M total (+45.2k, 3 turns) ...
 ```
 
+## Bonus - an MCP server
+Turn on **MCP tools** in the status bar and Claude Code can ask the app about your past sessions - what they cost, what was said in them, what filled their context - with the same numbers the app shows, while it's open:
+```text
+> What did my Claude Code usage cost this week, and which project ate most of it?
+```
+
 ## Contributing
 
 PRs and feature requests are welcome.
