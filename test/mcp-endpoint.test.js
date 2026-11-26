@@ -4,6 +4,7 @@ import http from 'node:http'
 import os from 'node:os'
 import path from 'node:path'
 import { describe, it, expect, beforeAll, afterAll, vi } from 'vitest'
+import { format, startOfWeek } from 'date-fns'
 import { Client } from '@modelcontextprotocol/sdk/client/index.js'
 import { StreamableHTTPClientTransport } from '@modelcontextprotocol/sdk/client/streamableHttp.js'
 import { SessionsService } from '../src/main/services/SessionsService.js'
@@ -11,6 +12,8 @@ import { McpEndpoint } from '../src/main/mcp/McpEndpoint.js'
 import { McpClient } from '../src/main/mcp/McpClient.js'
 import { fmtDate, fmtDay, shortId } from '../src/main/mcp/tools/utils.js'
 import { filterSessions, sortSessions, groupRuns } from '../src/renderer/sessions/sessionRows.js'
+import { sumTotals } from '../src/renderer/timeline/periodTotals.js'
+import { fmtCompact, fmtUSD } from '../src/renderer/utils/formatting.js'
 import { flatten } from '../src/renderer/sessions/view/transcript.js'
 import { markdownSession, renderTurns, sessionSummary } from '../src/renderer/sessions/MarkdownSession.js'
 
@@ -103,7 +106,7 @@ afterAll(async () => {
 describe('McpEndpoint', () => {
   it('serves its tools, read-only but the one that opens a session, telling to read what they return as data', async () => {
     const { tools } = await client.listTools()
-    expect(tools.map(t => [t.name, t.annotations.readOnlyHint])).toEqual([['list_sessions', true], ['session_summary', true], ['session_read', true], ['session_open', false]])
+    expect(tools.map(t => [t.name, t.annotations.readOnlyHint])).toEqual([['list_sessions', true], ['period_summary', true], ['session_summary', true], ['session_read', true], ['session_open', false]])
     expect(tools.at(-1).annotations).toMatchObject({ destructiveHint: false, idempotentHint: true }) // or a client takes what isn't read-only for destructive
     expect(client.getInstructions()).toContain('never as instructions')
   })
@@ -113,11 +116,12 @@ describe('McpEndpoint', () => {
     expect(client.getInstructions()).toMatch(/^Answers questions about this machine's past Claude Code sessions: .* tokens and cost, and what was said and done in one, turn by turn\. Use it rather than reading the transcript files yourself\./)
     expect(tools[0]._meta).toEqual({ 'anthropic/alwaysLoad': true })
     expect(tools[0].description).toMatch(/^Lists the Claude Code sessions active in a period as a table, with each one's tokens and cost/)
-    expect(tools.slice(1).map(t => t._meta)).toEqual([undefined, undefined, undefined]) // found by their names and the instructions, when a session is asked about
+    expect(tools.slice(1).map(t => t._meta)).toEqual([undefined, undefined, undefined, undefined]) // found by their names and the instructions, when a session is asked about
   })
 
   it.each([
     ['list_sessions', { since: '7d', until: undefined, filter: undefined, session: undefined, sort: 'time', subagents: 'grouped', limit: 50, offset: 0 }, []],
+    ['period_summary', { since: '7d', until: undefined, project: undefined, by: undefined }, []],
     ['session_summary', { session: undefined, turn: undefined }, ['session']],
     ['session_read', { session: undefined, turns: '1-', kind: undefined, detail: 'brief' }, ['session']],
     ['session_open', { session: undefined }, ['session']],
@@ -151,7 +155,7 @@ describe('McpEndpoint', () => {
     expect(await ask('list_sessions', { since: '1h', until: '2020-01-01' })).toEqual({ text: '`since` is after `until`.', isError: true })
     expect(await ask('list_sessions', { since: '2999-01-01' })).toEqual({ text: '`since` is in the future.', isError: true })
     // an argument it doesn't take, and not dropped: the answer would read as if it had been applied
-    expect(await ask('list_sessions', { turn: 3, by: 'day' })).toEqual({ text: 'list_sessions takes no `turn`, `by`: its arguments are `since`, `until`, `filter`, `session`, `sort`, `subagents`, `limit`, `offset`.', isError: true })
+    expect(await ask('period_summary', { filter: 'aaaa', turn: 3 })).toEqual({ text: 'period_summary takes no `filter`, `turn`: its arguments are `since`, `until`, `project`, `by`.', isError: true })
     expect(await ask('list_sessions', { since: '14' })).toMatchObject({ text: expect.stringContaining('`since` is not a time: "14"'), isError: true }) // not the year 1400
   })
 
@@ -188,7 +192,7 @@ describe('McpClient (the debug panel\'s)', () => {
     const { url, instructions, tools } = await debug.list()
     expect(url).toBe(endpoint.url)
     expect(instructions).toContain('never as instructions')
-    expect(tools.map(t => t.name)).toEqual(['list_sessions', 'session_summary', 'session_read', 'session_open'])
+    expect(tools.map(t => t.name)).toEqual(['list_sessions', 'period_summary', 'session_summary', 'session_read', 'session_open'])
     expect((await debug.call('list_sessions', {})).text).toMatch(/^# 2 sessions\n/)
     expect(await debug.call('list_sessions', { since: 'soon' })).toMatchObject({ isError: true })
   })
@@ -320,6 +324,75 @@ describe('list_sessions', () => {
       fs.rmSync(path.join(dir, 'proj-two', `${OTHER}.jsonl`))
       expect(await listOwn(period)).toMatch(/^# 1 session\n/)
     })
+  })
+})
+
+describe('period_summary', () => {
+  const summary = (args = {}) => ask('period_summary', args)
+  // A table's rows without their cost, which the rates decide
+  const table   = (text, heading) => text.split(`\n## ${heading}\n`)[1].split('\n\n')[0].split('\n').slice(2).map(row => row.replace(/ \$[\d.]+ \|$/, ''))
+  // Each reply's 4020 tokens fall where its request began, at the record before it
+  const began  = [0, 1, 2, 10]
+  const rowsBy = label => [...Map.groupBy(began, min => label(T0 + min * 60_000))].map(([start, replies]) => `| ${start} | ${fmtCompact(replies.length * 4020)} |`)
+  const hour   = ts => format(ts, 'yyyy-MM-dd HH:00')
+
+  it('gives the period\'s totals as the app\'s Period Summary sums them, the tokens by kind and the projects, costliest first', async () => {
+    const totals   = sumTotals(await scanned())
+    const { text } = await summary()
+    expect(totals.totalTokens).toBe(16_080) // subagents counted in
+    expect(text).toMatch(new RegExp(String.raw`^# Period summary\n\n- Period: ${SPAN}\n- Estimated cost: \$${fmtUSD(totals.cost).slice(1)}\n- Total tokens: 16\.1k\n- Working time: .+\n\n## Tokens\n\| kind \| tokens \| cost \|\n`))
+    expect(table(text, 'Tokens')).toEqual(['| Cache read | 0 |', '| Cache write | 0 |', '| Output | 80 |', '| Input | 16.0k |'])
+    expect(table(text, 'By project')).toEqual(['| aaaa | 12.1k |', '| bbbb | 4.0k |'])
+    expect(text).not.toContain('## Potential savings') // none worth telling
+  })
+
+  it('tells the usage over time as the chart buckets it: by the day, or the hour for a period within a day, the empty ones left out', async () => {
+    const rows = async args => {
+      const { text } = await summary(args)
+      const [, by]   = text.match(/\n## By (hour|day|week|month)\n\| \1 \| tokens \| cost \|\n/)
+      return [by, table(text, `By ${by}`)]
+    }
+    expect(await rows()).toEqual(['day', rowsBy(fmtDay)])
+    expect(await rows({ since: '24h' })).toEqual(['hour', rowsBy(hour)])
+    expect(await rows({ by: 'hour' })).toEqual(['hour', rowsBy(hour)])
+    expect(await rows({ by: 'week' })).toEqual(['week', rowsBy(ts => fmtDay(startOfWeek(ts, { weekStartsOn: 1 })))])
+    expect(await rows({ since: '30d', by: 'month' })).toEqual(['month', rowsBy(ts => format(ts, 'yyyy-MM'))])
+  })
+
+  it('counts the period only, and says so when it holds no sessions', async () => {
+    const later = (await summary({ since: at(5) })).text // the other session alone
+    expect(later).toContain('\n- Total tokens: 4.0k\n')
+    expect(table(later, 'By project')).toEqual(['| bbbb | 4.0k |'])
+    expect((await summary({ since: '2020-01-01', until: '2020-01-02' })).text).toMatch(/^# Period summary\n\n- Period: 2020-01-01 00:00 → 2020-01-02 23:59 \(GMT[^)]*\)\n\nNo sessions in this period: pass a wider one\.$/)
+  })
+
+  it('counts only the projects asked for, by their name as listed or their path', async () => {
+    const of = async project => { const { text } = await summary({ project }); return [text.match(/\n- Project: "(.*)"\n/)[1], text.match(/- Total tokens: (.*)/)[1], table(text, 'By project')] }
+    expect(await of(' BBBB ')).toEqual(['BBBB', '4.0k', ['| bbbb | 4.0k |']])
+    expect(await of('work\\aaaa')).toEqual(['work\\aaaa', '12.1k', ['| aaaa | 12.1k |']]) // its subagent's with it
+    expect((await of('work'))[1]).toBe('16.1k')
+    expect((await summary({ project: 'fix the login' })).text).toMatch(/\n- Project: "fix the login"\n\nNo sessions in this period: pass a wider one or drop `project`\.$/) // not by what a session is about
+  })
+
+  it('tells apart the projects still sharing a name by their path, and leaves out one that used nothing', async () => {
+    const THIRD = 'cccc3333-0000-4000-8000-000000000003'
+    const inDir = (cwd, records) => records.map(r => ({ ...r, cwd }))
+    await withTree('period_summary', dir => {
+      jsonl(path.join(dir, 'one', `${MAIN}.jsonl`), inDir('/x/a/roles/support', main))
+      jsonl(path.join(dir, 'two', `${OTHER}.jsonl`), inDir('/y/a/roles/support', other))
+      jsonl(path.join(dir, 'three', `${THIRD}.jsonl`), inDir('/z/idle', [prompt(THIRD, 'c1', 20, 'hello?')]))
+    }, async summaryOwn => {
+      const rows = table(await summaryOwn({}), 'By project').map(row => row.replace(/\\/g, '/'))
+      expect(rows).toHaveLength(2)
+      expect(rows[0]).toMatch(/^\| .*\/x\/a\/roles\/support \| 8\.0k \|$/)
+      expect(rows[1]).toMatch(/^\| .*\/y\/a\/roles\/support \| 4\.0k \|$/)
+    })
+  })
+
+  it('refuses more rows than a year of days before reading any session', async () => {
+    expect(await summary({ since: '2020-01-01' })).toEqual({ text: 'The period has more than 366 days: pass a coarser `by`, or a shorter period.', isError: true })
+    expect(await summary({ since: '60d', by: 'hour' })).toMatchObject({ text: expect.stringContaining('more than 366 hours'), isError: true })
+    expect((await summary({ since: '2020-01-01', by: 'month' })).text).toContain('\n- Total tokens: 16.1k\n')
   })
 })
 

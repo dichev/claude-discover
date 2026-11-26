@@ -29,7 +29,7 @@ function sessionLabel(s) {
 
 // The filter box: the sessions holding `text` in what names them or where they ran. A subagent is held by its session's id too, so that id lists them with it.
 // A path is found typed with either slash, so by its row's label too (`AI/claude-discover` of D:\AI\claude-discover)
-const findable = text => text.toLowerCase().replace(/\\/g, '/')
+export const findable = text => text.toLowerCase().replace(/\\/g, '/')
 export function filterSessions(sessions, text) {
   const q = findable(text.trim())
   return q ? sessions.filter(s => findable([
