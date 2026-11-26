@@ -47,7 +47,8 @@ export default function StatusSwitch({ service, warn, button, className = '', to
         {warn !== undefined && <span className="statusbar-warn" data-on={warn ? '' : undefined}>⚠ </span>}
         {children}
       </span>
-      <Tip id={id} clickable className="statusbar-tip">
+      {/* render, not children: react-tooltip only re-anchors on resize for render's content, so the tip follows the ? panel */}
+      <Tip id={id} clickable className="statusbar-tip" render={() => (
         <div className="statusbar-tooltip">
           {tooltip}
           <div className="statusbar-tooltip-footer">
@@ -73,7 +74,7 @@ export default function StatusSwitch({ service, warn, button, className = '', to
             </div>
           </div>
         </div>
-      </Tip>
+      )} />
     </span>
   )
 }
