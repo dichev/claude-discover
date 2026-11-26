@@ -55,6 +55,13 @@ describe('MetaCache.resolve', () => {
     await cache.resolve('a.jsonl', { size: 20, mtimeMs: 222 }, day, parse)
     expect(calls).toEqual([null, null])
   })
+
+  it('shares one parse between scans running together', async () => {
+    const cache = newCache()
+    const { calls, parse } = parser(1200, 1800)
+    await Promise.all([cache.resolve('a.jsonl', stat, day, parse), cache.resolve('a.jsonl', stat, { start: 0, end: 5000 }, parse)])
+    expect(calls).toEqual([null])
+  })
 })
 
 describe('MetaCache period layer', () => {
@@ -89,6 +96,13 @@ describe('MetaCache period layer', () => {
     await cache.resolve('a.jsonl', stat, day, parse)
     expect(calls).toEqual([]) // the stale resolve still warmed the whole-file layer
     expect([...cache.values()]).toHaveLength(1)
+  })
+
+  it('an unwatched period (no key) gets the meta too, and never writes the layer', async () => {
+    const cache = new MetaCache()
+    const meta = await cache.resolve('a.jsonl', stat, { start: 1000, end: 2000 }, parser(1200, 1800).parse)
+    expect(meta).toMatchObject({ startedAt: 1200 })
+    expect([...cache.values()]).toEqual([])
   })
 
   it('clear drops both layers, forcing re-parses', async () => {

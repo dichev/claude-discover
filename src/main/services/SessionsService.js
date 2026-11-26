@@ -41,6 +41,8 @@ const isSafeId = id => /^[\w-]+$/.test(id)
 // A subagent's connections are in its parent's debug log, so it lists only its transcript's
 const debugLogOf = reader => reader.parentSessionId || !isSafeId(reader.sessionId) ? null : new McpDebugLog(reader.sessionId)
 
+// Holds what the window shows: the period it watches (list, its updates) and the file opened in it (openFile).
+// scan and readFile answer beside those and each other: they replace neither, sharing only the caches (whole-file metas, the last branch's source).
 export class SessionsService extends EventEmitter {
   #branch = null // { key, source } of the last branch read
   #opened = null // meta of the transcript opened from a file (File → Open, a drop), read whole, outside any period
@@ -67,8 +69,10 @@ export class SessionsService extends EventEmitter {
   // separate transcript per project dir.
   async readSession(filePath, date = null, granularity = 'day') {
     const meta = this.#meta(filePath)
-    if (!meta) return null
-    const range = date ? periodBounds(date, granularity) : null
+    return meta && this.#read(meta, date ? periodBounds(date, granularity) : null)
+  }
+
+  async #read(meta, range = null) {
     const reader = new SessionFile(meta.filePath)
     const parser = new SessionParser({
       sessionId: reader.sessionId, parentSessionId: reader.parentSessionId, filePath: reader.filePath, mtime: meta.mtime, range,
@@ -159,15 +163,26 @@ export class SessionsService extends EventEmitter {
     return this.#meta(filePath)?.avatar ?? null
   }
 
-  // Shown on its own, so its totals are the whole file's, not deduped against the period's sessions
-  async openFile(filePath) {
+  // A transcript's meta outside any period: its totals are the whole file's, not deduped against a period's sessions
+  async #wholeMeta(filePath) {
     if (!filePath?.endsWith('.jsonl')) throw new Error(`Not a .jsonl transcript: ${filePath}`)
     const meta = await this._scanSession(new SessionFile(filePath))
     if (!meta) throw new Error(`Can't read ${filePath}`)
     if (!meta.messageCount) throw new Error(`No Claude Code messages in ${filePath}`)
     meta.projectShort = suffixLabels([meta.project]).get(meta.project)
-    this.#opened = stripInternal(meta)
+    return stripInternal(meta)
+  }
+
+  // Shown on its own in the window, which reads it next by its path (readSession, readRequests)
+  async openFile(filePath) {
+    this.#opened = await this.#wholeMeta(filePath)
     return this.#opened
+  }
+
+  // A transcript read whole, as a file opened in the window is, without being it: its figures and its records, of all its days
+  async readFile(filePath) {
+    const meta = await this.#wholeMeta(filePath)
+    return { meta, ...await this.#read(meta) }
   }
 
   #meta(filePath) {
@@ -182,32 +197,35 @@ export class SessionsService extends EventEmitter {
     return agentId ? new RequestFile(parentSessionId, { agentId }) : new RequestFile(sessionId)
   }
 
-  // Scan `period` ({ start, end } epoch ms, optional `key`/`date`; see periodBounds). watch:true (UI) streams 'update' events per dir batch and returns the current cache immediately; watch:false (CLIs/tests) awaits completion and returns the deduped sessions with no emits.
-  async scan(period, { watch = false } = {}) {
-    const day = period.key ? period : { ...period, key: `${period.start}|${period.end}` }
+  // The deduped sessions of `period` ({ start, end } epoch ms; see periodBounds), once the whole scan completes: for the CLIs and tests.
+  // Answers from the files the scanner lists now and no watched period's, so a transcript deleted since is left out
+  async scan(period) {
+    const metas = []
+    await this.scanner.scan(period, { onFile: async (filePath, stat) => metas.push(await this._processFile(filePath, period, stat)) })
+    return this._dedupSessions(metas.filter(Boolean), period)
+  }
+
+  // Watches `day` (a period with its `key`, `date` and `granularity`) for the window: returns the current cache immediately
+  // and streams 'update' events per dir batch, then on every change to its transcripts
+  #watch(day) {
     this.metaCache.setPeriod(day.key) // new period → drop period-scoped metas (whole-file metas survive)
     this.activeDay = day
     this.scanAbort?.abort() // a superseded scan stops walking instead of racing the new one
     this.scanAbort = new AbortController()
     const fresh = () => this.activeDay?.key === day.key // guard against stale period navigation
-    const scan = this.scanner.scan(day, {
+    this.scanner.scan(day, {
       onFile: (filePath, stat) => this._processFile(filePath, day, stat),
       signal: this.scanAbort.signal,
-      ...(watch && {
-        onBatchDone: () => { if (fresh()) this._scheduleUpdate() },
-        onProgress: p => { if (fresh()) this.emit('progress', p) },
-      })
-    })
-
-    if (watch) scan.catch(console.error) // fire-and-forget; the scanner streams an update per dir batch + a final flush
-    else await scan // block until the full scan completes
+      onBatchDone: () => { if (fresh()) this._scheduleUpdate() },
+      onProgress: p => { if (fresh()) this.emit('progress', p) },
+    }).catch(console.error) // fire-and-forget; the scanner streams an update per dir batch + a final flush
     return this._dedupedDay(day)
   }
 
   // IPC/UI entry: build the period from date+granularity and watch it.
   list(date, granularity = 'day') {
     const key = `${granularity}|${date}`
-    return this.scan({ ...periodBounds(date, granularity), date, granularity, key }, { watch: true })
+    return this.#watch({ ...periodBounds(date, granularity), date, granularity, key })
   }
 
   // Nobody is looking at the period (the window is hidden in the tray), so changes stop being parsed as they land
@@ -219,7 +237,7 @@ export class SessionsService extends EventEmitter {
   resume() {
     if (!this.paused) return
     this.paused = false
-    if (this.activeDay) this.scan(this.activeDay, { watch: true }).catch(console.error)
+    if (this.activeDay) this.#watch(this.activeDay).catch(console.error)
   }
 
   start() {
@@ -272,10 +290,12 @@ export class SessionsService extends EventEmitter {
     return Object.assign(meta, project, { avatar, debug })
   }
 
+  // The sessions among `all` active in `range`, latest first.
   // Resume/fork copies prior message.ids verbatim. Walk earliest-first; if a
   // session's ids overlap one already counted, rescan it with the overlap
   // excluded so it contributes only its NEW messages.
-  async _dedupSessions(metas, range) {
+  async _dedupSessions(all, range) {
+    const metas = [...all].filter(m => intersectsDay(m, range)).sort((a, b) => b.lastActivityAt - a.lastActivityAt)
     const sorted = [...metas].sort((a, b) => a.startedAt - b.startedAt)
     const globalSeen = new Set()
     const rescans = new Map()
@@ -297,11 +317,9 @@ export class SessionsService extends EventEmitter {
     return sessions
   }
 
+  // The watched period's sessions
   _dedupedDay(day) {
-    const metas = [...this.metaCache.values()]
-      .filter(m => intersectsDay(m, day))
-      .sort((a, b) => b.lastActivityAt - a.lastActivityAt)
-    return this._dedupSessions(metas, day)
+    return this._dedupSessions(this.metaCache.values(), day)
   }
 
   _processFile(filePath, day, stat) {
@@ -325,9 +343,8 @@ export class SessionsService extends EventEmitter {
 
   // Prices changed after metas were parsed (first launch races the LiteLLM refresh) — reparse with the new rates.
   _reprice() {
-    if (!this.activeDay) return
     this.metaCache.clear()
-    this.scan(this.activeDay, { watch: true }).catch(console.error)
+    if (this.activeDay) this.#watch(this.activeDay).catch(console.error)
   }
 
   // Leading+trailing throttle: the first call emits immediately, calls within throttleMs

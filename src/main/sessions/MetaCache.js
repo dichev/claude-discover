@@ -4,7 +4,7 @@ export class MetaCache {
   constructor() {
     this.periodKey = null
     this.files = new Map() // filePath -> { size, mtimeMs, meta } — whole-file metas, survive period changes (transcripts are append-only)
-    this.periodMetas = new Map() // filePath -> meta within the active period (ranged for edge-straddlers)
+    this.periodMetas = new Map() // filePath -> meta within the watched period (ranged for edge-straddlers)
   }
 
   // New period → drop the period layer; re-entering the same period keeps it.
@@ -22,13 +22,13 @@ export class MetaCache {
   async resolve(filePath, stat, day, parse) {
     let e = this.files.get(filePath)
     if (!e || e.size !== stat.size || e.mtimeMs !== stat.mtimeMs) {
-      e = { size: stat.size, mtimeMs: stat.mtimeMs, meta: await parse(null) }
+      e = { size: stat.size, mtimeMs: stat.mtimeMs, meta: parse(null) } // cached while it parses, for the scans running beside this one to share
       this.files.set(filePath, e)
     }
-    let m = e.meta
+    let m = await e.meta
     if (m && (m.lastActivityAt < day.start || m.startedAt > day.end)) m = null
     else if (m && !(m.startedAt >= day.start && m.lastActivityAt <= day.end)) m = await parse(day)
-    if (day.key !== this.periodKey) return m // stale in-flight scan — don't write another period's meta into the layer
+    if (day.key !== this.periodKey) return m // an unwatched period (no key) or a stale in-flight scan — not theirs to write into the layer
     if (!m) { this.periodMetas.delete(filePath); return null }
     this.periodMetas.set(filePath, m)
     return m
