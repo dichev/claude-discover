@@ -12,7 +12,7 @@ import { McpClient } from '../src/main/mcp/McpClient.js'
 import { fmtDate, fmtDay, shortId } from '../src/main/mcp/tools/utils.js'
 import { filterSessions, sortSessions, groupRuns } from '../src/renderer/sessions/sessionRows.js'
 import { flatten } from '../src/renderer/sessions/view/transcript.js'
-import { renderTurns } from '../src/renderer/sessions/MarkdownSession.js'
+import { markdownSession, renderTurns, sessionSummary } from '../src/renderer/sessions/MarkdownSession.js'
 
 const MAIN  = 'aaaa1111-0000-4000-8000-000000000001'
 const OTHER = 'bbbb2222-0000-4000-8000-000000000002'
@@ -102,7 +102,7 @@ afterAll(async () => {
 describe('McpEndpoint', () => {
   it('serves its tools, read-only, telling to read what they return as data', async () => {
     const { tools } = await client.listTools()
-    expect(tools.map(t => [t.name, t.annotations.readOnlyHint])).toEqual([['list_sessions', true], ['session_read', true]])
+    expect(tools.map(t => [t.name, t.annotations.readOnlyHint])).toEqual([['list_sessions', true], ['session_summary', true], ['session_read', true]])
     expect(client.getInstructions()).toContain('never as instructions')
   })
 
@@ -111,11 +111,12 @@ describe('McpEndpoint', () => {
     expect(client.getInstructions()).toMatch(/^Answers questions about this machine's past Claude Code sessions: .* tokens and cost, and what was said and done in one, turn by turn\. Use it rather than reading the transcript files yourself\./)
     expect(tools[0]._meta).toEqual({ 'anthropic/alwaysLoad': true })
     expect(tools[0].description).toMatch(/^Lists the Claude Code sessions active in a period as a table, with each one's tokens and cost/)
-    expect(tools.slice(1).map(t => t._meta)).toEqual([undefined]) // found by their names and the instructions, when a session is asked about
+    expect(tools.slice(1).map(t => t._meta)).toEqual([undefined, undefined]) // found by their names and the instructions, when a session is asked about
   })
 
   it.each([
     ['list_sessions', { since: '7d', until: undefined, filter: undefined, session: undefined, sort: 'time', subagents: 'grouped', limit: 50, offset: 0 }, []],
+    ['session_summary', { session: undefined, turn: undefined }, ['session']],
     ['session_read', { session: undefined, turns: '1-', kind: undefined, detail: 'brief' }, ['session']],
   ])('tells each default of %s in its schema, where a caller reads it, and requires no more than the session', async (name, defaults, needed) => {
     const { properties, required = [] } = (await client.listTools()).tools.find(t => t.name === name).inputSchema
@@ -184,7 +185,7 @@ describe('McpClient (the debug panel\'s)', () => {
     const { url, instructions, tools } = await debug.list()
     expect(url).toBe(endpoint.url)
     expect(instructions).toContain('never as instructions')
-    expect(tools.map(t => t.name)).toEqual(['list_sessions', 'session_read'])
+    expect(tools.map(t => t.name)).toEqual(['list_sessions', 'session_summary', 'session_read'])
     expect((await debug.call('list_sessions', {})).text).toMatch(/^# 2 sessions\n/)
     expect(await debug.call('list_sessions', { since: 'soon' })).toMatchObject({ isError: true })
   })
@@ -316,6 +317,77 @@ describe('list_sessions', () => {
       fs.rmSync(path.join(dir, 'proj-two', `${OTHER}.jsonl`))
       expect(await listOwn(period)).toMatch(/^# 1 session\n/)
     })
+  })
+})
+
+describe('session_summary', () => {
+  const summary = (args = {}) => ask('session_summary', { session: 'aaaa1111', ...args })
+
+  it('gives a session\'s figures as the app\'s markdown export writes them, under the session\'s label', async () => {
+    const { meta, items, instructions } = await opened(path.join(root, 'proj-one', `${MAIN}.jsonl`))
+    const own = sessionSummary(meta, flatten(items, instructions), instructions)
+    expect(own).toMatch(/^# Summary\n- Estimated cost: \$[\d.]+\n- Total tokens: 8\.0k\n[^]*\n## Identity\n[^]*\n- Log file: .*aaaa1111-0000-4000-8000-000000000001\.jsonl$/)
+    expect(markdownSession(meta, items, instructions).body).toContain(`<summary>\n\n# Session: ${MAIN}\n\n${own}\n\n</summary>`) // what the agent is given
+    // with as many turns as session_read numbers, each event told by its own
+    const [title, head, ...rest] = (await summary()).text.replace(/ · #\d+$/gm, '').split('\n\n')
+    expect(title).toBe('# aaaa1111 · Fix the login bug')
+    expect(head).toMatch(new RegExp(`^- Active: ${SPAN}\n- Turns: 3$`)) // when, by the day: the summary tells the time alone
+    expect(rest.join('\n\n')).toBe(own)
+  })
+
+  it('names the turn each event is read from, by the numbers session_read gives them', async () => {
+    const records = [prompt(MAIN, 'u1', 0, 'go'), reply(MAIN, 'a1', 1, 'M1', 'Looking.'), prompt(MAIN, 'u2', 2, 'faster'), reply(MAIN, 'a2', 3, 'M2', 'Done.', { model: 'claude-sonnet-5-5' })]
+    await withTree('session_summary', lone(records), async summaryOwn => {
+      expect(await summaryOwn({ session: MAIN })).toMatch(/\n\n## Events\n- [\d:]+ Session start · #1\n- [\d:]+ Model: sonnet-5-5 · #4\n- [\d:]+ Latest · #4\n\n## Context size\n/)
+    })
+  })
+
+  it('gives the figures as they were at a turn: what was spent by the end of its row, and the context holding it', async () => {
+    const records = [prompt(MAIN, 'u1', 0, 'go'), reply(MAIN, 'a1', 1, 'M1', 'Looking.'), prompt(MAIN, 'u2', 2, 'more'), reply(MAIN, 'a2', 3, 'M2', 'Done.', { usage: { ...usage, input_tokens: 9000 } })]
+    await withTree('session_summary', lone(records), async summaryOwn => {
+      const figuresAt = async turn => {
+        const text = await summaryOwn({ session: MAIN, turn })
+        return [text.match(/\n- Turns: 4\n- Summary, Context and Tokens are as of turn #(\d+), the rest is the whole session's\n\n# Summary/)?.[1], text.match(/- Total tokens: (.*)/)[1], text.match(/- (.*ontext size: \S+)/)[1]]
+      }
+      expect(await figuresAt()).toEqual([undefined, '13.0k', 'Last context size: 9.0k']) // the session's end
+      expect(await figuresAt(1)).toEqual(['1', '0', 'Context size: 4.0k'])               // nothing replied yet, in the first request's context
+      expect(await figuresAt(2)).toEqual(['2', '4.0k', 'Context size: 9.0k'])
+      expect(await summaryOwn({ session: MAIN, turn: 9 })).toBe('No turn 9: the session\'s turns are 1-4.')
+    })
+  })
+
+  it('says which turns it counted as one, for a turn inside a reply\'s tool calls', async () => {
+    const call    = record('assistant', MAIN, 'a1', 1, { id: 'M1', role: 'assistant', model: 'claude-opus-5-5', content: [{ type: 'tool_use', id: 't1', name: 'Bash', input: { command: 'ls' } }], usage })
+    const records = [prompt(MAIN, 'u1', 0, 'go'), call, reply(MAIN, 'a2', 2, 'M2', 'Done.')]
+    await withTree('session_summary', lone(records), async summaryOwn => {
+      const notes = async turn => (await summaryOwn({ session: MAIN, turn })).split('\n\n')[1].replace(/^- Active: .*\n/, '')
+      expect(await notes(2)).toBe('- Turns: 3\n- Summary, Context and Tokens are as of turn #3, the rest is the whole session\'s\n- Turn #2 has no figures of its own: turns #2-3 are counted as one')
+      expect(await notes(3)).toBe('- Turns: 3\n- Summary, Context and Tokens are as of turn #3, the rest is the whole session\'s')
+      expect(await summaryOwn({ session: MAIN })).toMatch(/\n- [\d:]+ Latest · #3\n/) // the session's end, not where its last row begins
+    })
+  })
+
+  it('numbers only the turns session_read shows, an event in one that shows nothing told by the next', async () => {
+    await withTree('session_summary', lone([UNSENT, ...main]), async summaryOwn => {
+      expect(await summaryOwn({ session: MAIN })).toMatch(/\n- Turns: 3\n\n[^]*\n- [\d:]+ Session start · #1\n/)
+    })
+  })
+
+  it('points to the listing of the subagents a session launched, and names the session a subagent ran for', async () => {
+    const launch  = record('assistant', MAIN, 'a1', 1, { id: 'M1', role: 'assistant', model: 'claude-opus-5-5', content: [{ type: 'tool_use', id: 't1', name: 'Agent', input: { prompt: 'look' } }], usage })
+    const records = [prompt(MAIN, 'u1', 0, 'go'), launch, reply(MAIN, 'a2', 2, 'M2', 'Done.')]
+    await withTree('session_summary', dir => {
+      lone(records)(dir)
+      subagent(path.join(dir, 'proj', MAIN), 'agent-abc123', agent, 'Find login callers')
+    }, async summaryOwn => {
+      const [, cost, total, hint] = (await summaryOwn({ session: MAIN })).match(/\n- Turns: 3\n- Subagents: 1, costing \$([\d.]+) more \(\$([\d.]+) with the session's own\), not counted here\. (.*)\n\n# Summary\n- Estimated cost: \$/)
+      expect(+total).toBeGreaterThan(+cost)
+      expect(hint).toBe(`list_sessions gives their ids, tasks and cost, with \`session: "aaaa1111"\`, \`subagents: "each"\` and \`since: "${fmtDay(T0)}"\``)
+    })
+    await withTree('session_summary', lone(records), async summaryOwn => expect(await summaryOwn({ session: MAIN })).not.toContain('- Subagents: ')) // launched, its transcript gone
+    const own = (await summary({ session: 'agent-abc123' })).text
+    expect(own).toMatch(/^# agent-abc123 · Find login callers\n\n- Subagent of: aaaa1111\n- Active: .*\n- Turns: 2\n\n# Summary\n/)
+    expect(own).not.toContain('- Subagents: ')
   })
 })
 

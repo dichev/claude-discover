@@ -141,9 +141,10 @@ function renderMcp(turn) {
   return `_${title}_\n${turn.servers.map(server).join('\n')}`
 }
 
-// The session's figures as the Summary lists them at its end (see figuresAt)
-function sessionSummary(meta, turns, instructions = {}, { requestLog = null, debugLog = null } = {}) {
-  const { sofar, point, rough } = figuresAt(meta, turns, instructions, null)
+// The session's figures as the Summary lists them, at the conversation row `at` as it has them at the row scrolled to (see figuresAt).
+// `eventRef` gives what to tell an event's place by, for a reader that numbers the turns
+export function sessionSummary(meta, turns, instructions = {}, { requestLog = null, debugLog = null, at = null, eventRef = () => '' } = {}) {
+  const { sofar, point, rough } = figuresAt(meta, turns, instructions, at)
   const t = sofar.tokens
   const stu = sofar.serverToolUse
   const wallDuration = meta.lastActivityAt - meta.startedAt
@@ -162,7 +163,7 @@ function sessionSummary(meta, turns, instructions = {}, { requestLog = null, deb
     .map(p => `- ${p.name}: ${fmtCompact(p.tokens)}${p.children.length > 1 ? ` (${p.children.map(c => `${c.name} ${fmtCompact(c.tokens)}`).join(', ')})` : ''}`)
   const compacted = compactedTokens(point.turns, point.size)
   if (breakdown.length && compacted) breakdown.push(`- Compacted away: ${fmtCompact(-compacted)} (the tokens compactions took out of the context)`)
-  const events = sessionEvents(turns, meta).map(e => `- ${e.time} ${e.name}${e.note ? ` (${e.note})` : ''}`)
+  const events = sessionEvents(turns, meta).map(e => `- ${e.time} ${e.name}${e.note ? ` (${e.note})` : ''}${eventRef(e)}`)
 
   return `
 # Summary
@@ -174,7 +175,7 @@ function sessionSummary(meta, turns, instructions = {}, { requestLog = null, deb
 ${events.join('\n')}` : ''}
 
 ## Context size
-- Last context size: ${rough ? '~' : ''}${fmtCompact(point.size)} / ${fmtCompact(ctxLimit)} (${contextPct}%${rough ? ', estimated until the next reply' : ''})${breakdown.length ? `
+- ${at == null ? 'Last context size' : 'Context size'}: ${rough ? '~' : ''}${fmtCompact(point.size)} / ${fmtCompact(ctxLimit)} (${contextPct}%${rough ? ', estimated until the next reply' : ''})${breakdown.length ? `
 
 ## Context breakdown
 ${breakdown.join('\n')}` : ''}${savings.length ? `
