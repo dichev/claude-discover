@@ -4,7 +4,7 @@ import { figures, fill, fmtSpan, label, parentOf, periodArgs, periodOf, shortId,
 import TEMPLATE from './list_sessions.md?raw'
 
 // A listing's size cap: about 13k tokens of a table (ids and figures run 1.8 characters a token).
-// Past 25k tokens Claude Code saves an MCP result to a file, leaving the session its path to read
+// Past 25k tokens Claude Code saves an MCP result to a file, leaving the session its path to read: what session_read leaves a long one to
 const MAX_CHARS = 24_000
 
 // A row's cells, by the names the template has them. Few rows have flags (the list's badges, by their tips) or tags, so they share a column

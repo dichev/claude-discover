@@ -42,7 +42,9 @@ export class SessionsService extends EventEmitter {
 
   // Shown on its own, so its totals are the whole file's; the window reads it next by its path (readSession, readRequests)
   async openFile(filePath) {
-    this.#opened = await this.reader.wholeMeta(filePath)
+    const meta = await this.reader.wholeMeta(filePath)
+    if (!meta.messageCount) throw new Error(`No Claude Code messages in ${filePath}`) // any .jsonl can be picked or dropped here, where the MCP tools read a transcript a listing gave them
+    this.#opened = meta
     return this.#opened
   }
 

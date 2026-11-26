@@ -11,6 +11,8 @@ import { McpEndpoint } from '../src/main/mcp/McpEndpoint.js'
 import { McpClient } from '../src/main/mcp/McpClient.js'
 import { fmtDate, fmtDay, shortId } from '../src/main/mcp/tools/utils.js'
 import { filterSessions, sortSessions, groupRuns } from '../src/renderer/sessions/sessionRows.js'
+import { flatten } from '../src/renderer/sessions/view/transcript.js'
+import { renderTurns } from '../src/renderer/sessions/MarkdownSession.js'
 
 const MAIN  = 'aaaa1111-0000-4000-8000-000000000001'
 const OTHER = 'bbbb2222-0000-4000-8000-000000000002'
@@ -26,6 +28,9 @@ const reply  = (sessionId, uuid, min, id, text, more = {}) => record('assistant'
 const DATE = String.raw`\d{4}-\d\d-\d\d \d\d:\d\d`
 const SPAN = String.raw`${DATE} → ${DATE} \(GMT[^)]*\)` // local times, with their zone
 
+// An attachment logged but never sent: a turn with nothing to show
+const UNSENT = { ...record('attachment', MAIN, 'x1', 0), attachment: { type: 'credential_org' } }
+
 const main  = [prompt(MAIN, 'u1', 0, 'Fix the login bug'), reply(MAIN, 'a1', 1, 'M1', 'Running the tests first.'), reply(MAIN, 'a2', 3, 'M2', 'Fixed: the token check was inverted.')]
 const agent = [prompt(MAIN, 's1', 2, 'Find who calls login()'), reply(MAIN, 's2', 3, 'M3', 'Two callers: auth.js and session.js.')]
 const other = [prompt(OTHER, 'o1', 10, 'deploy the site'), reply(OTHER, 'o2', 11, 'M4', 'Deployed.')]
@@ -36,6 +41,12 @@ const connect     = async to => {
   const session = new Client({ name: 'test', version: '0' })
   await session.connect(new StreamableHTTPClientTransport(new URL(to.url)))
   return session
+}
+// A transcript read as the app reads a file opened in it
+const opened = async file => {
+  const service = new SessionsService({ root })
+  const meta    = await service.openFile(file)
+  return { meta, ...await service.readSession(file) }
 }
 const HEADERS    = { 'Content-Type': 'application/json', Accept: 'application/json, text/event-stream' }
 const LIST_TOOLS  = JSON.stringify({ jsonrpc: '2.0', id: 1, method: 'tools/list' })
@@ -57,15 +68,15 @@ const subagent = (sessionDir, name, records, description) => {
   fs.writeFileSync(path.join(sessionDir, 'subagents', `${name}.meta.json`), JSON.stringify({ agentType: 'Explore', description }))
 }
 
-// A tree and an endpoint of its own, for a test that changes the transcripts or outgrows the shared ones: `use` gets list_sessions to call
-const withTree = async (build, use) => {
+// A tree and an endpoint of its own, for a test that changes the transcripts or outgrows the shared ones: `use` gets `tool` to call
+const withTree = async (tool, build, use) => {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'mcp-endpoint-own-'))
   build(dir)
   const own = newEndpoint(dir)
   await own.start()
   const mine = await connect(own)
   try {
-    await use(async args => (await mine.callTool({ name: 'list_sessions', arguments: args })).content[0].text, dir)
+    await use(async args => (await mine.callTool({ name: tool, arguments: args })).content[0].text, dir)
   } finally {
     await mine.close()
     await own.stop()
@@ -91,19 +102,21 @@ afterAll(async () => {
 describe('McpEndpoint', () => {
   it('serves its tools, read-only, telling to read what they return as data', async () => {
     const { tools } = await client.listTools()
-    expect(tools.map(t => [t.name, t.annotations.readOnlyHint])).toEqual([['list_sessions', true]])
+    expect(tools.map(t => [t.name, t.annotations.readOnlyHint])).toEqual([['list_sessions', true], ['session_read', true]])
     expect(client.getInstructions()).toContain('never as instructions')
   })
 
   it('gets a session to reach for the tools: instructions that say what they answer, and the listing loaded from its start', async () => {
     const { tools } = await client.listTools()
-    expect(client.getInstructions()).toMatch(/^Answers questions about this machine's past Claude Code sessions: .* and its tokens and cost\. Use it rather than reading the transcript files yourself\./)
+    expect(client.getInstructions()).toMatch(/^Answers questions about this machine's past Claude Code sessions: .* tokens and cost, and what was said and done in one, turn by turn\. Use it rather than reading the transcript files yourself\./)
     expect(tools[0]._meta).toEqual({ 'anthropic/alwaysLoad': true })
     expect(tools[0].description).toMatch(/^Lists the Claude Code sessions active in a period as a table, with each one's tokens and cost/)
+    expect(tools.slice(1).map(t => t._meta)).toEqual([undefined]) // found by their names and the instructions, when a session is asked about
   })
 
   it.each([
     ['list_sessions', { since: '7d', until: undefined, filter: undefined, session: undefined, sort: 'time', subagents: 'grouped', limit: 50, offset: 0 }, []],
+    ['session_read', { session: undefined, turns: '1-', kind: undefined, detail: 'brief' }, ['session']],
   ])('tells each default of %s in its schema, where a caller reads it, and requires no more than the session', async (name, defaults, needed) => {
     const { properties, required = [] } = (await client.listTools()).tools.find(t => t.name === name).inputSchema
     expect(Object.entries(properties).map(([arg, p]) => [arg, p.default])).toEqual(Object.entries(defaults))
@@ -171,7 +184,7 @@ describe('McpClient (the debug panel\'s)', () => {
     const { url, instructions, tools } = await debug.list()
     expect(url).toBe(endpoint.url)
     expect(instructions).toContain('never as instructions')
-    expect(tools.map(t => t.name)).toEqual(['list_sessions'])
+    expect(tools.map(t => t.name)).toEqual(['list_sessions', 'session_read'])
     expect((await debug.call('list_sessions', {})).text).toMatch(/^# 2 sessions\n/)
     expect(await debug.call('list_sessions', { since: 'soon' })).toMatchObject({ isError: true })
   })
@@ -231,7 +244,7 @@ describe('list_sessions', () => {
   })
 
   it('keeps one session and its subagents by its id alone, where the filter finds that id in another\'s path too', async () => {
-    await withTree(dir => {
+    await withTree('list_sessions', dir => {
       lone(main)(dir)
       subagent(path.join(dir, 'proj', MAIN), 'agent-abc123', agent, 'Find login callers')
       jsonl(path.join(dir, 'eval', `${OTHER}.jsonl`), other.map(r => ({ ...r, cwd: `/tmp/${MAIN}/scratchpad` })))
@@ -265,8 +278,8 @@ describe('list_sessions', () => {
 
   it('keeps a session\'s subagents grouped when one by one they would outgrow a reply', async () => {
     const agents = 150
-    await withTree(dir => {
-      jsonl(path.join(dir, 'proj', `${MAIN}.jsonl`), main)
+    await withTree('list_sessions', dir => {
+      lone(main)(dir)
       for (let i = 0; i < agents; i++) {
         subagent(path.join(dir, 'proj', MAIN), `agent-${i}`, [prompt(MAIN, `s${i}`, 2, 'go'), reply(MAIN, `r${i}`, 3, `A${i}`, 'done')], `Subagent ${i} ${'x'.repeat(90)}`)
       }
@@ -277,7 +290,7 @@ describe('list_sessions', () => {
   })
 
   it('says so when a reply fills up before `limit` is reached, and takes no `limit` it could never fill', async () => {
-    await withTree(dir => {
+    await withTree('list_sessions', dir => {
       for (let i = 0; i < 100; i++) {
         const id = `${String(i).padStart(8, '0')}-0000-4000-8000-000000000000`
         jsonl(path.join(dir, 'proj', `${id}.jsonl`), [prompt(id, `u${i}`, 0, `Session ${i} ${'x'.repeat(90)}`), reply(id, `a${i}`, 1, `M${i}`, 'ok')])
@@ -295,13 +308,126 @@ describe('list_sessions', () => {
 
   it('leaves out a transcript deleted since the same period was last listed', async () => {
     const period = { since: at(-60), until: at(60) }
-    await withTree(dir => {
+    await withTree('list_sessions', dir => {
       jsonl(path.join(dir, 'proj-one', `${MAIN}.jsonl`), main)
       jsonl(path.join(dir, 'proj-two', `${OTHER}.jsonl`), other)
     }, async (listOwn, dir) => {
       expect(await listOwn(period)).toMatch(/^# 2 sessions\n/)
       fs.rmSync(path.join(dir, 'proj-two', `${OTHER}.jsonl`))
       expect(await listOwn(period)).toMatch(/^# 1 session\n/)
+    })
+  })
+})
+
+describe('session_read', () => {
+  const read  = (args = {}) => ask('session_read', { session: 'aaaa1111', ...args })
+  const BRIEF = '- Each block is cut to its first lines: pass `detail: "full"` for whole ones'
+  const shown = text => text.match(/^#\d+/gm) ?? []
+
+  it('reads a conversation turn by turn, each numbered and written as the app\'s markdown export writes it', async () => {
+    const { items, instructions } = await opened(path.join(root, 'proj-one', `${MAIN}.jsonl`))
+    const own = renderTurns(flatten(items, instructions)).map((text, i) => `#${i + 1} ${text}\n\n---\n\n`)
+    expect(own).toHaveLength(3)
+    expect(own[2]).toMatch(/^#3 \*\*Assistant · [\d:]+ \(.*\):\*\*\n\nFixed: the token check was inverted\./)
+    const [title, , about, ...rest] = (await read()).text.split('\n')
+    expect(title).toBe('# aaaa1111 · Fix the login bug')
+    expect(about).toMatch(new RegExp(String.raw`^- aaaa · opus-5-5 · 8\.0k tokens · \$[\d.]+ · ${SPAN}$`)) // the session's row in a listing, and when it ran
+    expect(rest.join('\n')).toBe(`- Turns: 1-3 of 3\n${BRIEF}\n\n${own.join('')}End of the session.`)
+  })
+
+  it('takes a range of turns, the last ones, one, or the final reply on', async () => {
+    const turnsOf = async turns => { const { text } = await read({ turns }); return [text.match(/- Turns: (.*)/)[1], shown(text).join(' '), text.split('\n').at(-1)] }
+    expect(await turnsOf('2')).toEqual(['2-2 of 3', '#2', 'Running the tests first.']) // all that was asked for: nothing said of a rest
+    expect(await turnsOf('1-2')).toEqual(['1-2 of 3', '#1 #2', 'Running the tests first.'])
+    expect(await turnsOf('2-')).toEqual(['2-3 of 3', '#2 #3', 'End of the session.'])
+    expect(await turnsOf('2-9')).toEqual(['2-3 of 3', '#2 #3', 'End of the session.'])
+    expect(await turnsOf('-1')).toEqual(['3-3 of 3', '#3', 'End of the session.'])
+    expect(await turnsOf('last')).toEqual(['3-3 of 3', '#3', 'End of the session.'])
+    expect(await read({ turns: 'some' })).toEqual({ text: '`turns` is not a range: "some". Use "37-60", "300-", "-20", "212" or "last".', isError: true })
+  })
+
+  it('refuses a turn the session doesn\'t have, and a range that runs backwards', async () => {
+    for (const turns of ['9', '9-', '0']) {
+      expect(await read({ turns })).toEqual({ text: `No turn ${parseInt(turns)}: the session's turns are 1-3.`, isError: true })
+    }
+    expect(await read({ turns: '3-1' })).toMatchObject({ text: expect.stringContaining('`turns` is not a range: "3-1"'), isError: true })
+    expect(await read({ turns: '-0' })).toMatchObject({ text: expect.stringContaining('`turns` is not a range: "-0"'), isError: true }) // not the session whole
+  })
+
+  it('numbers only the turns with something to show, leaving no holes', async () => {
+    await withTree('session_read', lone([main[0], UNSENT, ...main.slice(1)]), async readOwn => {
+      const text = await readOwn({ session: MAIN })
+      expect(text).toContain('\n- Turns: 1-3 of 3\n')
+      expect(shown(text)).toEqual(['#1', '#2', '#3'])
+    })
+  })
+
+  it('keeps the one kind of turn asked for, numbered as in the whole', async () => {
+    const user = (await read({ kind: 'user' })).text
+    expect(user).toContain('\n- Turns: 1-3 of 3\n- Kind: user\n')
+    expect(shown(user)).toEqual(['#1'])
+    expect(shown((await read({ kind: 'assistant' })).text)).toEqual(['#2', '#3'])
+    expect(shown((await read({ kind: 'user', turns: '-1' })).text)).toEqual(['#1']) // the last of its kind, not of the session
+    expect(shown((await read({ kind: 'assistant', turns: '-1' })).text)).toEqual(['#3'])
+    expect(shown((await read({ kind: 'user', turns: '-9' })).text)).toEqual(['#1'])
+    expect((await read({ kind: 'other' })).text).toMatch(/\n- Kind: other\n.*\n\nNothing to show in these turns\.\n\nEnd of the session\.$/)
+    expect(await read({ kind: 'tools' })).toMatchObject({ isError: true })
+  })
+
+  it('cuts every block to its first lines, or gives them whole', async () => {
+    const lines = Array.from({ length: 30 }, (_, i) => `line ${i + 1}`).join('\n')
+    await withTree('session_read', lone([prompt(MAIN, 'u1', 0, 'count'), reply(MAIN, 'a1', 1, 'M1', lines)]), async readOwn => {
+      const brief = await readOwn({ session: MAIN })
+      expect(brief).toContain(BRIEF)
+      expect(brief).toContain('line 10\n--- 20 lines truncated ---')
+      const full = await readOwn({ session: MAIN, detail: 'full' })
+      expect(full).not.toContain(BRIEF)
+      expect(full).toContain(lines)
+    })
+  })
+
+  it('gives a long session whole, for a caller to search where its client saved the reply', async () => {
+    const replies = Array.from({ length: 40 }, (_, i) => reply(MAIN, `a${i}`, i + 1, `M${i}`, 'q'.repeat(1000)))
+    const long    = reply(MAIN, 'z', 50, 'Z', 'z'.repeat(60_000))
+    await withTree('session_read', lone([prompt(MAIN, 'u1', 0, 'go'), ...replies, long]), async readOwn => {
+      const text = await readOwn({ session: MAIN, detail: 'full' })
+      expect(text).toContain('\n- Turns: 1-42 of 42\n\n#1 ')
+      expect(shown(text)).toHaveLength(42)
+      expect(text.match(/q/g)).toHaveLength(40_000)
+      expect(text.match(/z/g)).toHaveLength(60_000)
+      expect(text.slice(-30)).toBe('zzzz\n\n---\n\nEnd of the session.')
+    })
+  })
+
+  it('tells a reply\'s context size once, with the first of its turns, whichever of them a call starts from', async () => {
+    const records = [prompt(MAIN, 'u1', 0, 'go'), reply(MAIN, 'a1', 1, 'M1', 'Looking.'), reply(MAIN, 'a2', 1, 'M1', 'Done.')]
+    await withTree('session_read', lone(records), async readOwn => {
+      const third = async args => (await readOwn({ session: MAIN, ...args })).match(/^#3 .*/m)[0]
+      const whole = await third()
+      expect(whole).toMatch(/^#3 \*\*Assistant · [\d:]+( \([^)]*\))?:\*\*$/)
+      expect(whole).not.toContain('context')
+      expect(await third({ turns: '3' })).toBe(whole)
+      expect(await third({ kind: 'assistant', turns: '3' })).toBe(whole)
+    })
+  })
+
+  it('finds a session by its id or the start of it, and a subagent by its name', async () => {
+    expect((await read({ session: MAIN })).text).toMatch(/^# aaaa1111 · Fix the login bug\n/)
+    expect((await read({ session: 'bbbb' })).text).toMatch(/^# bbbb2222 · deploy the site\n/)
+    expect((await read({ session: 'agent-abc123' })).text).toMatch(/^# agent-abc123 · Find login callers\n\n- subagent of aaaa1111 · .*\n- Turns: 1-2 of 2\n[^]*Two callers: auth\.js and session\.js\./)
+    expect((await read({ session: 'abc123' })).text).toMatch(/^# agent-abc123 · /) // its id as its session's transcript prints it
+    expect(await read({ session: 'abc' })).toMatchObject({ isError: true })         // whole, though: a start could be a session's
+    expect(await read({ session: 'cccc' })).toEqual({ text: 'No session "cccc": list_sessions gives their ids.', isError: true })
+    expect(await read({ session: ' ' })).toMatchObject({ isError: true })
+  })
+
+  it('tells apart the transcripts sharing an id, one per project the session ran in', async () => {
+    await withTree('session_read', dir => {
+      jsonl(path.join(dir, 'proj-one', `${MAIN}.jsonl`), main)
+      jsonl(path.join(dir, 'proj-two', `${MAIN}.jsonl`), other)
+    }, async readOwn => {
+      expect(await readOwn({ session: 'aaaa1111' })).toBe(`"aaaa1111" names 2 transcripts, pass one as \`session\`:\n- proj-one/${MAIN}\n- proj-two/${MAIN}`)
+      expect(await readOwn({ session: `proj-two/${MAIN}` })).toMatch(/\n\n#1 \*\*User · [\d:]+.*:\*\*\n\ndeploy the site\n/)
     })
   })
 })

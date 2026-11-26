@@ -106,7 +106,6 @@ export class SessionsReader {
     if (!filePath?.endsWith('.jsonl')) throw new Error(`Not a .jsonl transcript: ${filePath}`)
     const meta = await this.#parse(new SessionFile(filePath))
     if (!meta) throw new Error(`Can't read ${filePath}`)
-    if (!meta.messageCount) throw new Error(`No Claude Code messages in ${filePath}`)
     meta.projectShort = suffixLabels([meta.project]).get(meta.project)
     return stripInternal(meta)
   }

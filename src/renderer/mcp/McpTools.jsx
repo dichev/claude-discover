@@ -20,6 +20,9 @@ const toolTokens = t => countTokens(JSON.stringify({ name: t.name, description: 
 // Claude Code defers the rest to a search by name, so they take context only once loaded
 const alwaysLoaded = t => !!t._meta?.['anthropic/alwaysLoad']
 
+// A session gets a longer answer as a file: the panel draws its start, a session read whole being too long to lay out
+const SHOWN = 50_000
+
 const Tool = memo(function Tool({ tool, tokens, picked, onPick }) {
   const required = tool.inputSchema.required ?? []
   const readOnly = !!tool.annotations?.readOnlyHint
@@ -93,9 +96,9 @@ function ToolCall({ tool, preset }) {
       </div>
       {result?.error && <ErrorMessage title="Call failed" error={result.error} />}
       {result?.text != null && <>
-        <div className="mcp-call-stats">{result.isError ? 'Tool error · ' : ''}{result.ms} ms · {fmtCompact(result.text.length)} chars · ~{fmtCompact(countTokens(result.text))} tokens</div>
+        <div className="mcp-call-stats">{result.isError ? 'Tool error · ' : ''}{result.ms} ms · {fmtCompact(result.text.length)} chars · ~{fmtCompact(countTokens(result.text))} tokens{result.text.length > SHOWN ? ` · first ${fmtCompact(SHOWN)} chars shown` : ''}</div>
         <div className={`mcp-call-result${result.isError ? ' mcp-call-error' : ''}`}>
-          <Markdown text={result.text} autoFence />
+          <Markdown text={result.text.slice(0, SHOWN)} autoFence />
         </div>
       </>}
     </div>

@@ -1,8 +1,10 @@
-// What the MCP tools share: the period they take, and how they write a reply
+// What the MCP tools share: the period or the session they take, and how they write a reply
+import path from 'node:path'
 import { endOfDay, format, isValid, parseISO } from 'date-fns'
 import Mustache from 'mustache'
 import { z } from 'zod'
-import { clip, modelsLabel, rowLabel, fmtCompact, fmtUSD } from '../sessions/fromRenderer.js'
+import { SessionFile } from '../../sessions/SessionFile.js'
+import { clip, flatten, modelsLabel, renderTurns, rowLabel, fmtCompact, fmtUSD } from '../sessions/fromRenderer.js'
 
 // What every tool is: read-only, reading through `sessions`, the app's own reader, whose scans and reads answer beside
 // what its window watches. A tool's .md writes its reply from the values `run` hands it
@@ -45,6 +47,56 @@ export function periodOf(since, until) {
   const period = { start: timeOf('since', since, now), end: until ? timeOf('until', until, now) : now }
   if (period.start > period.end) throw new Refusal(until ? '`since` is after `until`.' : '`since` is in the future.')
   return period
+}
+
+// The session's argument, told the same way in each tool
+export const sessionArg = z.string().describe('The session\'s id or the start of it, as list_sessions gives it; a subagent by its "agent-…" name or its agent id.')
+
+const CANDIDATES = 10
+const EVER       = { start: 0, end: Infinity }
+const named      = file => file.replace(/\\/g, '/').replace(/\.jsonl$/, '')
+
+// The transcripts `ref` names, as [{ file, name }]: by a session id or the start of it (`agent-…` for a subagent, or its id whole,
+// as its session's transcript prints it), or by a `name`, the path below the projects folder that tells apart the transcripts
+// sharing an id (one per project it ran in)
+async function find({ scanner }, ref) {
+  const want = named(ref.trim())
+  if (!want) return []
+  const files = []
+  await scanner.scan(EVER, { onFile: file => { files.push({ file, name: named(path.relative(scanner.root, file)), id: new SessionFile(file).sessionId }) } })
+  const exact = files.filter(f => f.name === want || f.id === want || f.id === `agent-${want}`)
+  return exact.length ? exact : files.filter(f => f.id.startsWith(want))
+}
+
+// The file of the one transcript `ref` names, refused when none or several do
+export async function sessionFile(sessions, ref) {
+  const found = await find(sessions, ref)
+  if (!found.length) throw new Refusal(`No session "${ref}": list_sessions gives their ids.`)
+  if (found.length > 1) {
+    const names = found.map(f => `- ${f.name}`).sort()
+    const more  = names.length > CANDIDATES ? `\n…and ${names.length - CANDIDATES} more` : ''
+    throw new Refusal(`"${ref}" names ${names.length} transcripts, pass one as \`session\`:\n${names.slice(0, CANDIDATES).join('\n')}${more}`)
+  }
+  return found[0].file
+}
+
+// That transcript read whole: its meta, its conversation's turns and what its requests sent
+export async function openSession(sessions, ref) {
+  const read = await sessions.readFile(await sessionFile(sessions, ref))
+  return { ...read, turns: flatten(read.items, read.instructions) }
+}
+
+// The turns a reply numbers, from 1, each with its text: about a third have nothing to show (what was logged but never sent), and would
+// leave holes in the numbers. Every turn is written first: what one tells depends on those before it
+export function shownTurns(all, opts) {
+  const texts = renderTurns(all, opts)
+  return { turns: all.filter((_, i) => texts[i]), texts: texts.filter(Boolean) }
+}
+
+// The turn `n`, refused when the session has none by that number
+export function turnWithin(n, total) {
+  if (n < 1 || n > total) throw new Refusal(`No turn ${n}: the session's turns are 1-${total}.`)
+  return n
 }
 
 // One form for every date a reply tells, with its year. A span names the time zone too: the dates are the machine's local ones
