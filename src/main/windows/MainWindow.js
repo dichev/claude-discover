@@ -50,7 +50,13 @@ export class MainWindow {
     this.win.on('close', e => {
       if (!this.hideOnClose) return
       e.preventDefault()
-      this.win.hide()
+      // @macOS hidden in full screen, a window leaves its black space behind: it leaves full screen first
+      if (this.win.isFullScreen()) {
+        this.win.once('leave-full-screen', () => this.win.hide())
+        this.win.setFullScreen(false)
+      } else {
+        this.win.hide()
+      }
     })
     this.win.on('closed', () => this.findBar = null) // @macOS the menu outlives the window, so its find accelerators must not reach a destroyed one
     return this.win
