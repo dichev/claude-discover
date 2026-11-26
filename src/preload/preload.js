@@ -36,6 +36,10 @@ contextBridge.exposeInMainWorld('api', {
 
   openLink: (href, baseFile) => ipcRenderer.invoke('shell:open-link', href, baseFile),
 
+  listMcpTools: () => ipcRenderer.invoke('mcp:list-tools'),
+  callMcpTool: (name, args) => ipcRenderer.invoke('mcp:call-tool', name, args),
+  onShowMcpTools: subscribe('mcp:show-tools'),
+
   onFindActive: subscribe('find:active'),
   findClose: () => ipcRenderer.send('find:close'),
 

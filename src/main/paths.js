@@ -10,6 +10,10 @@ export const RECENT_CLAUDE_DIRS   = local.recents || [CLAUDE_DIR]
 export const CLAUDE_PROJECTS_DIR  = join(CLAUDE_DIR, 'projects')
 export const CLAUDE_SETTINGS      = join(CLAUDE_DIR, 'settings.json')
 export const CLAUDE_DEBUG_DIR     = join(CLAUDE_DIR, 'debug')
+
+// Claude Code's state file, with the user-scope MCP servers: where its CLI looks from here, whatever dir this app is on
+export const CLAUDE_JSON          = join(process.env.CLAUDE_CONFIG_DIR || homedir(), '.claude.json')
+
 // bin paths assume this file sits two levels below the repo root (true for both src/main and out/main bundle)
 export const STATUSLINE_PATH      = join(import.meta.dirname, '../../bin/claude/statusline.mjs')
 export const PROXY_PATH           = join(import.meta.dirname, '../../bin/proxy.mjs')

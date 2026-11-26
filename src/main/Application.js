@@ -7,6 +7,8 @@ import { RateLimits } from './services/RateLimits.js'
 import { UsageInsights } from './services/UsageInsights.js'
 import { MainWindow } from './windows/MainWindow.js'
 import { AppTray } from './windows/AppTray.js'
+import { McpEndpoint } from './mcp/McpEndpoint.js'
+import { McpClient } from './mcp/McpClient.js'
 import { updater } from './updater.js'
 import { CLAUDE_DIR, RECENT_CLAUDE_DIRS } from './paths.js'
 import { openLinkSafely, webpDataUrl } from './utils.js'
@@ -21,11 +23,13 @@ export class Application {
     this.sessionsService = new SessionsService()
     this.rateLimits      = new RateLimits(this.agentRunner)
     this.usageInsights   = new UsageInsights(this.agentRunner, { onScan: usage => this.rateLimits.use(usage) })
-    this.switchers       = new Switchers({ restart: () => this.restart() }) // the on/off features behind the StatusBar switches
+    this.mcp             = new McpEndpoint({ sessions: this.sessionsService.reader, open: target => this.showSession(target), version: app.getVersion() })
+    this.mcpClient       = new McpClient(this.mcp) // for the MCP tools debug panel
+    this.switchers       = new Switchers({ restart: () => this.restart(), mcp: this.mcp }) // the on/off features behind the StatusBar switches
   }
 
   start() {
-    const { deepLink, win, tray, agentRunner, workHours, sessionsService, rateLimits, usageInsights, switchers } = this
+    const { deepLink, win, tray, agentRunner, workHours, sessionsService, rateLimits, usageInsights, mcp, mcpClient, switchers } = this
 
     tray?.start() // before the menu, whose checkbox shows it
     Menu.setApplicationMenu(this.#buildMenu())
@@ -35,10 +39,7 @@ export class Application {
     sessionsService.on('progress', p => win.send('sessions:scan-progress', p))
     sessionsService.on('activity', () => { rateLimits.markActive(); usageInsights.markActive() })
     usageInsights.start()
-    deepLink?.on('open', target => {
-      win.focus()
-      win.send('deeplink:open-session', target)
-    })
+    deepLink?.on('open', target => this.showSession(target))
 
     // renderer → main
     ipcMain.handle('sessions:list', (_e, date, granularity) => sessionsService.list(date, granularity))
@@ -56,6 +57,8 @@ export class Application {
     ipcMain.handle('auto-update:install', () => updater.install())
     ipcMain.handle('rate-limits:get', (_e, opts) => rateLimits.get(opts))
     ipcMain.handle('usage-insights:get', (_e, opts) => usageInsights.get(opts))
+    ipcMain.handle('mcp:list-tools', () => mcpClient.list())
+    ipcMain.handle('mcp:call-tool', (_e, name, args) => mcpClient.call(name, args))
     ipcMain.handle('agent:run', (e, run) => agentRunner.run(run, e.sender))
     ipcMain.handle('shell:open-link', (_e, href, baseFile) => openLinkSafely(href, baseFile))
     ipcMain.handle('deeplink:take-pending', () => deepLink?.takePending() ?? null)
@@ -75,9 +78,16 @@ export class Application {
 
     // Finish wiring before starting services or loading the renderer.
     sessionsService.start()
+    mcp.start().catch(err => console.warn('[mcp] not serving:', err.message))
     const window = win.create()
     window.on('hide', () => sessionsService.pause()) // in the tray: nobody to keep the period fresh for
     window.on('show', () => sessionsService.resume())
+  }
+
+  // What a deep link and the session_open MCP tool both ask for: the window brought forward on the { id, date } session
+  showSession(target) {
+    this.win.focus()
+    this.win.send('deeplink:open-session', target)
   }
 
   // app.exit skips will-quit, so switches stay active across the restart
@@ -141,6 +151,8 @@ export class Application {
           { role: 'reload' },
           { role: 'forceReload' },
           { role: 'toggleDevTools' },
+          { type: 'separator' },
+          { label: 'MCP tools', click: () => win.send('mcp:show-tools') },
         ],
       },
     ])

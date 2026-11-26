@@ -4,12 +4,13 @@ import { closeFind } from '../ui/useFindActive.js'
 import './OpenedFile.css'
 
 // A transcript from anywhere on disk (File → Open, a drop), read whole and shown outside the timeline.
-// `opened` is { filePath, meta | error }; set it to null to close the file.
-export function useOpenedFile() {
+// `opened` is { filePath, meta | error }; set it to null to close the file. `onOpen` is called as a file takes the pane.
+export function useOpenedFile({ onOpen } = {}) {
   const [opened, setOpened] = useState(null)
 
   const open = useEffectEvent(filePath => {
     closeFind()
+    onOpen?.()
     setOpened({ filePath })
     const settle = result => setOpened(o => o?.filePath === filePath ? { filePath, ...result } : o) // a later open wins
     window.api.openSessionFile(filePath).then(meta => settle({ meta }), error => settle({ error }))
@@ -40,10 +41,10 @@ export function useOpenedFile() {
 export function OpenedFileHeader({ filePath, onClose }) {
   return (
     <header className="section-title opened-file">
-      <FileText size={18} className="opened-file-icon" />
+      <FileText size={18} className="section-title-icon" />
       <h2 className="section-title-text">Opened file</h2>
-      <span className="opened-file-path" data-tooltip-content={filePath}><bdi>{filePath}</bdi></span>
-      <button type="button" className="opened-file-close" onClick={onClose} aria-label="Close file" data-tooltip-content="Close file">
+      <span className="section-title-caption opened-file-path" data-tooltip-content={filePath}><bdi>{filePath}</bdi></span>
+      <button type="button" className="section-title-button" onClick={onClose} aria-label="Close file" data-tooltip-content="Close file">
         <X size={16} />
       </button>
     </header>

@@ -23,7 +23,7 @@ function truncate(text) {
   return lines.slice(0, MAX_LINES).join('\n') + `\n--- ${lines.length - MAX_LINES} lines truncated ---`
 }
 
-const fence = (text, lang = '') => fenced(truncate(text), lang)
+const asText = text => String(text ?? '')
 
 // The session's own copies of the tags framing it would end the frame early
 const escapeFrame = text => text.replace(/<(\/?)(summary|transcript)\b/gi, '&lt;$1$2')
@@ -41,22 +41,23 @@ function size(text) {
 const took = ms => ms >= 1000 ? ` · ${fmtDuration(ms)}` : ''
 
 // A listing's entries by name and size, in place of its text cut off after the first few
-function renderItems({ intro, items, outro }) {
+function renderItems({ intro, items, outro }, fence) {
   const list = items.map(i => `- ${instructionTitle(i)}${size(i.content)}`).join('\n')
   return [intro && fence(intro), list, outro && fence(outro)].filter(Boolean).join('\n')
 }
 
-function renderCommand(cmd) {
+function renderCommand(cmd, fence) {
   if (!cmd.name && !cmd.stdout) return null // only the caveat Claude Code puts before a command's output
   const line = cmd.name ? `Command: \`${cmd.name}${cmd.args ? ` ${cmd.args}` : ''}\`` : 'Command output:'
   return cmd.stdout ? `${line}\n${fence(cmd.stdout)}` : line
 }
 
 // `model`: the conversation's, for naming a side request's own model
-function renderBlock(b, model) {
+function renderBlock(b, model, cut) {
+  const fence = (text, lang = '') => fenced(cut(text), lang)
   if (b.type === 'text') {
     const cmd = parseCommand(b.text)
-    return cmd ? renderCommand(cmd) : truncate(b.text || '')
+    return cmd ? renderCommand(cmd, fence) : cut(b.text || '')
   }
   if (b.type === 'structured_output') return `StructuredOutput:\n${fence(JSON.stringify(b.data, null, 2), 'json')}`
   if (b.type === 'thinking') return b.redacted ? `_Thinking (encrypted${b.redacted > 1 ? ` · ${b.redacted}` : ''})_` : `Thinking${took(b.duration)}:\n${fence(b.thinking)}`
@@ -75,12 +76,12 @@ function renderBlock(b, model) {
     const view = attachmentView(b.attachment, b.rendered)
     const title = `_Attachment: ${view.title}_${hasText(view) ? size(view.body) : ''}`
     if (view.body == null) return title
-    return `${title}\n${view.items?.length ? renderItems(view) : fence(view.markdown || view.body)}`
+    return `${title}\n${view.items?.length ? renderItems(view, fence) : fence(view.markdown || view.body)}`
   }
   if (b.type === 'instruction') {
     const it = b.it
     const path = it.name && it.name !== it.file_path ? `\n\`${it.file_path}\`` : ''
-    const body = it.error ? fence(`error: ${it.error}`) : it.items?.length ? renderItems(it) : fence(it.content || '')
+    const body = it.error ? fence(`error: ${it.error}`) : it.items?.length ? renderItems(it, fence) : fence(it.content || '')
     return `_${instructionTitle(it, model)}_${size(it.content)}${path}\n${body}`
   }
   if (b.type === 'mcp') return renderMcp(b.turn)
@@ -88,13 +89,13 @@ function renderBlock(b, model) {
 }
 
 // `seen`: a reply's records share its message id and usage, so its context size is given once
-function renderTurn(t, seen, model) {
-  const blocks = t.blocks.map(b => renderBlock(b, model)).filter(Boolean)
+function renderTurn(t, seen, model, cut) {
+  const blocks = t.blocks.map(b => renderBlock(b, model, cut)).filter(Boolean)
   if (!blocks.length) return null
   if (t.role === 'instruction') return `**Proxy (${SIDE_NOTE}):**\n\n${blocks.join('\n\n')}`
   if (t.role === 'compact') {
     const b = t.blocks[0]
-    return `**${compactTitle(b)}**${b.summary ? `\n\nCompact summary${size(b.summary)}:\n${fence(b.summary)}` : ''}`
+    return `**${compactTitle(b)}**${b.summary ? `\n\nCompact summary${size(b.summary)}:\n${fenced(cut(b.summary))}` : ''}`
   }
   const role = t.role === 'system' ? 'System' : t.role === 'user' ? (t.queued ? 'User (queued)' : 'User') : 'Assistant'
   const stats = []
@@ -111,10 +112,15 @@ function renderTurn(t, seen, model) {
   return `${rewind}**${role}${time}${stats.length ? ` (${stats.join(' · ')})` : ''}:**\n\n${blocks.join('\n\n')}${cleared}`
 }
 
-function renderTranscript(turns, { forkedFrom, forkedAt, continuesFrom }) {
+// Each turn as markdown, null for one with nothing to show. `whole` leaves every block's text uncut: `cut` is what shortens it
+export function renderTurns(turns, { whole = false } = {}) {
   const model = currentModel(turns)
-  const seen = new Set()
-  const rows = turns.map(t => renderTurn(t, seen, model))
+  const seen  = new Set()
+  return turns.map(t => renderTurn(t, seen, model, whole ? asText : truncate))
+}
+
+function renderTranscript(turns, { forkedFrom, forkedAt, continuesFrom }) {
+  const rows = renderTurns(turns)
   // Marked where the view draws its divider: above the first group the branch made itself
   const groups = groupTurns(turns)
   const branch = branchPoint(groups, forkedFrom, forkedAt, continuesFrom)
@@ -135,9 +141,10 @@ function renderMcp(turn) {
   return `_${title}_\n${turn.servers.map(server).join('\n')}`
 }
 
-// The session's figures as the Summary lists them at its end (see figuresAt)
-function sessionSummary(meta, turns, instructions = {}, { requestLog = null, debugLog = null } = {}) {
-  const { sofar, point, rough } = figuresAt(meta, turns, instructions, null)
+// The session's figures as the Summary lists them, at the conversation row `at` as it has them at the row scrolled to (see figuresAt).
+// `eventRef` gives what to tell an event's place by, for a reader that numbers the turns
+export function sessionSummary(meta, turns, instructions = {}, { requestLog = null, debugLog = null, at = null, eventRef = () => '' } = {}) {
+  const { sofar, point, rough } = figuresAt(meta, turns, instructions, at)
   const t = sofar.tokens
   const stu = sofar.serverToolUse
   const wallDuration = meta.lastActivityAt - meta.startedAt
@@ -156,7 +163,7 @@ function sessionSummary(meta, turns, instructions = {}, { requestLog = null, deb
     .map(p => `- ${p.name}: ${fmtCompact(p.tokens)}${p.children.length > 1 ? ` (${p.children.map(c => `${c.name} ${fmtCompact(c.tokens)}`).join(', ')})` : ''}`)
   const compacted = compactedTokens(point.turns, point.size)
   if (breakdown.length && compacted) breakdown.push(`- Compacted away: ${fmtCompact(-compacted)} (the tokens compactions took out of the context)`)
-  const events = sessionEvents(turns, meta).map(e => `- ${e.time} ${e.name}${e.note ? ` (${e.note})` : ''}`)
+  const events = sessionEvents(turns, meta).map(e => `- ${e.time} ${e.name}${e.note ? ` (${e.note})` : ''}${eventRef(e)}`)
 
   return `
 # Summary
@@ -168,7 +175,7 @@ function sessionSummary(meta, turns, instructions = {}, { requestLog = null, deb
 ${events.join('\n')}` : ''}
 
 ## Context size
-- Last context size: ${rough ? '~' : ''}${fmtCompact(point.size)} / ${fmtCompact(ctxLimit)} (${contextPct}%${rough ? ', estimated until the next reply' : ''})${breakdown.length ? `
+- ${at == null ? 'Last context size' : 'Context size'}: ${rough ? '~' : ''}${fmtCompact(point.size)} / ${fmtCompact(ctxLimit)} (${contextPct}%${rough ? ', estimated until the next reply' : ''})${breakdown.length ? `
 
 ## Context breakdown
 ${breakdown.join('\n')}` : ''}${savings.length ? `

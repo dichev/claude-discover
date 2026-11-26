@@ -5,7 +5,7 @@ import { parseCommand, EXPERIMENT_TIP } from './view/labels.js'
 import { subagentClusters, isJournal } from '../utils/subagents.js'
 
 // What the session list shows, apart from how it draws it: which sessions, in what order, under which rows, and each row's
-// label, tags and badges.
+// label, tags and badges. Pure, as the MCP server lists sessions by it too (see src/main/mcp/sessions/fromRenderer.js).
 
 const TIPS = {
   cache: {
@@ -29,7 +29,7 @@ function sessionLabel(s) {
 
 // The filter box: the sessions holding `text` in what names them or where they ran. A subagent is held by its session's id too, so that id lists them with it.
 // A path is found typed with either slash, so by its row's label too (`AI/claude-discover` of D:\AI\claude-discover)
-const findable = text => text.toLowerCase().replace(/\\/g, '/')
+export const findable = text => text.toLowerCase().replace(/\\/g, '/')
 export function filterSessions(sessions, text) {
   const q = findable(text.trim())
   return q ? sessions.filter(s => findable([
@@ -102,6 +102,7 @@ export const projectLabel = s => s.project ? `${s.projectShort}${s.subdir ? ` â€
 export const modelsLabel = s => s.models?.length ? `${s.models.map(m => m.replace(/^claude-/, '')).join(', ')}${s.efforts?.length ? ` ${s.efforts.join(', ')}` : ''}` : ''
 
 // A row's badges, as { key, className, tip, text }: an icon each, but the cache's short text. On a run's row the per-session ones tell of its worst subagent.
+// A tip's first line is the fact, any advice follows: the MCP listing flags a session by that line alone
 export function sessionBadges(s, run = false) {
   const worst     = run ? 'Largest subagent: ' : ''
   const advice    = cacheAdvice(s)

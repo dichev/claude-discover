@@ -1,7 +1,7 @@
 import { cheaperCache } from '../utils/cacheAdvice.js'
 import { THRESHOLDS as T } from '../utils/thresholds.js'
 
-// A period's figures as its summary shows them, from its sessions
+// A period's figures as its summary shows them, from its sessions. Pure: the MCP tools read them too
 
 export function sumTotals(sessions) {
   const t = sessions.reduce((acc, s) => {
