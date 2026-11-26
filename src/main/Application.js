@@ -23,7 +23,7 @@ export class Application {
     this.sessionsService = new SessionsService()
     this.rateLimits      = new RateLimits(this.agentRunner)
     this.usageInsights   = new UsageInsights(this.agentRunner, { onScan: usage => this.rateLimits.use(usage) })
-    this.mcp             = new McpEndpoint({ sessions: this.sessionsService.reader, version: app.getVersion() })
+    this.mcp             = new McpEndpoint({ sessions: this.sessionsService.reader, open: target => this.showSession(target), version: app.getVersion() })
     this.mcpClient       = new McpClient(this.mcp) // for the MCP tools debug panel
     this.switchers       = new Switchers({ restart: () => this.restart(), mcp: this.mcp }) // the on/off features behind the StatusBar switches
   }
@@ -39,10 +39,7 @@ export class Application {
     sessionsService.on('progress', p => win.send('sessions:scan-progress', p))
     sessionsService.on('activity', () => { rateLimits.markActive(); usageInsights.markActive() })
     usageInsights.start()
-    deepLink?.on('open', target => {
-      win.focus()
-      win.send('deeplink:open-session', target)
-    })
+    deepLink?.on('open', target => this.showSession(target))
 
     // renderer → main
     ipcMain.handle('sessions:list', (_e, date, granularity) => sessionsService.list(date, granularity))
@@ -85,6 +82,12 @@ export class Application {
     const window = win.create()
     window.on('hide', () => sessionsService.pause()) // in the tray: nobody to keep the period fresh for
     window.on('show', () => sessionsService.resume())
+  }
+
+  // What a deep link and the session_open MCP tool both ask for: the window brought forward on the { id, date } session
+  showSession(target) {
+    this.win.focus()
+    this.win.send('deeplink:open-session', target)
   }
 
   // app.exit skips will-quit, so switches stay active across the restart

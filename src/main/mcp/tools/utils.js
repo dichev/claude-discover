@@ -6,13 +6,14 @@ import { z } from 'zod'
 import { SessionFile } from '../../sessions/SessionFile.js'
 import { clip, flatten, modelsLabel, renderTurns, rowLabel, fmtCompact, fmtUSD } from '../sessions/fromRenderer.js'
 
-// What every tool is: read-only, reading through `sessions`, the app's own reader, whose scans and reads answer beside
-// what its window watches. A tool's .md writes its reply from the values `run` hands it
+// What every tool is: read-only unless it says otherwise, reading through `sessions`, the app's own reader, whose scans and reads answer beside
+// what its window watches. `open` shows a session there, given a deep link's target: { id, date }. A tool's .md writes its reply from the values `run` hands it
 export class Tool {
   annotations = { readOnlyHint: true }
 
-  constructor(sessions) {
+  constructor(sessions, open) {
     this.sessions = sessions
+    this.open = open
   }
 }
 

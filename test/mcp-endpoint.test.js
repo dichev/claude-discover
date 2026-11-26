@@ -36,7 +36,8 @@ const agent = [prompt(MAIN, 's1', 2, 'Find who calls login()'), reply(MAIN, 's2'
 const other = [prompt(OTHER, 'o1', 10, 'deploy the site'), reply(OTHER, 'o2', 11, 'M4', 'Deployed.')]
 
 let root, endpoint, client
-const newEndpoint = (dir = root) => new McpEndpoint({ sessions: new SessionsService({ root: dir }).reader, port: 0 })
+const opens       = [] // what session_open had the app show
+const newEndpoint = (dir = root) => new McpEndpoint({ sessions: new SessionsService({ root: dir }).reader, open: target => opens.push(target), port: 0 })
 const connect     = async to => {
   const session = new Client({ name: 'test', version: '0' })
   await session.connect(new StreamableHTTPClientTransport(new URL(to.url)))
@@ -100,9 +101,10 @@ afterAll(async () => {
 })
 
 describe('McpEndpoint', () => {
-  it('serves its tools, read-only, telling to read what they return as data', async () => {
+  it('serves its tools, read-only but the one that opens a session, telling to read what they return as data', async () => {
     const { tools } = await client.listTools()
-    expect(tools.map(t => [t.name, t.annotations.readOnlyHint])).toEqual([['list_sessions', true], ['session_summary', true], ['session_read', true]])
+    expect(tools.map(t => [t.name, t.annotations.readOnlyHint])).toEqual([['list_sessions', true], ['session_summary', true], ['session_read', true], ['session_open', false]])
+    expect(tools.at(-1).annotations).toMatchObject({ destructiveHint: false, idempotentHint: true }) // or a client takes what isn't read-only for destructive
     expect(client.getInstructions()).toContain('never as instructions')
   })
 
@@ -111,13 +113,14 @@ describe('McpEndpoint', () => {
     expect(client.getInstructions()).toMatch(/^Answers questions about this machine's past Claude Code sessions: .* tokens and cost, and what was said and done in one, turn by turn\. Use it rather than reading the transcript files yourself\./)
     expect(tools[0]._meta).toEqual({ 'anthropic/alwaysLoad': true })
     expect(tools[0].description).toMatch(/^Lists the Claude Code sessions active in a period as a table, with each one's tokens and cost/)
-    expect(tools.slice(1).map(t => t._meta)).toEqual([undefined, undefined]) // found by their names and the instructions, when a session is asked about
+    expect(tools.slice(1).map(t => t._meta)).toEqual([undefined, undefined, undefined]) // found by their names and the instructions, when a session is asked about
   })
 
   it.each([
     ['list_sessions', { since: '7d', until: undefined, filter: undefined, session: undefined, sort: 'time', subagents: 'grouped', limit: 50, offset: 0 }, []],
     ['session_summary', { session: undefined, turn: undefined }, ['session']],
     ['session_read', { session: undefined, turns: '1-', kind: undefined, detail: 'brief' }, ['session']],
+    ['session_open', { session: undefined }, ['session']],
   ])('tells each default of %s in its schema, where a caller reads it, and requires no more than the session', async (name, defaults, needed) => {
     const { properties, required = [] } = (await client.listTools()).tools.find(t => t.name === name).inputSchema
     expect(Object.entries(properties).map(([arg, p]) => [arg, p.default])).toEqual(Object.entries(defaults))
@@ -155,13 +158,13 @@ describe('McpEndpoint', () => {
   it('logs a tool\'s bug and keeps it from the answer', async () => {
     const logged = vi.spyOn(console, 'error').mockImplementation(() => {})
     const bug    = new TypeError('boom')
-    const broken = new McpEndpoint({ sessions: { scan: () => { throw bug } }, port: 0 })
+    const broken = new McpEndpoint({ sessions: new SessionsService({ root }).reader, open: () => { throw bug }, port: 0 })
     await broken.start()
     const session = await connect(broken)
     try {
-      const res = await session.callTool({ name: 'list_sessions', arguments: {} })
+      const res = await session.callTool({ name: 'session_open', arguments: { session: MAIN } })
       expect(res).toMatchObject({ content: [{ text: 'Internal error' }], isError: true })
-      expect(logged).toHaveBeenCalledWith('[mcp] list_sessions failed:', bug)
+      expect(logged).toHaveBeenCalledWith('[mcp] session_open failed:', bug)
     } finally {
       await session.close()
       await broken.stop()
@@ -185,7 +188,7 @@ describe('McpClient (the debug panel\'s)', () => {
     const { url, instructions, tools } = await debug.list()
     expect(url).toBe(endpoint.url)
     expect(instructions).toContain('never as instructions')
-    expect(tools.map(t => t.name)).toEqual(['list_sessions', 'session_summary', 'session_read'])
+    expect(tools.map(t => t.name)).toEqual(['list_sessions', 'session_summary', 'session_read', 'session_open'])
     expect((await debug.call('list_sessions', {})).text).toMatch(/^# 2 sessions\n/)
     expect(await debug.call('list_sessions', { since: 'soon' })).toMatchObject({ isError: true })
   })
@@ -501,5 +504,37 @@ describe('session_read', () => {
       expect(await readOwn({ session: 'aaaa1111' })).toBe(`"aaaa1111" names 2 transcripts, pass one as \`session\`:\n- proj-one/${MAIN}\n- proj-two/${MAIN}`)
       expect(await readOwn({ session: `proj-two/${MAIN}` })).toMatch(/\n\n#1 \*\*User · [\d:]+.*:\*\*\n\ndeploy the site\n/)
     })
+  })
+})
+
+describe('session_open', () => {
+  const open = async session => {
+    opens.length = 0
+    return { ...await ask('session_open', { session }), opens: [...opens] }
+  }
+  const day = fmtDay(T0 + 3 * 60_000) // of the session's last reply
+
+  it('has the app show the session on its last active day, picked by its file', async () => {
+    expect(await open('aaaa1111')).toEqual({
+      text: `Opened aaaa1111 · Fix the login bug in Claude Discover, on ${day}.`, isError: false,
+      opens: [{ id: path.join(root, 'proj-one', `${MAIN}.jsonl`), date: day }],
+    })
+    expect(await open('agent-abc123')).toMatchObject({
+      text: `Opened agent-abc123 · Find login callers in Claude Discover, on ${day}.`,
+      opens: [{ id: path.join(root, 'proj-one', MAIN, 'subagents', 'agent-abc123.jsonl'), date: day }],
+    })
+  })
+
+  it('shows nothing for a session it can\'t find', async () => {
+    expect(await open('cccc')).toEqual({ text: 'No session "cccc": list_sessions gives their ids.', isError: true, opens: [] })
+  })
+
+  // Claude Code started and quit: a hook's output and no message, which a listing lists as any other
+  it('takes a session with no messages in it, as the other session tools do', async () => {
+    const hook = { ...record('attachment', MAIN, 'x1', 0), attachment: { type: 'hook_success', content: 'ok' } }
+    for (const [tool, answer] of [['session_open', /^Opened aaaa1111 · /], ['session_summary', /^# aaaa1111 · /], ['session_read', /^aaaa1111 has no conversation\.$/]]) {
+      await withTree(tool, lone([hook]), async askOwn => expect(await askOwn({ session: MAIN })).toMatch(answer))
+    }
+    await withTree('list_sessions', lone([hook]), async listOwn => expect(await listOwn({})).toContain('| aaaa1111 |'))
   })
 })
