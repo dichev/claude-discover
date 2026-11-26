@@ -120,7 +120,7 @@ describe('McpEndpoint', () => {
   })
 
   it.each([
-    ['list_sessions', { since: '7d', until: undefined, filter: undefined, session: undefined, sort: 'time', subagents: 'grouped', limit: 50, offset: 0 }, []],
+    ['list_sessions', { since: '7d', until: undefined, filter: undefined, prompt: undefined, session: undefined, sort: 'time', subagents: 'grouped', limit: 50, offset: 0 }, []],
     ['period_summary', { since: '7d', until: undefined, project: undefined, by: undefined }, []],
     ['session_summary', { session: undefined, turn: undefined }, ['session']],
     ['session_read', { session: undefined, turns: '1-', kind: undefined, detail: 'brief' }, ['session']],
@@ -245,6 +245,34 @@ describe('list_sessions', () => {
     expect(await ids({ filter: 'work\\aaaa' })).toEqual(['aaaa1111', 'agent-abc123']) // a path typed with either slash
   })
 
+  it('finds a session by any prompt typed in it in the period, quoting it there in a column of its own', async () => {
+    const long    = `${'x'.repeat(500)} please rename\nthe widget to gizmo, ${'y'.repeat(200)}`
+    const noted   = { ...prompt(MAIN, 'u3', 4, '<task-notification>the doohickey agent finished</task-notification>'), origin: { kind: 'task-notification' } }
+    const records = [prompt(MAIN, 'u1', 0, 'go'), reply(MAIN, 'a1', 1, 'M1', 'Looking.'), prompt(MAIN, 'u2', 2, long), reply(MAIN, 'a2', 3, 'M2', 'Renamed the gadget too.'), noted]
+    await withTree('list_sessions', lone(records), async listOwn => {
+      expect(await listOwn({ prompt: 'doohickey' })).toMatch(/^# 0 sessions\n/) // sent in by the harness, not typed
+      const found = await listOwn({ prompt: ' rename the  WIDGET' })
+      expect(found).toMatch(/^# 1 session\n\n- Period: .*\n- Prompt: "rename the WIDGET"\n- Sorted by: time\n\n\| session \| label \| prompt \| project \| models \|/)
+      // on one line as the text asked for is, with what's around it
+      const [, quote] = found.match(/\n\| aaaa1111 \| go \| (.*) \| aaaa \| opus-5-5 \|/)
+      expect(quote).toMatch(/^…x+ please rename the widget to gizmo, y+…$/)
+      expect(quote).toHaveLength(50 + 17 + 90 + 2)
+      expect(await listOwn({ prompt: 'go' })).toContain('\n| aaaa1111 | go | go | aaaa |') // a short one whole
+      expect(await listOwn({ prompt: 'gadget' })).toMatch(/^# 0 sessions\n[^]*\n\nNone in this period: pass a wider one\.$/) // a reply's text isn't searched
+      expect(await listOwn({ prompt: 'widget', since: at(2.5) })).toMatch(/^# 0 sessions\n/) // typed before the period
+      // with `filter`, both hold
+      expect(await listOwn({ prompt: 'widget', filter: 'aaaa' })).toMatch(/^# 1 session\n\n- Period: .*\n- Filter: "aaaa"\n- Prompt: "widget"\n/)
+      expect(await listOwn({ prompt: 'widget', filter: 'bbbb' })).toMatch(/^# 0 sessions\n[^]*None in this period: pass a wider one or drop `filter`\.$/)
+      // the filter is the list's own, which goes by the first prompt alone, not by the prompts after it
+      expect(await listOwn({ filter: 'widget' })).toMatch(/^# 0 sessions\n[^]*None in this period: pass a wider one or drop `filter`\. To find a session by text typed in it, pass `prompt`\.$/)
+    })
+  })
+
+  it('finds a subagent by the task it was given, its run\'s row quoting none', async () => {
+    expect((await list({ prompt: 'who calls' })).text).toMatch(/^# 1 session\n[^]*\n\| agent-abc123 \(subagent of aaaa1111\) \| Find login callers \| Find who calls login\(\) \| aaaa \|/)
+    expect((await list({ prompt: 'login' })).text).toMatch(/\n\| aaaa1111 \| Fix the login bug \| Fix the login bug \| aaaa \|.*\n\| ↳ \| 1 subagent \|  \|  \| opus-5-5 \|/)
+  })
+
   it('names the session a subagent listed alone ran for, and tells its project', async () => {
     const { text } = await list({ filter: 'explore' })
     expect(text).toMatch(/^# 1 session\n\n- Period: .*\n- Filter: "explore"\n- Sorted by: time\n\n\|/)
@@ -281,7 +309,7 @@ describe('list_sessions', () => {
     expect((await list({ until: at(5) })).text).toMatch(/^# 1 session\n/) // the other began later
     expect((await list({ since: '1d', until: today })).text).toMatch(/^# 2 sessions\n/)
     expect((await list({ since: '30m' })).text).toMatch(/^# 0 sessions\n\n- Period: .*\n- Sorted by: time\n\nNone in this period: pass a wider one\.$/)
-    expect((await list({ since: '2020-01-01', until: '2020-01-02', filter: 'a|b' })).text).toMatch(/\n- Filter: "a\|b"\n[^]*None in this period: pass a wider one or drop `filter`\.$/)
+    expect((await list({ since: '2020-01-01', until: '2020-01-02', filter: 'a|b' })).text).toMatch(/\n- Filter: "a\|b"\n[^]*None in this period: pass a wider one or drop `filter`\. To find a session by text typed in it, pass `prompt`\.$/)
   })
 
   it('keeps a session\'s subagents grouped when one by one they would outgrow a reply', async () => {

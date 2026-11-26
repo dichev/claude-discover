@@ -2,6 +2,11 @@ import { EventEmitter } from 'node:events'
 import { SessionsReader, intersects, periodBounds } from '../sessions/SessionsReader.js'
 import { Pricing } from './Pricing.js'
 
+// Every typed prompt is in a meta for a search to read: megabytes over a month, so not in what the window is sent on each update
+function stripPrompts({ prompts, ...meta }) {
+  return meta
+}
+
 // Keeps what the window shows fresh, on top of a SessionsReader: the period it watches (list, then an 'update' on every change to its
 // transcripts) and the file opened in it (openFile). What a period or a transcript holds is the reader's to tell.
 export class SessionsService extends EventEmitter {
@@ -44,7 +49,7 @@ export class SessionsService extends EventEmitter {
   async openFile(filePath) {
     const meta = await this.reader.wholeMeta(filePath)
     if (!meta.messageCount) throw new Error(`No Claude Code messages in ${filePath}`) // any .jsonl can be picked or dropped here, where the MCP tools read a transcript a listing gave them
-    this.#opened = meta
+    this.#opened = stripPrompts(meta)
     return this.#opened
   }
 
@@ -110,9 +115,9 @@ export class SessionsService extends EventEmitter {
     }
   }
 
-  // The watched period's sessions
-  _dedupedDay(day) {
-    return this.reader.dedup(this.periodMetas.values(), day)
+  // The watched period's sessions, as the window gets them
+  async _dedupedDay(day) {
+    return (await this.reader.dedup(this.periodMetas.values(), day)).map(stripPrompts)
   }
 
   // A file's meta within `day`, kept for the watched period: a scan still in flight for a period the window has left writes none

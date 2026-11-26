@@ -89,6 +89,7 @@ function freshMetrics() {
     startedAt: null, lastActivityAt: null, continuesFrom: null, continuesTo: null, resumes: [],
     model: null, models: [], efforts: [], serviceTier: null, speed: null, fastPricingUnknown: false, priceUnknown: false,
     firstUserPrompt: null, firstUserCommand: null,
+    prompts: [], // every typed prompt, whole, for a search to read (not sent to the window: see SessionsService)
     messageCount: 0, workflowAgents: 0, toolCalls: 0, skillCalls: 0,
     tokens: emptyBucket(), tokensByModel: {}, tokensByModelFast: {}, lastContextTokens: 0, contextCompacted: false,
     serverToolUse: { webSearch: 0, webFetch: 0 },
@@ -287,6 +288,7 @@ export class SessionParser {
     } else if (text && !obj.isMeta && !obj.isCompactSummary) { // meta records (e.g. a slash-command skill's body) and compaction summaries aren't typed by the user
       if (obj.promptId && text.startsWith('/')) this.typedCommands.set(`${obj.promptId} ${text.split(/\s/)[0]}`, obj)
       if (!meta.firstUserPrompt) meta.firstUserPrompt = text.slice(0, 300)
+      if ((obj.origin?.kind ?? 'human') === 'human') meta.prompts.push(text) // not what the harness sent in as one: a task's notification, a peer's message
     }
   }
 

@@ -77,12 +77,13 @@ describe('SessionsService.pause', () => {
 // What the window is on stays its own, whatever is asked of the reader beside it or still arriving from where it was
 describe('SessionsService watched period', () => {
   it('is left as it is by the reader\'s scans of any period, running together', async () => {
-    const { service, file } = await watchingMarch()
+    const { service, file, sessions } = await watchingMarch()
     const march = { start: Date.parse('2026-03-01'), end: Date.parse('2026-04-01') }
     const april = { start: Date.parse('2026-04-02'), end: Date.parse('2026-05-01') }
     const [inMarch, inApril] = await Promise.all([service.reader.scan(march), service.reader.scan(april)])
-    expect(inMarch).toMatchObject([{ messageCount: 1 }])
+    expect(inMarch).toMatchObject([{ messageCount: 1, prompts: ['hi'] }]) // every typed prompt, for its caller to search
     expect(inApril).toEqual([])
+    expect(sessions[0]).not.toHaveProperty('prompts') // megabytes over a month, which the window isn't sent
     expect(service.activeDay).toMatchObject({ date: '2026-03-01', granularity: 'month' })
     expect([...service.periodMetas.keys()]).toEqual([file])
   })
@@ -117,6 +118,7 @@ describe('SessionsService.openFile', () => {
     const meta = await service.openFile(file)
     expect(meta).toMatchObject({ sessionId: 'shared', filePath: file, messageCount: 2, projectShort: 'proj', tokens: { input: 100, output: 10 } })
     expect(meta.seenMessageIds).toBeUndefined()
+    expect(meta.prompts).toBeUndefined()
     const { items } = await service.readSession(file)
     expect(items.map(o => o.uuid)).toEqual(['u1', 'a1'])
   })
