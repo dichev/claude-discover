@@ -37,7 +37,7 @@ export function useSwitch({ name, isOn = () => false }) {
   return { status, on, busy, toggle, setKeepActive }
 }
 
-export default function StatusSwitch({ service, warn, button, className = '', tooltip, changes, changesTitle = 'Changes in settings.json', children }) {
+export default function StatusSwitch({ service, warn, button, className = '', tooltip, changes, changesTitle = 'Changes in settings.json', keepLabel = 'Keep active after the app closes', children }) {
   const id                        = useId()
   const [showChanges, setChanges] = useState(false)
   const { on }                    = service
@@ -58,9 +58,9 @@ export default function StatusSwitch({ service, warn, button, className = '', to
               </div>
             )}
             {service.status?.keepActive !== undefined && (
-              <label className="statusbar-tooltip-keep" data-tooltip-content={service.status.ephemeral ? 'Keep active is not available for a temporary npx run.\nInstall the app globally to enable it.' : undefined}>
+              <label className="statusbar-tooltip-keep" data-tooltip-content={service.status.ephemeral ? 'Not available for a temporary npx run.\nInstall the app globally to enable it.' : undefined}>
                 <input type="checkbox" checked={service.status.keepActive} disabled={service.status.ephemeral} onChange={e => service.setKeepActive(e.target.checked)} />
-                Keep active after the app closes
+                {keepLabel}
               </label>
             )}
             <div className="statusbar-tooltip-actions">

@@ -23,7 +23,7 @@ export class Application {
     this.rateLimits      = new RateLimits(this.agentRunner)
     this.usageInsights   = new UsageInsights(this.agentRunner, { onScan: usage => this.rateLimits.use(usage) })
     this.mcp             = new McpEndpoint({ sessions: this.sessionsService.reader, version: app.getVersion() })
-    this.switchers       = new Switchers({ restart: () => this.restart() }) // the on/off features behind the StatusBar switches
+    this.switchers       = new Switchers({ restart: () => this.restart(), mcp: this.mcp }) // the on/off features behind the StatusBar switches
   }
 
   start() {

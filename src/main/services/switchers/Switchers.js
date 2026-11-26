@@ -5,17 +5,19 @@ import { ProxySwitch } from './ProxySwitch.js'
 import { StatuslineSwitch } from './StatuslineSwitch.js'
 import { ClaudeSettingsSwitch } from './ClaudeSettingsSwitch.js'
 import { ClaudeDirSwitch } from './ClaudeDirSwitch.js'
+import { McpSwitch } from './McpSwitch.js'
 import { LAUNCH_MODE, LAUNCH_MODES } from '../../paths.js'
 export class Switchers {
   #switches
-  #keepActive = { proxy: true, statusline: true } // toggle feature persisting on app quit — starts on, so a switch this run didn't activate is never undone by it
+  #keepActive = { proxy: true, statusline: true, mcp: true } // toggle feature persisting on app quit — starts on, so a switch this run didn't activate is never undone by it
 
-  constructor({ restart }) {
+  constructor({ restart, mcp }) {
     this.#switches = {
       proxy:      new ProxySwitch(),
       statusline: new StatuslineSwitch(),
       settings:   new ClaudeSettingsSwitch(),
       claudedir:  new ClaudeDirSwitch({ restart }),
+      mcp:        new McpSwitch({ endpoint: mcp }),
     }
   }
 

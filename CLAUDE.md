@@ -91,7 +91,7 @@ Token totals must match `ccusage` to the cent, and each stage has rules they dep
 
 Optional features, secondary to the core timeline. The switchable ones are a class in `src/main/services/switchers/` with `status()/activate()/deactivate()`, toggled from the StatusBar; switches not marked keep-active are undone on quit.
 
-Each is explained atop its own file: the capture proxy (`bin/proxy.mjs`, `ProxySwitch`, `LoginService`), plan limits (`RateLimits`, `UsageInsights`), statusline (`StatuslineSwitch`), MCP tools (`McpEndpoint`), Claude settings (`ClaudeSettingsSwitch`), Claude dir (`ClaudeDirSwitch`), deep links (`DeepLink`), the tray (`AppTray`), shortcuts and auto update (`src/main/updater.js`, the `NpmUpdater` from [`electron-update-from-npm`](https://github.com/dichev/electron-update-from-npm)). Hard rule for the proxy: **capture must never fail, delay, or alter a request**.
+Each is explained atop its own file: the capture proxy (`bin/proxy.mjs`, `ProxySwitch`, `LoginService`), plan limits (`RateLimits`, `UsageInsights`), statusline (`StatuslineSwitch`), MCP tools (`McpSwitch`, `McpEndpoint`), Claude settings (`ClaudeSettingsSwitch`), Claude dir (`ClaudeDirSwitch`), deep links (`DeepLink`), the tray (`AppTray`), shortcuts and auto update (`src/main/updater.js`, the `NpmUpdater` from [`electron-update-from-npm`](https://github.com/dichev/electron-update-from-npm)). Hard rule for the proxy: **capture must never fail, delay, or alter a request**.
 
 ### Dev-only bits
 

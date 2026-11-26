@@ -44,6 +44,14 @@ const statuslineChanges = <pre>{`"statusLine": {
   "command": "node …/bin/claude/statusline.mjs"
 }`}</pre>
 
+const mcpTooltip = <>
+  <p>Lets your Claude Code sessions list other sessions through this app, with their tokens and cost.</p>
+  <p>Works while this app is open.</p>
+</>
+const mcpChanges = url => <pre>{`"mcpServers": {
+  "claude-discover": { "type": "http", "url": "${url}" }
+}`}</pre>
+
 const claudeDirTooltip = <>
   <p>The folder this app reads everything from - your Claude Code sessions and settings (usually <code>~/.claude</code>).</p>
   <p>Previous directories are listed in the File menu (press Alt).</p>
@@ -163,8 +171,9 @@ function useRateLimits() {
 export default function StatusBar({ sessionCount = 0 }) {
   const { claudeDir } = window.api.claudeSettings
   // Status shapes come from the matching *Switch in src/main/services/switchers/:
-  // proxy { running, configured } · statusline { installed } · settings { applied, total } · claudedir { dir }
+  // proxy { running, configured } · statusline { installed } · settings { applied, total } · claudedir { dir } · mcp { running, configured, url }
   const proxy      = useSwitch({ name: 'proxy',      isOn: s => s?.running && s.configured })
+  const mcp        = useSwitch({ name: 'mcp',        isOn: s => s?.running && s.configured })
   const statusline = useSwitch({ name: 'statusline', isOn: s => s?.installed })
   const settings   = useSwitch({ name: 'settings',   isOn: s => s && s.applied === s.total })
   const claudedir  = useSwitch({ name: 'claudedir' }) // action-style: its button always activates (opens the folder picker)
@@ -184,6 +193,7 @@ export default function StatusBar({ sessionCount = 0 }) {
   } }
   const npx       = update?.type === 'install'
   const proxyDown = proxy.status?.configured && proxy.status.running === false // Claude Code is pointed at a dead proxy — it can't reach the API
+  const mcpDown   = mcp.status?.configured && !mcp.status.running // Claude Code has the server, but its port was taken at launch
   const scanning = progress?.scanning && progress.total > 0
   const finished = progress && !progress.scanning // keep "Loaded N" visible after the scan completes
   const pct = scanning ? (progress.done / progress.total) * 100 : 0
@@ -209,6 +219,9 @@ export default function StatusBar({ sessionCount = 0 }) {
       </StatusSwitch>
       <StatusSwitch service={proxy} warn={!!proxyDown} tooltip={proxyTooltip} changes={proxyChanges}>
         Capture proxy : <span className="statusbar-state">{proxy.on ? 'ON' : proxyDown ? 'DOWN' : 'off'}</span>
+      </StatusSwitch>
+      <StatusSwitch service={mcp} warn={!!mcpDown} tooltip={mcpTooltip} changes={mcpChanges(mcp.status?.url)} changesTitle="Changes in ~/.claude.json" keepLabel="Stay registered after the app closes">
+        MCP tools : <span className="statusbar-state">{mcp.on ? 'ON' : mcpDown ? 'DOWN' : 'off'}</span>
       </StatusSwitch>
       <StatusSwitch service={statusline} tooltip={statuslineTooltip} changes={statuslineChanges}>
         Status line : <span className="statusbar-state">{statusline.on ? 'ON' : 'off'}</span>
