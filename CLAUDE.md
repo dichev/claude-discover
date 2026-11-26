@@ -41,7 +41,7 @@ Not a hard constraint — restructure when it serves the code, just update this 
 │   │   ├── config/                 the app's own config: ConfigFile (~/.claude-discover/config.json) + pricing seed
 │   │   ├── requests/               API-request reading & parsing (the proxy's log + the transcript's own request records)
 │   │   ├── services/               backend services (LoginService = a generic per-OS login service) + the StatusBar switchers
-│   │   ├── sessions/               transcript scanning, caching & parsing, each turn's MCP servers (request tools + debug log) (utils/: the file watchers; usage/: what a reply bills — token buckets, the advisor's calls)
+│   │   ├── sessions/               transcript scanning, caching, parsing & reading (SessionsReader: a period's sessions, a transcript's records), each turn's MCP servers (request tools + debug log) (utils/: the file watchers; usage/: what a reply bills — token buckets, the advisor's calls)
 │   │   └── windows/                the app window (find bar: electron-find-overlay) + the tray icon it hides to
 │   ├── preload/                    contextBridge preload (main window)
 │   ├── shared/                     pure helpers both main and renderer import (Claude Code's listing formats, the user's own attachment types, a reply's context size, offline Claude token counts in tokenizer/)
@@ -82,9 +82,9 @@ Paths are centralized in `src/main/paths.js` (Claude side) and `bin/proxy.config
 
 ### Session scanning pipeline
 
-`SessionsScanner` (walk + watch) → `SessionFile` (stream lines) → `SessionParser` (fold into a meta) → `MetaCache` → `SessionsService` (dedup, pricing, IPC updates).
+`SessionsScanner` (walk + watch) → `SessionFile` (stream lines) → `SessionParser` (fold into a meta) → `MetaCache` → `SessionsReader` (dedup, pricing: a period's sessions, a transcript's records) → `SessionsService` (the window's period and opened file, IPC updates).
 
-Token totals must match `ccusage` to the cent, and each stage has rules they depend on (no directory pruned from the walk, resumed and branched ids counted once, a streamed reply counted by its growth, re-logged records, whole-file parsing, period edges). They're commented where they're enforced — read `SessionsScanner`, `SessionParser` and `SessionsService` before changing what's counted, and run the usage check above after.
+Token totals must match `ccusage` to the cent, and each stage has rules they depend on (no directory pruned from the walk, resumed and branched ids counted once, a streamed reply counted by its growth, re-logged records, whole-file parsing, period edges). They're commented where they're enforced — read `SessionsScanner`, `SessionParser` and `SessionsReader` before changing what's counted, and run the usage check above after.
 
 ### Add-ons
 

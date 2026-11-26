@@ -66,7 +66,7 @@ describe('SessionsService.pause', () => {
     service.pause()
     await fs.appendFile(file, line('u2', '2026-03-02T10:00:00.000Z'))
     await service._refresh(file, await fs.stat(file)) // what the watcher calls on the append
-    expect(service.metaCache.get(file).messageCount).toBe(1)
+    expect(service.periodMetas.get(file).messageCount).toBe(1)
 
     const update = sent(service)
     service.resume()
@@ -74,17 +74,27 @@ describe('SessionsService.pause', () => {
   })
 })
 
-// What the CLIs ask with, of any period, while the window watches its own
-describe('SessionsService.scan', () => {
-  it('answers beside the watched period and other scans, leaving the window\'s as it is', async () => {
+// What the window is on stays its own, whatever is asked of the reader beside it or still arriving from where it was
+describe('SessionsService watched period', () => {
+  it('is left as it is by the reader\'s scans of any period, running together', async () => {
     const { service, file } = await watchingMarch()
     const march = { start: Date.parse('2026-03-01'), end: Date.parse('2026-04-01') }
     const april = { start: Date.parse('2026-04-02'), end: Date.parse('2026-05-01') }
-    const [inMarch, inApril] = await Promise.all([service.scan(march), service.scan(april)])
+    const [inMarch, inApril] = await Promise.all([service.reader.scan(march), service.reader.scan(april)])
     expect(inMarch).toMatchObject([{ messageCount: 1 }])
     expect(inApril).toEqual([])
     expect(service.activeDay).toMatchObject({ date: '2026-03-01', granularity: 'month' })
-    expect(service.metaCache.get(file)).toMatchObject({ messageCount: 1 })
+    expect([...service.periodMetas.keys()]).toEqual([file])
+  })
+
+  it('takes no meta from a scan of the period it has left, and drops its own on moving to another', async () => {
+    const { service, file } = await watchingMarch()
+    const stat  = await fs.stat(file)
+    const march = service.activeDay
+    service.list('2026-04-01', 'month')
+    expect(service.periodMetas.size).toBe(0)
+    expect(await service._processFile(file, march, stat)).toMatchObject({ messageCount: 1 }) // still answered, from the reader's whole-file meta
+    expect(service.periodMetas.size).toBe(0)
   })
 })
 
@@ -116,7 +126,7 @@ describe('SessionsService.openFile', () => {
     const opened  = await write('shared.jsonl', JSON.stringify(lines[0]) + '\n')
     const other   = await write('other.jsonl', lines.map(l => JSON.stringify(l)).join('\n') + '\n')
     await service.openFile(opened)
-    const read = await service.readFile(other)
+    const read = await service.reader.readFile(other)
     expect(read.meta).toMatchObject({ filePath: other, messageCount: 2 })
     expect(read.items.map(o => o.uuid)).toEqual(['u1', 'a1'])
     expect((await service.readSession(opened)).items.map(o => o.uuid)).toEqual(['u1'])

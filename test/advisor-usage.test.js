@@ -6,7 +6,7 @@ import os from 'node:os'
 import path from 'node:path'
 import { Pricing } from '../src/main/services/Pricing.js'
 import { SessionParser } from '../src/main/sessions/SessionParser.js'
-import { SessionsService } from '../src/main/services/SessionsService.js'
+import { SessionsReader } from '../src/main/sessions/SessionsReader.js'
 import { markdownSession } from '../src/renderer/sessions/MarkdownSession.js'
 import seed from '../src/main/config/prices.seed.json' with { type: 'json' }
 
@@ -75,7 +75,7 @@ describe('SessionParser — advisor tokens', () => {
   })
 })
 
-describe('SessionsService — advisor tokens', () => {
+describe('SessionsReader — advisor tokens', () => {
   it('counts a resumed session\'s copy of an advisor call once', async () => {
     const root = fs.mkdtempSync(path.join(os.tmpdir(), 'advisor-'))
     const write = (name, records) => {
@@ -85,9 +85,8 @@ describe('SessionsService — advisor tokens', () => {
     const user = (uuid, minute) => ({ type: 'user', uuid, timestamp: at(minute), cwd: '/proj', message: { role: 'user', content: 'go' } })
     write('first.jsonl', [user('u1', 0), line('m1', 1, oneCall, 'a1')])
     write('resumed.jsonl', [line('m1', 1, oneCall, 'a1'), user('u2', 5), line('m2', 6, twoCalls, 'a2')])
-    const service = new SessionsService({ root })
-    service.pricing.prices = seed
-    const sessions = await service.scan({ start: Date.parse(at(0)), end: Date.now() + 3600_000 })
+    const reader = new SessionsReader({ root, pricing })
+    const sessions = await reader.scan({ start: Date.parse(at(0)), end: Date.now() + 3600_000 })
     const byFile = Object.fromEntries(sessions.map(s => [path.basename(s.filePath), s.advisor]))
     expect(byFile['first.jsonl'].calls).toBe(1)
     expect(byFile['resumed.jsonl'].calls).toBe(2) // only its own reply
