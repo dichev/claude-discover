@@ -103,7 +103,7 @@ const MEMORY_FILES = { User: ['CLAUDE.md'], Project: ['CLAUDE.md', 'AGENTS.md'],
 // # gitStatus, …), the reminder's closing IMPORTANT note, or </system-reminder>.
 export function splitClaudeMd(text) {
   const marker = text.match(/\n# claudeMd\r?\n|Codebase and user instructions are shown below\./)
-  if (!marker) return splitLateFile(text)
+  if (!marker) return splitLateFiles(text)
   const start = marker.index + marker[0].length
   const ends = [/\n# [a-z][a-zA-Z0-9]*\r?\n/, /\n\s*IMPORTANT: this context/, /<\/system-reminder>/]
     .map(re => text.slice(start).search(re)).filter(i => i !== -1)
@@ -120,14 +120,18 @@ export function splitClaudeMd(text) {
       content: region.slice(h.index + h[0].length, heads[i + 1]?.index ?? region.length).trim(),
     }
   })
-  return { files, rest: (text.slice(0, marker.index) + text.slice(end)).trimEnd() }
+  const late = splitLateFiles((text.slice(0, marker.index) + text.slice(end)).trimEnd())
+  return { files: [...files, ...late.files], rest: late.rest }
 }
 
 // A file loaded mid-session — a rule once its path scope is reached, a subfolder's CLAUDE.md — is a
 // reminder of its own: no anchor sentence, just the one file under a head with no description.
-function splitLateFile(text) {
-  const m = text.match(/(^|<system-reminder>\r?\n)Contents of (.+):\r?\n([\s\S]*?)(?=<\/system-reminder>|$)/)
-  if (!m) return { files: [], rest: text }
-  const file = { file_path: m[2], name: m[2], memory_type: 'On demand', onDemand: true, content: m[3].trim() }
-  return { files: [file], rest: (text.slice(0, m.index + m[1].length) + text.slice(m.index + m[0].length)).trimEnd() }
+// A text can hold several of them, each in its reminder.
+function splitLateFiles(text) {
+  const files = []
+  const rest = text.replace(/(^|<system-reminder>\r?\n)Contents of (.+):\r?\n([\s\S]*?)(?=<\/system-reminder>|$)/g, (_, open, file, content) => {
+    files.push({ file_path: file, name: file, memory_type: 'On demand', onDemand: true, content: content.trim() })
+    return open
+  })
+  return { files, rest: files.length ? rest.trimEnd() : text }
 }

@@ -210,6 +210,11 @@ Contents of C:\\Users\\me\\.claude\\projects\\p\\memory\\MEMORY.md (user's auto-
     expect(splitClaudeMd(late)).toEqual({ files: [file], rest: '<system-reminder>\n</system-reminder>' })
     expect(splitClaudeMd(late.replace(/<\/?system-reminder>\n?/g, ''))).toEqual({ files: [file], rest: '' }) // the reminder's inner text
     expect(splitClaudeMd('See the listing.\nContents of D:\\proj:\n\na.js').files).toEqual([]) // not a reminder's opening line
+    // a text holding several reminders gives each one's file, also after the session's own files
+    const main = '<system-reminder>\n# claudeMd\nContents of D:\\proj\\CLAUDE.md (project instructions, checked into the codebase):\n\nhi\n</system-reminder>'
+    const api  = late.replace('staff-agents', 'api')
+    expect(splitClaudeMd(`${late}\n${api}`).files.map(f => f.file_path)).toEqual([file.file_path, file.file_path.replace('staff-agents', 'api')])
+    expect(splitClaudeMd(`${main}\n${late}`).files.map(f => f.memory_type)).toEqual(['Project', 'On demand'])
   })
 })
 
