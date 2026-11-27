@@ -7,19 +7,21 @@ export class MetaCache {
 
   // Meta for one file within `period` ({ start, end }), or null when it has no activity there.
   // `parse(range)` runs only on cache misses (range = null → whole file) and for files straddling a period edge.
-  async resolve(filePath, stat, period, parse) {
+  async resolve(filePath, stat, period, parse, signal = null) {
     let e = this.#files.get(filePath)
     if (!e || e.size !== stat.size || e.mtimeMs !== stat.mtimeMs) {
       e = { size: stat.size, mtimeMs: stat.mtimeMs, meta: parse(null) }
       this.#files.set(filePath, e)
     }
-    // A file that failed to read is left out of this scan, and forgotten, so the next one reads it again
+    // Forgotten either way: a file that failed to read is left out of this scan, for the next to read again,
+    // and a parse its scan dropped before it ran is parsed anew for a scan still wanting it
     let m
     try {
       m = await e.meta
     } catch (err) {
       if (this.#files.get(filePath) === e) this.#files.delete(filePath)
-      return unread(err)
+      if (err?.name !== 'AbortError') return unread(err)
+      return signal?.aborted ? null : this.resolve(filePath, stat, period, parse, signal)
     }
     if (!m || m.lastActivityAt < period.start || m.startedAt > period.end) return null
     if (m.startedAt >= period.start && m.lastActivityAt <= period.end) return m

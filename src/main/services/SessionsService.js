@@ -63,12 +63,13 @@ export class SessionsService extends EventEmitter {
   #watch(day) {
     if (day.key !== this.activeDay?.key) this.periodMetas.clear() // re-entering the same period keeps them
     this.activeDay = day
-    this.scanAbort?.abort() // a superseded scan stops walking instead of racing the new one
+    this.scanAbort?.abort() // a superseded scan stops walking and drops its queued parses instead of racing the new one
     this.scanAbort = new AbortController()
+    const { signal } = this.scanAbort
     const fresh = () => this.activeDay?.key === day.key // guard against stale period navigation
     this.reader.scanner.scan(day, {
-      onFile: (filePath, stat) => this._processFile(filePath, day, stat),
-      signal: this.scanAbort.signal,
+      onFile: (filePath, stat) => this._processFile(filePath, day, stat, signal),
+      signal,
       onBatchDone: () => { if (fresh()) this._scheduleUpdate() },
       onProgress: p => { if (fresh()) this.emit('progress', p) },
     }).catch(console.error) // fire-and-forget; the scanner streams an update per dir batch + a final flush
@@ -120,10 +121,10 @@ export class SessionsService extends EventEmitter {
     return (await this.reader.dedup(this.periodMetas.values(), day)).map(stripPrompts)
   }
 
-  // A file's meta within `day`, kept for the watched period: a scan still in flight for a period the window has left writes none
-  async _processFile(filePath, day, stat) {
-    const meta = await this.reader.meta(filePath, stat, day)
-    if (day.key !== this.activeDay?.key) return meta
+  // A file's meta within `day`, kept for the watched period: a scan superseded, or still in flight for a period the window has left, writes none
+  async _processFile(filePath, day, stat, signal = null) {
+    const meta = await this.reader.meta(filePath, stat, day, signal).catch(err => { if (!signal?.aborted) throw err })
+    if (signal?.aborted || day.key !== this.activeDay?.key) return meta
     if (meta) this.periodMetas.set(filePath, meta)
     else this.periodMetas.delete(filePath)
     return meta
