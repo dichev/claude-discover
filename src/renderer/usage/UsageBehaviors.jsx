@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { Fragment, useEffect, useState } from 'react'
 import { Check, ChevronDown, Copy, WandSparkles } from 'lucide-react'
 import { format, isToday, subDays } from 'date-fns'
 import { fmtNum, fmtTime } from '../utils/formatting.js'
@@ -60,14 +60,12 @@ function FixPrompt({ messages }) {
   )
 }
 
-// A bar behind the name, filled to its share
-const Bar = ({ name, pct }) => <div className="ub-bar" style={{ '--pct': `${pct}%` }}><span>{name}</span><span>{pct}%</span></div>
-
-// A pattern /usage found but gave no tip for (so its screen doesn't list it) shows dimmed, saying so
+// The share as a hairline under the name, quieter than a filled bar; a pattern /usage found but gave no tip for (so its screen doesn't list it) shows in grey
 function Row({ r }) {
   return (
     <div className={`ub-row${r.title ? '' : ' ub-untipped'}`} title={r.count != null ? `${fmtNum(r.count)} requests` : undefined}>
-      <Bar name={PATTERNS[r.key] ?? r.key ?? r.title} pct={r.pct} />
+      <div className="ub-share"><span>{PATTERNS[r.key] ?? r.key ?? r.title}</span><span className="ub-pct">{r.pct}%</span></div>
+      <div className="ub-meter" style={{ '--pct': `${r.pct}%` }} />
       <div className="ub-gray">{r.title ? [r.title, r.detail].filter(Boolean).join(' · ') : "No tip from Claude Code, so /usage doesn't list it"}</div>
     </div>
   )
@@ -92,7 +90,7 @@ function Window({ title, label, days, w, at }) {
           {sources.map(([key, heading, name = s => s]) => (
             <div key={key} className="ub-source">
               <div className="ub-label">{heading}</div>
-              {w[key].map(s => <Bar key={s.name} name={name(s.name)} pct={s.pct} />)}
+              {w[key].map(s => <Fragment key={s.name}><span>{name(s.name)}</span><span className="ub-gray">{s.pct}%</span></Fragment>)}
             </div>
           ))}
         </div>

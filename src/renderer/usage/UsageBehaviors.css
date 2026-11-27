@@ -120,15 +120,35 @@
   color: var(--text-faint);
 }
 
+/* Secondary to the patterns, so smaller and denser */
 .ub-top {
+  display: grid;
+  gap: 14px;
   padding-left: 20px;
   border-left: 1px solid var(--border);
+  font-size: 13px;
+  line-height: 1.4;
 }
 
-/* A column's section title, lined up with the bars below; small caps, unlike the grey tips */
+/* Name on the left, share on the right */
+.ub-source {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 2px 12px;
+
+  > .ub-label {
+    grid-column: 1 / -1;
+  }
+
+  > .ub-gray {
+    text-align: right;
+    font-variant-numeric: tabular-nums;
+  }
+}
+
+/* A column's section title; small caps, unlike the grey tips */
 .ub-label {
-  margin-bottom: 2px;
-  padding: 0 8px;
+  margin-bottom: 4px;
   color: var(--text-faint);
   font-size: 11px;
   font-weight: 600;
@@ -136,53 +156,35 @@
   text-transform: uppercase;
 }
 
-.ub-source {
-  & + & {
-    margin-top: 14px;
-  }
-
-  .ub-bar + .ub-bar {
-    margin-top: 2px;
-  }
-}
-
 .ub-row {
-  margin-bottom: 20px;
+  margin-bottom: 16px;
 
-  > .ub-gray { /* the tip, lined up with the name */
-    margin-top: 3px;
-    padding: 0 8px;
+  > .ub-gray {
     line-height: 1.35;
   }
-
-  &.ub-untipped {
-    > .ub-bar {
-      opacity: 0.55;
-    }
-
-    > .ub-gray {
-      font-style: italic;
-    }
-  }
 }
 
-/* A bar behind the line, filled to its share; the name on the left, the share on the right */
-.ub-bar {
+/* Name on the left, share on the right */
+.ub-share {
   display: flex;
   justify-content: space-between;
   gap: 16px;
-  padding: 5px 8px;
+}
+
+.ub-pct {
+  color: var(--accent);
+  font-weight: 600;
   font-variant-numeric: tabular-nums;
-  border-radius: 4px;
-  --fill: color-mix(in srgb, var(--accent) 45%, var(--bg-elev)); /* opaque, so the share's text can match the bar exactly */
-  background: linear-gradient(to right, var(--fill) var(--pct), var(--bg-elev) var(--pct));
+}
 
-  > * {
-    text-box: trim-both cap alphabetic; /* centred on the letters, not the font's uneven ascent and descent */
-  }
+.ub-meter {
+  height: 2px;
+  margin: 4px 0 5px;
+  border-radius: 1px;
+  background: linear-gradient(to right, var(--accent) var(--pct), var(--border) var(--pct));
+}
 
-  > :last-child {
-    color: var(--fill);
-    font-weight: 600;
-  }
+.ub-untipped {
+  --accent: var(--text-faint); /* greys its share and meter */
+  color: var(--text-faint);
 }
