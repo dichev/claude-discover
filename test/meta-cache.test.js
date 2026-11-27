@@ -66,3 +66,20 @@ describe('MetaCache.resolve', () => {
     expect(calls).toEqual([null, null, null])
   })
 })
+
+describe('MetaCache.resolve, a file failing to read', () => {
+  const failing = code => () => Promise.reject(Object.assign(new Error('read failed'), { code }))
+
+  it('leaves it out of the scan, and reads it again next time', async () => {
+    const cache = new MetaCache()
+    expect(await cache.resolve('a.jsonl', stat, day, failing('EBUSY'))).toBe(null)
+    const { calls, parse } = parser(1200, 1800)
+    expect(await cache.resolve('a.jsonl', stat, day, parse)).toMatchObject({ startedAt: 1200 })
+    expect(calls).toEqual([null])
+  })
+
+  it('throws any other error, a bug rather than a read', async () => {
+    const cache = new MetaCache()
+    await expect(cache.resolve('a.jsonl', stat, day, () => Promise.reject(new TypeError('oops')))).rejects.toThrow('oops')
+  })
+})

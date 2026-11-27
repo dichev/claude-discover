@@ -29,3 +29,9 @@ describe('SessionFile.agentMeta', () => {
     expect(await new SessionFile(path.join(root, 'proj', 'sess1.jsonl')).agentMeta()).toBeNull()
   })
 })
+
+describe('SessionFile.stream', () => {
+  it('rejects when the file cannot be read, rather than passing for an empty one', async () => {
+    await expect(new SessionFile(path.join(root, 'proj', 'gone.jsonl')).stream(() => {})).rejects.toMatchObject({ code: 'ENOENT' })
+  })
+})

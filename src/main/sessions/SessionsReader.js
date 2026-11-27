@@ -1,6 +1,6 @@
 import path from 'node:path'
 import { startOfDay, endOfDay, startOfWeek, endOfWeek, startOfMonth, endOfMonth, parseISO } from 'date-fns'
-import { SessionFile } from './SessionFile.js'
+import { SessionFile, unread } from './SessionFile.js'
 import { RequestFile, inRange } from '../requests/RequestFile.js'
 import { UNATTRIBUTED } from '../../../bin/proxy.config.js'
 import { TranscriptInstructions } from '../requests/TranscriptInstructions.js'
@@ -89,7 +89,7 @@ export class SessionsReader {
         if (globalSeen.has(id)) (overlap ||= new Set()).add(id)
         globalSeen.add(id)
       }
-      if (overlap) rescans.set(m.filePath, this.#parse(new SessionFile(m.filePath), { range, excludeIds: overlap }))
+      if (overlap) rescans.set(m.filePath, this.#parse(new SessionFile(m.filePath), { range, excludeIds: overlap }).catch(unread)) // failed: its scan's meta stands
     }
     const sessions = await Promise.all(metas.map(async m => {
       const rescanned = await rescans.get(m.filePath)

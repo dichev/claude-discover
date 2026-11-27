@@ -1,5 +1,7 @@
 // Whole-file session metas by path, kept while the file's stat stands (transcripts are append-only).
 // Pure policy over an injected `parse(range)` — never touches disk itself.
+import { unread } from './SessionFile.js'
+
 export class MetaCache {
   #files = new Map() // filePath -> { size, mtimeMs, meta }, the meta a promise from when it starts parsing, for the scans running beside to share
 
@@ -11,9 +13,21 @@ export class MetaCache {
       e = { size: stat.size, mtimeMs: stat.mtimeMs, meta: parse(null) }
       this.#files.set(filePath, e)
     }
-    const m = await e.meta
+    // A file that failed to read is left out of this scan, and forgotten, so the next one reads it again
+    let m
+    try {
+      m = await e.meta
+    } catch (err) {
+      if (this.#files.get(filePath) === e) this.#files.delete(filePath)
+      return unread(err)
+    }
     if (!m || m.lastActivityAt < period.start || m.startedAt > period.end) return null
-    return m.startedAt >= period.start && m.lastActivityAt <= period.end ? m : parse(period)
+    if (m.startedAt >= period.start && m.lastActivityAt <= period.end) return m
+    try {
+      return await parse(period)
+    } catch (err) {
+      return unread(err)
+    }
   }
 
   // Forget every meta, e.g. when a pricing change invalidates them all.

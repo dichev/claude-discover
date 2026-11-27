@@ -2,6 +2,12 @@ import fs from 'node:fs'
 import fsp from 'node:fs/promises'
 import path from 'node:path'
 
+// A failed read (the file locked by another process, or deleted meanwhile) as null, for the next read to retry; any other error is a bug
+export function unread(err) {
+  if (!err?.code) throw err
+  return null
+}
+
 export class SessionFile {
   constructor(filePath) {
     this.filePath = filePath
@@ -28,9 +34,10 @@ export class SessionFile {
 
   // Streams every complete line as parsed JSON; a partially-written trailing line
   // (no newline yet) is skipped, so reading a live session never sees a half record.
+  // Rejects when the file can't be read, rather than passing for an empty or cut-short one.
   async stream(onLine) {
     let leftover = ''
-    await new Promise(resolve => {
+    await new Promise((resolve, reject) => {
       const stream = fs.createReadStream(this.filePath, { encoding: 'utf8' })
       stream.on('data', chunk => {
         leftover += chunk
@@ -46,7 +53,7 @@ export class SessionFile {
         }
       })
       stream.on('close', resolve)
-      stream.on('error', resolve)
+      stream.on('error', reject)
     })
   }
 
