@@ -50,6 +50,16 @@ function extractText(content) {
     .join('\n')
 }
 
+// Memory: labels stay in the cached metas while the app runs, and a prompt or a skill's args can be a pasted document (500 KB seen).
+// They're cut short, then copied through a Buffer, because V8 keeps a slice's or a regex match's whole source string alive.
+const LABEL_CHARS  = 300
+const ownCopy      = text => Buffer.from(text, 'utf16le').toString('utf16le')
+const promptLabel  = text => ownCopy(text.slice(0, LABEL_CHARS))
+// A command's args cut like a prompt, then the whole, as more text can follow the command's tags
+const commandLabel = text => ownCopy(text
+  .replace(/<command-args>([\s\S]*?)<\/command-args>/, (_, args) => `<command-args>${args.slice(0, LABEL_CHARS)}</command-args>`)
+  .slice(0, 2 * LABEL_CHARS))
+
 function shortProject(dir, depth) {
   if (!dir) return '(no project)'
   const parts = dir.replace(/\\/g, '/').split('/').filter(Boolean)
@@ -266,7 +276,7 @@ export class SessionParser {
     const meta = this.meta
     const text = extractText(obj.message?.content)
     if (text.startsWith('<command-name>') || text.startsWith('<command-message>')) {
-      if (!meta.firstUserCommand) meta.firstUserCommand = text
+      if (!meta.firstUserCommand) meta.firstUserCommand = commandLabel(text)
       if (obj.uuid) this.commandUuids.add(obj.uuid)
       obj.isMeta = true
       // Some commands (/compact) also log the text as typed, under the same promptId — the command shows it
@@ -287,7 +297,7 @@ export class SessionParser {
       meta.hasScheduledTask = true
     } else if (text && !obj.isMeta && !obj.isCompactSummary) { // meta records (e.g. a slash-command skill's body) and compaction summaries aren't typed by the user
       if (obj.promptId && text.startsWith('/')) this.typedCommands.set(`${obj.promptId} ${text.split(/\s/)[0]}`, obj)
-      if (!meta.firstUserPrompt) meta.firstUserPrompt = text.slice(0, 300)
+      if (!meta.firstUserPrompt) meta.firstUserPrompt = promptLabel(text)
       if ((obj.origin?.kind ?? 'human') === 'human') meta.prompts.push(text) // not what the harness sent in as one: a task's notification, a peer's message
     }
   }
