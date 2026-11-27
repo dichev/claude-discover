@@ -11,6 +11,7 @@ import { SessionParser, suffixLabels } from './SessionParser.js'
 import { SessionsScanner } from './SessionsScanner.js'
 import { MetaCache } from './MetaCache.js'
 import { ProjectResolver } from './ProjectResolver.js'
+import { Limiter } from './utils/Limiter.js'
 
 // Week-scoped views start on Monday — keep in sync with src/renderer/utils/period.js.
 const WEEK = { weekStartsOn: 1 }
@@ -31,6 +32,10 @@ function stripInternal({ seenMessageIds, ...meta }) {
   return meta
 }
 
+// Transcripts parsed at once. A scan lists thousands, and each in flight holds its read buffers and its record being parsed
+// (a tool result's image, a long prompt): all at once they outgrew the heap, where a handful parse as fast, the parse being CPU-bound
+const PARSES = 16
+
 // The id becomes a filename: same guard as the proxy
 const isSafeId = id => /^[\w-]+$/.test(id)
 
@@ -44,6 +49,7 @@ const debugLogOf = reader => reader.parentSessionId || !isSafeId(reader.sessionI
 export class SessionsReader {
   #branch = null // { key, source } of the last branch read
   #metas  = new MetaCache()
+  #parses = new Limiter(PARSES)
 
   constructor({ root, scanner = null, pricing = null } = {}) {
     this.scanner = scanner ?? new SessionsScanner(root ? { root } : {})
@@ -99,6 +105,17 @@ export class SessionsReader {
     const labels = suffixLabels(sessions.map(m => m.project))
     for (const m of sessions) m.projectShort = m.tempPath ? 'Temp' : labels.get(m.project) // the macOS temp root is just "T"
     return sessions
+  }
+
+  // What was typed in the session `meta` is of within `range` (null: all of it), as a search reads it: read again from its file
+  // when asked, as no meta keeps it (a period's prompts run to gigabytes, the agents' SDK runs each sending a long one)
+  async prompts(meta, range = null) {
+    const reader = new SessionFile(meta.filePath)
+    const parser = new SessionParser({
+      sessionId: reader.sessionId, parentSessionId: reader.parentSessionId, filePath: reader.filePath, mtime: meta.mtime, range, prompts: true,
+    })
+    await this.#parses.run(() => reader.stream(obj => parser.feed(obj)))
+    return parser.prompts
   }
 
   // A transcript's meta outside any period: its totals are the whole file's, not deduped against a period's sessions
@@ -226,7 +243,7 @@ export class SessionsReader {
       range, excludeIds,
       pricing: this.pricing,
     })
-    await reader.stream(obj => parser.feed(obj))
+    await this.#parses.run(() => reader.stream(obj => parser.feed(obj)))
     const meta = parser.finalize(stat.mtimeMs)
     // The parser keeps the raw cwd as project; grouping it needs disk access, which the parser stays free of
     const [project, avatar, agent, debug = false] = await Promise.all([

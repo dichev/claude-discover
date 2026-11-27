@@ -42,7 +42,7 @@ Not a hard constraint — restructure when it serves the code, just update this 
 │   │   ├── mcp/                    the MCP server other Claude Code sessions list, read and open sessions through: its HTTP endpoint, its tools (tools/: one class each, its reply's mustache template beside it as .md, what they share in utils.js), the client the debug panel calls them through, and how sessions read on screen, for the tools to answer with (sessions/fromRenderer.js)
 │   │   ├── requests/               API-request reading & parsing (the proxy's log + the transcript's own request records)
 │   │   ├── services/               backend services (LoginService = a generic per-OS login service) + the StatusBar switchers
-│   │   ├── sessions/               transcript scanning, caching, parsing & reading (SessionsReader: a period's sessions, a transcript's records), each turn's MCP servers (request tools + debug log) (utils/: the file watchers; usage/: what a reply bills — token buckets, the advisor's calls)
+│   │   ├── sessions/               transcript scanning, caching, parsing & reading (SessionsReader: a period's sessions, a transcript's records), each turn's MCP servers (request tools + debug log) (utils/: the file watchers and the limit on transcripts parsed at once; usage/: what a reply bills — token buckets, the advisor's calls)
 │   │   └── windows/                the app window (find bar: electron-find-overlay) + the tray icon it hides to
 │   ├── preload/                    contextBridge preload (main window)
 │   ├── shared/                     pure helpers both main and renderer import (Claude Code's listing formats, the user's own attachment types, a reply's context size, offline Claude token counts in tokenizer/)

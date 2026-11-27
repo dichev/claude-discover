@@ -50,6 +50,10 @@ function extractText(content) {
     .join('\n')
 }
 
+// A copy of a piece of `text`: V8 slices a string by pointing into it, so a 300-character label kept in a cached meta held its
+// whole prompt (an SDK run's is hundreds of KB) — gigabytes over a week of production agents' sessions
+const own = text => JSON.parse(JSON.stringify(text))
+
 function shortProject(dir, depth) {
   if (!dir) return '(no project)'
   const parts = dir.replace(/\\/g, '/').split('/').filter(Boolean)
@@ -89,7 +93,6 @@ function freshMetrics() {
     startedAt: null, lastActivityAt: null, continuesFrom: null, continuesTo: null, resumes: [],
     model: null, models: [], efforts: [], serviceTier: null, speed: null, fastPricingUnknown: false, priceUnknown: false,
     firstUserPrompt: null, firstUserCommand: null,
-    prompts: [], // every typed prompt, whole, for a search to read (not sent to the window: see SessionsService)
     messageCount: 0, workflowAgents: 0, toolCalls: 0, skillCalls: 0,
     tokens: emptyBucket(), tokensByModel: {}, tokensByModelFast: {}, lastContextTokens: 0, contextCompacted: false,
     serverToolUse: { webSearch: 0, webFetch: 0 },
@@ -102,7 +105,9 @@ function freshMetrics() {
 }
 
 export class SessionParser {
-  constructor({ sessionId, parentSessionId, filePath, parentFilePath = null, fileSize = 0, mtime = 0, pricing = null, range = null, excludeIds = null }) {
+  constructor({
+    sessionId, parentSessionId, filePath, parentFilePath = null, fileSize = 0, mtime = 0, pricing = null, range = null, excludeIds = null, prompts = false,
+  }) {
     this.range = range
     this.excludeIds = excludeIds
     this.pricing = pricing
@@ -124,6 +129,7 @@ export class SessionParser {
     this.branchStarted = false
     this.requested = false // an API request was logged yet
     this.restated = false // a rewind or a compaction since the last request: the next one is logged whole
+    this.prompts = prompts ? [] : null // every typed prompt, whole, only when asked: for a search to read, never in the meta (see SessionsReader.prompts)
   }
 
   // Returns true if the item passes `this.range`.
@@ -259,6 +265,7 @@ export class SessionParser {
     this.appliedById.clear()
     this.calls = []
     this.advisor = new AdvisorUsage()
+    if (this.prompts) this.prompts = []
   }
 
   // Capture the first user prompt / command for the session list.
@@ -287,8 +294,8 @@ export class SessionParser {
       meta.hasScheduledTask = true
     } else if (text && !obj.isMeta && !obj.isCompactSummary) { // meta records (e.g. a slash-command skill's body) and compaction summaries aren't typed by the user
       if (obj.promptId && text.startsWith('/')) this.typedCommands.set(`${obj.promptId} ${text.split(/\s/)[0]}`, obj)
-      if (!meta.firstUserPrompt) meta.firstUserPrompt = text.slice(0, 300)
-      if ((obj.origin?.kind ?? 'human') === 'human') meta.prompts.push(text) // not what the harness sent in as one: a task's notification, a peer's message
+      if (!meta.firstUserPrompt) meta.firstUserPrompt = own(text.slice(0, 300))
+      if ((obj.origin?.kind ?? 'human') === 'human') this.prompts?.push(text) // not what the harness sent in as one: a task's notification, a peer's message
     }
   }
 
