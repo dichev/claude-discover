@@ -1,5 +1,6 @@
 import path from 'node:path'
 import { startOfDay, endOfDay, startOfWeek, endOfWeek, startOfMonth, endOfMonth, parseISO } from 'date-fns'
+import pLimit from 'p-limit'
 import { SessionFile, unread } from './SessionFile.js'
 import { RequestFile, inRange } from '../requests/RequestFile.js'
 import { UNATTRIBUTED } from '../../../bin/proxy.config.js'
@@ -42,8 +43,10 @@ const debugLogOf = reader => reader.parentSessionId || !isSafeId(reader.sessionI
 // The CLIs and tests use it alone; SessionsService keeps the window's period fresh on top of it.
 // `pricing` is given by whoever builds it, as the parser's is: without one its sessions carry no cost.
 export class SessionsReader {
-  #branch = null // { key, source } of the last branch read
-  #metas  = new MetaCache()
+  #branch  = null // { key, source } of the last branch read
+  #metas   = new MetaCache()
+  // A few files at a time: a period's files parsed all at once hold every one's parse state together, past the heap cap on long periods
+  #parsing = pLimit(16)
 
   constructor({ root, scanner = null, pricing = null } = {}) {
     this.scanner = scanner ?? new SessionsScanner(root ? { root } : {})
@@ -59,9 +62,16 @@ export class SessionsReader {
     return this.dedup(metas.filter(Boolean), period)
   }
 
-  // One file's meta within `period`, or null when it has no activity there (see MetaCache for what is parsed when)
-  meta(filePath, stat, period) {
-    return this.#metas.resolve(filePath, stat, period, range => this.#parse(new SessionFile(filePath), { range, stat }))
+  // One file's meta within `period`, or null when it has no activity there (see MetaCache for what is parsed when).
+  // Once `signal` aborts, its parses still queued are dropped, so a period left mid-scan doesn't hold up the next
+  meta(filePath, stat, period, signal = null) {
+    return this.#metas.resolve(filePath, stat, period, range => this.#parse(new SessionFile(filePath), { range, stat, signal }), signal)
+  }
+
+  // The prompts typed in a session within `period`: read from its file only when a search asks, as they run to gigabytes on a busy machine
+  async prompts({ filePath }, period) {
+    const meta = await this.#fold(new SessionFile(filePath), { range: period, prompts: true, pricing: null }).catch(unread)
+    return meta?.prompts ?? []
   }
 
   // Forget a deleted file
@@ -211,23 +221,31 @@ export class SessionsReader {
     return agentId ? new RequestFile(parentSessionId, { agentId }) : new RequestFile(sessionId)
   }
 
-  // Stat the file, stream every line through a fresh SessionParser, and finalize.
+  // Stat the file, stream every line through a fresh SessionParser, and finalize, a few files at a time.
   // `excludeIds` skips message ids already counted in an earlier session.
-  async #parse(reader, { range = null, excludeIds = null, stat = null } = {}) {
+  async #fold(reader, { range = null, excludeIds = null, stat = null, prompts = false, pricing = this.pricing, signal = null } = {}) {
     if (!stat) stat = await reader.stat()
     if (!stat) return null
-    const parser = new SessionParser({
-      sessionId: reader.sessionId,
-      parentSessionId: reader.parentSessionId,
-      filePath: reader.filePath,
-      parentFilePath: reader.parentFilePath,
-      fileSize: stat.size,
-      mtime: stat.mtimeMs,
-      range, excludeIds,
-      pricing: this.pricing,
+    return this.#parsing(async () => {
+      signal?.throwIfAborted()
+      const parser = new SessionParser({
+        sessionId: reader.sessionId,
+        parentSessionId: reader.parentSessionId,
+        filePath: reader.filePath,
+        parentFilePath: reader.parentFilePath,
+        fileSize: stat.size,
+        mtime: stat.mtimeMs,
+        range, excludeIds, prompts, pricing,
+      })
+      await reader.stream(obj => parser.feed(obj))
+      return parser.finalize(stat.mtimeMs)
     })
-    await reader.stream(obj => parser.feed(obj))
-    const meta = parser.finalize(stat.mtimeMs)
+  }
+
+  // The file folded into a meta, with what grouping it needs from disk
+  async #parse(reader, opts) {
+    const meta = await this.#fold(reader, opts)
+    if (!meta) return null
     // The parser keeps the raw cwd as project; grouping it needs disk access, which the parser stays free of
     const [project, avatar, agent, debug = false] = await Promise.all([
       this.projects.resolve(meta.project), this.projects.avatar(meta.project), reader.agentMeta(), debugLogOf(reader)?.exists(),
@@ -235,6 +253,7 @@ export class SessionsReader {
     // An unnamed agent goes by its type, as in Claude Code's own agent list
     meta.agentName ??= agent?.name ?? agent?.agentType ?? null
     meta.agentDescription = agent?.description ?? null
-    return Object.assign(meta, project, { avatar, debug })
+    // A new object, not Object.assign onto the meta: adding its keys that way turns every cached meta into a V8 dictionary (+21% heap)
+    return { ...meta, ...project, avatar, debug }
   }
 }

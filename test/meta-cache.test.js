@@ -83,3 +83,21 @@ describe('MetaCache.resolve, a file failing to read', () => {
     await expect(cache.resolve('a.jsonl', stat, day, () => Promise.reject(new TypeError('oops')))).rejects.toThrow('oops')
   })
 })
+
+describe('MetaCache.resolve, a scan moved on', () => {
+  it('forgets a parse its scan dropped, and parses the file anew for a scan still wanting it', async () => {
+    const cache = new MetaCache()
+    const left  = new AbortController()
+    left.abort()
+    let drop
+    const queued = () => new Promise((_, reject) => { drop = reject })
+    const { calls, parse } = parser(1200, 1800)
+    const leaving = cache.resolve('a.jsonl', stat, day, queued, left.signal)
+    const staying = cache.resolve('a.jsonl', stat, day, parse) // shares the entry the leaving scan started
+    drop(new DOMException('dropped', 'AbortError'))
+    expect(await leaving).toBe(null)
+    expect(await staying).toMatchObject({ startedAt: 1200, ranged: false })
+    expect(calls).toEqual([null])
+    expect(await cache.resolve('a.jsonl', stat, day, parse)).toBe(await staying) // cached anew
+  })
+})
