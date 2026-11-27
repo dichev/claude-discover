@@ -81,9 +81,9 @@ describe('SessionsService watched period', () => {
     const march = { start: Date.parse('2026-03-01'), end: Date.parse('2026-04-01') }
     const april = { start: Date.parse('2026-04-02'), end: Date.parse('2026-05-01') }
     const [inMarch, inApril] = await Promise.all([service.reader.scan(march), service.reader.scan(april)])
-    expect(inMarch).toMatchObject([{ messageCount: 1, prompts: ['hi'] }]) // every typed prompt, for its caller to search
+    expect(inMarch).toMatchObject([{ messageCount: 1 }])
+    expect(inMarch[0]).not.toHaveProperty('prompts') // read only when a search asks (SessionsReader.prompts)
     expect(inApril).toEqual([])
-    expect(sessions[0]).not.toHaveProperty('prompts') // megabytes over a month, which the window isn't sent
     expect(service.activeDay).toMatchObject({ date: '2026-03-01', granularity: 'month' })
     expect([...service.periodMetas.keys()]).toEqual([file])
   })
@@ -147,5 +147,17 @@ describe('SessionsService.openFile', () => {
     const service = new SessionsService({ scanner: {} })
     await expect(service.openFile(await write('notes.jsonl', '{"a":1}\n'))).rejects.toThrow(/No Claude Code messages/)
     await expect(service.openFile(await write('notes.txt', 'hi'))).rejects.toThrow(/Not a \.jsonl/)
+  })
+})
+
+// Prompts are read from the files only when a search asks
+describe('SessionsReader.prompts', () => {
+  it('reads the prompts typed in the period, none from a file it cannot read', async () => {
+    const { service, file, sessions: [session] } = await watchingMarch()
+    const march = service.activeDay
+    expect(await service.reader.prompts(session, march)).toEqual(['hi'])
+    expect(await service.reader.prompts(session, { start: Date.parse('2026-03-02'), end: march.end })).toEqual([]) // typed before it
+    await fs.rm(file)
+    expect(await service.reader.prompts(session, march)).toEqual([])
   })
 })

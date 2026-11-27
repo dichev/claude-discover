@@ -68,6 +68,12 @@ export class SessionsReader {
     return this.#metas.resolve(filePath, stat, period, range => this.#parse(new SessionFile(filePath), { range, stat, signal }), signal)
   }
 
+  // The prompts typed in a session within `period`: read from its file only when a search asks, as they run to gigabytes on a busy machine
+  async prompts({ filePath }, period) {
+    const meta = await this.#fold(new SessionFile(filePath), { range: period, prompts: true, pricing: null }).catch(unread)
+    return meta?.prompts ?? []
+  }
+
   // Forget a deleted file
   forget(filePath) {
     this.#metas.evict(filePath)
@@ -217,7 +223,7 @@ export class SessionsReader {
 
   // Stat the file, stream every line through a fresh SessionParser, and finalize, a few files at a time.
   // `excludeIds` skips message ids already counted in an earlier session.
-  async #fold(reader, { range = null, excludeIds = null, stat = null, signal = null } = {}) {
+  async #fold(reader, { range = null, excludeIds = null, stat = null, prompts = false, pricing = this.pricing, signal = null } = {}) {
     if (!stat) stat = await reader.stat()
     if (!stat) return null
     return this.#parsing(async () => {
@@ -229,8 +235,7 @@ export class SessionsReader {
         parentFilePath: reader.parentFilePath,
         fileSize: stat.size,
         mtime: stat.mtimeMs,
-        range, excludeIds,
-        pricing: this.pricing,
+        range, excludeIds, prompts, pricing,
       })
       await reader.stream(obj => parser.feed(obj))
       return parser.finalize(stat.mtimeMs)

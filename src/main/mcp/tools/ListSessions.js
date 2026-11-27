@@ -85,7 +85,8 @@ export class ListSessions extends Tool {
     // By the ids alone: the filter finds an id in a path too, as of the sessions run in a folder named by it
     const isOfIt = s => s.sessionId.startsWith(id) || s.parentSessionId?.startsWith(id)
     const listed = fromRenderer.filterSessions(await this.sessions.scan(period), text).filter(isOfIt)
-    const quotes = asked && new Map(listed.map(s => [s, quote(s.prompts, asked.toLowerCase())]).filter(([, quoted]) => quoted))
+    const quoted = async s => [s, quote(await this.sessions.prompts(s, period), asked.toLowerCase())]
+    const quotes = asked && new Map((await Promise.all(listed.map(quoted))).filter(([, line]) => line))
     const found  = quotes ? listed.filter(s => quotes.has(s)) : listed
     const blocks = blocksOf(fromRenderer.groupRuns(fromRenderer.sortSessions(found, sort)))
     const rows   = []
