@@ -81,9 +81,12 @@ describe('SessionsService watched period', () => {
     const march = { start: Date.parse('2026-03-01'), end: Date.parse('2026-04-01') }
     const april = { start: Date.parse('2026-04-02'), end: Date.parse('2026-05-01') }
     const [inMarch, inApril] = await Promise.all([service.reader.scan(march), service.reader.scan(april)])
-    expect(inMarch).toMatchObject([{ messageCount: 1, prompts: ['hi'] }]) // every typed prompt, for its caller to search
+    expect(inMarch).toMatchObject([{ messageCount: 1 }])
+    expect(inMarch[0]).not.toHaveProperty('prompts') // gigabytes over a week, which no meta keeps
+    expect(await service.reader.prompts(inMarch[0], march)).toEqual(['hi']) // read again from the file, for its caller to search
+    expect(await service.reader.prompts(inMarch[0], april)).toEqual([])
     expect(inApril).toEqual([])
-    expect(sessions[0]).not.toHaveProperty('prompts') // megabytes over a month, which the window isn't sent
+    expect(sessions[0]).not.toHaveProperty('prompts')
     expect(service.activeDay).toMatchObject({ date: '2026-03-01', granularity: 'month' })
     expect([...service.periodMetas.keys()]).toEqual([file])
   })
