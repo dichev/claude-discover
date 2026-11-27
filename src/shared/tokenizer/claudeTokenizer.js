@@ -70,6 +70,9 @@ const buildTrie = pieces => {
 let trie // built on the first count, 10ms a process that never counts doesn't pay as it starts
 const prefixes = new Set(vocab.bytePrefixes)
 const counts   = new Map()
+// The texts are kept whole as keys, and a big session's tool inputs and results run to megabytes: bounded by their size too
+const MAX_COUNTED_CHARS = 4_000_000
+let counted = 0
 
 // A character no piece covers costs its longest known UTF-8 prefix as one token, then one per remaining byte.
 // Memoized: most ideographs and every emoji have no piece, so a text in them pays this per character
@@ -106,8 +109,13 @@ const cover = text => {
 export const countTokens = text => {
   if (!text) return 0
   if (!counts.has(text)) {
-    if (counts.size >= 10000) counts.delete(counts.keys().next().value)
+    for (const old of counts.keys()) {
+      if (counts.size < 10000 && counted + text.length <= MAX_COUNTED_CHARS) break
+      counts.delete(old)
+      counted -= old.length
+    }
     counts.set(text, cover(text))
+    counted += text.length
   }
   return counts.get(text)
 }
